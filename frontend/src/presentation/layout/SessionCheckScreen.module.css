@@ -1,0 +1,16 @@
+.screen {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-4);
+  min-height: 100%;
+  background: var(--color-bg);
+}
+
+.text {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-2);
+  font-size: var(--font-size-sm);
+}
