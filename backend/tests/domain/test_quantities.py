@@ -37,6 +37,12 @@ def test_quantities_reject_nan_and_infinity(factory: QuantityFactory, value: flo
 
 
 @pytest.mark.parametrize("factory", ALL_QUANTITIES)
+def test_quantities_reject_integer_too_large_for_float(factory: QuantityFactory) -> None:
+    with pytest.raises(InvalidQuantityError):
+        factory(10**400)
+
+
+@pytest.mark.parametrize("factory", ALL_QUANTITIES)
 @pytest.mark.parametrize("value", ["10", None, True])
 def test_quantities_reject_non_numeric_values(factory: QuantityFactory, value: object) -> None:
     with pytest.raises(InvalidQuantityError):

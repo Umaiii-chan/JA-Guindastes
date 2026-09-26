@@ -13,7 +13,10 @@ def require_finite(value: float, quantity: str) -> float:
     """
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise InvalidQuantityError(f"{quantity} deve ser numérico, recebido {value!r}")
-    as_float = float(value)
+    try:
+        as_float = float(value)
+    except OverflowError:  # int grande demais para float
+        raise InvalidQuantityError(f"{quantity} deve ser finito, recebido {value!r}") from None
     if not math.isfinite(as_float):
         raise InvalidQuantityError(f"{quantity} deve ser finito, recebido {value!r}")
     # Soma com 0.0 normaliza -0.0 para 0.0.
