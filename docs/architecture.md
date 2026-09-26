@@ -107,7 +107,11 @@ O frontend ignora respostas com `sequence` antigo (doc-fonte § 15.4). Importaç
 
 Entidades da doc-fonte § 10 e tabelas iniciais da § 19.1. Diagrama de classes:
 [`05_diagrama_classes_dominio.png`](produto/diagrams/05_diagrama_classes_dominio.png).
-Migrations: ferramenta **A VALIDAR** (não definida na doc-fonte).
+Persistência (TASK-011): SQLAlchemy 2 com o driver psycopg 3, configurados em
+`backend/app/infrastructure/database/` (`DATABASE_URL`, engine, fábrica de sessões e `Base`
+declarativa); migrations com **Alembic** (ADR-012) em `backend/alembic/`. **Nenhuma tabela existe
+ainda**: cada tabela abaixo entra com o caso de uso que a usa, como modelo que herda de `Base` e uma
+revisão do Alembic.
 
 | Entidade | Descrição | Tabela/coleção | Campos-chave |
 |----------|-----------|----------------|--------------|
@@ -148,8 +152,8 @@ desenvolvimento local (§ 22). O significado de homologação e produção num p
 
 | Ambiente | Branch | Onde roda | Como é configurado | Diferenças relevantes |
 |----------|--------|-----------|--------------------|-----------------------|
-| local | — | máquina do dev, com Docker Compose (frontend, backend, postgres) | `.env` | storage em volume local (doc-fonte § 22.1) |
-| CI | — | GitHub Actions | variáveis do workflow | sem acesso a serviços externos reais |
+| local | — | máquina do dev. Planejado: Docker Compose com frontend, backend e postgres (doc-fonte § 22.1). Hoje (TASK-011): `docker-compose.yml` só com o serviço `postgres` (imagem `postgres:18`, volume nomeado, porta em `127.0.0.1`); backend e frontend rodam direto na máquina (uv e npm) | `.env` da raiz (`POSTGRES_*` para o Compose; `DATABASE_URL` para o backend e o Alembic) | storage em volume local (doc-fonte § 22.1) |
+| CI | — | GitHub Actions | variáveis do workflow | sem acesso a serviços externos reais; ainda sem serviço PostgreSQL, então os testes de integração com banco são pulados (TASK-011) |
 | desenvolvimento | `development` | PENDENTE (sem implantação definida) | GitHub Environment `development` | dados sintéticos; pode ser recriado a qualquer momento |
 | homologação | `homologation` | PENDENTE | GitHub Environment `homologation` | PENDENTE |
 | produção | `production` | PENDENTE | GitHub Environment `production` | PENDENTE |
