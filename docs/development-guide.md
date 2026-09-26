@@ -1,8 +1,7 @@
 # Guia de desenvolvimento
 
-> **Status deste documento:** parcial (2026-09-26). Ainda não existe código: todo comando que depende
-> de `frontend/` ou `backend/` está marcado **A VALIDAR** e será definido nas tarefas de toolchain e de
-> esqueleto. Os comandos listados aqui são os **únicos** que os agentes devem executar. Se um comando
+> **Status deste documento:** parcial (2026-09-26). Os comandos do **backend** são reais (TASK-004,
+> ADR-012). Os do **frontend** estão marcados **A VALIDAR** até o esqueleto da TASK-005. Os comandos listados aqui são os **únicos** que os agentes devem executar. Se um comando
 > não está aqui, ou está "A VALIDAR", o agente pergunta antes de rodar.
 > Mantenha este documento sincronizado com o CI (`.github/workflows/ci.yml`): os dois devem rodar
 > os mesmos comandos.
@@ -10,7 +9,7 @@
 | Campo | Valor |
 |-------|-------|
 | Última revisão | 2026-09-26 |
-| Stack | TypeScript + React + Three.js (frontend) / Python + FastAPI (backend) / PostgreSQL — versões A VALIDAR |
+| Stack | Python 3.14 + FastAPI, uv (backend) / Node 24 + TypeScript + React + Three.js, npm + Vite (frontend) / PostgreSQL (versão A VALIDAR) — ADR-012 |
 
 ---
 
@@ -20,9 +19,9 @@
 |------------|--------|---------------------------|
 | Git | 2.x | `git --version` |
 | Bash (Git Bash no Windows) | — | necessário para `scripts/check-structure.sh` |
-| Node.js e gerenciador de pacotes do frontend | A VALIDAR | A VALIDAR |
-| Python e gerenciador de pacotes do backend | A VALIDAR | A VALIDAR |
-| Docker + Docker Compose (ambiente local previsto na doc-fonte § 22) | A VALIDAR | A VALIDAR |
+| uv (gerencia o Python e as dependências do backend) | 0.12+ | `uv --version`; instala o Python 3.14 sozinho a partir de `backend/.python-version` |
+| Node.js + npm (frontend, a partir da TASK-005) | Node 24 LTS, npm 11 | `node --version`, `npm --version` |
+| Docker + Docker Compose (PostgreSQL, quando a persistência entrar) | A VALIDAR | `docker --version` |
 
 ---
 
@@ -33,8 +32,9 @@
 git clone https://github.com/Umaiii-chan/JA-Guindastes.git
 cd JA-Guindastes
 
-# instalar dependências
-# A VALIDAR — ainda não existe código (tarefas de esqueleto do backend e do frontend)
+# instalar dependências do backend
+cd backend && uv sync --locked && cd ..
+# frontend: A VALIDAR (TASK-005)
 
 # configurar ambiente
 cp .env.example .env
@@ -49,23 +49,26 @@ cp .env.example .env
 
 | Ação | Comando | Observações |
 |------|---------|-------------|
-| Rodar em desenvolvimento | A VALIDAR | doc-fonte § 22 prevê Docker Compose com frontend, backend e postgres |
-| Rodar testes | A VALIDAR | ver [`testing-strategy.md`](testing-strategy.md) e doc-fonte § 20 |
-| Rodar um teste específico | A VALIDAR | |
-| Lint | A VALIDAR | |
-| Formatação (verificar) | A VALIDAR | |
-| Formatação (corrigir) | A VALIDAR | |
-| Verificação de tipos | A VALIDAR | tipagem estática no frontend e type hints no backend (RNF-008) |
-| Build | A VALIDAR | |
-| Migrations (criar) | A VALIDAR | ferramenta não definida na doc-fonte |
-| Migrations (aplicar) | A VALIDAR | |
+| Rodar o backend em desenvolvimento | `uv run uvicorn app.presentation.api.main:app --reload` | em `backend/`; OpenAPI em `/docs` |
+| Rodar testes (backend) | `uv run pytest` | em `backend/`; ver [`testing-strategy.md`](testing-strategy.md) e doc-fonte § 20 |
+| Rodar um teste específico (backend) | `uv run pytest tests/<arquivo>.py::<teste>` | em `backend/` |
+| Lint (backend) | `uv run ruff check .` | em `backend/` |
+| Formatação — verificar (backend) | `uv run ruff format --check .` | em `backend/` |
+| Formatação — corrigir (backend) | `uv run ruff format .` | em `backend/` |
+| Verificação de tipos (backend) | `uv run mypy app` | em `backend/`; modo strict (RNF-008) |
+| Regras de camadas (backend) | `uv run lint-imports` | em `backend/`; contratos em `backend/pyproject.toml` (ADR-004, RNF-002) |
+| Frontend (rodar, testar, lint, tipos, build) | A VALIDAR | TASK-005 |
+| Build | não se aplica ao backend; frontend: A VALIDAR | |
+| Migrations (criar) | A VALIDAR | Alembic (ADR-012), quando a persistência entrar |
+| Migrations (aplicar) | A VALIDAR | Alembic (ADR-012) |
 | Auditoria de dependências | A VALIDAR | ver [`security.md`](security.md) § 5 |
 | Validar estrutura do repo | `bash scripts/check-structure.sh` | universal, já funciona |
 
 Comando único que roda tudo antes de abrir PR:
 
 ```bash
-# A VALIDAR — hoje o único gate existente é: bash scripts/check-structure.sh
+bash scripts/check-structure.sh && (cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy app && uv run lint-imports && uv run pytest)
+# frontend: acrescentar na TASK-005
 ```
 
 ---
@@ -105,7 +108,7 @@ Regras de dependência entre pastas estão em [`architecture.md`](architecture.m
 | Tema | Convenção |
 |------|-----------|
 | Estilo | seguir o linter configurado (A VALIDAR); não desligar regras sem ADR |
-| Nomes de arquivos | A VALIDAR (definido no esqueleto de cada serviço) |
+| Nomes de arquivos | backend: `snake_case.py` (PEP 8); frontend: A VALIDAR (TASK-005) |
 | Nomes de classes/funções | entidades de domínio com os nomes em inglês da doc-fonte § 10.2 (`Crane`, `LoadChart`, `CraneConfiguration`...); casos de uso como na § 11.1 (`CreateCrane`, `CalculateCapacity`...) |
 | Campos com unidade | sufixo da unidade no nome, como nos contratos da doc-fonte §§ 14–15 (`boom_length_m`, `boom_angle_deg`, `load_weight_kg`) |
 | Tratamento de erros | consulta fora do domínio da tabela é erro/resultado de domínio explícito, nunca extrapolação silenciosa (RN-007; doc-fonte § 14.4) |
