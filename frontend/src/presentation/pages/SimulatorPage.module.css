@@ -1,0 +1,110 @@
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-scene);
+}
+
+/* Escurece levemente as bordas para os painéis se destacarem da cena. */
+.vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      90deg,
+      rgb(8 11 16 / 0.55),
+      transparent 28%,
+      transparent 72%,
+      rgb(8 11 16 / 0.5)
+    ),
+    linear-gradient(0deg, rgb(8 11 16 / 0.45), transparent 22%);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-overlay-panel);
+  display: grid;
+  grid-template-columns: minmax(300px, 356px) minmax(0, 1fr) minmax(290px, 330px);
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  pointer-events: none;
+}
+
+.left,
+.right,
+.bottom {
+  pointer-events: auto;
+  min-height: 0;
+}
+
+.left {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  animation: slide-left var(--duration-slow) var(--ease-out);
+}
+
+.right {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow-y: auto;
+  padding: 2px;
+  margin: -2px;
+  animation: slide-right var(--duration-slow) var(--ease-out);
+}
+
+.right > * {
+  flex: none;
+}
+
+.bottom {
+  container: status-bar / inline-size;
+  grid-column: 2;
+  grid-row: 2;
+  align-self: end;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  pointer-events: none;
+  animation: rise var(--duration-slow) var(--ease-out);
+}
+
+.bottom > * {
+  pointer-events: auto;
+}
+
+@keyframes slide-left {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+}
+
+@keyframes slide-right {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}

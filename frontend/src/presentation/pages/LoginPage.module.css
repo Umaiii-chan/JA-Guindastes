@@ -1,0 +1,76 @@
+.screen {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: var(--space-6);
+  overflow: hidden;
+}
+
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(148 178 214 / 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(148 178 214 / 0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(circle at 50% 45%, #000 0%, transparent 65%);
+}
+
+.card {
+  position: relative;
+  display: grid;
+  gap: var(--space-4);
+  justify-items: start;
+  width: min(420px, 100%);
+  padding: var(--space-8);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-strong);
+  background: var(--glass-highlight), var(--glass-bg-strong);
+  box-shadow: var(--shadow-overlay);
+  backdrop-filter: blur(var(--glass-blur));
+  animation: card-in var(--duration-slow) var(--ease-spring);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.brandName {
+  font-weight: var(--font-weight-bold);
+}
+
+.brandTagline {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-3);
+}
+
+.title {
+  font-size: var(--font-size-2xl);
+}
+
+.text {
+  display: flex;
+  gap: var(--space-2);
+  color: var(--color-text-2);
+  font-size: var(--font-size-sm);
+}
+
+.text svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--color-accent);
+}
+
+.cta {
+  justify-self: stretch;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}

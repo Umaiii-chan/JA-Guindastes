@@ -16,6 +16,7 @@
   font-weight: var(--font-weight-medium);
   line-height: 1;
   white-space: nowrap;
+  text-decoration: none !important;
   user-select: none;
   transition:
     background-color var(--duration-fast) var(--ease-out),
