@@ -47,12 +47,16 @@ Na raiz do repositório:
 ```bash
 cp .env.example .env
 # edite o .env e preencha POSTGRES_USER, POSTGRES_PASSWORD e POSTGRES_DB (valores só seus)
+# e SESSION_COOKIE_SECURE=false (a stack local é servida em HTTP; ver § 3.1)
 
 docker compose up -d --build        # postgres + backend + frontend
 docker compose ps                   # espere os três ficarem "healthy"
 
 # migra e semeia a demonstração FICTÍCIA (um comando só)
 docker compose run --rm backend sh -c "alembic upgrade head && python -m app.demo_seed"
+
+# cria o primeiro admin (pede a senha duas vezes, sem eco; mínimo de 10 caracteres)
+docker compose run --rm backend python -m app.create_admin --username admin --display-name "Admin da demonstração"
 ```
 
 Saída esperada do seed na primeira vez:
@@ -78,6 +82,37 @@ No Docker, o arquivo-fonte das tabelas importadas fica no volume `ja-guindastes_
 (`FILE_STORAGE_DIR=/data/load-charts` dentro do container) e o banco no volume
 `ja-guindastes_postgres-data`.
 
+### 3.1 Login (ADR-016)
+
+Com banco, a API exige login: só `GET /api/v1/health` e `GET /api/v1/auth/session` são abertos.
+Perfis: **ADMIN** (cadastra, importa e ativa tabelas, gerencia usuários) e **OPERATOR** (consulta,
+valida sem gravar e avalia). Não há cadastro aberto: o primeiro admin vem do comando
+`python -m app.create_admin` acima, e os demais usuários são criados por ele.
+
+- O comando é **idempotente**: se o usuário já existe, avisa e sai sem trocar a senha.
+- A senha vem de `ADMIN_PASSWORD` (se definida) ou é pedida sem eco; nunca por argumento.
+- A sessão fica no cookie `crane_session` (`HttpOnly`, `SameSite=Strict`) e vale 8 h. Com
+  `SESSION_COOKIE_SECURE=true` (o padrão), o navegador só devolve o cookie em HTTPS; por isso a
+  stack local em `http://127.0.0.1:8080` precisa de `SESSION_COOKIE_SECURE=false` no `.env`
+  (**nunca** em produção). Depois de mudar o `.env`, recrie o backend: `docker compose up -d backend`.
+- Todo `POST`/`PUT`/`PATCH`/`DELETE` exige o cabeçalho `X-Requested-With: crane-simulator`.
+
+Entrar pela API e guardar o cookie (troque `<senha>` pela que você digitou no comando):
+
+```bash
+curl -s -c cookies.txt -X POST http://127.0.0.1:8000/api/v1/auth/login \
+  -H 'Content-Type: application/json' -H 'X-Requested-With: crane-simulator' \
+  -d '{"username":"admin","password":"<senha>"}'
+# → {"user":{"id":"...","username":"admin","displayName":"Admin da demonstração","role":"ADMIN",...}}
+
+curl -s -b cookies.txt http://127.0.0.1:8000/api/v1/auth/session
+# → {"authEnabled":true,"user":{...}}
+```
+
+Os `curl` das seções seguintes usam esse `cookies.txt` (`-b cookies.txt`). Para sair:
+`curl -s -b cookies.txt -X POST -H 'X-Requested-With: crane-simulator' http://127.0.0.1:8000/api/v1/auth/logout`.
+Apague o `cookies.txt` no fim: ele dá acesso à API enquanto a sessão valer.
+
 ## 4. Caminho B — sem Docker (PostgreSQL local + uvicorn + Vite)
 
 1. Tenha um PostgreSQL 18 rodando (instalado na máquina, ou só o banco do Compose com
@@ -85,7 +120,8 @@ No Docker, o arquivo-fonte das tabelas importadas fica no volume `ja-guindastes_
 2. `cp .env.example .env` e preencha, além dos `POSTGRES_*` (se usar o Compose para o banco):
    - `DATABASE_URL=postgresql+psycopg://<usuario>:<senha>@localhost:<porta>/<banco>`;
    - `FILE_STORAGE_DIR=<um diretório fora do repositório>` (ex.: `C:\ja-guindastes\load-charts`
-     ou `~/ja-guindastes/load-charts`).
+     ou `~/ja-guindastes/load-charts`);
+   - `SESSION_COOKIE_SECURE=false` (uvicorn e Vite em HTTP local; ver § 3.1).
 3. Exporte as variáveis no terminal do backend (o backend, o Alembic e o seed leem o ambiente do
    processo, não o `.env`; ver `docs/development-guide.md` § 6) e rode, em `backend/`:
 
@@ -94,6 +130,7 @@ No Docker, o arquivo-fonte das tabelas importadas fica no volume `ja-guindastes_
    uv sync --locked
    uv run alembic upgrade head
    uv run python -m app.demo_seed          # mesma saída da seção 3
+   uv run python -m app.create_admin --username admin --display-name "Admin da demonstração"
    uv run uvicorn app.main:app --reload    # API em http://127.0.0.1:8000
    ```
 
@@ -107,11 +144,12 @@ No Docker, o arquivo-fonte das tabelas importadas fica no volume `ja-guindastes_
    O `vite.config.ts` encaminha `/api` (inclusive o WebSocket) para `http://localhost:8000`.
 
 Nos passos seguintes, troque `http://127.0.0.1:8080` por `http://localhost:5173` (tela) e use
-`http://127.0.0.1:8000` para a API nos dois caminhos.
+`http://127.0.0.1:8000` para a API nos dois caminhos. O login pela API é o da § 3.1.
 
 ## 5. Selecionar a configuração e mover o guindaste
 
-1. Abra a tela. A cena 3D mostra o guindaste **provisório** (caixas e cilindros; medidas e limites
+1. Abra a tela e entre com o usuário criado (§ 3.1), se a tela de login já estiver disponível
+   (TASK-040). A cena 3D mostra o guindaste **provisório** (caixas e cilindros; medidas e limites
    FICTÍCIOS).
 2. Selecione a configuração **"Configuração Demonstração FICTÍCIA"** (id
    `demo-ficticio-configuracao`). Se a tela de seleção do catálogo ainda não estiver disponível,
@@ -145,8 +183,8 @@ Como ler:
 Conferir pela API (qualquer caminho):
 
 ```bash
-curl -s -X POST http://127.0.0.1:8000/api/v1/evaluations \
-  -H 'Content-Type: application/json' \
+curl -s -b cookies.txt -X POST http://127.0.0.1:8000/api/v1/evaluations \
+  -H 'Content-Type: application/json' -H 'X-Requested-With: crane-simulator' \
   -d '{"configuration_id":"demo-ficticio-configuracao","boom_length_m":12,"boom_angle_deg":35,"turret_rotation_deg":0,"cable_length_m":5,"load_weight_kg":3000}'
 # → "status":"EVALUATED", "maximum_capacity_kg":4200.0, "utilization_percent":71.428...,
 #   "load_chart_id":"demo-ficticio-tabela-v1"
@@ -157,10 +195,11 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/evaluations \
 Use a tela de importação (se já estiver disponível) com o arquivo
 `backend/app/demo_data/tabela_carga_ficticia_demo_com_erros.csv`, a configuração de demonstração,
 id `demo-ficticio-tabela-com-erros` e versão `demo-ficticia-com-erros`. Pela API, na raiz do
-repositório:
+repositório, com o login de admin da § 3.1:
 
 ```bash
-curl -s -X POST http://127.0.0.1:8000/api/v1/load-charts/import \
+curl -s -b cookies.txt -H 'X-Requested-With: crane-simulator' \
+  -X POST http://127.0.0.1:8000/api/v1/load-charts/import \
   -F "file=@backend/app/demo_data/tabela_carga_ficticia_demo_com_erros.csv;type=text/csv" \
   -F configuration_id=demo-ficticio-configuracao \
   -F chart_id=demo-ficticio-tabela-com-erros \
@@ -186,14 +225,16 @@ Importe a versão 2 (FICTÍCIA) e ative-a — pela tela de importação e ativa�
 pela API:
 
 ```bash
-curl -s -X POST http://127.0.0.1:8000/api/v1/load-charts/import \
+curl -s -b cookies.txt -H 'X-Requested-With: crane-simulator' \
+  -X POST http://127.0.0.1:8000/api/v1/load-charts/import \
   -F "file=@backend/app/demo_data/tabela_carga_ficticia_demo_v2.csv;type=text/csv" \
   -F configuration_id=demo-ficticio-configuracao \
   -F chart_id=demo-ficticio-tabela-v2 \
   -F version=demo-ficticia-v2
 # → HTTP 201, "status":"DRAFT"
 
-curl -s -X POST http://127.0.0.1:8000/api/v1/load-charts/demo-ficticio-tabela-v2/activate
+curl -s -b cookies.txt -H 'X-Requested-With: crane-simulator' \
+  -X POST http://127.0.0.1:8000/api/v1/load-charts/demo-ficticio-tabela-v2/activate
 # → a v2 fica ACTIVE e a v1 vira SUPERSEDED
 ```
 
@@ -220,3 +261,9 @@ mostrando `demo-ficticia-v2`.
 | Seed: "já existe com outro guindaste ou outra ficha técnica" | banco com dados de demonstração alterados | recomece do zero (§ 8) |
 | Painel: `CRANE_GEOMETRY_NOT_FOUND` / `ACTIVE_LOAD_CHART_NOT_FOUND` | seed não rodou, id digitado errado ou API sem `DATABASE_URL` | rode o seed e confira o id |
 | Importação responde 404 na rota | API sem `FILE_STORAGE_DIR` ou sem `DATABASE_URL` (rotas não registradas) | defina as duas e reinicie a API |
+| `create_admin`: `ERRO: falha no banco (ProgrammingError)` | migrations não aplicadas (tabela `app_user` ausente) | `alembic upgrade head` antes |
+| `create_admin`: "já existe; nada alterado" | o usuário já foi criado antes | entre com a senha dele; o comando não troca senha |
+| API: `401` com `"code":"NOT_AUTHENTICATED"` | sem login, sessão expirada (8 h) ou cookie não enviado | faça o login da § 3.1; em HTTP local, confira `SESSION_COOKIE_SECURE=false` e recrie o backend |
+| API: `403` com `"code":"CSRF_HEADER_MISSING"` | `POST`/`PUT`/`PATCH`/`DELETE` sem o cabeçalho | envie `-H 'X-Requested-With: crane-simulator'` |
+| API: `403` com `"code":"FORBIDDEN"` | perfil OPERATOR numa ação de admin | entre com um admin |
+| Login: `429` com `"code":"TOO_MANY_ATTEMPTS"` | 5 senhas erradas em 15 min para o mesmo usuário | espere a janela passar (ou reinicie o backend: o limite é em memória) |
