@@ -1,10 +1,12 @@
 # Arquitetura
 
-> **Status deste documento:** descreve a arquitetura **como ela está** em `development` @ `d58edf6`
-> (2026-09-26, TASK-001..032 concluídas; consolidado na TASK-037). Implementado: backend em Clean
-> Architecture com PostgreSQL, API REST e WebSocket de avaliação, cadastros, importação com gravação e
-> ativação de tabelas; frontend com cena 3D, loader GLB/glTF e painel ligado ao backend; Docker Compose
-> e CI. Ainda **não** existem: simulações persistidas, `SafetyValidator`/níveis de alerta, upload de
+> **Status deste documento:** descreve a arquitetura **como ela está** com a leva C integrada
+> (2026-09-26: TASK-001..032 concluídas e TASK-033..036 mescladas na branch da TASK-037, PR #34;
+> consolidado na TASK-037). Implementado: backend em Clean Architecture com PostgreSQL, API REST e
+> WebSocket de avaliação, cadastros, importação com gravação e ativação de tabelas, seed de
+> demonstração FICTÍCIO; frontend com seleção e cadastro do catálogo, importação/ativação de tabela,
+> carga, cena 3D com limites da ficha técnica, loader GLB/glTF e painel ligado ao backend; Docker
+> Compose, CI e E2E. Ainda **não** existem: simulações persistidas, `SafetyValidator`/níveis de alerta, upload de
 > modelo 3D, autenticação. Onde a implementação difere do planejado na documentação técnica v0.1
 > ([`produto/documentacao-tecnica-v0.1.md`](produto/documentacao-tecnica-v0.1.md), citada como
 > "doc-fonte § N"), o texto diz. Mudanças de arquitetura passam por ADR em [`decisions/`](decisions/README.md).
@@ -63,6 +65,7 @@ que ainda não existem):
 | Apresentação — REST | `create_app` e os routers: saúde, avaliação, validação de tabela, catálogo, importação/consulta/ativação; schemas Pydantic; limite de upload (`upload_limits.py`); handler do 422 para números não finitos | `presentation/api/` | aplicação |
 | Apresentação — WebSocket | `/api/v1/ws/evaluation`: mensagens `simulation.state.changed` → `simulation.evaluated` / `simulation.error`, limite de 8 KiB por mensagem (provisório, P-008) | `presentation/websocket/` | aplicação |
 | Raiz de composição | escolhe a composição por `DATABASE_URL` (`compose_app`) e liga os adapters da infraestrutura à apresentação; a importação com gravação é montada em módulo à parte | `app/main.py`, `app/load_chart_persistence_composition.py` | todas as camadas |
+| Seed da demonstração (TASK-035) | cadastra, pelos casos de uso reais, fabricante, guindaste e configuração FICTÍCIOS com ficha técnica e importa e ativa a tabela FICTÍCIA v1; idempotente (ids fixos `demo-ficticio-*`); fora das camadas, como a raiz de composição | `app/demo_seed.py`, `app/demo_data/` (CSVs FICTÍCIOS v1, v2 e com erros) | todas as camadas |
 
 Composição (`backend/app/main.py`):
 
@@ -83,16 +86,22 @@ o `SafetyValidator` não existe (PEND-004).
 
 | Componente | Responsabilidade | Localização no código | Depende de |
 |------------|------------------|-----------------------|------------|
-| Domínio | geometria operacional de pré-visualização (fórmulas do ADR-013, paridade com o backend) e tipos da avaliação | `domain/geometry/`, `domain/evaluation/` | nada |
-| Aplicação | `EvaluationSession`: debounce, `sequence` crescente, descarte de respostas antigas, escolha do transporte (WebSocket ou REST), reenvio ao reconectar | `application/evaluation/` | domínio, portas |
-| Infraestrutura | cliente REST de `POST /api/v1/evaluations`; `EvaluationSocket` (reconexão a cada 2 s, sem limite) e mensagens do WebSocket; leitura defensiva de JSON | `infrastructure/api/`, `infrastructure/websocket/`, `infrastructure/shared/` | backend |
-| Apresentação | viewport da cena (sem importar `three`), painéis de controle, de geometria (pré-visualização), de entrada da avaliação e do resultado do backend | `presentation/components/`, `presentation/panels/` | aplicação |
-| Composição | `App.tsx`, `useEvaluationSession.ts`, `evaluationInput.ts` | `app/` | todas |
-| Cena 3D | cena, câmera, controles orbitais, `CraneController` (comandos `setTurretRotation`, `setBoomAngle`, `setBoomLength`, `setCableLength`, `getOperationalGeometry`), guindaste provisório FICTÍCIO, loader GLB/glTF (`loadGltf`) e mapeamento cinemático com relatório de calibração (`mapCraneKinematics`); **nunca decide capacidade ou segurança** (doc-fonte § 12.2) | `three/` | Three.js |
+| Domínio | geometria operacional de pré-visualização (fórmulas do ADR-013, paridade com o backend), tipos da avaliação e do catálogo (`Manufacturer`, `Crane`, `CraneConfiguration`, `CraneTechnicalSheet`) | `domain/geometry/`, `domain/evaluation/`, `domain/catalog/` | nada |
+| Aplicação | `EvaluationSession` (debounce, `sequence` crescente, descarte de respostas antigas, escolha do transporte WebSocket/REST, reenvio ao reconectar); `CatalogBrowser` (seleção em cascata fabricante → guindaste → configuração, descarte de respostas atrasadas, cadastro que deixa o item novo escolhido) e formulários do catálogo; formulário de importação de tabela; validação da carga (`loadForm.ts`, mesmas regras provisórias da `Load` do backend) | `application/evaluation/`, `application/catalog/`, `application/loadChart/`, `application/load/` | domínio, portas |
+| Infraestrutura | clientes REST de avaliação (`POST /api/v1/evaluations`), do catálogo (listar/criar fabricante, guindaste e configuração, erros 404/409/422 traduzidos por campo) e de tabelas (importação multipart e ativação); `EvaluationSocket` (reconexão a cada 2 s, sem limite) e mensagens do WebSocket; leitura defensiva de JSON | `infrastructure/api/`, `infrastructure/websocket/`, `infrastructure/shared/` | backend |
+| Apresentação | viewport da cena (sem importar `three`); painéis de seleção e de cadastro do catálogo (com os campos da ficha técnica), de controle da cena, de geometria (pré-visualização), de importação/ativação de tabela (com o relatório de inconsistências), de carga e do resultado do backend | `presentation/components/`, `presentation/panels/` | aplicação |
+| Composição | `App.tsx`, `useEvaluationSession.ts`, `useCatalogBrowser.ts`, `evaluationInput.ts`, `craneSetup.ts` (limites dos sliders e a/h da pré-visualização a partir da ficha técnica da configuração escolhida; sem ficha, os FICTÍCIOS do guindaste provisório, com aviso) | `app/` | todas |
+| Cena 3D | cena montada com um `CraneSetup` (limites + a/h), câmera, controles orbitais, `CraneController` (comandos `setTurretRotation`, `setBoomAngle`, `setBoomLength`, `setCableLength`, `getOperationalGeometry`), guindaste provisório (valores FICTÍCIOS em `provisionalCraneSpec.ts`), loader GLB/glTF (`loadGltf`) e mapeamento cinemático com relatório de calibração (`mapCraneKinematics`); **nunca decide capacidade ou segurança** (doc-fonte § 12.2) | `three/` | Three.js |
+
+A tela (TASK-033/034): seleção no topo; a configuração escolhida vai para a avaliação; a carga só
+entra na avaliação (como `load_weight_kg`) quando o formulário de carga inteiro é válido; descrição,
+dimensões e CG ficam no frontend. O painel de importação usa a configuração escolhida.
 
 Em desenvolvimento, o Vite encaminha `/api` (inclusive WebSocket) para `http://localhost:8000`
 (`frontend/vite.config.ts`). No container, quem faz isso é o nginx (`frontend/nginx.conf.template`).
-O GLB de exemplo FICTÍCIO fica em `assets/example-models/`.
+O build divide o pacote em arquivos (`react`, `three-core`, `three`, `three-addons` e a aplicação;
+TASK-036), todos carregados na abertura da página. O GLB de exemplo FICTÍCIO fica em
+`assets/example-models/`.
 
 ---
 
@@ -110,6 +119,7 @@ Presentation ─X─► Infrastructure  (e vice-versa: camadas independentes)
 
 - Só a raiz de composição (`app/main.py` e `app/load_chart_persistence_composition.py`, fora das
   camadas) importa apresentação e infraestrutura ao mesmo tempo; nenhum módulo das camadas a importa.
+  O seed `app/demo_seed.py` também fica fora das camadas (liga casos de uso e repositórios).
 - Schemas Pydantic ficam na apresentação; entidades de domínio não dependem de framework (RNF-002).
 
 Frontend (doc-fonte § 17.3; ADR-005): Three.js só em `src/three/` (regra do ESLint). React não
@@ -215,9 +225,9 @@ desenvolvimento local (§ 22). O significado de homologação e produção num p
 
 | Ambiente | Branch | Onde roda | Como é configurado | Diferenças relevantes |
 |----------|--------|-----------|--------------------|-----------------------|
-| local (Docker) | — | `docker-compose.yml` (TASK-011, 027): `postgres` (`postgres:18`, volume `ja-guindastes_postgres-data`), `backend` (uvicorn `app.main:app`, usuário sem root) e `frontend` (nginx sem root servindo o build do Vite e encaminhando `/api/`, inclusive WebSocket, ao backend); portas só em `127.0.0.1` (5432, 8000, 8080 por padrão); `depends_on` com healthchecks | `.env` da raiz: `POSTGRES_*`, `BACKEND_PORT`, `FRONTEND_PORT`, `BACKEND_DATABASE_URL` | migrations sob demanda (`docker compose run --rm backend alembic upgrade head`); healthcheck do backend ainda em `/openapi.json`; `FILE_STORAGE_DIR` não é passado ao container em `d58edf6` |
-| local (sem Docker) | — | backend com `uv run uvicorn app.main:app --reload`, frontend com `npm run dev` (proxy `/api` → `localhost:8000`) | variáveis exportadas no shell (`DATABASE_URL`, `FILE_STORAGE_DIR`) | o backend não lê o `.env` sozinho |
-| CI | — | GitHub Actions (`.github/workflows/ci.yml`): jobs `structure`, `backend` (com PostgreSQL 18 de serviço, `alembic upgrade head` e `REQUIRE_INTEGRATION_DB=1`), `quality` (frontend) e `docker` (build das imagens, `docker compose up --wait`, migrations e teste de fumaça) | variáveis do próprio workflow (credenciais descartáveis, não são segredo) | job `deploy` é placeholder (só avisa que não está configurado) |
+| local (Docker) | — | `docker-compose.yml` (TASK-011, 027, 035): `postgres` (`postgres:18`, volume `ja-guindastes_postgres-data`), `backend` (uvicorn `app.main:app`, usuário sem root, `FILE_STORAGE_DIR=/data/load-charts` no volume `ja-guindastes_load-chart-files`) e `frontend` (nginx sem root servindo o build do Vite e encaminhando `/api/`, inclusive WebSocket, ao backend); portas só em `127.0.0.1` (5432, 8000, 8080 por padrão); `depends_on` com healthchecks; healthcheck do backend em `/api/v1/health` | `.env` da raiz: `POSTGRES_*`, `BACKEND_PORT`, `FRONTEND_PORT`, `BACKEND_DATABASE_URL` (o `FILE_STORAGE_DIR` do `.env` não é lido pelo container) | migrations e seed sob demanda (`docker compose run --rm backend sh -c "alembic upgrade head && python -m app.demo_seed"`); o healthcheck responde 200 mesmo com o banco `DOWN` |
+| local (sem Docker) | — | backend com `uv run uvicorn app.main:app --reload`, frontend com `npm run dev` (proxy `/api` → `localhost:8000`); seed com `uv run python -m app.demo_seed` | variáveis exportadas no shell (`DATABASE_URL`, `FILE_STORAGE_DIR`) | o backend não lê o `.env` sozinho |
+| CI | — | GitHub Actions (`.github/workflows/ci.yml`): jobs `structure`, `backend` (com PostgreSQL 18 de serviço, `alembic upgrade head` e `REQUIRE_INTEGRATION_DB=1`), `quality` (frontend), `docker` (build das imagens, `docker compose up --wait`, migrations e teste de fumaça) e `e2e` (mesma stack + migrations + seed da demo, Playwright/Chromium contra o nginx, com `E2E_BASE_URL`, `E2E_BACKEND=1` e `E2E_SEED_*` apontando para os ids fixos do seed) | variáveis do próprio workflow (credenciais descartáveis, não são segredo) | job `deploy` é placeholder (só avisa que não está configurado); `deploy` não depende de `docker` nem de `e2e` |
 | desenvolvimento | `development` | PENDENTE (sem implantação definida) | GitHub Environment `development` | dados sintéticos; pode ser recriado a qualquer momento |
 | homologação | `homologation` | PENDENTE | GitHub Environment `homologation` | PENDENTE |
 | produção | `production` | PENDENTE | GitHub Environment `production` | PENDENTE |
@@ -262,5 +272,6 @@ Decisões locais sem ADR próprio, registradas nos handoffs: raiz de composiçã
 - Que os números dos exemplos da doc-fonte (§§ 14.2, 14.3 e 15.4) são capacidades ou tolerâncias reais: são ilustrativos.
 - Qualquer regra de interpolação, arredondamento, nível de alerta ou extrapolação: estão **PENDENTES** (PEND-001..004; RN-007).
 - Que a geometria de cálculo é definitiva: ela segue o ADR-013 (aceito, **provisório**), com itens A VALIDAR com a empresa.
-- Que os limites dos sliders da cena são os da ficha técnica: são os FICTÍCIOS da PoC (TASK-032 § 8).
+- Que a cena desenha o guindaste real: a geometria desenhada é a do guindaste provisório, só com limites e a/h vindos da ficha técnica quando a configuração tem ficha (sem ficha, valores FICTÍCIOS rotulados; TASK-033).
+- Que a carga completa (descrição, dimensões, CG) vai ao backend: só o peso vai (TASK-034).
 - Veja também [`known-gaps.md`](known-gaps.md).

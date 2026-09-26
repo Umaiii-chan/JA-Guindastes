@@ -14,18 +14,18 @@ Projeto acadêmico do curso de Engenharia de Software (2º semestre de 2026), co
 
 ---
 
-## Estado atual (2026-09-26, `development` @ `d58edf6`)
+## Estado atual (2026-09-26, leva C integrada)
 
-Concluídas as tarefas TASK-001..032. Em andamento, na última leva: telas de catálogo e de
-importação (TASK-033/034), demo reproduzível (TASK-035), testes ponta a ponta (TASK-036) e esta
-documentação (TASK-037).
+Concluídas as tarefas TASK-001..032. A última leva (TASK-033..036) está integrada na branch desta
+documentação (PR #34): telas de catálogo e seleção, importação/ativação de tabela e carga, demo
+reproduzível com seed FICTÍCIO e testes ponta a ponta com Playwright. Esta documentação é a TASK-037.
 
 | Parte | Situação |
 |-------|----------|
 | Documentação e decisões | contexto do produto, regras de negócio (RN-001..008), requisitos (RF/RNF), ADR-002..013 aceitos, ADR-014 (ORM) proposto, ADR-015 (consulta conservadora) aceito como provisório |
 | Backend | Clean Architecture: domínio (tabela de carga, geometria do ADR-013, carga, consulta conservadora provisória do ADR-015), casos de uso (avaliação, cadastro, importação com gravação, ativação), PostgreSQL com SQLAlchemy + Alembic, storage local do arquivo-fonte, importação CSV/XLSX, API REST e WebSocket |
-| Frontend | cena Three.js com guindaste provisório (FICTÍCIO) e `CraneController`, geometria de pré-visualização, loader GLB/glTF com mapeamento cinemático, painel que mostra a avaliação do backend (WebSocket, com REST de reserva) |
-| Infra | Docker Compose com `postgres`, `backend` e `frontend` (nginx); CI com estrutura, backend (com PostgreSQL de serviço), frontend e imagens Docker |
+| Frontend | seleção fabricante → guindaste → configuração e cadastro pela tela; cena Three.js cujos limites dos sliders e parâmetros a/h vêm da ficha técnica da configuração (ou dos valores FICTÍCIOS do guindaste provisório, rotulados); geometria de pré-visualização; painéis de importação/ativação de tabela e de carga; painel com a avaliação do backend (WebSocket, com REST de reserva); loader GLB/glTF com mapeamento cinemático |
+| Infra | Docker Compose com `postgres`, `backend` (com volume para o arquivo-fonte) e `frontend` (nginx); seed de demonstração FICTÍCIO (`python -m app.demo_seed`); CI com estrutura, backend (com PostgreSQL de serviço), frontend, imagens Docker e E2E (Playwright contra a stack) |
 
 A capacidade mostrada vem da consulta **conservadora provisória** (ADR-015: entre dois pontos da
 tabela, vale o de menor capacidade). Interpolação, arredondamento, níveis de alerta e formato das
@@ -51,7 +51,8 @@ Decisões em [`docs/decisions/`](docs/decisions/README.md) (ADR-002..015).
 .
 ├── backend/          ← API FastAPI em Clean Architecture (domain, application, infrastructure, presentation);
 │                        raiz de composição em app/main.py; migrations em alembic/; Dockerfile
-├── frontend/         ← SPA React + Three.js (a lógica 3D fica em src/three/); Dockerfile e nginx.conf.template
+├── frontend/         ← SPA React + Three.js (a lógica 3D fica em src/three/); testes E2E em e2e/;
+│                        Dockerfile e nginx.conf.template
 ├── assets/
 │   └── example-models/ ← GLB de exemplo FICTÍCIO do guindaste provisório
 ├── docker-compose.yml ← stack local: postgres + backend + frontend
@@ -60,14 +61,14 @@ Decisões em [`docs/decisions/`](docs/decisions/README.md) (ADR-002..015).
 ├── tasks/            ← tarefas: backlog/, in-progress/, completed/
 ├── handoffs/         ← continuidade entre agentes/pessoas (current.md é o índice)
 ├── scripts/          ← check-structure.sh (validação do protocolo, usado pelo CI)
-└── .github/          ← CI (estrutura, backend, frontend, imagens Docker) e templates de PR/issue
+└── .github/          ← CI (estrutura, backend, frontend, imagens Docker, E2E) e templates de PR/issue
 ```
 
 ## Como rodar
 
 Pré-requisitos, variáveis de ambiente e todos os comandos oficiais:
-[`docs/development-guide.md`](docs/development-guide.md). Roteiro de demonstração: `docs/demo.md`
-(criado pela TASK-035).
+[`docs/development-guide.md`](docs/development-guide.md). Roteiro de demonstração, com dados
+FICTÍCIOS: [`docs/demo.md`](docs/demo.md).
 
 ### Com Docker (stack completa)
 
@@ -77,15 +78,16 @@ Na raiz, com o Docker rodando:
 cp .env.example .env                                   # preencha POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
 docker compose up -d --build                           # constrói e sobe postgres, backend e frontend
 docker compose ps                                      # pronto quando os três estiverem "healthy"
-docker compose run --rm backend alembic upgrade head   # aplica as migrations (sob demanda)
+docker compose run --rm backend sh -c "alembic upgrade head && python -m app.demo_seed"
+                                                       # migrations + demonstração FICTÍCIA (idempotente)
 # frontend: http://127.0.0.1:8080/    API/OpenAPI: http://127.0.0.1:8000/docs
-docker compose down                                    # para tudo e mantém o volume (não use -v)
+docker compose down                                    # para tudo e mantém os volumes (não use -v)
 ```
 
-O nginx do frontend encaminha `/api/` (inclusive o WebSocket) para o backend. Em `d58edf6`, o
-`docker-compose.yml` ainda não passa `FILE_STORAGE_DIR` ao backend: as rotas de importação com
-gravação e ativação só aparecem rodando o backend fora do container (ajuste do Docker previsto na
-TASK-035).
+O nginx do frontend encaminha `/api/` (inclusive o WebSocket) para o backend. No container, o
+`FILE_STORAGE_DIR` é fixo (`/data/load-charts`, no volume `ja-guindastes_load-chart-files`); o do
+`.env` vale só para o backend fora do container. Só as migrations, sem o seed:
+`docker compose run --rm backend alembic upgrade head`.
 
 ### Sem Docker (backend e frontend na máquina)
 
@@ -97,6 +99,7 @@ docker compose up -d postgres
 uv sync --locked
 set -a && source ../.env && set +a      # o backend não lê o .env sozinho
 uv run alembic upgrade head
+uv run python -m app.demo_seed          # opcional: demonstração FICTÍCIA (exige FILE_STORAGE_DIR)
 uv run uvicorn app.main:app --reload    # OpenAPI em http://localhost:8000/docs
 
 # frontend (em frontend/); o Vite encaminha /api (e o WebSocket) para localhost:8000
