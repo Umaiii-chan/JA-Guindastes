@@ -3,7 +3,8 @@
 - A URL do banco vem de `DATABASE_URL`, validada por `DatabaseSettings`; `alembic.ini` não guarda
   URL nem credencial.
 - O autogenerate compara o banco com `Base.metadata`. Os módulos com modelos ORM precisam estar
-  importados quando este arquivo roda; ainda não há nenhum (as tabelas entram com cada caso de uso).
+  importados quando este arquivo roda: o pacote `app.infrastructure.database.models` importa todos
+  (TASK-022). Sem isso, o autogenerate proporia apagar as tabelas existentes.
 """
 
 from logging.config import fileConfig
@@ -12,6 +13,7 @@ from alembic import context
 from alembic.util import CommandError
 from sqlalchemy import URL, create_engine, pool
 
+import app.infrastructure.database.models  # noqa: F401  (registra as tabelas em Base.metadata)
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.config import DatabaseConfigurationError, DatabaseSettings
 
