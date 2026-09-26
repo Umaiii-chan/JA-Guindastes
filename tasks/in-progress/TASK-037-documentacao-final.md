@@ -38,6 +38,7 @@ TASK-035 (seed, Docker, `docs/demo.md`) e TASK-036 (e2e, Vite, CI) e não toca o
 - [ ] **CA-6** — `docs/requirements/functional.md` e `non-functional.md` têm a coluna "Tarefas" preenchida, sem mudar o texto nem o status `Proposto`.
 - [ ] **CA-7** — Docstrings desatualizadas apontadas nos handoffs corrigidas (só texto), com os gates do backend verdes.
 - [ ] **CA-8** — `bash scripts/check-structure.sh` passa (links internos válidos).
+- [ ] **CA-9** — Dada a leva C mesclada na branch (`f9d2f35`), quando alguém lê README, arquitetura, guia, testes, segurança, lacunas e requisitos, então encontra as telas de catálogo, importação e carga (TASK-033/034), o link para `docs/demo.md`, o volume e o healthcheck do Compose e o seed `python -m app.demo_seed` (TASK-035), o E2E com Playwright e o job `e2e` com `E2E_SEED_*` (TASK-036), e a D-008 em "Resolvidos".
 
 ## 4. Escopo
 
@@ -70,8 +71,8 @@ TASK-035 (seed, Docker, `docs/demo.md`) e TASK-036 (e2e, Vite, CI) e não toca o
 
 - Risco: documentar algo que a TASK-033..036 muda em paralelo → mitigação: descrever `d58edf6` e
   registrar no handoff o que revisar depois do merge delas.
-- Risco: link para `docs/demo.md`, que ainda não existe nesta base, quebrar o `check-structure.sh` →
-  mitigação: citar o caminho como código, sem link Markdown.
+- Risco: link para `docs/demo.md`, que ainda não existia em `d58edf6`, quebrar o `check-structure.sh`
+  → mitigação: citado como código na primeira parte; virou link depois da mescla da leva C.
 
 ## 7. Teste manual (se houver)
 
@@ -89,6 +90,7 @@ TASK-035 (seed, Docker, `docs/demo.md`) e TASK-036 (e2e, Vite, CI) e não toca o
 | 3 | Preencher testes, segurança, lacunas, visão geral, requisitos, guias | `docs/*.md`, `docs/requirements/*.md`, `docs/guides/*.md` | `grep '<preencher>'`; `check-structure.sh` | [x] |
 | 4 | Corrigir docstrings | `backend/app/...` | gates do backend | [x] |
 | 5 | Tarefa, handoff, commits | `tasks/in-progress/`, `handoffs/TASK-037.md` | `git log` | [x] |
+| 6 | Segunda parte: documentar a leva C mesclada (`f9d2f35`), pedido da sessão principal | `README.md`, `docs/*.md`, `docs/requirements/*.md`, `docs/guides/workflow.md` | `check-structure.sh` | [x] |
 
 **Análise de impacto:**
 - Arquivos que podem quebrar indiretamente: nenhum (só texto; docstrings não mudam comportamento).
