@@ -196,7 +196,7 @@ ADRs, `docs/demo.md` nem arquivos das TASK-033..036.
 | # | Pergunta | Bloqueia? | Resposta | Respondida em |
 |---|----------|-----------|----------|---------------|
 | 1 | ~~Depois do merge das TASK-033..036, fazer uma passada curta nos documentos?~~ Feito na segunda parte, a pedido da sessão principal | — | passada feita | 2026-09-26 |
-| 4 | Criar tarefa para remover `EvaluationInputPanel.tsx`, que não é importado por nenhum módulo desde a mescla da leva C (known-gaps D-009)? | não | | |
+| 4 | ~~Criar tarefa para remover `EvaluationInputPanel.tsx` (known-gaps D-009)?~~ Removido pela sessão principal no PR #34 | — | removido | 2026-09-26 |
 | 2 | Criar tarefa para remover o `app` de compatibilidade de `app/presentation/api/main.py` (apontando `tests/test_openapi.py` para `app.main`) e o `build_catalog_repository` não usado (known-gaps D-001, D-002)? | não | | |
 | 3 | Confirmar o critério da coluna "Tarefas" dos requisitos (do campo "Requisitos" das tarefas concluídas, sem TASK-002 e TASK-009) | não | | |
 
