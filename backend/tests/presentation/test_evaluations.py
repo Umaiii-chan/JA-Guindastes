@@ -6,8 +6,8 @@ Dados FICTÍCIOS (ADR-012): a ficha técnica de `tests/fixtures/crane_geometry_f
 5000 kg e 21,5 m → 2000 kg; L = 30 m: 31,5 m → 0 kg). O raio é R = a + L·cos θ (ADR-013). Nenhum
 número representa guindaste ou capacidade real.
 
-Os testes de comportamento montam a app com `create_app` e provedores falsos; os da raiz de
-composição usam `app.main:app`, que ainda não tem repositórios (TASK-022).
+Os testes montam a app com `create_app` e provedores falsos. Os da raiz de composição
+(`app.main`, com e sem banco) ficam em `tests/test_composition.py` (TASK-029).
 """
 
 import math
@@ -22,8 +22,6 @@ from app.domain.services.conservative_tabulated_lookup import ConservativeTabula
 from app.domain.services.exact_point_lookup import ExactPointLookup
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
 from app.domain.value_objects.crane_geometry import CraneGeometry
-from app.main import app as composed_app
-from app.main import evaluation_dependencies as composed_evaluation_dependencies
 from app.presentation.api.evaluations import EVALUATIONS_PATH, EvaluationDependencies
 from app.presentation.api.main import create_app
 from tests.fixtures.avaliacao_operacional_ficticia import (
@@ -452,32 +450,3 @@ def test_body_that_is_not_json_returns_422(client: TestClient) -> None:
     )
 
     assert response.status_code == 422
-
-
-# Raiz de composição -------------------------------------------------------------------------------
-
-
-def test_composed_app_injects_the_conservative_provisional_strategy() -> None:
-    assert isinstance(
-        composed_evaluation_dependencies.load_chart_interpolator, ConservativeTabulatedLookup
-    )
-
-
-def test_composed_app_answers_not_evaluable_without_inventing_data() -> None:
-    # Sem repositórios (TASK-022), nenhuma configuração tem ficha técnica nem tabela ativa.
-    response = TestClient(composed_app).post(EVALUATIONS_PATH, json=body_ficticio())
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "status": "NOT_EVALUABLE",
-        "configuration_id": CONFIGURATION_AVALIACAO_FICTICIA_ID,
-        "geometry": None,
-        "capacity": None,
-        "utilization_percent": None,
-        "load_chart_id": None,
-        "load_chart_version": None,
-        "reasons": [
-            {"code": "CRANE_GEOMETRY_NOT_FOUND", "category": "EVALUATION"},
-            {"code": "ACTIVE_LOAD_CHART_NOT_FOUND", "category": "EVALUATION"},
-        ],
-    }

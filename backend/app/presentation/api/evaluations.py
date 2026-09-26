@@ -22,14 +22,22 @@ Códigos HTTP:
 
 Sem níveis de alerta (PEND-004) e sem autenticação (P-009; known-gaps L-003).
 
-O router recebe as dependências prontas (`EvaluationDependencies`) porque a apresentação não pode
-importar a infraestrutura (contrato de camadas em `backend/pyproject.toml`): quem escolhe os
-provedores e a estratégia é a raiz de composição, `app.main`.
+O router recebe as dependências prontas porque a apresentação não pode importar a infraestrutura
+(contrato de camadas em `backend/pyproject.toml`): quem escolhe provedores e estratégia é a raiz
+de composição, `app.main`. Elas chegam de duas formas:
+
+- `EvaluationDependencies`: provedores fixos, um único `EvaluateOperation` para todas as requisições
+  (testes; composição sem banco);
+- `EvaluateOperationDependency` (TASK-029): dependência FastAPI com `yield` que entrega o caso
+  de uso **de uma requisição** e libera os recursos dela no fim, mesmo com erro (composição com
+  banco: uma conexão do pool por requisição).
 """
 
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from typing import Annotated
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 
 from app.application.ports.active_load_chart_provider import ActiveLoadChartProvider
 from app.application.ports.crane_geometry_provider import CraneGeometryProvider
@@ -59,13 +67,43 @@ class EvaluationDependencies:
     load_chart_interpolator: LoadChartInterpolator
 
 
-def create_evaluations_router(dependencies: EvaluationDependencies) -> APIRouter:
-    """Monta o router da avaliação com os provedores e a estratégia escolhidos pela composição."""
-    use_case = EvaluateOperation(
-        crane_geometry_provider=dependencies.crane_geometry_provider,
-        active_load_chart_provider=dependencies.active_load_chart_provider,
-        load_chart_interpolator=dependencies.load_chart_interpolator,
-    )
+type EvaluateOperationDependency = Callable[[], Iterator[EvaluateOperation]]
+"""Dependência FastAPI (gerador com um só `yield`) que entrega o caso de uso da requisição.
+
+O código depois do `yield` roda no fim da requisição, também quando a rota levanta exceção: é onde a
+composição devolve ao pool a conexão usada (TASK-029). Por ser síncrona, o FastAPI a executa numa
+thread à parte, sem travar o laço de eventos.
+"""
+
+
+def shared_evaluate_operation(use_case: EvaluateOperation) -> EvaluateOperationDependency:
+    """Dependência que entrega sempre o mesmo `use_case` (sem recurso por requisição)."""
+
+    def provide_evaluate_operation() -> Iterator[EvaluateOperation]:
+        yield use_case
+
+    return provide_evaluate_operation
+
+
+def _as_dependency(
+    dependencies: EvaluationDependencies | EvaluateOperationDependency,
+) -> EvaluateOperationDependency:
+    if isinstance(dependencies, EvaluationDependencies):
+        return shared_evaluate_operation(
+            EvaluateOperation(
+                crane_geometry_provider=dependencies.crane_geometry_provider,
+                active_load_chart_provider=dependencies.active_load_chart_provider,
+                load_chart_interpolator=dependencies.load_chart_interpolator,
+            )
+        )
+    return dependencies
+
+
+def create_evaluations_router(
+    dependencies: EvaluationDependencies | EvaluateOperationDependency,
+) -> APIRouter:
+    """Monta o router da avaliação com provedores fixos ou com uma dependência por requisição."""
+    use_case_dependency = _as_dependency(dependencies)
     router = APIRouter(prefix=EVALUATIONS_PATH, tags=["evaluations"])
 
     @router.post(
@@ -94,9 +132,12 @@ def create_evaluations_router(dependencies: EvaluationDependencies) -> APIRouter
             },
         },
     )
-    def evaluate_operation(request: EvaluationRequest) -> EvaluationResponse:
-        # Rota síncrona: os provedores reais (banco, TASK-022) serão síncronos, e o FastAPI roda a
-        # rota numa thread à parte, sem travar o laço de eventos.
+    def evaluate_operation(
+        request: EvaluationRequest,
+        use_case: Annotated[EvaluateOperation, Depends(use_case_dependency)],
+    ) -> EvaluationResponse:
+        # Rota síncrona: os provedores de banco (TASK-022) são síncronos, e o FastAPI roda a rota
+        # numa thread à parte, sem travar o laço de eventos.
         state = OperationalState(
             boom_length=Length(request.boom_length_m),
             boom_angle=Angle(request.boom_angle_deg),
