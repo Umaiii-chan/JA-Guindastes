@@ -43,8 +43,7 @@ export function CraneControlPanel({ limits, state, onChange }: CraneControlPanel
     <section className="crane-panel" aria-labelledby={titleId}>
       <h2 id={titleId}>Controles do guindaste</h2>
       <p className="crane-panel__notice">
-        Guindaste provisório com medidas e limites FICTÍCIOS. Só visual: sem cálculo de raio, altura
-        ou capacidade.
+        Guindaste provisório com medidas e limites FICTÍCIOS. Sem cálculo de capacidade.
       </p>
       {CONTROLS.map((control) => {
         const inputId = `${idPrefix}-${control.key}`
