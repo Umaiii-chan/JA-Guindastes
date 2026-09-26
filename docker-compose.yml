@@ -6,6 +6,8 @@
 #   docker compose run --rm backend alembic upgrade head   # aplica as migrations (sob demanda)
 #   docker compose run --rm backend sh -c "alembic upgrade head && python -m app.demo_seed"
 #                                           # migra e semeia a demonstração FICTÍCIA (TASK-035; docs/demo.md)
+#   docker compose run --rm backend python -m app.create_admin --username admin
+#                                           # cria o primeiro admin; pede a senha (TASK-038; docs/demo.md)
 #   docker compose up -d postgres           # só o banco, para rodar backend/frontend direto (uv e npm)
 #
 # As variáveis vêm do .env da raiz (copiado de .env.example; ignorado pelo Git). Nenhum valor real
@@ -49,6 +51,9 @@ services:
       # Caminho fixo dentro do container, criado na imagem com o dono do processo (backend/Dockerfile);
       # o FILE_STORAGE_DIR do .env vale só para o backend rodando fora do container.
       FILE_STORAGE_DIR: /data/load-charts
+      # Flag Secure do cookie de sessão (TASK-038; ADR-016 § 3). Padrão true; false só para usar a
+      # stack em HTTP local (http://127.0.0.1:8080), nunca em produção. Vem do .env.
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
     volumes:
       - load-chart-files:/data/load-charts
     ports:
