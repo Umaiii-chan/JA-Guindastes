@@ -2,7 +2,11 @@ import { BoxGeometry, Mesh, MeshStandardMaterial } from 'three'
 import { describe, expect, it } from 'vitest'
 
 import { createProvisionalCrane } from '../../../src/three/crane/createProvisionalCrane'
-import { findOperatorEye, measureHookExtent } from '../../../src/three/crane/rigLandmarks'
+import {
+  findOperatorEye,
+  measureHookExtent,
+  OPERATOR_EYE_ABOVE_GLASS_M,
+} from '../../../src/three/crane/rigLandmarks'
 
 describe('rigLandmarks', () => {
   it('mede o gancho provisório no referencial de G: vai de 0 a −1,1 m', () => {
@@ -31,7 +35,7 @@ describe('rigLandmarks', () => {
     expect(findOperatorEye(createProvisionalCrane())).toBeNull()
   })
 
-  it('com vidro na torre, o olho fica no meio do vidro, a 60 % da altura, no referencial da base', () => {
+  it('com vidro na torre, o olho fica acima do meio do vidro, no referencial da base', () => {
     const rig = createProvisionalCrane()
     const glass = new Mesh(new BoxGeometry(1, 2, 1), new MeshStandardMaterial({ name: 'vidro' }))
     glass.position.set(1, 1, 0.5)
@@ -42,7 +46,7 @@ describe('rigLandmarks', () => {
     const eye = findOperatorEye(rig)!
 
     expect(eye.x).toBeCloseTo(rig.turret.position.x + 1, 6)
-    expect(eye.y).toBeCloseTo(rig.turret.position.y + 0 + 2 * 0.6, 6)
+    expect(eye.y).toBeCloseTo(rig.turret.position.y + 2 + OPERATOR_EYE_ABOVE_GLASS_M, 6)
     expect(eye.z).toBeCloseTo(rig.turret.position.z + 0.5, 6)
   })
 })

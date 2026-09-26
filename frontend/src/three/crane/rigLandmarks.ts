@@ -9,6 +9,8 @@ import type { CraneRig } from './CraneController'
 
 /** Materiais ou malhas de vidro da cabine, pelo nome (convenção do GLB da TASK-043: `torre-vidro`). */
 const CAB_GLASS_PATTERN = /vidro|glass/i
+/** Altura do olho do operador acima do topo do vidro da cabine (m). */
+export const OPERATOR_EYE_ABOVE_GLASS_M = 0.5
 
 /** Caixa das malhas sob `root` no referencial de `frame`, sem os ramos em `exclude`. */
 export function boxInFrameOf(
@@ -43,8 +45,10 @@ export function measureHookExtent(hook: Object3D, exclude: readonly Object3D[] =
 
 /**
  * Olho do operador no referencial da base com ψ = 0, a partir do vidro da cabine na torre (malhas
- * da torre, fora da lança, com "vidro"/"glass" no nome da malha ou do material): no meio do vidro, a
- * 60 % da altura. `null` se o rig não tiver vidro na torre (o guindaste provisório não tem).
+ * da torre, fora da lança, com "vidro"/"glass" no nome da malha ou do material): na vertical do meio
+ * do vidro, `OPERATOR_EYE_ABOVE_GLASS_M` acima do topo dele. Por dentro da cabine, o painel e as
+ * colunas tapavam a vista (conferido nas capturas), então o olho fica logo acima do teto, como no
+ * guindaste provisório. `null` se o rig não tiver vidro na torre (o provisório não tem).
  */
 export function findOperatorEye(rig: CraneRig): Vec3 | null {
   const glass: Object3D[] = []
@@ -67,7 +71,7 @@ export function findOperatorEye(rig: CraneRig): Vec3 | null {
   const turret = rig.turret.position
   return {
     x: turret.x + (box.min.x + box.max.x) / 2,
-    y: turret.y + box.min.y + (box.max.y - box.min.y) * 0.6,
+    y: turret.y + box.max.y + OPERATOR_EYE_ABOVE_GLASS_M,
     z: turret.z + (box.min.z + box.max.z) / 2,
   }
 }

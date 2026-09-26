@@ -155,11 +155,11 @@ describe('upgradeCraneModel', () => {
     expect(opaque.every((mesh) => mesh.castShadow && mesh.receiveShadow)).toBe(true)
     expect(glass.every((mesh) => !mesh.castShadow && mesh.receiveShadow)).toBe(true)
 
-    // Vidro da cabine da torre, do lado +X (GLB da TASK-043), entre 2,5 m e 4 m de altura.
+    // Acima do vidro da cabine da torre, do lado +X (GLB da TASK-043): o teto do vidro fica a 3,63 m.
     const eye = contents.operatorEye!
     expect(eye.x).toBeGreaterThan(0.4)
     expect(eye.y).toBeGreaterThan(2.5)
-    expect(eye.y).toBeLessThan(4)
+    expect(eye.y).toBeLessThan(4.5)
   })
 
   it('se o GLB não carregar, fica no provisório com aviso, e os comandos continuam', async () => {
