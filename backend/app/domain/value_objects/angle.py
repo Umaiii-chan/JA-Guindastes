@@ -7,8 +7,8 @@ from app.domain.value_objects._numeric import require_finite
 class Angle:
     """Ângulo em graus, a unidade interna (RN-006).
 
-    Só exige valor finito. Não restringe faixa, sinal nem normaliza módulo 360°, porque o zero e o
-    sentido dos ângulos ainda não estão definidos (known-gaps P-001).
+    Só exige valor finito. Não restringe faixa, sinal nem normaliza módulo 360°: o zero e o sentido
+    dos ângulos estão no ADR-013, e as faixas válidas vêm da ficha técnica (`CraneGeometry`).
     """
 
     degrees: float

@@ -1,6 +1,8 @@
 # Arquitetura
 
-> **Status deste documento:** arquitetura **planejada; nenhum código implementado** (2026-09-26).
+> **Status deste documento:** arquitetura **parcialmente implementada** (2026-09-26): no backend, domínio da
+> tabela de carga, importação CSV provisória e geometria do ADR-013; no frontend, a PoC 3D. Persistência,
+> API de avaliação, WebSocket e a integração frontend ↔ backend ainda não existem.
 > Conteúdo da documentação técnica v0.1 ([`produto/documentacao-tecnica-v0.1.md`](produto/documentacao-tecnica-v0.1.md),
 > citada como "doc-fonte § N"). Quando o código existir, este documento passa a descrever a
 > arquitetura **como ela é**. Mudanças de arquitetura passam por ADR em [`decisions/`](decisions/README.md).
@@ -37,7 +39,8 @@ Diagramas originais em Graphviz, versionados em [`produto/diagrams/`](produto/di
 
 ## 2. Componentes
 
-Localizações **planejadas** (doc-fonte §§ 9, 17 e 18). Nada disso existe ainda.
+Localizações da doc-fonte §§ 9, 17 e 18. Já existem: domínio, aplicação (validação de importação),
+importador CSV, cena 3D e `CraneController`, UI React mínima. O resto é planejado.
 
 | Componente | Responsabilidade | Localização no código | Depende de |
 |------------|------------------|-----------------------|------------|
@@ -184,8 +187,8 @@ Resumo com link. O detalhe está no ADR.
 
 ## 9. O que os agentes NÃO devem presumir
 
-- Que existe código, pasta `frontend/` ou `backend/`, dependência instalada ou comando funcionando: nada disso existe ainda.
+- Que existe persistência, endpoint de negócio, WebSocket ou integração frontend ↔ backend: ainda não existem (2026-09-26); o backend só expõe o contrato OpenAPI.
 - Que os números dos exemplos da doc-fonte (§§ 14.2, 14.3 e 15.4) são capacidades ou tolerâncias reais: são ilustrativos.
 - Qualquer regra de interpolação, arredondamento, nível de alerta ou extrapolação: estão **PENDENTES** (PEND-001..004; RN-007).
-- A geometria de cálculo (referência do raio, altura do gancho, offsets): não definida na doc-fonte.
+- Que a geometria de cálculo é definitiva: ela segue o ADR-013 (aceito, **provisório**), com itens A VALIDAR com a empresa.
 - Veja também [`known-gaps.md`](known-gaps.md).

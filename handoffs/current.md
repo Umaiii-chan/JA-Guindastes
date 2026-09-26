@@ -7,9 +7,9 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Data/hora** | 2026-09-26 15:15 (UTC-3, Brasília) |
-| **Atualizado por** | agente Claude Code 2.1.280 (Opus 5.5), no commit-base da leva TASK-010..013 |
-| **Branch de referência** | `development` @ `f7570d7` |
+| **Data/hora** | 2026-09-26 15:50 (UTC-3, Brasília) |
+| **Atualizado por** | agente Claude Code 2.1.280 (Opus 5.5), no commit-base da leva TASK-015..017 |
+| **Branch de referência** | `development` @ `f18dd9e` |
 
 ---
 
@@ -17,18 +17,18 @@
 
 - Produto: Simulador Web 3D para Análise de Tabelas de Carga de Guindastes (`docs/project-overview.md`).
 - Contexto mínimo preenchido (TASK-002); ADR-003..012 aceitos; toolchain no ADR-012.
-- Backend: esqueleto em Clean Architecture com gates no CI (TASK-004/005) e núcleo de domínio da tabela de carga, sem interpolação (TASK-008). Frontend: esqueleto com gates (TASK-007).
-- ADR-013 (convenções geométricas provisórias) está **Proposto**: aguarda aceite da pessoa.
-- Concluídas: TASK-001..009 (`tasks/completed/`).
+- Backend: esqueleto com gates, núcleo de domínio da tabela de carga (sem interpolação), importação CSV provisória (TASK-010) e geometria operacional do ADR-013 (TASK-014). Frontend: esqueleto e PoC Three.js com guindaste provisório (TASK-013).
+- ADR-003..013 aceitos.
+- Concluídas: TASK-001..010, 012..014 (`tasks/completed/`). Em andamento: TASK-011 (persistência).
 
 ## 2. Tarefas em andamento e seus handoffs
 
 | Tarefa | Handoff | O que é |
 |--------|---------|---------|
-| TASK-010 | `handoffs/TASK-010.md` (na branch da tarefa) | importação de tabela CSV com relatório de inconsistências |
 | TASK-011 | `handoffs/TASK-011.md` (na branch da tarefa) | persistência: Docker Compose + PostgreSQL + SQLAlchemy + Alembic |
-| TASK-012 | `handoffs/TASK-012.md` (na branch da tarefa) | README do produto |
-| TASK-013 | `handoffs/TASK-013.md` (na branch da tarefa) | PoC Three.js com guindaste provisório e controles (só visual) |
+| TASK-015 | `handoffs/TASK-015.md` (na branch da tarefa) | caso de uso de avaliação: geometria + consulta à tabela + utilização |
+| TASK-016 | `handoffs/TASK-016.md` (na branch da tarefa) | pré-visualização da geometria (ADR-013) na cena 3D |
+| TASK-017 | `handoffs/TASK-017.md` (na branch da tarefa) | sincronizar docs desatualizados |
 
 ## 3. Autorizações permanentes da pessoa responsável
 
@@ -59,10 +59,9 @@ Ver o handoff de cada tarefa (seção 2).
 
 | # | Pergunta | Bloqueia? | Resposta | Respondida em |
 |---|----------|-----------|----------|---------------|
-| 1 | Apagar as branches das tarefas mergeadas (`task/TASK-001..009`, remotas e locais) | não | | |
+| 1 | Apagar as branches das tarefas mergeadas (`task/TASK-001..014`, remotas e locais) | não | | |
 | 2 | Versão mais nova da doc-fonte (P-013) · onde fica o orquestrador (P-010) · dados oficiais podem ir ao repositório e a agentes de IA (P-007) | não | | |
-| 4 | Aceitar, pedir mudanças ou rejeitar o ADR-013 (destrava `GeometryService` e cálculo de raio/altura); perguntas G-1..G-8 para a empresa no próprio ADR | sim, para a geometria | | |
-| 5 | 11 perguntas de domínio da TASK-008 em `handoffs/history/2026-09-26-TASK-008-implementacao.md` § 8 | não | | |
+| 5 | Perguntas de domínio sem bloqueio: TASK-008 (11), TASK-010 (12), TASK-014 (5) — § 8 dos handoffs em `handoffs/history/` | não | | |
 | 3 | Antes de mergear, conferir se todos os checks estão verdes (sem branch protection, o GitHub não impede) e usar **squash** | — | | |
 
 ## 8. ⚠️ Segurança

@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (leva TASK-010..013, commit `ae2ec66`) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-013-poc-threejs-guindaste` (a partir de `ae2ec66`, commit-base da leva) |
-| **PR** | — (a abrir) |
+| **PR** | [#12](https://github.com/Umaiii-chan/JA-Guindastes/pull/12), mergeado em 2026-09-26 com CI verde |
 | **Requisitos** | RF-012, RF-013, RF-014 (só no nível visual); RNF-002; Estação 2 "prova de conceito Three.js carregando um guindaste" (doc-fonte § 23) |
 | **Regras de negócio** | RN-003, RN-008 (o controller nunca decide capacidade nem segurança) |
 | **Estimativa** | M |
@@ -153,6 +153,8 @@ visual: nenhum raio, altura ou capacidade é calculado.
 **Resultado:** — (aguardando revisão)
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...

@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (leva TASK-010..013, tarefas em paralelo) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-010-importacao-csv-tabela-carga` (a partir de `ae2ec66`, commit-base da leva TASK-010..013) |
-| **PR** | — |
+| **PR** | [#11](https://github.com/Umaiii-chan/JA-Guindastes/pull/11), mergeado em 2026-09-26 com CI verde |
 | **Requisitos** | RF-006, RF-008 (parcial), RF-009, RNF-002, RNF-006, RNF-008 |
 | **Regras de negócio** | RN-001, RN-005, RN-006 |
 | **Estimativa** | M |
@@ -173,6 +173,8 @@ Arquivos: `backend/tests/infrastructure/test_csv_load_chart_parser.py` (parser),
 **Resultado:** — (aguardando revisão)
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...
