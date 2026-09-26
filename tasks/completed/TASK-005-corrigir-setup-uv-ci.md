@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta (CI de `development` quebrado) |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (pedido em sessão com o agente Claude Code) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-005-corrigir-setup-uv-ci` (a partir de `development` @ `f0d0bfc`) |
-| **PR** | — |
+| **PR** | [#5](https://github.com/Umaiii-chan/JA-Guindastes/pull/5), mergeado em 2026-09-26 com o job Backend verde |
 | **Requisitos** | — |
 | **Regras de negócio** | — |
 | **Estimativa** | P |
@@ -81,6 +81,8 @@ Não se aplica.
 **Resultado:** — (aguardando revisão)
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (mover tarefas mergeadas; revisão independente dispensada).
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...

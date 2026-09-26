@@ -17,7 +17,7 @@ Antes de escrever qualquer linha de código ou documentação, leia nesta ordem:
 | # | Arquivo | Por quê |
 |---|---------|---------|
 | 1 | `AGENTS.md` (este arquivo) | Regras de trabalho |
-| 2 | `handoffs/current.md` | **Onde o trabalho parou.** Estado real, pendências e próximo passo |
+| 2 | `handoffs/current.md` e `handoffs/TASK-NNN.md` da sua tarefa | **Onde o trabalho parou.** Estado real, pendências e próximo passo (com tarefas em paralelo, cada uma tem o seu handoff) |
 | 3 | `tasks/in-progress/*.md` | A tarefa atual e seus critérios de aceite |
 | 4 | `docs/project-overview.md` | O que o sistema é e para quem |
 | 5 | `docs/architecture.md` | Componentes, camadas e dependências |
@@ -47,7 +47,7 @@ Cada sessão de trabalho segue este ciclo, sem pular etapas:
 5. Executar    → sua etapa (planejar, escrever testes, implementar, revisar)
 6. Verificar   → rode os comandos de docs/development-guide.md e docs/testing-strategy.md
 7. Documentar  → atualize docs/ se o comportamento mudou; crie ADR se houve decisão
-8. Handoff     → atualize handoffs/current.md usando docs/templates/handoff-template.md
+8. Handoff     → atualize handoffs/TASK-NNN.md da sua tarefa (ou handoffs/current.md, se for a única) usando docs/templates/handoff-template.md
 ```
 
 A etapa 8 **não é opcional**. Um trabalho sem handoff é considerado não feito.
@@ -164,8 +164,12 @@ Sempre use `docs/templates/handoff-template.md`. Os campos mínimos são:
 - próximo passo concreto e qual papel deve executá-lo;
 - arquivos que o próximo agente deve ler primeiro.
 
-Ao encerrar, copie `handoffs/current.md` para `handoffs/history/<AAAA-MM-DD>-<TASK-ID>-<etapa>.md`
-e reescreva `current.md` apontando para o próximo passo.
+Ao encerrar, copie o handoff da tarefa para `handoffs/history/<AAAA-MM-DD>-<TASK-ID>-<etapa>.md`
+e reescreva-o apontando para o próximo passo.
+
+**Tarefas em paralelo** (até 4, decisão de 2026-09-26): cada tarefa escreve o próprio handoff em
+`handoffs/TASK-NNN.md` e **não** edita `handoffs/current.md`, que passa a ser o índice geral. Assim
+branches paralelas não entram em conflito. Detalhes em `handoffs/README.md`.
 
 ---
 

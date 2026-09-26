@@ -1,96 +1,78 @@
-# Handoff — TASK-005 — implementação (correção do setup-uv no CI)
+# Handoff — índice geral do projeto
 
-> Handoff anterior (TASK-004) arquivado em `handoffs/history/2026-09-26-TASK-004-implementacao.md`.
-> A TASK-004 foi mergeada (PR #4) com o job "Backend" falhando, e continua em `tasks/in-progress/`
-> até a pessoa decidir movê-la (pendência 1).
+> Desde a TASK-006 (2026-09-26), até 4 tarefas podem andar em paralelo, e **cada uma tem o próprio
+> handoff em `handoffs/TASK-NNN.md`**. Este arquivo é o índice: estado do projeto, autorizações
+> permanentes da pessoa responsável e pendências gerais. Branches de tarefa não o editam
+> (ver `handoffs/README.md` → "Tarefas em paralelo").
 
 | Campo | Valor |
 |-------|-------|
-| **Data/hora** | 2026-09-26 14:37 (UTC-3, Brasília) |
-| **Tarefa** | `tasks/in-progress/TASK-005-corrigir-setup-uv-ci.md` |
-| **Etapa concluída** | implementação |
-| **Papel exercido** | Planejador + Implementador (um único agente, declarado conforme AGENTS.md § 3) |
-| **Ferramenta/agente** | Claude Code 2.1.280 (modelo Opus 5.5), app desktop |
-| **Branch** | `task/TASK-005-corrigir-setup-uv-ci`, a partir de `development` @ `f0d0bfc` |
-| **Duração aproximada** | ~10 min |
+| **Data/hora** | 2026-09-26 14:44 (UTC-3, Brasília) |
+| **Atualizado por** | agente Claude Code 2.1.280 (Opus 5.5), na TASK-006 |
+| **Branch de referência** | `development` @ `c0955b2` |
 
 ---
 
-## 1. Objetivo desta etapa
+## 1. Estado do projeto
 
-Fazer o job "Backend" do CI voltar a rodar.
+- Produto: Simulador Web 3D para Análise de Tabelas de Carga de Guindastes (`docs/project-overview.md`).
+- Contexto mínimo preenchido (TASK-002); ADR-003..012 aceitos; toolchain no ADR-012.
+- Backend: esqueleto em Clean Architecture com gates no CI (TASK-004, TASK-005). Frontend: em andamento.
+- Concluídas: TASK-001..005 (`tasks/completed/`).
 
-## 2. O que foi feito
+## 2. Tarefas em andamento e seus handoffs
 
-- Li o log do job que falhou no run `36259482656` (PR #4):
-  `Unable to resolve action astral-sh/setup-uv@v10, unable to find version v10`.
-- Verifiquei no GitHub que a tag `v10` não existe e que a `v10.2.0` existe (`c18668ad…`).
-- Troquei a linha no `.github/workflows/ci.yml` para `astral-sh/setup-uv@v10.2.0`.
+| Tarefa | Handoff | O que é |
+|--------|---------|---------|
+| TASK-006 | `handoffs/TASK-006.md` | tarefas em paralelo no protocolo |
+| TASK-007 | `handoffs/TASK-007.md` (na branch da tarefa) | esqueleto do frontend |
+| TASK-008 | `handoffs/TASK-008.md` (na branch da tarefa) | núcleo de domínio da tabela de carga |
+| TASK-009 | `handoffs/TASK-009.md` (na branch da tarefa) | ADR-013: convenções geométricas provisórias (`Proposto`) |
 
-## 3. Arquivos modificados
+## 3. Autorizações permanentes da pessoa responsável
 
-```text
- M .github/workflows/ci.yml   (1 linha)
- M docs/development-guide.md  (1 linha na § 9: push recusado sem escopo workflow)
-?? handoffs/history/2026-09-26-TASK-004-implementacao.md
-?? tasks/in-progress/TASK-005-corrigir-setup-uv-ci.md
-```
+Dadas em chat em 2026-09-26. Valem até a pessoa revogar.
 
-(mais este `handoffs/current.md`). Fora do escopo: nenhum.
+1. **Mover para `tasks/completed/` toda tarefa que ela mergear**, registrando na tarefa que a revisão
+   independente (AGENTS.md § 3) foi dispensada por ela.
+2. **Até 4 tarefas em paralelo**, inclusive com agentes em segundo plano em worktrees separadas,
+   desde que não toquem os mesmos arquivos (TASK-006).
+3. **Alterar `.github/workflows/ci.yml`** para os gates de backend e frontend (TASK-004).
+4. **Dados fictícios rotulados FICTÍCIO** nos testes, até a tabela oficial chegar (ADR-012).
+5. **Fazer push e abrir PR** de cada tarefa assim que ela ficar pronta, sem perguntar a cada vez. O
+   merge continua sendo da pessoa.
 
-## 4. Comandos executados e resultados
+## 4. O que foi feito
 
-| Comando | Resultado | Saída (resumo) |
-|---------|-----------|----------------|
-| `gh run view 36259482656 --log-failed` | ✅ | erro de resolução da action `setup-uv@v10` no passo "Set up job" |
-| `gh api repos/astral-sh/setup-uv/git/ref/tags/v10` | ✅ | `Not Found` |
-| `gh api repos/astral-sh/setup-uv/git/ref/tags/v10.2.0` | ✅ | `c18668ad3cf93ea998bef934396af7bb5c839dc7` |
-| `bash scripts/check-structure.sh` | ver o commit | rodado antes do commit |
-| CI do PR (job Backend) | ⚠️ NÃO EXECUTADO ainda | roda quando o PR for aberto |
+Histórico por tarefa em `handoffs/history/`. Último registro de etapa única:
+`handoffs/history/2026-09-26-TASK-005-implementacao.md`.
 
-## 5. Decisões tomadas
+## 5. Arquivos modificados
 
-- Usei a tag completa `v10.2.0`, que é o formato que essa action publica.
-- Tarefa separada, e não dentro do frontend, porque o CI de `development` está quebrado.
-- A mudança no arquivo protegido está dentro da autorização da TASK-004 (gates de backend e frontend).
+Ver o handoff de cada tarefa (seção 2).
 
-## 6. Regras de negócio aplicadas
+## 6. Comandos executados e resultados
 
-- nenhuma
+Ver o handoff de cada tarefa (seção 2).
 
-## 7. O que NÃO foi feito e por quê
-
-- Frontend: passa a ser a TASK-006.
-
-## 8. Pendências / decisões necessárias (para a pessoa responsável)
+## 7. Pendências gerais (para a pessoa responsável)
 
 | # | Pergunta | Bloqueia? | Resposta | Respondida em |
 |---|----------|-----------|----------|---------------|
-| 1 | Mover a TASK-004 para `completed/` (sem revisão independente)? | — | Sim, movida nesta branch (pessoa, em chat) | 2026-09-26 |
-| 2 | Antes de mergear, conferir se todos os checks estão verdes (sem branch protection no plano Free, o GitHub não impede o merge) | — | | |
-| 3 | Herdadas: apagar as branches das tarefas mergeadas; P-013, P-010, P-007 (dados oficiais); convenções geométricas P-001..P-003 | não | | |
+| 1 | Apagar as branches das tarefas mergeadas (`task/TASK-001..005`, remotas e locais) | não | | |
+| 2 | Versão mais nova da doc-fonte (P-013) · onde fica o orquestrador (P-010) · dados oficiais podem ir ao repositório e a agentes de IA (P-007) | não | | |
+| 3 | Antes de mergear, conferir se todos os checks estão verdes (sem branch protection, o GitHub não impede) e usar **squash** | — | | |
 
-## 9. ⚠️ Segurança
+## 8. ⚠️ Segurança
 
 - nada a relatar
 
-## 10. Próximo passo
+## 9. Próximo passo
 
-**Papel:** Pessoa responsável (merge com **squash** depois do CI verde); depois Implementador da TASK-006
+**Papel:** Pessoa responsável
 
-**O que fazer, concretamente:**
-1. Confirmar que o job "Backend" passou no PR desta tarefa e fazer o merge.
-2. TASK-006: esqueleto do frontend (Vite + React + TypeScript + Three.js puro) com gates no job `quality`.
+1. Revisar e mergear os PRs das tarefas em andamento (seção 2), começando pela TASK-006, que muda o
+   protocolo de que as outras dependem.
+2. Responder as pendências da seção 7.
 
-**Ler primeiro:**
-1. `AGENTS.md`
-2. este handoff
-3. `handoffs/history/2026-09-26-TASK-004-implementacao.md` (contexto do backend)
-
-**Cuidado com:**
-- Pushes que alteram `.github/workflows/` exigem o escopo `workflow` no token (ver
-  `docs/development-guide.md` § 9).
-
-## 11. Como revisar este trabalho
-
-- Uma linha no `ci.yml`. A evidência é o job "Backend" verde no PR.
+**Ler primeiro:** `AGENTS.md`, este índice e o handoff da tarefa que for trabalhar.
