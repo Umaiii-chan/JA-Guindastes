@@ -1,0 +1,12 @@
+# Model identifiers deliberately live in configuration because providers change them.
+models:
+  architect: "google_genai:gemini-2.5-pro"
+  test_engineer: "openai:gpt-5"
+  developer: "anthropic:claude-sonnet-4-5"
+  reviewer: "openai:gpt-5"
+
+limits:
+  max_repo_files: 200
+  max_file_chars: 30000
+  max_total_chars: 350000
+

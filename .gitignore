@@ -1,0 +1,35 @@
+# Segredos e ambiente local — NUNCA versionar
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Sistema operacional / editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Anotações pessoais (se usar Obsidian dentro do repo, mantenha fora do Git)
+.obsidian/
+notes-local/
+
+# Arquivos baixados de ferramentas de IA (evita commit acidental via `git add -A`)
+Claude outputs/
+
+# Saídas genéricas de build/test (ajuste à stack em docs/development-guide.md)
+dist/
+build/
+coverage/
+.coverage
+*.log
+
+# Protótipo de referência (Python)
+reference/langgraph-prototype/.venv/
+reference/langgraph-prototype/__pycache__/
+reference/langgraph-prototype/.pytest_cache/
+reference/langgraph-prototype/.ruff_cache/
+reference/langgraph-prototype/.mypy_cache/
+reference/langgraph-prototype/.ai/runs/

@@ -1,0 +1,281 @@
+# =============================================================================
+# CI — verificações determinísticas + deploy por ambiente.
+#
+# Nenhum passo chama IA. As verificações não precisam de segredo nenhum; só o
+# job de deploy usa credenciais, e elas vêm do GitHub Environment da branch.
+#
+# Os comandos de verificação devem ser EXATAMENTE os mesmos listados em
+# docs/development-guide.md § 3. Se mudar aqui, mude lá (e vice-versa).
+#
+# Modelo de branches (ADR-002): development → homologation → production.
+# Cada branch faz deploy do ambiente de mesmo nome.
+#
+# Como adaptar:
+#   1. O job `structure` já funciona em qualquer projeto — não precisa mexer.
+#   2. No job `quality`, descomente e ajuste o bloco da sua stack e apague os
+#      demais. Cada bloco tem: setup + cache, instalação, lint, formatação,
+#      tipos, testes, build, auditoria.
+#   3. No job `deploy`, descomente o bloco da sua forma de publicar e crie os
+#      Environments no GitHub (Settings → Environments): development,
+#      homologation e production. Ver docs/guides/git-github.md § 8.3.
+# =============================================================================
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [development, homologation, production]
+  workflow_dispatch:
+
+# Menor privilégio no nível do workflow: só leitura do repositório.
+# O job de deploy amplia o que precisar, localmente.
+permissions:
+  contents: read
+
+# Cancela execuções antigas do mesmo PR/branch para economizar minutos.
+# Deploys em production NÃO são cancelados no meio (ver o job deploy).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Valida a estrutura do workflow de IAs (arquivos obrigatórios, handoff,
+  # tarefas, marcadores <preencher>, .env, co-autoria de IA em commits,
+  # links quebrados). Universal — funciona em qualquer stack.
+  # ---------------------------------------------------------------------------
+  structure:
+    name: Estrutura do workflow
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # histórico necessário para comparar os commits da branch com development
+          fetch-depth: 0
+      - name: check-structure.sh
+        run: bash scripts/check-structure.sh
+        # Quando o projeto amadurecer, torne avisos em erros:
+        # env:
+        #   STRICT: "1"
+
+  # ---------------------------------------------------------------------------
+  # Qualidade do código. Descomente o bloco da sua stack.
+  # ---------------------------------------------------------------------------
+  quality:
+    name: Lint, testes e build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: structure
+    steps:
+      - uses: actions/checkout@v4
+
+      # ======================= PLACEHOLDER (apague ao adaptar) =================
+      # Enquanto nenhuma stack estiver configurada, este passo lembra que o CI
+      # ainda não valida código. Remova-o ao descomentar um bloco abaixo.
+      - name: Stack ainda não configurada
+        run: |
+          echo "::warning::Nenhuma stack configurada em .github/workflows/ci.yml."
+          echo "Descomente o bloco da sua stack e alinhe com docs/development-guide.md § 3."
+      # =========================================================================
+
+      # ======================= NODE.JS / TYPESCRIPT ============================
+      # - uses: actions/setup-node@v4
+      #   with:
+      #     node-version: "22"
+      #     cache: npm                      # ou pnpm / yarn
+      # - run: npm ci
+      # - name: Lint
+      #   run: npm run lint
+      # - name: Formatação
+      #   run: npm run format:check         # ex.: prettier --check .
+      # - name: Tipos
+      #   run: npm run typecheck            # ex.: tsc --noEmit
+      # - name: Testes
+      #   run: npm test -- --coverage
+      # - name: Build
+      #   run: npm run build
+      # - name: Auditoria de dependências
+      #   run: npm audit --audit-level=high
+      # =========================================================================
+
+      # ======================= PYTHON (uv) =====================================
+      # - uses: astral-sh/setup-uv@v6
+      #   with:
+      #     enable-cache: true
+      # - uses: actions/setup-python@v5
+      #   with:
+      #     python-version-file: "pyproject.toml"   # ou python-version: "3.12"
+      # - run: uv sync --all-extras --dev
+      # - name: Lint
+      #   run: uv run ruff check .
+      # - name: Formatação
+      #   run: uv run ruff format --check .
+      # - name: Tipos
+      #   run: uv run mypy src
+      # - name: Testes
+      #   run: uv run pytest --cov=src --cov-report=term-missing
+      # - name: Auditoria de dependências
+      #   run: uv run pip-audit
+      # =========================================================================
+
+      # ======================= PYTHON (pip) ====================================
+      # - uses: actions/setup-python@v5
+      #   with:
+      #     python-version: "3.12"
+      #     cache: pip
+      # - run: pip install -r requirements.txt -r requirements-dev.txt
+      # - run: ruff check .
+      # - run: ruff format --check .
+      # - run: mypy src
+      # - run: pytest --cov=src
+      # - run: pip-audit
+      # =========================================================================
+
+      # ======================= GO ==============================================
+      # - uses: actions/setup-go@v5
+      #   with:
+      #     go-version-file: go.mod
+      #     cache: true
+      # - name: Formatação
+      #   run: test -z "$(gofmt -l .)"
+      # - name: Lint
+      #   uses: golangci/golangci-lint-action@v6
+      # - name: Testes
+      #   run: go test ./... -race -cover
+      # - name: Build
+      #   run: go build ./...
+      # - name: Auditoria de dependências
+      #   run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...   # fixe a versão; nunca @latest
+      # =========================================================================
+
+      # ======================= JAVA (Maven) ====================================
+      # - uses: actions/setup-java@v4
+      #   with:
+      #     distribution: temurin
+      #     java-version: "21"
+      #     cache: maven
+      # - name: Verificar (compila, testa, lint via plugins)
+      #   run: mvn -B verify
+      # - name: Auditoria de dependências
+      #   run: mvn -B org.owasp:dependency-check-maven:check
+      # =========================================================================
+
+      # ======================= .NET ============================================
+      # - uses: actions/setup-dotnet@v4
+      #   with:
+      #     dotnet-version: "8.0.x"
+      # - run: dotnet restore
+      # - name: Formatação
+      #   run: dotnet format --verify-no-changes
+      # - name: Build
+      #   run: dotnet build --no-restore --configuration Release
+      # - name: Testes
+      #   run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage"
+      # - name: Auditoria de dependências
+      #   run: dotnet list package --vulnerable --include-transitive
+      # =========================================================================
+
+  # ---------------------------------------------------------------------------
+  # Deploy do ambiente correspondente à branch.
+  #
+  # Só roda em `push` numa das três branches longas — nunca em PR, nunca em
+  # branch de tarefa — e só depois de `structure` e `quality` passarem.
+  #
+  # `environment.name` usa o nome da branch, então:
+  #   push em development  → Environment "development"
+  #   push em homologation → Environment "homologation"
+  #   push em production   → Environment "production"
+  #
+  # Os secrets vêm do Environment: use o MESMO nome de variável nos três
+  # (ex.: DATABASE_URL) com valores diferentes, e o workflow não precisa saber
+  # em qual ambiente está.
+  #
+  # Para exigir aprovação humana antes de subir para produção, configure
+  # "Required reviewers" no Environment `production` (Settings → Environments).
+  # Nada muda aqui: o job fica pendente até alguém aprovar.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy (${{ github.ref_name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [structure, quality]
+    if: github.event_name == 'push'
+    environment:
+      name: ${{ github.ref_name }}
+      # url: https://${{ github.ref_name }}.exemplo.com.br   # aparece no GitHub após o deploy
+    permissions:
+      contents: read
+      # id-token: write        # descomente se usar OIDC (AWS, GCP, Azure) em vez de secret estático
+    steps:
+      - uses: actions/checkout@v4
+
+      # ======================= PLACEHOLDER (apague ao adaptar) =================
+      - name: Deploy ainda não configurado
+        run: |
+          echo "::warning::Deploy não configurado para o ambiente '${{ github.ref_name }}'."
+          echo "Descomente um bloco em .github/workflows/ci.yml (job deploy) e crie o"
+          echo "GitHub Environment correspondente. Ver docs/guides/git-github.md § 8.3."
+      # =========================================================================
+
+      # ======================= EXEMPLO: container + registry ===================
+      # - name: Login no registry
+      #   uses: docker/login-action@v3
+      #   with:
+      #     registry: ${{ secrets.REGISTRY_HOST }}
+      #     username: ${{ secrets.REGISTRY_USER }}
+      #     password: ${{ secrets.REGISTRY_TOKEN }}
+      # - name: Build e push da imagem
+      #   uses: docker/build-push-action@v6
+      #   with:
+      #     push: true
+      #     tags: ${{ secrets.REGISTRY_HOST }}/meu-app:${{ github.ref_name }}-${{ github.sha }}
+      # - name: Aplicar no ambiente
+      #   run: ./scripts/deploy.sh "${{ github.ref_name }}" "${{ github.sha }}"
+      # =========================================================================
+
+      # ======================= EXEMPLO: hospedagem por CLI =====================
+      # (Vercel, Netlify, Fly.io, Railway, Render, Cloud Run, App Service...)
+      # - name: Publicar
+      #   env:
+      #     DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+      #     APP_ENV: ${{ github.ref_name }}
+      #   run: |
+      #     npx --yes <cli-da-plataforma> deploy --env "$APP_ENV" --token "$DEPLOY_TOKEN"
+      # =========================================================================
+
+      # ======================= EXEMPLO: migrations antes do deploy =============
+      # - name: Aplicar migrations
+      #   env:
+      #     DATABASE_URL: ${{ secrets.DATABASE_URL }}   # valor do Environment da branch
+      #   run: <comando de migration de docs/development-guide.md § 3>
+      # =========================================================================
+
+# -----------------------------------------------------------------------------
+# SE ENVIRONMENTS NÃO ESTIVEREM DISPONÍVEIS (repositório privado no plano
+# gratuito), remova o bloco `environment:` do job deploy e use repository
+# secrets com prefixo por ambiente. Exemplo:
+#
+#   - name: Selecionar secrets do ambiente
+#     id: env
+#     run: |
+#       case "${{ github.ref_name }}" in
+#         development)  echo "prefix=DEV"  >> "$GITHUB_OUTPUT" ;;
+#         homologation) echo "prefix=HOM"  >> "$GITHUB_OUTPUT" ;;
+#         production)   echo "prefix=PROD" >> "$GITHUB_OUTPUT" ;;
+#       esac
+#   - name: Publicar
+#     env:
+#       DATABASE_URL: ${{ secrets[format('{0}_DATABASE_URL', steps.env.outputs.prefix)] }}
+#     run: ...
+#
+# Nesse caminho você perde a aprovação humana antes do deploy. Se produção
+# precisar de aprovação, prefira um workflow separado com workflow_dispatch.
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# NÃO adicione aqui nenhum passo que chame ChatGPT, Claude, Gemini ou outra IA.
+# Isso exigiria chaves de API (custo) e contraria ADR-001. Se um dia for feito,
+# deve ser um workflow separado, manual (workflow_dispatch), com ambiente
+# protegido e aprovação humana.
+# -----------------------------------------------------------------------------
