@@ -28,6 +28,9 @@ Duas composições, escolhidas por `DATABASE_URL` (`compose_app`):
 Nas duas, a estratégia de consulta é a `ConservativeTabulatedLookup` (ADR-015, provisória), e REST e
 WebSocket usam a mesma montagem do `EvaluateOperation` (`build_evaluate_operation`).
 
+Catálogo (TASK-030): as rotas de cadastro usam o `SqlAlchemyCraneCatalogRepository` (TASK-022) e só
+são registradas quando `DATABASE_URL` está definida (ver `build_catalog_repository`).
+
 Rodar a API completa, em `backend/`: `uv run uvicorn app.main:app --reload`.
 """
 
@@ -141,6 +144,24 @@ def database_health_check(engine: Engine) -> DatabaseHealthCheck:
     return check_database
 
 
+def build_catalog_repository(
+    environ: Mapping[str, str] | None = None,
+) -> SqlAlchemyCraneCatalogRepository | None:
+    """Repositório do catálogo (TASK-022) para as rotas de cadastro (TASK-030).
+
+    Sem `DATABASE_URL` (testes sem banco, execução local sem PostgreSQL), devolve `None` e as rotas
+    do catálogo não são registradas. `DATABASE_URL` presente mas inválida levanta
+    `DatabaseConfigurationError` na subida. Criar o engine não abre conexão.
+    """
+    source = os.environ if environ is None else environ
+    if not source.get(DATABASE_URL_ENV_VAR, "").strip():
+        return None
+    settings = DatabaseSettings.from_environment(source)
+    return SqlAlchemyCraneCatalogRepository(
+        create_session_factory(create_database_engine(settings))
+    )
+
+
 def create_database_app(engine: Engine) -> FastAPI:
     """Aplicação completa com persistência no banco de `engine`."""
     return create_app(
@@ -150,6 +171,8 @@ def create_database_app(engine: Engine) -> FastAPI:
         evaluation=evaluate_operation_per_request(engine),
         evaluation_websocket=build_database_evaluate_operation(create_session_factory(engine)),
         database_health_check=database_health_check(engine),
+        # Catálogo (TASK-030) no mesmo engine da avaliação: um pool só.
+        catalog_repository=SqlAlchemyCraneCatalogRepository(create_session_factory(engine)),
         on_shutdown=engine.dispose,
     )
 

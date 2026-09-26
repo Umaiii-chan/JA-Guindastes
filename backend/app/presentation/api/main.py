@@ -17,8 +17,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
+from app.application.ports.crane_catalog_listing import CraneCatalogStore
 from app.application.ports.load_chart_parser import LoadChartParser
 from app.application.use_cases.evaluate_operation import EvaluateOperation
+from app.presentation.api.catalog import create_catalog_router
 from app.presentation.api.evaluations import (
     EvaluateOperationDependency,
     EvaluationDependencies,
@@ -39,6 +41,7 @@ def create_app(
     evaluation_websocket: EvaluateOperation | None = None,
     database_health_check: DatabaseHealthCheck | None = None,
     on_shutdown: Callable[[], None] | None = None,
+    catalog_repository: CraneCatalogStore | None = None,
 ) -> FastAPI:
     """Monta a aplicação com as rotas cujos adapters foram recebidos.
 
@@ -48,6 +51,7 @@ def create_app(
     - a rota REST de avaliação só entra com `evaluation` (provedores fixos ou dependência por
       requisição, ver `app.presentation.api.evaluations`);
     - o WebSocket de avaliação só entra com `evaluation_websocket` (o caso de uso pronto);
+    - as rotas do catálogo só entram com `catalog_repository` (TASK-030);
     - `on_shutdown` roda quando a aplicação encerra (a composição libera o pool do banco).
 
     Cada router novo entra como um bloco próprio na lista de registros abaixo, com o parâmetro
@@ -80,6 +84,9 @@ def create_app(
 
     if evaluation_websocket is not None:
         app.include_router(create_evaluation_websocket_router(evaluation_websocket))
+
+    if catalog_repository is not None:
+        app.include_router(create_catalog_router(catalog_repository))
 
     return app
 
