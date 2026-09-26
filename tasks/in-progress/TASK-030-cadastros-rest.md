@@ -32,13 +32,13 @@ repositórios da TASK-022.
 
 ## 3. Critérios de aceite
 
-- [ ] **CA-1** — Dado um nome não vazio, quando `POST /api/v1/manufacturers`, então responde 201 com o fabricante e um `id` gerado pelo servidor (UUID); `GET /api/v1/manufacturers` lista e `GET /api/v1/manufacturers/{id}` lê.
-- [ ] **CA-2** — Dado um fabricante existente, quando `POST /api/v1/cranes` com `manufacturer_id` e `model_name`, então responde 201; `GET /api/v1/cranes` lista (filtro opcional `manufacturer_id`) e `GET /api/v1/cranes/{crane_id}` lê.
-- [ ] **CA-3** — Dado um guindaste existente, quando `POST /api/v1/cranes/{crane_id}/configurations` com nome e ficha técnica opcional (campos do ADR-013 C-4, em unidades internas), então responde 201; `GET /api/v1/cranes/{crane_id}/configurations` lista e `GET /api/v1/configurations/{configuration_id}` lê, com a ficha.
-- [ ] **CA-4** — Recurso inexistente (na rota ou referenciado no corpo) responde 404; conflito de unicidade sinalizado pelo repositório responde 409.
-- [ ] **CA-5** — Corpo malformado responde 422: nome vazio ou só espaços, campo desconhecido, tipo errado, `NaN`/infinito, comprimento negativo, ficha incoerente (mínimo > máximo, θ fora de (−90°, 90°], giro com um só limite).
-- [ ] **CA-6** — Casos de uso cobertos com repositório falso; endpoints com `TestClient` e fakes; integração com banco (marcador `integration`) grava fabricante → guindaste → configuração e lê de volta.
-- [ ] **CA-7** — Gates do backend e `scripts/check-structure.sh` passam; nenhum teste existente quebra.
+- [x] **CA-1** — Dado um nome não vazio, quando `POST /api/v1/manufacturers`, então responde 201 com o fabricante e um `id` gerado pelo servidor (UUID); `GET /api/v1/manufacturers` lista e `GET /api/v1/manufacturers/{id}` lê.
+- [x] **CA-2** — Dado um fabricante existente, quando `POST /api/v1/cranes` com `manufacturer_id` e `model_name`, então responde 201; `GET /api/v1/cranes` lista (filtro opcional `manufacturer_id`) e `GET /api/v1/cranes/{crane_id}` lê.
+- [x] **CA-3** — Dado um guindaste existente, quando `POST /api/v1/cranes/{crane_id}/configurations` com nome e ficha técnica opcional (campos do ADR-013 C-4, em unidades internas), então responde 201; `GET /api/v1/cranes/{crane_id}/configurations` lista e `GET /api/v1/configurations/{configuration_id}` lê, com a ficha.
+- [x] **CA-4** — Recurso inexistente (na rota ou referenciado no corpo) responde 404; conflito de unicidade sinalizado pelo repositório responde 409.
+- [x] **CA-5** — Corpo malformado responde 422: nome vazio ou só espaços, campo desconhecido, tipo errado, `NaN`/infinito, comprimento negativo, ficha incoerente (mínimo > máximo, θ fora de (−90°, 90°], giro com um só limite).
+- [ ] **CA-6** — Casos de uso cobertos com repositório falso; endpoints com `TestClient` e fakes; integração com banco (marcador `integration`) grava fabricante → guindaste → configuração e lê de volta. (unitários e endpoints ✅; integração NÃO EXECUTADA localmente, o CI valida)
+- [x] **CA-7** — Gates do backend e `scripts/check-structure.sh` passam; nenhum teste existente quebra.
 
 ## 4. Escopo
 
@@ -83,10 +83,10 @@ nas rotas acima pelo `/docs`. **Esperado:** o que foi gravado volta igual.
 
 | # | Passo | Arquivos | Como verificar | Feito |
 |---|-------|----------|----------------|-------|
-| 1 | Porta de listagem + métodos no repositório SQLAlchemy | ports, repositories | mypy, integração | [ ] |
-| 2 | Casos de uso do catálogo | use_cases | testes com fake | [ ] |
-| 3 | Router e schemas; registro na composição | presentation, main | TestClient | [ ] |
-| 4 | Teste de integração | tests/infrastructure | CI | [ ] |
+| 1 | Porta de listagem + métodos no repositório SQLAlchemy | ports, repositories | mypy, integração | [x] |
+| 2 | Casos de uso do catálogo | use_cases | testes com fake | [x] |
+| 3 | Router e schemas; registro na composição | presentation, main | TestClient | [x] |
+| 4 | Teste de integração | tests/presentation/test_catalog_integration.py | CI | [x] |
 
 **Análise de impacto:**
 - Arquivos que podem quebrar indiretamente: testes que importam `app.main` (composição).
