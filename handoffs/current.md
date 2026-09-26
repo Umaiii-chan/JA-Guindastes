@@ -7,9 +7,9 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Data/hora** | 2026-09-26 16:20 (UTC-3, Brasília) |
-| **Atualizado por** | agente Claude Code 2.1.280 (Opus 5.5), no commit-base da leva TASK-018..019 |
-| **Branch de referência** | `development` @ `f545c78` |
+| **Data/hora** | 2026-09-26 16:50 (UTC-3, Brasília) |
+| **Atualizado por** | agente Claude Code 2.1.280 (Opus 5.5), no commit-base da TASK-020 |
+| **Branch de referência** | `development` @ `b471b6e` |
 
 ---
 
@@ -19,16 +19,15 @@
 - Contexto mínimo preenchido (TASK-002); ADR-003..012 aceitos; toolchain no ADR-012.
 - Backend: esqueleto com gates, núcleo de domínio da tabela de carga (sem interpolação), importação CSV provisória (TASK-010) e geometria operacional do ADR-013 (TASK-014). Frontend: esqueleto e PoC Three.js com guindaste provisório (TASK-013).
 - ADR-003..013 aceitos.
-- Concluídas: TASK-001..014 e 017 (`tasks/completed/`). Persistência (TASK-011) sem tabelas de negócio; banco real não verificado localmente (virtualização desativada).
+- Concluídas: TASK-001..015, 017 e 018 (`tasks/completed/`). CI roda os testes de integração contra PostgreSQL de serviço (TASK-018).
 
 ## 2. Tarefas em andamento e seus handoffs
 
 | Tarefa | Handoff | O que é |
 |--------|---------|---------|
-| TASK-015 | `handoffs/TASK-015.md` (na branch da tarefa) | caso de uso de avaliação: geometria + consulta à tabela + utilização |
 | TASK-016 | `handoffs/TASK-016.md` (na branch da tarefa) | pré-visualização da geometria (ADR-013) na cena 3D |
-| TASK-018 | `handoffs/TASK-018.md` (na branch da tarefa) | PostgreSQL no CI e ADR-014 (ORM e driver, Proposto) |
 | TASK-019 | `handoffs/TASK-019.md` (na branch da tarefa) | endpoint REST de validação da importação CSV |
+| TASK-020 | `handoffs/TASK-020.md` (na branch da tarefa) | consulta conservadora provisória na tabela (ADR-015) |
 
 ## 3. Autorizações permanentes da pessoa responsável
 
@@ -59,7 +58,7 @@ Ver o handoff de cada tarefa (seção 2).
 
 | # | Pergunta | Bloqueia? | Resposta | Respondida em |
 |---|----------|-----------|----------|---------------|
-| 1 | Apagar as branches das tarefas mergeadas (`task/TASK-001..017`, remotas e locais) | não | | |
+| 1 | Apagar as branches das tarefas mergeadas (`task/TASK-001..018`, remotas e locais) | não | | |
 | 2 | Versão mais nova da doc-fonte (P-013) · onde fica o orquestrador (P-010) · dados oficiais podem ir ao repositório e a agentes de IA (P-007) | não | | |
 | 5 | Perguntas de domínio sem bloqueio: TASK-008 (11), TASK-010 (12), TASK-014 (5) — § 8 dos handoffs em `handoffs/history/` | não | | |
 | 6 | Ativar a virtualização do Windows (Plataforma de Máquina Virtual / BIOS) para o Docker rodar o PostgreSQL local (TASK-011) | não | | |

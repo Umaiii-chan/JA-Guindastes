@@ -19,6 +19,12 @@ class CapacityUnsupportedReason(StrEnum):
 
     POINT_NOT_IN_CHART = "POINT_NOT_IN_CHART"
     """A combinação consultada não é um ponto da tabela, e a estratégia usada não interpola."""
+    BOOM_LENGTH_NOT_IN_CHART = "BOOM_LENGTH_NOT_IN_CHART"
+    """O comprimento de lança não coincide (±ε) com nenhum comprimento da tabela (ADR-015)."""
+    RADIUS_BELOW_CHART_MIN = "RADIUS_BELOW_CHART_MIN"
+    """O raio fica abaixo do menor raio tabelado do comprimento consultado, além de ε (ADR-015)."""
+    RADIUS_ABOVE_CHART_MAX = "RADIUS_ABOVE_CHART_MAX"
+    """O raio fica acima do maior raio tabelado do comprimento consultado, além de ε (ADR-015)."""
 
 
 @dataclass(frozen=True)
