@@ -105,10 +105,10 @@ Não há: todo o comportamento é verificado pelos testes automatizados de domí
 | # | Passo | Arquivos | Como verificar | Feito |
 |---|-------|----------|----------------|-------|
 | 1 | Criar esta tarefa | `tasks/in-progress/` | `check-structure.sh` | [x] |
-| 2 | Exceções e value objects de unidade | `app/domain/exceptions/`, `app/domain/value_objects/` | CA-1, gates | [ ] |
-| 3 | Entidades `LoadChartPoint` e `LoadChart` | `app/domain/entities/` | CA-2..CA-4 | [ ] |
-| 4 | Porta, `ExactPointLookup` e utilização | `app/domain/services/`, `app/domain/value_objects/` | CA-5..CA-8 | [ ] |
-| 5 | known-gaps e handoff | `docs/known-gaps.md`, `handoffs/TASK-008.md` | CA-9, CA-10 | [ ] |
+| 2 | Exceções e value objects de unidade | `app/domain/exceptions/`, `app/domain/value_objects/` | CA-1, gates | [x] |
+| 3 | Entidades `LoadChartPoint` e `LoadChart` | `app/domain/entities/` | CA-2..CA-4 | [x] |
+| 4 | Porta, `ExactPointLookup` e utilização | `app/domain/services/`, `app/domain/value_objects/` | CA-5..CA-8 | [x] |
+| 5 | known-gaps e handoff | `docs/known-gaps.md`, `handoffs/TASK-008.md` | CA-9, CA-10 | [x] |
 
 **Análise de impacto:**
 - Arquivos que podem quebrar indiretamente: nenhum (pacotes de domínio estavam vazios).
@@ -119,14 +119,14 @@ Não há: todo o comportamento é verificado pelos testes automatizados de domí
 
 | Cenário | Critério | Tipo | Arquivo de teste | Status |
 |---------|----------|------|------------------|--------|
-| unidades rejeitam NaN/infinito/não número; negativos por tipo | CA-1 | unitário | `backend/tests/domain/test_quantities.py` | a escrever |
-| capacidade negativa rejeitada | CA-2 | unitário | `backend/tests/domain/test_load_chart.py` | a escrever |
-| pontos conflitantes rejeitados, repetidos iguais aceitos | CA-3 | unitário | `backend/tests/domain/test_load_chart.py` | a escrever |
-| campos e estados da `LoadChart` | CA-4 | unitário | `backend/tests/domain/test_load_chart.py` | a escrever |
-| ponto exato da tabela FICTÍCIA | CA-5 | unitário | `backend/tests/domain/test_exact_point_lookup.py` | a escrever |
-| consulta fora de ponto exato → não suportado | CA-6 | unitário | `backend/tests/domain/test_exact_point_lookup.py` | a escrever |
-| versão da tabela no resultado | CA-7 | unitário | `backend/tests/domain/test_exact_point_lookup.py` | a escrever |
-| utilização e capacidade zero | CA-8 | unitário | `backend/tests/domain/test_utilization.py` | a escrever |
+| unidades rejeitam NaN/infinito/não número; negativos por tipo | CA-1 | unitário | `backend/tests/domain/test_quantities.py` | verde |
+| capacidade negativa rejeitada | CA-2 | unitário | `backend/tests/domain/test_load_chart.py` | verde |
+| pontos conflitantes rejeitados, repetidos iguais aceitos | CA-3 | unitário | `backend/tests/domain/test_load_chart.py` | verde |
+| campos e estados da `LoadChart` | CA-4 | unitário | `backend/tests/domain/test_load_chart.py` | verde |
+| ponto exato da tabela FICTÍCIA | CA-5 | unitário | `backend/tests/domain/test_exact_point_lookup.py` | verde |
+| consulta fora de ponto exato → não suportado | CA-6 | unitário | `backend/tests/domain/test_exact_point_lookup.py` | verde |
+| versão da tabela no resultado | CA-7 | unitário | `backend/tests/domain/test_exact_point_lookup.py` | verde |
+| utilização e capacidade zero | CA-8 | unitário | `backend/tests/domain/test_utilization.py` | verde |
 
 ## 10. Parecer da revisão (preenchido pelo Revisor)
 
