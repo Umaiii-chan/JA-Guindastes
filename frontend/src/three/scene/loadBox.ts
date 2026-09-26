@@ -31,8 +31,9 @@ export interface LoadBoxLayout {
 }
 
 /**
- * Onde as lingas se prendem no gancho do modelo provisório (m abaixo de G): na curva do gancho, que
- * vai de −0,65 a −1,1 m em `createProvisionalCrane`. Com o GLB real, virá do nó do gancho.
+ * Onde as lingas se prendem (m abaixo de G) quando não há medida do gancho: a curva do gancho do
+ * modelo provisório vai de −0,65 a −1,1 m (`createProvisionalCrane`). A cena mede o gancho do rig em
+ * uso (`HookLoad`, com `measureHookExtent`) e passa o valor medido a `computeLoadBox`.
  */
 export const HOOK_ATTACH_OFFSET_M = 1.05
 
@@ -50,16 +51,25 @@ export function isValidLoad(load: LoadDimensions | null | undefined): load is Lo
   )
 }
 
-/** Caixa da carga abaixo do gancho, ou `null` sem carga ou com medidas inválidas (fica só o gancho). */
-export function computeLoadBox(load: LoadDimensions | null | undefined): LoadBoxLayout | null {
+/**
+ * Caixa da carga abaixo do gancho, ou `null` sem carga ou com medidas inválidas (fica só o gancho).
+ * `attachOffsetM` é a distância de G até o ponto de amarração das lingas, na base do gancho; um valor
+ * inválido (não finito ou ≤ 0) cai em `HOOK_ATTACH_OFFSET_M`.
+ */
+export function computeLoadBox(
+  load: LoadDimensions | null | undefined,
+  attachOffsetM: number = HOOK_ATTACH_OFFSET_M,
+): LoadBoxLayout | null {
   if (!isValidLoad(load)) return null
-  const topY = -(HOOK_ATTACH_OFFSET_M + slingDropM(load))
+  const attach =
+    Number.isFinite(attachOffsetM) && attachOffsetM > 0 ? attachOffsetM : HOOK_ATTACH_OFFSET_M
+  const topY = -(attach + slingDropM(load))
   const halfX = load.widthM / 2
   const halfZ = load.lengthM / 2
   return {
     size: { x: load.widthM, y: load.heightM, z: load.lengthM },
     center: { x: 0, y: topY - load.heightM / 2, z: 0 },
-    slingTop: { x: 0, y: -HOOK_ATTACH_OFFSET_M, z: 0 },
+    slingTop: { x: 0, y: -attach, z: 0 },
     slingBottoms: [
       { x: -halfX, y: topY, z: -halfZ },
       { x: halfX, y: topY, z: -halfZ },

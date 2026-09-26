@@ -91,6 +91,16 @@ describe('cameraPresets', () => {
     }
   })
 
+  it('operador: usa o olho medido no modelo quando há um', () => {
+    const eye = { x: 0.9, y: 3, z: 0.2 }
+    const view = resolveCameraPreset('operador', { ...framing(90), operatorEye: eye })
+    const expected = rotateAroundY(eye, 90)
+
+    expectClose(view.position.x, expected.x, 1e-9)
+    expectClose(view.position.y, 3, 1e-12)
+    expectClose(view.position.z, expected.z, 1e-9)
+  })
+
   it('rotateAroundY gira como a torre: +Z vai para u(ψ) = (sin ψ, 0, cos ψ)', () => {
     const rotated = rotateAroundY({ x: 0, y: 2, z: 1 }, 90)
     expectClose(rotated.x, 1, 1e-12)

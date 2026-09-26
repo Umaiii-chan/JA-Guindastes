@@ -33,6 +33,11 @@ export interface CameraFraming {
   readonly geometry: Pick<OperationalGeometry, 'workingRadiusM' | 'tipHeightM' | 'hook'>
   /** Maior raio alcançável (m), para enquadrar a lança toda estendida. */
   readonly maxReachM: number
+  /**
+   * Olho do operador no referencial da base com ψ = 0 (m), medido no modelo em uso (vidro da cabine
+   * da torre). Sem ele, vale `OPERATOR_EYE_LOCAL`, do modelo provisório.
+   */
+  readonly operatorEye?: Vec3
 }
 
 /** Limites da órbita: distância ao alvo e altura mínima da câmera acima do chão (y = 0). */
@@ -109,7 +114,10 @@ export function resolveCameraPreset(preset: CameraPreset, framing: CameraFraming
       return { position: { x: 0, y: height, z: height * 0.001 }, target }
     }
     case 'operador': {
-      const eye = rotateAroundY(OPERATOR_EYE_LOCAL, framing.turretRotationDeg)
+      const eye = rotateAroundY(
+        framing.operatorEye ?? OPERATOR_EYE_LOCAL,
+        framing.turretRotationDeg,
+      )
       const hook = framing.geometry.hook
       return { position: eye, target: { x: hook.xM, y: Math.max(hook.yM, 0), z: hook.zM } }
     }

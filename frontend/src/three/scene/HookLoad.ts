@@ -15,11 +15,20 @@ import {
   Vector3,
 } from 'three'
 
-import { computeLoadBox, type LoadDimensions, type LoadBoxLayout, sameLoad } from './loadBox'
+import { measureHookExtent } from '../crane/rigLandmarks'
+import {
+  computeLoadBox,
+  HOOK_ATTACH_OFFSET_M,
+  type LoadBoxLayout,
+  type LoadDimensions,
+  sameLoad,
+} from './loadBox'
 import { type EvaluationStatus, SCENE_COLORS, statusColor } from './palette'
 
 // Carga pendurada no gancho e halo de situação (TASK-041). Só desenho: não entra em nenhum cálculo.
 // O grupo é filho do nó do gancho (origem em G), então acompanha o cabo sem tocar na cinemática.
+// O ponto das lingas e o tamanho do halo saem da caixa das malhas do gancho em uso (provisório ou
+// GLB), medida em `fitToHook`; sem malhas, valem as constantes do gancho provisório.
 
 export const HOOK_LOAD_NAMES = {
   root: 'hook-load',
@@ -29,9 +38,12 @@ export const HOOK_LOAD_NAMES = {
   halo: 'hook-load-halo',
 } as const
 
-/** Halo sem carga: esfera em volta do gancho provisório (centro e raio em m, locais de G). */
+/** Halo sem carga e sem medida do gancho: esfera em volta do gancho provisório (m, locais de G). */
 const HOOK_HALO_CENTER_Y = -0.55
 const HOOK_HALO_RADIUS_M = 0.95
+/** Folga do halo em volta do gancho medido: proporção das meias-medidas mais uma margem (m). */
+const HOOK_HALO_SCALE = 1.3
+const HOOK_HALO_MARGIN_M = 0.15
 /** Quanto o halo passa das bordas da carga, em proporção das meias-medidas. */
 const LOAD_HALO_SCALE = 1.25
 /** Intensidade do brilho na borda: sutil, sem neon. */
@@ -82,8 +94,13 @@ export class HookLoad {
   private loadParts: Object3D[] = []
   private load: LoadDimensions | null = null
   private layout: LoadBoxLayout | null = null
+  private hook: Object3D
+  private attachOffsetM = HOOK_ATTACH_OFFSET_M
+  /** Caixa do gancho (centro e meias-medidas, locais de G), ou `null` sem malhas. */
+  private hookExtent: { readonly center: Vector3; readonly half: Vector3 } | null = null
 
   constructor(hook: Object3D) {
+    this.hook = hook
     this.root.name = HOOK_LOAD_NAMES.root
     this.halo = new Mesh(
       new SphereGeometry(1, 32, 16),
@@ -104,7 +121,7 @@ export class HookLoad {
     this.halo.renderOrder = 4
     this.root.add(this.halo)
     hook.add(this.root)
-    this.fitHalo()
+    this.fitToHook()
   }
 
   /** Caixa desenhada agora, ou `null` quando só há o gancho. */
@@ -112,18 +129,24 @@ export class HookLoad {
     return this.layout
   }
 
+  /** Distância (m) de G até onde as lingas se prendem, na base do gancho em uso. */
+  get currentAttachOffsetM(): number {
+    return this.attachOffsetM
+  }
+
   get haloColor(): Color {
     return this.halo.material.uniforms.color.value as Color
+  }
+
+  /** Intensidade atual do brilho do halo. */
+  get haloIntensity(): number {
+    return this.halo.material.uniforms.intensity.value as number
   }
 
   /** Mostra a caixa da carga pendurada pelas lingas, ou só o gancho com `null` ou medidas inválidas. */
   setLoad(load: LoadDimensions | null | undefined): void {
     if (sameLoad(load, this.load)) return
-    this.clearLoad()
-    this.layout = computeLoadBox(load)
-    this.load = this.layout && load ? { ...load } : null
-    if (this.layout) this.buildLoad(this.layout)
-    this.fitHalo()
+    this.rebuild(load)
   }
 
   /** Cor do halo pela situação. */
@@ -133,9 +156,30 @@ export class HookLoad {
       status === 'unknown' ? HALO_INTENSITY_UNKNOWN : HALO_INTENSITY
   }
 
-  /** Intensidade atual do brilho do halo. */
-  get haloIntensity(): number {
-    return this.halo.material.uniforms.intensity.value as number
+  /**
+   * Pendura o grupo (halo e carga) em outro gancho, como na troca do guindaste provisório pelo GLB:
+   * a carga e a situação continuam, e o gancho novo é medido.
+   */
+  attachTo(hook: Object3D): void {
+    this.hook = hook
+    hook.add(this.root)
+    this.fitToHook()
+  }
+
+  /** Mede o gancho atual (sem o próprio grupo) e refaz a carga e o halo com essa medida. */
+  fitToHook(): void {
+    const box = measureHookExtent(this.hook, [this.root])
+    if (box && box.min.y < 0) {
+      this.attachOffsetM = -box.min.y
+      this.hookExtent = {
+        center: box.getCenter(new Vector3()),
+        half: box.getSize(new Vector3()).multiplyScalar(0.5),
+      }
+    } else {
+      this.attachOffsetM = HOOK_ATTACH_OFFSET_M
+      this.hookExtent = null
+    }
+    this.rebuild(this.load)
   }
 
   /** Libera o que foi criado aqui (o `disposeObject3D` da cena também cobre, uma vez só). */
@@ -147,6 +191,14 @@ export class HookLoad {
     this.edgesMaterial.dispose()
     this.slingMaterial.dispose()
     this.root.removeFromParent()
+  }
+
+  private rebuild(load: LoadDimensions | null | undefined): void {
+    this.clearLoad()
+    this.layout = computeLoadBox(load, this.attachOffsetM)
+    this.load = this.layout && load ? { ...load } : null
+    if (this.layout) this.buildLoad(this.layout)
+    this.fitHalo()
   }
 
   private buildLoad(layout: LoadBoxLayout): void {
@@ -186,19 +238,29 @@ export class HookLoad {
     this.load = null
   }
 
-  /** Halo em volta da carga (elipsoide) ou, sem carga, do gancho. */
+  /** Halo em volta da carga (elipsoide) ou, sem carga, do gancho medido. */
   private fitHalo(): void {
     const layout = this.layout
-    if (!layout) {
+    if (layout) {
+      this.halo.position.set(layout.center.x, layout.center.y, layout.center.z)
+      this.halo.scale.set(
+        (layout.size.x / 2) * LOAD_HALO_SCALE + 0.2,
+        (layout.size.y / 2) * LOAD_HALO_SCALE + 0.2,
+        (layout.size.z / 2) * LOAD_HALO_SCALE + 0.2,
+      )
+      return
+    }
+    const extent = this.hookExtent
+    if (!extent) {
       this.halo.position.set(0, HOOK_HALO_CENTER_Y, 0)
       this.halo.scale.setScalar(HOOK_HALO_RADIUS_M)
       return
     }
-    this.halo.position.set(layout.center.x, layout.center.y, layout.center.z)
+    this.halo.position.copy(extent.center)
     this.halo.scale.set(
-      (layout.size.x / 2) * LOAD_HALO_SCALE + 0.2,
-      (layout.size.y / 2) * LOAD_HALO_SCALE + 0.2,
-      (layout.size.z / 2) * LOAD_HALO_SCALE + 0.2,
+      extent.half.x * HOOK_HALO_SCALE + HOOK_HALO_MARGIN_M,
+      extent.half.y * HOOK_HALO_SCALE + HOOK_HALO_MARGIN_M,
+      extent.half.z * HOOK_HALO_SCALE + HOOK_HALO_MARGIN_M,
     )
   }
 }
