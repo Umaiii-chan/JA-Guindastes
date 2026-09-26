@@ -16,6 +16,10 @@ from fastapi.exceptions import RequestValidationError
 
 from app.application.ports.load_chart_parser import LoadChartParser
 from app.presentation.api.evaluations import EvaluationDependencies, create_evaluations_router
+from app.presentation.api.load_chart_persistence import (
+    LoadChartPersistenceDependencies,
+    create_load_chart_persistence_router,
+)
 from app.presentation.api.load_charts import create_load_charts_router
 from app.presentation.api.upload_limits import UploadLimits
 from app.presentation.api.validation_errors import request_validation_error_handler
@@ -26,11 +30,14 @@ def create_app(
     load_chart_parser: LoadChartParser | None = None,
     upload_limits: UploadLimits | None = None,
     evaluation: EvaluationDependencies | None = None,
+    load_chart_persistence: LoadChartPersistenceDependencies | None = None,
 ) -> FastAPI:
     """Monta a aplicação com as rotas cujos adapters foram recebidos.
 
     - as rotas de tabela de carga só entram quando há um `load_chart_parser`;
-    - a rota de avaliação só entra quando há as dependências da avaliação (`evaluation`).
+    - a rota de avaliação só entra quando há as dependências da avaliação (`evaluation`);
+    - importação com gravação, consulta e ativação de tabelas (TASK-031) só entram quando há
+      `load_chart_persistence`.
     """
     app = FastAPI(
         title="Crane Simulator API",
@@ -43,6 +50,8 @@ def create_app(
         app.include_router(create_load_charts_router(load_chart_parser, limits))
     if evaluation is not None:
         app.include_router(create_evaluations_router(evaluation))
+    if load_chart_persistence is not None:
+        app.include_router(create_load_chart_persistence_router(load_chart_persistence))
     return app
 
 

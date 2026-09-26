@@ -18,6 +18,7 @@ from app.domain.entities.load_chart import LoadChart
 from app.domain.services.conservative_tabulated_lookup import ConservativeTabulatedLookup
 from app.domain.value_objects.crane_geometry import CraneGeometry
 from app.infrastructure.importers.csv_load_chart_parser import CsvLoadChartParser
+from app.load_chart_persistence_composition import build_load_chart_persistence
 from app.presentation.api.evaluations import EvaluationDependencies
 from app.presentation.api.main import create_app
 from app.presentation.api.upload_limits import UploadLimits
@@ -56,4 +57,6 @@ app = create_app(
     # Limite padrão PROVISÓRIO de 1 MiB por arquivo — A VALIDAR (P-008).
     upload_limits=UploadLimits(),
     evaluation=evaluation_dependencies,
+    # TASK-031: só entra com DATABASE_URL e FILE_STORAGE_DIR definidas (ver o módulo).
+    load_chart_persistence=build_load_chart_persistence(),
 )
