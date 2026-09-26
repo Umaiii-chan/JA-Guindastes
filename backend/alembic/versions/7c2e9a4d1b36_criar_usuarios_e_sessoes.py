@@ -1,11 +1,11 @@
 """criar usuarios e sessoes (TASK-038)
 
-Cria `app_user` (conta com perfil, situação e hash Argon2id da senha) e `user_session` (sessão opaca,
-guardada pelo SHA-256 do token), do ADR-016 §§ 2 e 3. Não altera a migration da TASK-022.
+Cria `app_user` (conta com perfil, situação e hash Argon2id da senha) e `user_session` (sessão
+opaca, guardada pelo SHA-256 do token), do ADR-016 §§ 2 e 3. Não altera a migration da TASK-022.
 
-Escrita à mão a partir de `Base.metadata` (sem PostgreSQL local para o autogenerate); a sincronia com
-os modelos é conferida pelo teste de integração da migration no CI (`compare_metadata`). Os perfis
-estão escritos por extenso, sem importar o domínio, para a revisão não mudar se o enum mudar.
+Escrita à mão a partir de `Base.metadata` (sem PostgreSQL local para o autogenerate); a sincronia
+com os modelos é conferida pelo teste de integração da migration no CI (`compare_metadata`). Os
+perfis estão escritos por extenso, sem importar o domínio, para a revisão não mudar se o enum mudar.
 
 Revision ID: 7c2e9a4d1b36
 Revises: 1f4cfaff16e8
@@ -36,9 +36,7 @@ def upgrade() -> None:
         sa.Column("active", sa.Boolean(), nullable=False),
         sa.Column("password_hash", sa.String(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.CheckConstraint(
-            "role IN ('ADMIN', 'OPERATOR')", name=op.f("ck_app_user_role_valid")
-        ),
+        sa.CheckConstraint("role IN ('ADMIN', 'OPERATOR')", name=op.f("ck_app_user_role_valid")),
         sa.CheckConstraint(
             "username = lower(username)", name=op.f("ck_app_user_username_lowercase")
         ),
@@ -62,9 +60,7 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("token_hash", name=op.f("pk_user_session")),
     )
-    op.create_index(
-        op.f("ix_user_session_user_id"), "user_session", ["user_id"], unique=False
-    )
+    op.create_index(op.f("ix_user_session_user_id"), "user_session", ["user_id"], unique=False)
 
 
 def downgrade() -> None:

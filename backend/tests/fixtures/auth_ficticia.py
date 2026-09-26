@@ -177,4 +177,3 @@ class AuthFicticia:
     def generate_id(self) -> str:
         self._next_id += 1
         return f"id-gerado-{self._next_id}"
-
