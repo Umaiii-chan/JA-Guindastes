@@ -19,6 +19,7 @@ Coisas que o sistema **não faz** hoje, mesmo que pareça que deveria.
 | L-001 | Não existe código: nenhuma funcionalidade do MVP está implementada | tudo o que está em `project-overview.md` § 4 é planejado | esqueletos do backend e do frontend nas próximas tarefas | — |
 | L-002 | Ainda não há tabela de carga oficial nem modelo 3D real do guindaste | motor de cálculo, golden tests e demo não podem usar dados reais | depende da Guindastes Ribas (PEND-008; doc-fonte § 26, perguntas 1 a 5) | — |
 | L-003 | Autenticação não definida ("autenticação futura", doc-fonte § 8.4) | qualquer usuário poderia importar e ativar tabelas, o que afeta a capacidade calculada | ver P-009 | — |
+| L-004 | A consulta de capacidade só tem a estratégia `ExactPointLookup` (`backend/app/domain/services/`): devolve capacidade só para `boom_length` e `working_radius` iguais a um ponto da tabela; qualquer outra consulta volta "não suportada". Não há interpolação, arredondamento, valor conservador, níveis de alerta, transições de status da tabela nem `LoadChartResolver` | fora dos pontos exatos, o motor não dá capacidade | nova estratégia atrás da porta `LoadChartInterpolator` quando PEND-001..003 forem respondidas | TASK-008 |
 
 ---
 
