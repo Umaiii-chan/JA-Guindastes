@@ -7,7 +7,7 @@
   --band-0: color-mix(in oklab, var(--color-accent) 8%, var(--color-surface-2));
   --band-1: color-mix(in oklab, var(--color-accent) 20%, var(--color-surface-2));
   --band-2: color-mix(in oklab, var(--color-accent) 34%, var(--color-surface-2));
-  --band-3: color-mix(in oklab, var(--color-accent) 62%, var(--color-surface-2));
+  --band-3: color-mix(in oklab, var(--color-accent) 68%, var(--color-surface-2));
   --band-4: color-mix(in oklab, var(--color-accent-strong) 88%, var(--color-surface-2));
   display: grid;
   gap: var(--space-3);
