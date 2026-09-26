@@ -2,10 +2,10 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | backlog |
+| **Status** | in-progress |
 | **Prioridade** | média |
 | **Criada em** | 2026-09-26 por pessoa responsável (leva D2, via orquestrador) |
-| **Iniciada em** | — |
+| **Iniciada em** | 2026-09-26 |
 | **Concluída em** | — |
 | **Branch** | `task/TASK-042-paginas-catalogo-e-tabelas` |
 | **PR** | — |

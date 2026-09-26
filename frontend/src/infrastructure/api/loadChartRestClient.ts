@@ -1,4 +1,9 @@
-// Cliente REST da importação e da ativação de tabelas de carga (TASK-034). Contrato da TASK-031:
+// Cliente REST da validação, importação, consulta e ativação de tabelas de carga (TASK-034, TASK-042).
+// - `POST /api/v1/load-charts/validate` (TASK-019; multipart igual ao do import) → 200 com
+//   `status: DRAFT` e os pontos, ou `status: INVALID` e o relatório; 413; 422 do FastAPI. Nada é
+//   gravado. Só CSV (parser da composição).
+// - `GET /api/v1/load-charts/{id}` → 200 `LoadChartResponse`; 404.
+// Contrato da TASK-031:
 // - `POST /api/v1/load-charts/import` (multipart: `file`, `configuration_id`, `chart_id`,
 //   `version`) → 201 `LoadChartResponse` (DRAFT); 422 com relatório (`status: INVALID`, `issues`),
 //   ou 422 do FastAPI (`detail` lista) ou `{detail: str}`; 404; 409; 413; 415.
@@ -11,8 +16,10 @@ import type {
   LoadChartFailure,
   LoadChartGateway,
   LoadChartImportIssue,
+  LoadChartImportRequest,
   LoadChartPoint,
   LoadChartStatus,
+  LoadChartValidation,
   StoredLoadChart,
 } from '../../application/loadChart/ports'
 import {
@@ -87,19 +94,26 @@ export function createLoadChartRestClient(
     }
   }
 
+  function multipart(request: LoadChartImportRequest): RequestInit {
+    const form = new FormData()
+    form.append('file', request.file, request.fileName)
+    form.append('configuration_id', request.configurationId)
+    form.append('chart_id', request.chartId)
+    form.append('version', request.version)
+    // Sem `Content-Type`: o navegador põe o `multipart/form-data` com o boundary.
+    return { method: 'POST', headers: { Accept: 'application/json' }, body: form }
+  }
+
   return {
+    async validateChart(request) {
+      const response = await send(`${base}/validate`, multipart(request))
+      const body = await readBody(response)
+      if (response.status === 200) return guard(() => mapValidation(body))
+      throw importError(response.status, body)
+    },
+
     async importChart(request) {
-      const form = new FormData()
-      form.append('file', request.file, request.fileName)
-      form.append('configuration_id', request.configurationId)
-      form.append('chart_id', request.chartId)
-      form.append('version', request.version)
-      // Sem `Content-Type`: o navegador põe o `multipart/form-data` com o boundary.
-      const response = await send(`${base}/import`, {
-        method: 'POST',
-        headers: { Accept: 'application/json' },
-        body: form,
-      })
+      const response = await send(`${base}/import`, multipart(request))
       const body = await readBody(response)
 
       if (response.status === 201) {
@@ -109,6 +123,16 @@ export function createLoadChartRestClient(
         return { kind: 'INVALID', issues: guard(() => mapIssues(body)) }
       }
       throw importError(response.status, body)
+    },
+
+    async getChart(chartId) {
+      const response = await send(`${base}/${encodeURIComponent(chartId)}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      })
+      const body = await readBody(response)
+      if (response.status === 200) return guard(() => mapLoadChart(body, 'response'))
+      throw activationError(response.status, body)
     },
 
     async activateChart(chartId) {
@@ -230,10 +254,8 @@ function readStatus(record: Readonly<Record<string, unknown>>, path: string): Lo
   return known
 }
 
-/** Converte `LoadChartResponse` na tabela da tela, conferindo o contrato. */
-export function mapLoadChart(json: unknown, path: string): StoredLoadChart {
-  const body = readRecord(json, path)
-  const points = readArray(body, 'points', path).map((item, index): LoadChartPoint => {
+function mapPoints(body: Readonly<Record<string, unknown>>, path: string): LoadChartPoint[] {
+  return readArray(body, 'points', path).map((item, index): LoadChartPoint => {
     const pointPath = `${path}.points[${index}]`
     const point = readRecord(item, pointPath)
     return {
@@ -242,6 +264,12 @@ export function mapLoadChart(json: unknown, path: string): StoredLoadChart {
       maxCapacityKg: readNumber(point, 'max_capacity_kg', pointPath),
     }
   })
+}
+
+/** Converte `LoadChartResponse` na tabela da tela, conferindo o contrato. */
+export function mapLoadChart(json: unknown, path: string): StoredLoadChart {
+  const body = readRecord(json, path)
+  const points = mapPoints(body, path)
   const source = readRecord(body.source, `${path}.source`)
   return {
     chartId: readString(body, 'chart_id', path),
@@ -265,6 +293,14 @@ function mapIssues(body: Readonly<Record<string, unknown>>): LoadChartImportIssu
       column: readNullableString(issue, 'column', issuePath),
     }
   })
+}
+
+function mapValidation(json: unknown): LoadChartValidation {
+  const body = readRecord(json, 'response')
+  const status = readString(body, 'status', 'response')
+  if (status === 'INVALID') return { kind: 'INVALID', issues: mapIssues(body) }
+  if (status !== 'DRAFT') throw new ContractViolationError('response.status', 'DRAFT ou INVALID')
+  return { kind: 'VALID', points: mapPoints(body, 'response') }
 }
 
 function mapActivation(json: unknown): LoadChartActivation {

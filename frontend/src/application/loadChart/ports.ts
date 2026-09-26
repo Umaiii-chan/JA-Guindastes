@@ -1,6 +1,7 @@
 // Porta da importação e da ativação de tabelas de carga (TASK-034), sem saber que é `fetch`
-// (implementação em `src/infrastructure/api/loadChartRestClient.ts`). Contrato do backend: TASK-031
-// (`POST /api/v1/load-charts/import`, `POST /api/v1/load-charts/{id}/activate`).
+// (implementação em `src/infrastructure/api/loadChartRestClient.ts`). Contrato do backend: TASK-019
+// (`POST /api/v1/load-charts/validate`) e TASK-031 (`POST /api/v1/load-charts/import`,
+// `GET /api/v1/load-charts/{id}`, `POST /api/v1/load-charts/{id}/activate`).
 
 /** Status da tabela de carga (doc-fonte § 13.2), como o backend envia. */
 export type LoadChartStatus = 'DRAFT' | 'VALIDATED' | 'ACTIVE' | 'SUPERSEDED' | 'INVALID'
@@ -45,6 +46,14 @@ export type LoadChartImportOutcome =
   | { readonly kind: 'IMPORTED'; readonly chart: StoredLoadChart }
   | { readonly kind: 'INVALID'; readonly issues: readonly LoadChartImportIssue[] }
 
+/**
+ * Resultado da validação prévia, sem gravar nada (`POST /validate`, 200). O backend só lê CSV nesta
+ * rota (parser CSV na composição): XLSX é validado na importação.
+ */
+export type LoadChartValidation =
+  | { readonly kind: 'VALID'; readonly points: readonly LoadChartPoint[] }
+  | { readonly kind: 'INVALID'; readonly issues: readonly LoadChartImportIssue[] }
+
 /** Resultado da ativação (200): a tabela ativada e a que virou `SUPERSEDED`, se havia. */
 export interface LoadChartActivation {
   readonly chart: StoredLoadChart
@@ -61,6 +70,10 @@ export interface LoadChartFailure {
 
 /** As operações rejeitam com um erro que tem `code`, `httpStatus` e `message` (`LoadChartFailure`). */
 export interface LoadChartGateway {
+  /** Valida o arquivo sem gravar (o backend atual só lê CSV nesta rota). */
+  validateChart(request: LoadChartImportRequest): Promise<LoadChartValidation>
   importChart(request: LoadChartImportRequest): Promise<LoadChartImportOutcome>
+  /** Consulta uma tabela gravada pelo id (404 → `code` `LOAD_CHART_NOT_FOUND`). */
+  getChart(chartId: string): Promise<StoredLoadChart>
   activateChart(chartId: string): Promise<LoadChartActivation>
 }
