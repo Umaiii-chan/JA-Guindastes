@@ -6,6 +6,7 @@ requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.20.0",
     "fastapi",
+    "openpyxl>=3.1.5",
     "psycopg[binary]>=3.3.6",
     "python-multipart>=0.0.32",
     "sqlalchemy>=2.1.1",
@@ -19,6 +20,7 @@ dev = [
     "mypy",
     "pytest",
     "ruff",
+    "types-openpyxl>=3.1.5.20260827",
 ]
 
 [tool.uv]
