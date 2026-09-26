@@ -33,3 +33,10 @@ reference/langgraph-prototype/.pytest_cache/
 reference/langgraph-prototype/.ruff_cache/
 reference/langgraph-prototype/.mypy_cache/
 reference/langgraph-prototype/.ai/runs/
+
+# backend (Python / uv)
+backend/.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

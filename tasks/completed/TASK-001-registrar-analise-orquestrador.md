@@ -2,11 +2,11 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | backlog (trabalho só de documentação já feito na branch; ver § 2) |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (pedido feito em sessão com o agente Claude Code) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-001-registrar-analise-orquestrador` (a partir de `development` @ `86e2fdc`) |
 | **PR** | [#1](https://github.com/Umaiii-chan/JA-Guindastes/pull/1), mergeado em 2026-09-26 por merge commit (`7d0e2a9`) |
 | **Requisitos** | — |
@@ -138,6 +138,8 @@ serviço. Antes do commit, 4 subagentes da mesma sessão fizeram uma revisão c�
 independente do AGENTS.md § 3. Dispensar ou pedir essa revisão é a pendência 1 de `handoffs/current.md`.
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 por decisão da pessoa responsável (em chat), após o merge do PR #1. **A revisão independente (AGENTS.md § 3) foi dispensada pela pessoa responsável**; nenhum parecer foi registrado.
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...
