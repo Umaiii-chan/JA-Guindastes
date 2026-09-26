@@ -87,8 +87,8 @@ echo "3. Tarefas"
 shopt -s nullglob
 in_progress=(tasks/in-progress/*.md)
 n_in_progress=${#in_progress[@]}
-# Máximo de tarefas em paralelo: decisão da pessoa responsável em 2026-09-26 (TASK-006).
-max_in_progress=4
+# Máximo de tarefas em paralelo: decisão da pessoa responsável em 2026-09-26 (TASK-006: 4; TASK-021: 15).
+max_in_progress=15
 if (( n_in_progress > max_in_progress )); then
   fail "há ${n_in_progress} tarefas em tasks/in-progress/ (máximo: ${max_in_progress})"
 elif (( n_in_progress >= 2 )); then

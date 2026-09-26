@@ -8,7 +8,7 @@ a tarefa se move entre as pastas com `git mv`.
 ```text
 tasks/
 ├── backlog/       ← criadas, ainda não iniciadas (podem ser reordenadas por prioridade no próprio arquivo)
-├── in-progress/   ← em execução. Máximo: quatro em paralelo, sem arquivos em comum (decisão de 2026-09-26, TASK-006).
+├── in-progress/   ← em execução. Máximo: quinze em paralelo, sem arquivos em comum (decisão de 2026-09-26, TASK-006 e TASK-021).
 └── completed/     ← concluídas conforme docs/checklists/definition-of-done.md; imutáveis.
 ```
 

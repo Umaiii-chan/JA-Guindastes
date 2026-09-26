@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (leva TASK-015..017, commit `d5eedab`) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-016-geometria-na-cena` (a partir de `d5eedab`, commit-base da leva) |
-| **PR** | — |
+| **PR** | [#18](https://github.com/Umaiii-chan/JA-Guindastes/pull/18), mergeado em 2026-09-26 com CI verde |
 | **Requisitos** | RF-015 (raio e altura do gancho em tempo de execução, só como pré-visualização); RNF-002; RNF-003; doc-fonte §§ 12.2 e 17.3 (`getOperationalGeometry()`) |
 | **Regras de negócio** | RN-003, RN-008 (o frontend não é fonte de verdade: capacidade e segurança não são decididas aqui) |
 | **Estimativa** | M |
@@ -164,6 +164,8 @@ pré-visualização do frontend. O gancho desenhado na cena fica exatamente no p
 **Resultado:** — (aguardando revisão)
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...

@@ -7,9 +7,9 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Data/hora** | 2026-09-26 16:50 (UTC-3, Brasília) |
-| **Atualizado por** | agente Claude Code 2.1.280 (Opus 5.5), no commit-base da TASK-020 |
-| **Branch de referência** | `development` @ `b471b6e` |
+| **Data/hora** | 2026-09-26 17:30 (UTC-3, Brasília) |
+| **Atualizado por** | agente Claude Code 2.1.280 (Opus 5.5), no commit-base da leva A (TASK-021) |
+| **Branch de referência** | `development` @ `e11b325` + PR #20 |
 
 ---
 
@@ -19,15 +19,15 @@
 - Contexto mínimo preenchido (TASK-002); ADR-003..012 aceitos; toolchain no ADR-012.
 - Backend: esqueleto com gates, núcleo de domínio da tabela de carga (sem interpolação), importação CSV provisória (TASK-010) e geometria operacional do ADR-013 (TASK-014). Frontend: esqueleto e PoC Three.js com guindaste provisório (TASK-013).
 - ADR-003..013 aceitos.
-- Concluídas: TASK-001..015, 017 e 018 (`tasks/completed/`). CI roda os testes de integração contra PostgreSQL de serviço (TASK-018).
+- Concluídas: TASK-001..019, exceto a 020 (PR #20 aberto). Visual: cena 3D com pré-visualização da geometria (TASK-016); endpoint de validação de importação (TASK-019).
 
 ## 2. Tarefas em andamento e seus handoffs
 
 | Tarefa | Handoff | O que é |
 |--------|---------|---------|
-| TASK-016 | `handoffs/TASK-016.md` (na branch da tarefa) | pré-visualização da geometria (ADR-013) na cena 3D |
-| TASK-019 | `handoffs/TASK-019.md` (na branch da tarefa) | endpoint REST de validação da importação CSV |
 | TASK-020 | `handoffs/TASK-020.md` (na branch da tarefa) | consulta conservadora provisória na tabela (ADR-015) |
+| TASK-021 | `handoffs/TASK-021.md` | paralelismo ampliado para 15 + commit-base da leva A |
+| TASK-022..028 | `handoffs/TASK-0NN.md` (na branch de cada tarefa) | leva A: persistência, XLSX, endpoint REST de avaliação, WebSocket, GLB, Docker da stack, carga no domínio |
 
 ## 3. Autorizações permanentes da pessoa responsável
 
@@ -35,7 +35,7 @@ Dadas em chat em 2026-09-26. Valem até a pessoa revogar.
 
 1. **Mover para `tasks/completed/` toda tarefa que ela mergear**, registrando na tarefa que a revisão
    independente (AGENTS.md § 3) foi dispensada por ela.
-2. **Até 4 tarefas em paralelo**, inclusive com agentes em segundo plano em worktrees separadas,
+2. **Até 15 tarefas em paralelo** (ampliado de 4 para 15 na TASK-021), inclusive com agentes em segundo plano em worktrees separadas,
    desde que não toquem os mesmos arquivos (TASK-006).
 3. **Alterar `.github/workflows/ci.yml`** para os gates de backend e frontend (TASK-004).
 4. **Dados fictícios rotulados FICTÍCIO** nos testes, até a tabela oficial chegar (ADR-012).
@@ -58,7 +58,7 @@ Ver o handoff de cada tarefa (seção 2).
 
 | # | Pergunta | Bloqueia? | Resposta | Respondida em |
 |---|----------|-----------|----------|---------------|
-| 1 | Apagar as branches das tarefas mergeadas (`task/TASK-001..018`, remotas e locais) | não | | |
+| 1 | Apagar as branches das tarefas mergeadas (`task/TASK-001..019`, remotas e locais) | não | | |
 | 2 | Versão mais nova da doc-fonte (P-013) · onde fica o orquestrador (P-010) · dados oficiais podem ir ao repositório e a agentes de IA (P-007) | não | | |
 | 5 | Perguntas de domínio sem bloqueio: TASK-008 (11), TASK-010 (12), TASK-014 (5) — § 8 dos handoffs em `handoffs/history/` | não | | |
 | 6 | Ativar a virtualização do Windows (Plataforma de Máquina Virtual / BIOS) para o Docker rodar o PostgreSQL local (TASK-011) | não | | |
