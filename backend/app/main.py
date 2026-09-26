@@ -28,6 +28,9 @@ Duas composições, escolhidas por `DATABASE_URL` (`compose_app`):
 Nas duas, a estratégia de consulta é a `ConservativeTabulatedLookup` (ADR-015, provisória), e REST e
 WebSocket usam a mesma montagem do `EvaluateOperation` (`build_evaluate_operation`).
 
+Autenticação (TASK-038; ADR-016): só com `DATABASE_URL` (`build_auth`, em `app.auth_composition`,
+no mesmo engine). Sem banco não há login e as rotas continuam abertas (ADR-016 § 5).
+
 Catálogo (TASK-030): as rotas de cadastro usam o `SqlAlchemyCraneCatalogRepository` (TASK-022) e só
 são registradas quando `DATABASE_URL` está definida (`create_database_app`, no mesmo engine da
 avaliação). `build_catalog_repository` hoje só é usado pelos testes (`docs/known-gaps.md` D-002).
@@ -47,6 +50,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.application.ports.active_load_chart_provider import ActiveLoadChartProvider
 from app.application.ports.crane_geometry_provider import CraneGeometryProvider
 from app.application.use_cases.evaluate_operation import EvaluateOperation
+from app.auth_composition import build_auth
 from app.domain.entities.load_chart import LoadChart
 from app.domain.services.conservative_tabulated_lookup import ConservativeTabulatedLookup
 from app.domain.value_objects.crane_geometry import CraneGeometry
@@ -164,8 +168,11 @@ def build_catalog_repository(
     )
 
 
-def create_database_app(engine: Engine) -> FastAPI:
-    """Aplicação completa com persistência no banco de `engine`."""
+def create_database_app(engine: Engine, environ: Mapping[str, str] | None = None) -> FastAPI:
+    """Aplicação completa com persistência no banco de `engine` e autenticação (ADR-016).
+
+    `environ` (por padrão, `os.environ`) fornece `SESSION_COOKIE_SECURE`.
+    """
     return create_app(
         load_chart_parser=CsvLoadChartParser(),
         # Limite padrão PROVISÓRIO de 1 MiB por arquivo — A VALIDAR (P-008).
@@ -177,6 +184,8 @@ def create_database_app(engine: Engine) -> FastAPI:
         catalog_repository=SqlAlchemyCraneCatalogRepository(create_session_factory(engine)),
         # Importação com gravação e ativação (TASK-031): mesmo engine; exige FILE_STORAGE_DIR.
         load_chart_persistence=build_load_chart_persistence(engine),
+        # Login, sessões e perfis (TASK-038): mesmo engine.
+        auth=build_auth(engine, environ),
         on_shutdown=engine.dispose,
     )
 
@@ -209,7 +218,7 @@ def compose_app(environ: Mapping[str, str] | None = None) -> FastAPI:
     if not source.get(DATABASE_URL_ENV_VAR, "").strip():
         return create_app_without_database()
     settings = DatabaseSettings.from_environment(source)
-    return create_database_app(create_database_engine(settings))
+    return create_database_app(create_database_engine(settings), source)
 
 
 app = compose_app()
