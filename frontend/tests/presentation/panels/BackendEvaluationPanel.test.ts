@@ -98,7 +98,7 @@ describe('BackendEvaluationPanel', () => {
       mapEvaluationResponse({ ...REST_EVALUATED, utilization_percent })
 
     expect(situation({ result: at(75) })?.slice(1)).toEqual(['ok', 'Dentro da capacidade'])
-    expect(situation({ result: at(100) })?.slice(1)).toEqual(['warning', 'No limite da capacidade'])
+    expect(situation({ result: at(100) })?.slice(1)).toEqual(['ok', 'Dentro da capacidade'])
     expect(situation({ result: at(150) })?.slice(1)).toEqual(['danger', 'Acima da capacidade'])
     expect(situation({ result: mapEvaluationResponse(REST_NOT_EVALUABLE) })?.slice(1)).toEqual([
       'neutral',

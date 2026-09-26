@@ -6,8 +6,17 @@
  * conferido contra --color-bg e --color-surface-2 (AA, 4,5:1): text-1 ≥ 11:1, text-2 ≥ 6,1:1,
  * text-3 ≥ 5:1 até --color-surface-3 (ver handoffs/TASK-039.md).
  *
- * As cores de situação espelham a paleta da cena (src/three/scene/palette.ts, TASK-041). Quando as
- * duas tarefas se juntarem, os valores devem ser os mesmos nos dois lugares.
+ * Cores de situação = paleta da cena da TASK-041 (`STATUS_COLORS` em src/three/scene/palette.ts),
+ * com os mesmos valores, para a tela e a cena pintarem a mesma situação da mesma cor:
+ *
+ *   token CSS                 palette.ts (EvaluationStatus)   valor
+ *   --color-status-ok         ok                               #22c55e
+ *   --color-status-warning    warning                          #f5a524
+ *   --color-status-danger     over                             #ef4444
+ *   --color-status-neutral    unknown                          #8b95a3
+ *
+ * O vermelho da paleta tem contraste abaixo de 4,5:1 como TEXTO sobre as superfícies; para texto
+ * (mensagens de erro, selos) usa-se --color-status-danger-text, mais claro. Mudou a paleta? Mude aqui.
  */
 
 :root {
@@ -48,15 +57,16 @@
   --color-accent-softer: rgb(34 211 238 / 0.08);
   --color-accent-glow: rgb(34 211 238 / 0.35);
 
-  /* ── Situação (verde permitido, âmbar no limite, vermelho acima, cinza sem avaliação) ── */
-  --color-status-ok: #34d399;
-  --color-status-ok-soft: rgb(52 211 153 / 0.14);
-  --color-status-warning: #fbbf24;
-  --color-status-warning-soft: rgb(251 191 36 / 0.14);
-  --color-status-danger: #f87171;
-  --color-status-danger-soft: rgb(248 113 113 / 0.14);
-  --color-status-neutral: #94a3b8;
-  --color-status-neutral-soft: rgb(148 163 184 / 0.14);
+  /* ── Situação (verde dentro, âmbar atenção, vermelho acima, cinza sem avaliação) ── */
+  --color-status-ok: #22c55e;
+  --color-status-ok-soft: rgb(34 197 94 / 0.14);
+  --color-status-warning: #f5a524;
+  --color-status-warning-soft: rgb(245 165 36 / 0.14);
+  --color-status-danger: #ef4444;
+  --color-status-danger-soft: rgb(239 68 68 / 0.15);
+  --color-status-danger-text: #f87171;
+  --color-status-neutral: #8b95a3;
+  --color-status-neutral-soft: rgb(139 149 163 / 0.14);
   --color-status-info: var(--color-accent);
   --color-status-info-soft: var(--color-accent-soft);
 

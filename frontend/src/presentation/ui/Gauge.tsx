@@ -1,3 +1,5 @@
+import { type CSSProperties, useId } from 'react'
+
 import { cx } from './cx'
 import styles from './Gauge.module.css'
 import type { Tone } from './tone'
@@ -58,6 +60,7 @@ export function Gauge({
   fractionDigits = 1,
   className,
 }: GaugeProps) {
+  const gradientId = `gauge-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   const hasValue = value !== null && Number.isFinite(value)
   const target = hasValue ? Math.max(0, value) : 0
   const animated = useAnimatedNumber(target)
@@ -87,11 +90,11 @@ export function Gauge({
       aria-valuemax={max}
       aria-valuenow={hasValue ? Math.min(max, Math.max(0, value)) : undefined}
       aria-valuetext={valueText}
-      style={{ width: size, height: size }}
+      style={{ width: size, height: size, '--gauge-size': `${size}px` } as CSSProperties}
     >
       <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} aria-hidden="true">
         <defs>
-          <linearGradient id={`gauge-${tone}`} x1="0" y1="1" x2="1" y2="0">
+          <linearGradient id={gradientId} x1="0" y1="1" x2="1" y2="0">
             <stop offset="0%" className={styles.gradientStart} />
             <stop offset="100%" className={styles.gradientEnd} />
           </linearGradient>
@@ -145,7 +148,7 @@ export function Gauge({
               cy={center}
               r={radius}
               strokeWidth={stroke}
-              stroke={`url(#gauge-${tone})`}
+              stroke={`url(#${gradientId})`}
               strokeDasharray={`${arcLength * fraction} ${circumference}`}
               transform={`rotate(${START_DEG} ${center} ${center})`}
             />

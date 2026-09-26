@@ -10,6 +10,7 @@
 
 .danger {
   --tone: var(--color-status-danger);
+  --tone-text: var(--color-status-danger-text);
   --tone-soft: var(--color-status-danger-soft);
 }
 
@@ -44,12 +45,12 @@
 
 .soft {
   background: var(--tone-soft);
-  color: var(--tone);
+  color: var(--tone-text, var(--tone));
   border: 1px solid color-mix(in srgb, var(--tone) 28%, transparent);
 }
 
 .outline {
-  color: var(--tone);
+  color: var(--tone-text, var(--tone));
   border: 1px solid color-mix(in srgb, var(--tone) 55%, transparent);
 }
 
@@ -66,7 +67,7 @@
   border-radius: var(--radius-pill);
   background: var(--tone-soft);
   border: 1px solid color-mix(in srgb, var(--tone) 32%, transparent);
-  color: var(--tone);
+  color: var(--tone-text, var(--tone));
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
   transition:

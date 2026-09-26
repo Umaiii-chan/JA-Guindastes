@@ -107,7 +107,7 @@
 
 .danger {
   --button-bg: var(--color-status-danger-soft);
-  --button-bg-hover: rgb(248 113 113 / 0.24);
-  --button-fg: var(--color-status-danger);
-  --button-border: rgb(248 113 113 / 0.35);
+  --button-bg-hover: rgb(239 68 68 / 0.25);
+  --button-fg: var(--color-status-danger-text);
+  --button-border: rgb(239 68 68 / 0.4);
 }

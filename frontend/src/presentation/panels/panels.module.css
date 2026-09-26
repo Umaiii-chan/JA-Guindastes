@@ -47,9 +47,9 @@
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   background: var(--color-status-danger-soft);
-  border: 1px solid rgb(248 113 113 / 0.3);
+  border: 1px solid rgb(239 68 68 / 0.35);
   font-size: var(--font-size-xs);
-  color: var(--color-status-danger);
+  color: var(--color-status-danger-text);
 }
 
 .inlineAction {
@@ -350,7 +350,7 @@
 }
 
 .iconDanger {
-  color: var(--color-status-danger);
+  color: var(--color-status-danger-text);
 }
 
 @keyframes rise-in {

@@ -47,13 +47,13 @@ export function HelpButton() {
           </div>
           <div>
             <dt>
-              Cores da situação <Badge tone="ok">verde</Badge> <Badge tone="warning">âmbar</Badge>{' '}
-              <Badge tone="danger">vermelho</Badge> <Badge tone="neutral">cinza</Badge>
+              Cores da situação <Badge tone="ok">verde</Badge> <Badge tone="danger">vermelho</Badge>{' '}
+              <Badge tone="neutral">cinza</Badge>
             </dt>
             <dd>
-              Verde: carga abaixo da capacidade. Âmbar: carga igual à capacidade (caso ainda sem
-              regra). Vermelho: acima da capacidade. Cinza: sem avaliação ou não avaliável. Não há
-              níveis de alerta definidos (PEND-004).
+              Verde: carga dentro da capacidade. Vermelho: acima da capacidade. Cinza: sem avaliação
+              ou não avaliável. Não há níveis de alerta definidos (PEND-004), por isso o âmbar de
+              “atenção” ainda não é usado.
             </dd>
           </div>
           <div>
