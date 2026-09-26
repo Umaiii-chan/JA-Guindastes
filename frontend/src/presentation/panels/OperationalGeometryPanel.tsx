@@ -8,8 +8,10 @@ import type {
 interface OperationalGeometryPanelProps {
   /** `null` enquanto a cena não montou. */
   geometry: OperationalGeometry | null
-  /** Parâmetros a e h usados no cálculo (na PoC, FICTÍCIOS). */
+  /** Parâmetros a e h usados no cálculo. */
   parameters: CraneGeometryParameters | null
+  /** `true` se a e h vieram da ficha técnica da configuração; `false`, FICTÍCIOS (TASK-033). */
+  parametersFromSheet?: boolean
 }
 
 function formatMeters(value: number): string {
@@ -25,7 +27,11 @@ function formatMeters(value: number): string {
  * PRÉ-VISUALIZAÇÃO: o valor oficial é o do backend, e capacidade e segurança não são decididas no
  * frontend (ADR-013 C-7; RN-008).
  */
-export function OperationalGeometryPanel({ geometry, parameters }: OperationalGeometryPanelProps) {
+export function OperationalGeometryPanel({
+  geometry,
+  parameters,
+  parametersFromSheet = false,
+}: OperationalGeometryPanelProps) {
   const titleId = `${useId()}-title`
 
   const rows = [
@@ -59,7 +65,8 @@ export function OperationalGeometryPanel({ geometry, parameters }: OperationalGe
         ))}
       </dl>
       <p className="geometry-panel__notice">
-        Calculada no navegador pelas fórmulas do ADR-013, com parâmetros FICTÍCIOS
+        Calculada no navegador pelas fórmulas do ADR-013, com parâmetros{' '}
+        {parametersFromSheet ? 'da ficha técnica da configuração' : 'FICTÍCIOS'}
         {parameters && (
           <>
             {' '}

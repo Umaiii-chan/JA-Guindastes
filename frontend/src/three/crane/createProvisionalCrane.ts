@@ -14,12 +14,29 @@ import {
   validateCraneGeometryParameters,
 } from '../../domain/geometry/operationalGeometry'
 import type { CraneRig } from './CraneController'
-import type { CraneLimits, CraneState } from './types'
+import {
+  PROVISIONAL_CRANE_DIMENSIONS,
+  PROVISIONAL_CRANE_GEOMETRY,
+  type ProvisionalCraneDimensions,
+} from './provisionalCraneSpec'
+
+// Os valores FICTÍCIOS ficam em `provisionalCraneSpec.ts` (sem Three.js, TASK-033) e são reexportados
+// aqui para quem já os importava deste módulo.
+export {
+  PROVISIONAL_CRANE_DIMENSIONS,
+  PROVISIONAL_CRANE_GEOMETRY,
+  PROVISIONAL_CRANE_INITIAL_STATE,
+  PROVISIONAL_CRANE_LIMITS,
+  PROVISIONAL_CRANE_SETUP,
+  type ProvisionalCraneDimensions,
+} from './provisionalCraneSpec'
 
 // Guindaste PROVISÓRIO, montado com caixas e cilindros, só para a PoC: o modelo 3D real (GLB,
-// ADR-008) ainda não existe (L-002). Todas as medidas, limites e parâmetros abaixo são FICTÍCIOS: não
-// descrevem nenhum guindaste real (ADR-012; ADR-013 C-4, regra 2). Os parâmetros a e h entram só na
-// PRÉ-VISUALIZAÇÃO da geometria no frontend, nunca em decisão de capacidade ou segurança (RN-008).
+// ADR-008) ainda não existe (L-002). Todas as medidas, limites e parâmetros (aqui e em
+// `provisionalCraneSpec.ts`) são FICTÍCIOS: não descrevem nenhum guindaste real (ADR-012; ADR-013
+// C-4, regra 2). Os parâmetros a e h entram só na PRÉ-VISUALIZAÇÃO da geometria no frontend, nunca
+// em decisão de capacidade ou segurança (RN-008). Com ficha técnica, a lança é desenhada com a faixa
+// L_min..L_max e o pino com a e h da ficha (TASK-033).
 
 /** Nomes estáveis dos nós, imitando o mapeamento de nós que o GLB real vai precisar (doc-fonte § 12.1). */
 export const CRANE_NODE_NAMES = {
@@ -32,48 +49,6 @@ export const CRANE_NODE_NAMES = {
   cableLine: 'crane-cable-line',
   hook: 'crane-hook',
 } as const
-
-export interface ProvisionalCraneDimensions {
-  /** Lança toda recolhida, do pivô até a ponta (m). */
-  readonly boomRetractedLengthM: number
-  /** Lança toda estendida (m); define o curso da única seção telescópica do modelo. */
-  readonly boomExtendedLengthM: number
-}
-
-/** FICTÍCIO: dimensões do guindaste provisório. */
-export const PROVISIONAL_CRANE_DIMENSIONS: ProvisionalCraneDimensions = {
-  boomRetractedLengthM: 12,
-  boomExtendedLengthM: 22,
-}
-
-/** FICTÍCIO: limites dos comandos na PoC; não são limites de nenhum guindaste real. */
-export const PROVISIONAL_CRANE_LIMITS: CraneLimits = {
-  turretRotationDeg: { min: -180, max: 180 },
-  boomAngleDeg: { min: 0, max: 80 },
-  boomLengthM: {
-    min: PROVISIONAL_CRANE_DIMENSIONS.boomRetractedLengthM,
-    max: PROVISIONAL_CRANE_DIMENSIONS.boomExtendedLengthM,
-  },
-  cableLengthM: { min: 1, max: 15 },
-}
-
-/**
- * FICTÍCIO: parâmetros geométricos do guindaste provisório (ADR-013 C-4). O pino do pé da lança fica
- * 1,2 m atrás do eixo de giro (a < 0) e 3,3 m acima do plano de apoio. Em produção, a e h virão da
- * ficha técnica cadastrada no backend, nunca do modelo 3D (RN-003).
- */
-export const PROVISIONAL_CRANE_GEOMETRY: CraneGeometryParameters = {
-  boomPivotOffsetM: -1.2,
-  boomPivotHeightM: 3.3,
-}
-
-/** FICTÍCIO: pose inicial da PoC. */
-export const PROVISIONAL_CRANE_INITIAL_STATE: CraneState = {
-  turretRotationDeg: 0,
-  boomAngleDeg: 35,
-  boomLengthM: PROVISIONAL_CRANE_DIMENSIONS.boomRetractedLengthM,
-  cableLengthM: 5,
-}
 
 // Medidas visuais (m), FICTÍCIAS.
 const WHEEL_RADIUS = 0.55
