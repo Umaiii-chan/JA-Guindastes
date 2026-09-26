@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | média |
 | **Criada em** | 2026-09-26 pela pessoa responsável (leva C, via orquestrador) |
 | **Iniciada em** | 2026-09-26 |
@@ -116,3 +116,5 @@ Não há: tudo é automatizado (`npm run e2e`).
 ## 11. Encerramento (preenchido ao mover para completed/)
 
 —
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).

@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por pessoa responsável (leva C, via sessão principal) |
 | **Iniciada em** | 2026-09-26 |
@@ -121,3 +121,5 @@ Pendente.
 ## 11. Encerramento
 
 Pendente.
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).

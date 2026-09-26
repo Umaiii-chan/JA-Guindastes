@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (leva C, em chat) |
 | **Iniciada em** | 2026-09-26 |
@@ -108,3 +108,5 @@ Pendente (revisor independente).
 ## 11. Encerramento
 
 —
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
