@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | média |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (pedido em sessão com o agente Claude Code) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-018-postgres-no-ci-e-adr-orm` (a partir de `438d812`) |
-| **PR** | — |
+| **PR** | [#16](https://github.com/Umaiii-chan/JA-Guindastes/pull/16), mergeado em 2026-09-26 com CI verde |
 | **Requisitos** | RNF-001 |
 | **Regras de negócio** | — |
 | **Estimativa** | P |
@@ -87,6 +87,8 @@ Não se aplica: a evidência é o job Backend do PR.
 **Resultado:** — (aguardando revisão)
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada). No CI do PR, o Alembic conectou ao PostgreSQL de serviço e o pytest deu 300 passed, 0 skipped.
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...
