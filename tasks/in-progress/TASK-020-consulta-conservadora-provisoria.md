@@ -128,10 +128,10 @@ Não há: todo o comportamento é verificado pelos testes automatizados.
 | # | Passo | Arquivos | Como verificar | Feito |
 |---|-------|----------|----------------|-------|
 | 1 | Criar esta tarefa | `tasks/in-progress/` | `check-structure.sh` | [x] |
-| 2 | Motivos novos, tipo de resultado e estratégia | `app/domain/value_objects/`, `app/domain/services/` | mypy, lint-imports | [ ] |
-| 3 | Fixture FICTÍCIA e testes de domínio | `tests/fixtures/`, `tests/domain/` | CA-1..CA-6, pytest | [ ] |
-| 4 | Teste de aplicação com a estratégia injetada | `tests/application/` | CA-7, pytest | [ ] |
-| 5 | Handoff | `handoffs/TASK-020.md` | CA-8, CA-9 | [ ] |
+| 2 | Motivos novos, tipo de resultado e estratégia | `app/domain/value_objects/`, `app/domain/services/` | mypy, lint-imports | [x] |
+| 3 | Fixture FICTÍCIA e testes de domínio | `tests/fixtures/`, `tests/domain/` | CA-1..CA-6, pytest | [x] |
+| 4 | Teste de aplicação com a estratégia injetada | `tests/application/` | CA-7, pytest | [x] |
+| 5 | Handoff | `handoffs/TASK-020.md` | CA-8, CA-9 | [x] |
 
 **Análise de impacto:**
 - Arquivos que podem quebrar indiretamente: quem trata `CapacityUnsupportedReason` de forma
@@ -142,9 +142,25 @@ Não há: todo o comportamento é verificado pelos testes automatizados.
 
 ## 9. Cenários de teste (preenchido pelo Engenheiro de testes)
 
+Arquivos: `backend/tests/domain/test_conservative_tabulated_lookup.py` (domínio, 55 testes) e
+`backend/tests/application/test_evaluate_operation_conservative_lookup.py` (aplicação, 4 testes).
+
 | Cenário | Critério | Tipo | Arquivo de teste | Status |
 |---------|----------|------|------------------|--------|
-| — | — | — | — | — |
+| cada ponto da tabela típica → capacidade, ponto usado, raio consultado e consulta | CA-1 | unitário | domínio | verde |
+| `11.500000000000002` e ±0,5 µm (inclusive nas pontas da faixa) → ponto tabelado; raio consultado informado como veio | CA-2 | unitário | domínio | verde |
+| ±2 µm → outro raio (entre pontos); ε fixado em 1·10⁻⁶ m | CA-2 | unitário | domínio | verde |
+| mesma consulta com ruído: `ExactPointLookup` não acha, a conservadora acha | CA-2 | unitário | domínio | verde |
+| raio entre pontos, tabela típica → próximo raio maior (5 casos, 2 comprimentos) | CA-3 | unitário | domínio | verde |
+| tabela atípica → vizinho de menor capacidade (o de raio menor); empate de capacidade → ponto de maior raio | CA-3 | unitário | domínio | verde |
+| raio abaixo do menor / acima do maior (inclusive além de ε e a faixa de outro comprimento) → motivo próprio, sem capacidade | CA-4 | unitário | domínio | verde |
+| comprimento entre colunas, abaixo, acima e além de ε → `BOOM_LENGTH_NOT_IN_CHART`; ±0,5 µm aceito; tabela vazia | CA-5 | unitário | domínio | verde |
+| id e versão da tabela em 5 tipos de resultado × 2 versões | CA-6 | unitário | domínio | verde |
+| marca `CONSERVATIVE_PROVISIONAL`; varredura de 0 a 22 m: capacidade sempre de um ponto da tabela; invariante do tipo | CA-6 | unitário | domínio | verde |
+| valores distintos a menos de ε (raio e comprimento) → menor capacidade (comportamento registrado como pendência) | CA-3 | unitário | domínio | verde |
+| `EvaluateOperation` + estratégia: raio calculado entre pontos → avaliado com o vizinho de 2000 kg e 75 % | CA-7 | unitário | aplicação | verde |
+| `EvaluateOperation` + estratégia: raio `11.500000000000002` → avaliado com o ponto de 11,5 m | CA-7 | unitário | aplicação | verde |
+| `EvaluateOperation` + estratégia: raio abaixo e lança entre colunas → não avaliável com o motivo novo, geometria e versão | CA-7 | unitário | aplicação | verde |
 
 ## 10. Parecer da revisão (preenchido pelo Revisor)
 
