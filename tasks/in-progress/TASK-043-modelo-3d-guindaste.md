@@ -49,7 +49,7 @@ A ligação do modelo no `CraneViewport` fica para a integração (sessão princ
   nomes de nós para `CraneKinematicsNodeNames`, usando `loadGltf`/`parseGltf` e
   `mapCraneKinematics` existentes, sem alterar outros arquivos de `src/three/`.
 - [ ] **CA-6** — Teste Vitest: o GLB versionado carrega, o mapeamento o aceita sem erro de hierarquia e
-  a conferência de calibração com a ficha de demo (a = −1,2 m, h = 3,3 m, L_min = 12 m) só dá os
+  a conferência de calibração com a ficha de demo (a = −1,56 m desde o ajuste de 2026-09-26, h = 3,3 m, L_min = 12 m) só dá os
   avisos esperados e documentados; com o `CraneController`, o gancho desenhado coincide com o G
   calculado e fica na vertical da ponta.
 - [ ] **CA-7** — Capturas de conferência visual em `docs/assets/screenshots/modelo-3d/` (repouso, giro
@@ -65,13 +65,14 @@ A ligação do modelo no `CraneViewport` fica para a integração (sessão princ
 - `frontend/scripts/convert-crane-model.mjs` (novo);
 - `frontend/public/models/guindaste-caminhao.glb` (novo, gerado);
 - `frontend/src/three/loaders/loadTruckCraneModel.ts` (novo) e o teste correspondente;
-- `docs/assets/screenshots/modelo-3d/*.png`, `.gitignore`, esta tarefa e `handoffs/TASK-043.md`.
+- `docs/assets/screenshots/modelo-3d/*.png`, `.gitignore`, esta tarefa e `handoffs/TASK-043.md`;
+- ajuste pedido pela pessoa responsável em 2026-09-26: a = −1,56 m na ficha FICTÍCIA de demo (`backend/app/demo_seed.py`, `backend/tests/test_demo_seed.py`, `docs/demo.md`).
 
 ### Fora do escopo (explicitamente — o agente NÃO faz)
 
 - trocar o guindaste provisório no `CraneViewport` ou em `buildCraneScene` (integração);
 - alterar outros arquivos de `frontend/src/three/**` (TASK-041), `handoffs/current.md`, ADRs,
-  `backend/**`;
+  `backend/**` (exceto o ajuste do seed de demo acima);
 - versionar o FBX; dados reais do guindaste; animar o cilindro de levantamento dentro do controller.
 
 ## 5. Arquivos provavelmente afetados
@@ -89,9 +90,9 @@ A ligação do modelo no `CraneViewport` fica para a integração (sessão princ
 
 - A proporção do modelo não bate com a ficha de demo: com escala única, h = 3,3 m deixa a lança
   recolhida com cerca de 6 m. A conversão estica os tubos da lança ao longo do eixo para chegar aos
-  12 m, e o `a` do modelo diverge da ficha (registrado no handoff).
-- Licença do CGTrader: falta a pessoa responsável conferir se permite versionar o GLB derivado e
-  distribuí-lo embutido na aplicação.
+  12 m. O `a` do modelo (−1,559 m) divergia da ficha (−1,2 m); a pessoa responsável mudou a ficha de demo para −1,56 m.
+- Licença do CGTrader: confirmada pela pessoa responsável em 2026-09-26 (permite versionar o GLB derivado e
+  distribuí-lo embutido na aplicação).
 - O cilindro de levantamento é rígido no FBX; a conversão o separa em dois nós extras, que só
   acompanham a lança se a integração chamar a função de atualização do carregador.
 

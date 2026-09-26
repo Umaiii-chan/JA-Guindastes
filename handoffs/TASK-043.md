@@ -37,9 +37,11 @@ conferência.
   - junta as peças por papel e por material e exporta o GLB;
   - `--listar` imprime a classificação peça a peça.
 - Gerei `frontend/public/models/guindaste-caminhao.glb`:
-  - **1 897 804 bytes (1,81 MiB)** e **102 926 triângulos**: 102 894 do FBX, sem os 196 do cabo
+  - **1 897 892 bytes (1,81 MiB)** e **102 926 triângulos**: 102 894 do FBX, sem os 196 do cabo
     original, mais 32 do cabo sintetizado;
-  - SHA-256 `cd7bf259…5296696a`, idêntico em duas execuções (determinístico).
+  - SHA-256 `637d7a1fa3966a9c19cdb15c3dd50c09bfc44cd99bcabf724823e3c570804936`, idêntico em
+    duas execuções (determinístico) e conferido pelo teste (`GLB_SHA256`). O primeiro GLB
+    (`cd7bf259…`) mudou só nos `extras`: licença confirmada, ver § 12.
 - Criei `frontend/src/three/loaders/loadTruckCraneModel.ts`, um arquivo novo. Nenhum outro arquivo de
   `src/three/` foi alterado. Ele exporta:
   - `loadTruckCraneModel(url?, options?)` e `parseTruckCraneModel(buffer)`, que usam
@@ -92,7 +94,7 @@ material (ex.: `chassi-amarelo`, `lanca-extensao-branco`). Os materiais são PBR
 | Escala FBX → m | — | 3,172376 (pela altura do pino) | — |
 | h (altura do pino P) | 3,3 m | 3,300 m | bate |
 | L_min (lança recolhida, P→T) | 12 m | 12,000 m | bate, com a lança esticada (abaixo) |
-| a (pino atrás do eixo de giro) | −1,2 m | −1,559 m | **diverge 0,359 m** |
+| a (pino atrás do eixo de giro) | −1,2 m → **−1,56 m** (§ 12) | −1,559 m | divergia 0,359 m; agora 0,9 mm |
 | Caminhão (comprimento × largura) | — | ≈ 9,3 m × 2,9 m | — |
 
 Com uma escala única, o FBX não chega às três medidas. A escala que dá h = 3,3 m deixa a lança toda
@@ -104,18 +106,24 @@ recolhida com **6,04 m**. Priorizei h e L_min:
 A 2ª seção, recolhida, vai de 0,15 m a 10,79 m de P. Em 22 m (L_max de demo), ela ainda sobrepõe
 **0,64 m** dentro da base.
 
-Com a ficha de demo e tolerância de 1 mm, o mapeamento dá exatamente dois avisos `position`:
+**Calibração com a ficha de demo nova (a = −1,56 m, § 12):** com tolerância de 1 mm, não há aviso
+(o `a` do modelo fica a 0,9 mm). O teste confere isso. Com as medidas do próprio modelo
+(`TRUCK_CRANE_MODEL_MEASUREMENTS`), também não há aviso.
+
+**Com o padrão FICTÍCIO do frontend (a = −1,2 m, ainda não alterado),** o mapeamento dá exatamente
+dois avisos `position`:
 - `boom-pivot`: esperado (0; 3,3; −1,2) m, encontrado (0; 3,3; −1,559) m;
 - `boom-tip`: esperado (0; 3,3; 10,8) m, encontrado (0; 3,3; 10,441) m.
 
 Os dois têm desvio de 0,359 m. É erro só visual: o gancho desenhado fica 0,36 m mais perto do eixo
-que o G calculado (bolinha vermelha nas capturas). O teste fixa esses dois avisos. Com as medidas do
-próprio modelo (`TRUCK_CRANE_MODEL_MEASUREMENTS`), não há aviso.
+que o G calculado. O teste fixa esses dois avisos para o padrão do frontend.
 
 ### Capturas (`docs/assets/screenshots/modelo-3d/`)
 
-Todas com a ficha de demo (a = −1,2 m, h = 3,3 m). A bolinha vermelha é o G calculado pelas fórmulas
-do ADR-013.
+As capturas foram feitas **antes** da mudança da ficha, com a = −1,2 m e h = 3,3 m. A bolinha
+vermelha é o G calculado pelas fórmulas do ADR-013 com esses valores, por isso aparece 0,36 m
+afastada do gancho. Com a = −1,56 m, ela coincidiria com o gancho. A geometria do GLB não mudou
+depois delas: a regeneração alterou só os `extras`.
 
 | Arquivo | Estado (ψ, θ, L, c) |
 |---------|---------------------|
@@ -141,14 +149,15 @@ $ git diff --stat 4ddd6a3...HEAD   (antes deste handoff)
  tasks/in-progress/TASK-043-modelo-3d-guindaste.md  | 100 +++
 ```
 
-Mais este handoff. Nada fora do escopo: não mexi em `handoffs/current.md`, nos ADRs, em `backend/**`,
-em outros arquivos de `src/three/` nem no `CraneViewport`.
+Mais este handoff. Não mexi em `handoffs/current.md`, nos ADRs, em outros arquivos de `src/three/`
+nem no `CraneViewport`. Os arquivos de backend e `docs/demo.md` só foram alterados depois, a pedido
+da pessoa responsável (§ 12).
 
 ## 4. Comandos executados e resultados
 
 | Comando (em `frontend/`, salvo indicação) | Resultado | Saída (resumo) |
 |---------|-----------|----------------|
-| `node scripts/convert-crane-model.mjs` (2×) | ✅ | mesmo SHA-256 `cd7bf259…` nas duas; 1 897 804 bytes |
+| `node scripts/convert-crane-model.mjs` (2×) | ✅ | mesmo SHA-256 nas duas (primeiro `cd7bf259…`, 1 897 804 bytes; após § 12, `637d7a1f…`, 1 897 892 bytes) |
 | `npm run lint` | ✅ passou | sem mensagens |
 | `npm run format:check` | ✅ passou | `All matched files use Prettier code style!` |
 | `npm run typecheck` | ✅ passou | `tsc -b && tsc -p e2e` sem erros |
@@ -211,7 +220,7 @@ arquivo novo em `src/three/loaders/`.
 - **O eixo de giro em X ficou no eixo da lança** (−0,0346 no FBX), e não no centro do anel (−0,0097),
   para P ter x = 0. A diferença, 8 cm, não aparece.
 - **Os `extras` ficam no nó `crane-base`**, com `ficticio`, `ilustrativo`, `aviso`, `origem` (arquivo,
-  fonte, SHA-256, licença a conferir), `conversao` e `medidasDoModelo`.
+  fonte, SHA-256, licença — agora confirmada, § 12), `conversao` e `medidasDoModelo`.
 - **A escala e as medidas vêm da ficha FICTÍCIA de demo** (ADR-012). Nenhuma medida de cálculo é lida
   do GLB (RN-003).
 
@@ -236,8 +245,8 @@ arquivo novo em `src/three/loaders/`.
 
 | # | Pergunta | Bloqueia? | Resposta | Respondida em |
 |---|----------|-----------|----------|---------------|
-| 1 | **Licença CGTrader:** a licença do `cgtrader_optimized_prop_crane.fbx` permite versionar o GLB derivado (repositório privado) e distribuí-lo embutido na aplicação web (servido publicamente em `/models/guindaste-caminhao.glb`)? Se não permitir, o GLB sai do repositório e passa a ser gerado localmente com o script. | sim, para o merge | | |
-| 2 | Aceita a lança esticada (5,96 m a mais nos tubos) e a divergência de a (−1,559 m contra −1,2 m) no modelo ilustrativo? Alternativa: mudar o `a` da ficha FICTÍCIA de demo para −1,56 m, o que zera os avisos (mas muda o roteiro de `docs/demo.md` e o seed). | não | | |
+| 1 | **Licença CGTrader:** a licença do `cgtrader_optimized_prop_crane.fbx` permite versionar o GLB derivado (repositório privado) e distribuí-lo embutido na aplicação web (servido publicamente em `/models/guindaste-caminhao.glb`)? Se não permitir, o GLB sai do repositório e passa a ser gerado localmente com o script. | sim, para o merge | **Sim:** a licença permite versionar o GLB derivado e distribuí-lo embutido na aplicação. Registrado nos `extras` do GLB (`origem.licenca`). | 2026-09-26, pessoa responsável, em chat (via orquestrador) |
+| 2 | Aceita a lança esticada (5,96 m a mais nos tubos) e a divergência de a (−1,559 m contra −1,2 m) no modelo ilustrativo? Alternativa: mudar o `a` da ficha FICTÍCIA de demo para −1,56 m, o que zera os avisos (mas muda o roteiro de `docs/demo.md` e o seed). | não | **Mudar a ficha FICTÍCIA de demo para a = −1,56 m.** Feito no seed, nos testes e em `docs/demo.md`; o padrão do frontend fica para a integração (§ 12). | 2026-09-26, pessoa responsável, em chat (via orquestrador) |
 
 ## 9. ⚠️ Segurança
 
@@ -254,7 +263,8 @@ Nada a registrar.
    `${import.meta.env.BASE_URL}models/guindaste-caminhao.glb`, e os erros são os `GltfLoadError` de
    `loadGltf`.
 2. `scene.add(model.scene)`. `crane-base` fica na origem O, e a cena do GLB não tem transformação.
-3. Mapear o modelo com a ficha da configuração, ou com `PROVISIONAL_CRANE_SETUP` sem ficha:
+3. Mapear o modelo com a ficha da configuração, ou com `PROVISIONAL_CRANE_SETUP` sem ficha. Esse
+   padrão ainda tem a = −1,2 m: alinhar para −1,56 m zera os avisos (§ 12.3).
    `mapTruckCraneKinematics(model, { geometryParameters, boomRetractedLengthM:
    limits.boomLengthM.min, calibrationTolerance })`. Se `!result.ok`, voltar ao guindaste provisório
    e mostrar os `report.errors`. Os `report.warnings` são só visuais e podem ir para o log. Atenção:
@@ -301,3 +311,76 @@ Nada a registrar.
   lança longa) e sobre o cilindro em ângulos baixos. Em θ = 0, a camisa fica escondida dentro da
   lança e da torre (captura 08).
 - O teste cobre hierarquia, calibração, P/T/G e cilindro, mas não compara pixels.
+- Ajuste da § 12: conferir os raios novos em `backend/tests/test_demo_seed.py` e `docs/demo.md` § 5.
+
+## 12. Ajuste pedido pela pessoa responsável (2026-09-26, respostas às pendências 1 e 2)
+
+### 12.1 Licença (pendência 1)
+- A resposta ficou registrada em § 8.
+- No script, `origem.licenca` dos `extras` passou de "a conferir" para: "permite versionar o GLB
+  derivado e distribuí-lo embutido na aplicação (confirmado pela pessoa responsável em 2026-09-26)".
+- Regenerei o GLB: SHA-256 `637d7a1fa3966a9c19cdb15c3dd50c09bfc44cd99bcabf724823e3c570804936`,
+  1 897 892 bytes, igual em duas execuções.
+- O teste passou a conferir esse SHA (`GLB_SHA256`) e a licença nos `extras`.
+
+### 12.2 Ficha FICTÍCIA de demo com a = −1,56 m (pendência 2)
+- `backend/app/demo_seed.py`: `boom_pivot_offset_m` passou de −1.2 para **−1.56**, e as docstrings
+  foram atualizadas.
+- `backend/tests/test_demo_seed.py`:
+  - raios esperados recalculados;
+  - teste da ficha renomeado para `test_ficha_ficticia_bate_com_o_modelo_3d_ilustrativo`, agora
+    conferindo −1.56.
+- `backend/tests/test_demo_seed_integration.py` reaproveita `ROTEIRO_FICTICIO` e não precisou mudar.
+- `docs/demo.md`:
+  - ficha, tabela de valores esperados e exemplo de cálculo atualizados;
+  - novo aviso: um banco semeado antes (a = −1,2 m) faz o seed recusar ("não sobrescreve"), e é
+    preciso recriar o banco (`docker compose down -v`).
+- Os CSVs FICTÍCIOS de demo **não mudaram**: todos os cenários continuam no mesmo intervalo da
+  tabela.
+
+Valores do roteiro, calculados com R = a + L·cos θ (ADR-013) e a consulta conservadora do ADR-015.
+A tabela v1 está ativa, com carga de 3 000 kg:
+
+| Cenário | L, θ | Raio antes (a = −1,2) | Raio depois (a = −1,56) | Resultado, capacidade, ponto, utilização (antes = depois) |
+|---------|------|-----------------------|-------------------------|-----------------------------------------------------------|
+| A — pose inicial | 12 m, 35° | 8,63 m | **8,27 m** | Avaliado; 4 200 kg; 12 × 10; 71,43 % |
+| B — lança mais alta | 12 m, 60° | 4,80 m | **4,44 m** | Avaliado; 7 000 kg; 12 × 6; 42,86 % |
+| C — lança estendida | 22 m, 35° | 16,82 m | **16,46 m** | Avaliado; 1 500 kg; 22 × 18; 200,00 % |
+| D — lança fora da tabela | 17,5 m, 35° | 13,14 m | **12,78 m** | Não avaliável: `BOOM_LENGTH_NOT_IN_CHART` |
+| E — raio abaixo da tabela | 12 m, 80° | 0,88 m | **0,52 m** | Não avaliável: `RADIUS_BELOW_CHART_MIN` |
+| A com a v2 | 12 m, 35° | 8,63 m | **8,27 m** | Avaliado; 3 780 kg; 12 × 10; 79,37 % |
+
+A pose inicial não precisou mudar.
+
+No teste do modelo (`truckCraneModel.test.ts`):
+- com a ficha de demo (a = −1,56 m) e tolerância de 1 mm, a conferência de calibração **não dá
+  aviso**;
+- os dois avisos de 0,359 m passaram a ser conferidos contra o padrão do frontend (a = −1,2 m).
+
+### 12.3 Onde o −1,2 m continua no frontend (não alterado; a integração ajusta)
+- `frontend/src/three/crane/provisionalCraneSpec.ts`, linha 38:
+  `PROVISIONAL_CRANE_GEOMETRY.boomPivotOffsetM: -1.2`. Entra em `PROVISIONAL_CRANE_SETUP` e é
+  reexportado por `createProvisionalCrane.ts`.
+- `frontend/src/app/craneSetup.ts`: `provisional()` usa `PROVISIONAL_CRANE_SETUP` quando a
+  configuração não tem ficha técnica. Com a configuração de demo selecionada, vale a ficha do
+  backend (−1,56 m).
+- Testes do frontend que citam o −1,2 m ou valores derivados dele:
+  - `tests/three/crane/craneKinematics.test.ts`;
+  - `tests/three/crane/createProvisionalCrane.test.ts`;
+  - `tests/application/catalog/catalogForms.test.ts`;
+  - o GLB de exemplo `assets/example-models/guindaste-provisorio.ficticio.glb`, regenerado por
+    `tests/three/loaders/exampleModel.test.ts`.
+
+### 12.4 Gates depois do ajuste
+
+| Comando | Resultado | Saída (resumo) |
+|---------|-----------|----------------|
+| `uv run ruff check .` (backend) | ✅ | `All checks passed!` |
+| `uv run ruff format --check .` | ✅ | `152 files already formatted` |
+| `uv run mypy app` | ✅ | `Success: no issues found in 87 source files` |
+| `uv run lint-imports` | ✅ | `Contracts: 3 kept, 0 broken.` |
+| `uv run pytest` | ✅ | `826 passed, 36 skipped` (os testes de integração com PostgreSQL, inclusive `test_demo_seed_integration.py`, ficam pulados sem banco local; o CI os roda) |
+| `npm run lint` / `format:check` / `typecheck` (frontend) | ✅ | sem erros |
+| `npm test` | ✅ | `Test Files 28 passed (28)`, `Tests 320 passed \| 1 skipped (321)` |
+| `npm run build` | ✅ | `built in 186ms` |
+| `bash scripts/check-structure.sh` | ✅ | `OK: 0 erros, 1 aviso(s)` (4 tarefas em paralelo) |
