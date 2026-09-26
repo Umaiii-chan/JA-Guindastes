@@ -27,6 +27,10 @@ from app.presentation.api.evaluations import (
     create_evaluations_router,
 )
 from app.presentation.api.health import DatabaseHealthCheck, create_health_router
+from app.presentation.api.load_chart_persistence import (
+    LoadChartPersistenceDependencies,
+    create_load_chart_persistence_router,
+)
 from app.presentation.api.load_charts import create_load_charts_router
 from app.presentation.api.upload_limits import UploadLimits
 from app.presentation.api.validation_errors import request_validation_error_handler
@@ -42,6 +46,7 @@ def create_app(
     database_health_check: DatabaseHealthCheck | None = None,
     on_shutdown: Callable[[], None] | None = None,
     catalog_repository: CraneCatalogStore | None = None,
+    load_chart_persistence: LoadChartPersistenceDependencies | None = None,
 ) -> FastAPI:
     """Monta a aplicação com as rotas cujos adapters foram recebidos.
 
@@ -52,6 +57,8 @@ def create_app(
       requisição, ver `app.presentation.api.evaluations`);
     - o WebSocket de avaliação só entra com `evaluation_websocket` (o caso de uso pronto);
     - as rotas do catálogo só entram com `catalog_repository` (TASK-030);
+    - importação com gravação, consulta e ativação de tabelas (TASK-031) só entram com
+      `load_chart_persistence`;
     - `on_shutdown` roda quando a aplicação encerra (a composição libera o pool do banco).
 
     Cada router novo entra como um bloco próprio na lista de registros abaixo, com o parâmetro
@@ -87,6 +94,9 @@ def create_app(
 
     if catalog_repository is not None:
         app.include_router(create_catalog_router(catalog_repository))
+
+    if load_chart_persistence is not None:
+        app.include_router(create_load_chart_persistence_router(load_chart_persistence))
 
     return app
 

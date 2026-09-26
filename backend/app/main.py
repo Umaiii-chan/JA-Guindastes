@@ -58,6 +58,7 @@ from app.infrastructure.repositories.sqlalchemy_crane_catalog_repository import 
 from app.infrastructure.repositories.sqlalchemy_load_chart_repository import (
     SqlAlchemyLoadChartRepository,
 )
+from app.load_chart_persistence_composition import build_load_chart_persistence
 from app.presentation.api.evaluations import (
     EvaluateOperationDependency,
     shared_evaluate_operation,
@@ -173,6 +174,8 @@ def create_database_app(engine: Engine) -> FastAPI:
         database_health_check=database_health_check(engine),
         # Catálogo (TASK-030) no mesmo engine da avaliação: um pool só.
         catalog_repository=SqlAlchemyCraneCatalogRepository(create_session_factory(engine)),
+        # Importação com gravação e ativação (TASK-031): mesmo engine; exige FILE_STORAGE_DIR.
+        load_chart_persistence=build_load_chart_persistence(engine),
         on_shutdown=engine.dispose,
     )
 
