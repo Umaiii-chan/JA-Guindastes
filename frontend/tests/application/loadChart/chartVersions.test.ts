@@ -75,7 +75,7 @@ describe('loadChartVersions', () => {
     const { versions, forgotten } = await loadChartVersions({ getChart }, store, 'CFG-FICTICIA')
 
     expect(versions.map((item) => item.chartId)).toEqual(['OK'])
-    expect(forgotten.sort()).toEqual(['OUTRA', 'SUMIU'])
+    expect([...forgotten].sort()).toEqual(['OUTRA', 'SUMIU'])
     expect(store.list('CFG-FICTICIA').map((item) => item.chartId)).toEqual(['OK'])
   })
 
