@@ -1,9 +1,12 @@
 // Casca, páginas, cena 3D e simulador guiado, sem depender do backend (TASK-036, adaptado às páginas
 // da TASK-039). O catálogo é FICTÍCIO e respondido no navegador (catalogMock.ts). Roda contra o
-// `vite preview` local e contra a stack Docker no CI.
+// `vite preview` local e contra a stack Docker no CI. Com backend, o fixture `page` de auth.ts entra
+// como o admin de E2E antes de cada teste (TASK-040); sem backend, a aplicação fica no modo sem
+// autenticação.
 
-import { expect, type Locator, type Page, test } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 
+import { expect, test } from './auth.js'
 import { chooseConfiguration, fillValidLoad, mockCatalog } from './catalogMock.js'
 
 function geometryValue(page: Page, label: string): Locator {

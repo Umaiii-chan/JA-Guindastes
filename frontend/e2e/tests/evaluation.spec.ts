@@ -1,13 +1,10 @@
 // Avaliação respondida pelo backend através do proxy /api (TASK-036, adaptado às telas das
 // TASK-033/034 e ao simulador guiado da TASK-039). Precisa da stack com backend: os testes só rodam
 // com E2E_BACKEND=1 (job "E2E" do CI) e são PULADOS, nunca aprovados em falso, quando ela não está
-// disponível.
+// disponível. O fixture `page` de auth.ts entra como o admin de E2E antes de cada teste (TASK-040).
 
-import { expect, test } from '@playwright/test'
-
+import { expect, hasBackend, test } from './auth.js'
 import { chooseConfiguration, fillValidLoad } from './catalogMock.js'
-
-const hasBackend = process.env.E2E_BACKEND === '1'
 // Ids do seed FICTÍCIO da TASK-035 (backend/app/demo_seed.py), informados pelo ambiente do CI.
 const seed = {
   manufacturerId: process.env.E2E_SEED_MANUFACTURER_ID?.trim() ?? '',
