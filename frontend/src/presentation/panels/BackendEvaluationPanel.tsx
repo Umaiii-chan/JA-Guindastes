@@ -1,16 +1,22 @@
-import { useId } from 'react'
+import { ChevronRight, CircleAlert, Gauge as GaugeIcon, ShieldAlert } from 'lucide-react'
+import { type ReactNode, useId } from 'react'
 
 import {
+  type EvaluationStatus,
+  evaluationStatus,
+  FULL_CAPACITY_PERCENT,
+} from '../../application/evaluation/evaluationStatus'
+import {
   CONSERVATIVE_PROVISIONAL_STRATEGY,
-  type ConnectionStatus,
   type EvaluationError,
   type EvaluationResult,
 } from '../../domain/evaluation/evaluation'
+import { Badge, cx, EmptyState, Gauge, Skeleton, Spinner, StatusPill, type Tone } from '../ui'
+import styles from './BackendEvaluationPanel.module.css'
 
 export type EvaluationTransportLabel = 'websocket' | 'rest'
 
 export interface BackendEvaluationPanelProps {
-  readonly connectionStatus: ConnectionStatus
   readonly result: EvaluationResult | null
   readonly error: EvaluationError | null
   /** Há estado mais novo que o mostrado a caminho do backend. */
@@ -18,21 +24,23 @@ export interface BackendEvaluationPanelProps {
   readonly transport: EvaluationTransportLabel | null
   /** Por que o estado não está sendo enviado (ex.: configuração vazia); `null` se está. */
   readonly inputProblem: string | null
+  /** Peso da carga enviado (kg), para mostrar ao lado da capacidade; `null` sem carga válida. */
+  readonly loadWeightKg?: number | null
 }
 
 export const PROVISIONAL_MARK = 'PROVISÓRIO — consulta conservadora (ADR-015)'
 
-const CONNECTION_LABEL: Record<ConnectionStatus, string> = {
-  idle: 'não iniciada',
-  connecting: 'conectando…',
-  connected: 'conectada (WebSocket)',
-  reconnecting: 'reconectando… (avaliação por REST enquanto isso)',
-  closed: 'fechada',
-}
-
 const TRANSPORT_LABEL: Record<EvaluationTransportLabel, string> = {
   websocket: 'WebSocket',
   rest: 'REST',
+}
+
+/** Cor e texto de cada situação (ADR-017 § 3; sem níveis de alerta, PEND-004). */
+const STATUS_PRESENTATION: Record<EvaluationStatus, { tone: Tone; label: string }> = {
+  ok: { tone: 'ok', label: 'Dentro da capacidade' },
+  warning: { tone: 'warning', label: 'No limite da capacidade' },
+  over: { tone: 'danger', label: 'Acima da capacidade' },
+  unknown: { tone: 'neutral', label: 'Sem avaliação' },
 }
 
 function formatNumber(value: number, fractionDigits: number): string {
@@ -46,56 +54,149 @@ const meters = (value: number) => `${formatNumber(value, 2)} m`
 const kilograms = (value: number) => `${formatNumber(value, 0)} kg`
 
 /**
- * Resultado OFICIAL da avaliação, calculado no backend (RN-008): avaliado ou não avaliável com os
- * motivos (RN-007), capacidade, utilização e o ponto tabelado usado, com a marca da consulta
- * conservadora provisória (ADR-015). Sem nível de alerta (PEND-004).
+ * HUD do resultado OFICIAL, calculado no backend (RN-008): situação com cor, utilização no medidor,
+ * capacidade, raio e o ponto tabelado usado, com a marca da consulta conservadora provisória
+ * (ADR-015). "Não avaliável" mostra os motivos (RN-007). A cor só compara a carga com a capacidade;
+ * não há níveis de alerta (PEND-004).
  */
 export function BackendEvaluationPanel({
-  connectionStatus,
   result,
   error,
   pending,
   transport,
   inputProblem,
+  loadWeightKg = null,
 }: BackendEvaluationPanelProps) {
   const titleId = `${useId()}-title`
+  const shown = inputProblem === null && error === null ? result : null
+  const status = evaluationStatus(shown)
+  const presentation =
+    shown?.kind === 'NOT_EVALUABLE'
+      ? { tone: 'neutral' as const, label: 'Não avaliável' }
+      : STATUS_PRESENTATION[status]
+  const waitingFirst = inputProblem === null && error === null && result === null
+  const utilization = shown?.kind === 'EVALUATED' ? shown.utilizationPercent : null
 
   return (
-    <section className="evaluation-panel" aria-labelledby={titleId} aria-busy={pending}>
-      <h2 id={titleId}>
-        Avaliação <span className="evaluation-panel__badge">backend</span>
-      </h2>
-      <p className="evaluation-panel__provisional" role="note">
-        <strong>{PROVISIONAL_MARK}</strong>
-        <span>
-          Capacidade tirada de um ponto da tabela, do lado seguro; não é valor definitivo.
+    <section className={styles.hud} aria-labelledby={titleId} aria-busy={pending}>
+      <header className={styles.header}>
+        <span className={styles.headerIcon} aria-hidden="true">
+          <GaugeIcon size={16} />
         </span>
-      </p>
-      <p className="evaluation-panel__meta">
-        Conexão em tempo real: <span>{CONNECTION_LABEL[connectionStatus]}</span>
-        {pending && <span className="evaluation-panel__pending"> · atualizando…</span>}
-      </p>
+        <h2 id={titleId} className={styles.title}>
+          Avaliação <Badge tone="info">backend</Badge>
+        </h2>
+        {pending && (
+          <span className={styles.pending}>
+            <Spinner size={12} /> atualizando…
+          </span>
+        )}
+      </header>
+
+      <div className={styles.statusRow}>
+        <StatusPill tone={presentation.tone} size="lg" live pulse={waitingFirst && pending}>
+          {presentation.label}
+        </StatusPill>
+        {shown?.kind === 'EVALUATED' && (
+          <span className={styles.kind} title="A tabela de carga cobre o estado">
+            Avaliado
+          </span>
+        )}
+      </div>
+
+      <div className={styles.hero}>
+        <Gauge
+          value={utilization}
+          tone={presentation.tone}
+          label="Utilização"
+          bands={[{ from: 0, to: FULL_CAPACITY_PERCENT, tone: 'ok' }]}
+          caption={
+            status === 'over'
+              ? 'acima de 100 %'
+              : shown?.kind === 'NOT_EVALUABLE'
+                ? 'sem utilização'
+                : undefined
+          }
+          size={148}
+        />
+        <dl className={styles.keyMetrics}>
+          <Metric label="Capacidade" loading={waitingFirst && pending}>
+            {shown?.capacity ? kilograms(shown.capacity.maximumCapacityKg) : '—'}
+          </Metric>
+          <Metric label="Carga">{loadWeightKg === null ? '—' : kilograms(loadWeightKg)}</Metric>
+          <Metric label="Raio (backend)" loading={waitingFirst && pending}>
+            {shown?.workingRadiusM !== null && shown?.workingRadiusM !== undefined
+              ? meters(shown.workingRadiusM)
+              : '—'}
+          </Metric>
+        </dl>
+      </div>
 
       {inputProblem !== null ? (
-        <p className="evaluation-panel__empty">{inputProblem}</p>
+        <EmptyState
+          compact
+          tone="neutral"
+          icon={<ChevronRight size={20} />}
+          title="Aguardando os passos"
+          description={inputProblem}
+        />
       ) : error !== null ? (
-        <p className="evaluation-panel__error" role="alert">
-          Não foi possível avaliar: {error.message} <code>{error.code}</code>
-        </p>
+        <EmptyState
+          compact
+          tone="danger"
+          role="alert"
+          icon={<CircleAlert size={20} />}
+          title="Não foi possível avaliar"
+          description={
+            <>
+              {error.message} <code>{error.code}</code>
+            </>
+          }
+        />
       ) : result === null ? (
-        <p className="evaluation-panel__empty">Aguardando a primeira avaliação do backend…</p>
+        <p className={styles.waiting}>Aguardando a primeira avaliação do backend…</p>
       ) : (
-        <EvaluationResultView result={result} />
+        <EvaluationDetails result={result} />
       )}
 
+      <div className={styles.provisional} role="note">
+        <span className={styles.provisionalIcon} aria-hidden="true">
+          <ShieldAlert size={16} />
+        </span>
+        <p>
+          <strong>{PROVISIONAL_MARK}</strong>
+          <span>
+            {' '}
+            Capacidade tirada de um ponto da tabela, do lado seguro; não é valor definitivo.
+          </span>
+        </p>
+      </div>
+
       {transport !== null && result !== null && error === null && inputProblem === null && (
-        <p className="evaluation-panel__meta">Recebida por {TRANSPORT_LABEL[transport]}.</p>
+        <p className={styles.meta}>Recebida por {TRANSPORT_LABEL[transport]}.</p>
       )}
     </section>
   )
 }
 
-function EvaluationResultView({ result }: { readonly result: EvaluationResult }) {
+function Metric({
+  label,
+  loading = false,
+  children,
+}: {
+  readonly label: string
+  readonly loading?: boolean
+  readonly children: ReactNode
+}) {
+  return (
+    <div className={styles.metric}>
+      <dt>{label}</dt>
+      <dd>{loading ? <Skeleton width="80%" height={16} /> : children}</dd>
+    </div>
+  )
+}
+
+function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
   const capacity = result.capacity
   const rows: { label: string; value: string }[] = []
   if (capacity) {
@@ -135,13 +236,8 @@ function EvaluationResultView({ result }: { readonly result: EvaluationResult })
 
   return (
     <>
-      <p
-        className={`evaluation-panel__result evaluation-panel__result--${result.kind === 'EVALUATED' ? 'evaluated' : 'not-evaluable'}`}
-      >
-        {result.kind === 'EVALUATED' ? 'Avaliado' : 'Não avaliável'}
-      </p>
       {result.kind === 'NOT_EVALUABLE' && (
-        <div className="evaluation-panel__reasons">
+        <div className={styles.reasons}>
           <p>Motivos:</p>
           <ul>
             {result.reasons.map((reason, index) => (
@@ -154,19 +250,23 @@ function EvaluationResultView({ result }: { readonly result: EvaluationResult })
         </div>
       )}
       {rows.length > 0 && (
-        <dl className="evaluation-panel__values">
-          {rows.map((row) => (
-            <div className="evaluation-panel__row" key={row.label}>
-              <dt>{row.label}</dt>
-              <dd>{row.value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-      {result.kind === 'EVALUATED' && (
-        <p className="evaluation-panel__meta">
-          “Avaliado” quer dizer que a tabela cobre o estado; não indica nível de alerta (PEND-004).
-        </p>
+        <details className={styles.details}>
+          <summary>Detalhes da consulta</summary>
+          <dl className={styles.rows}>
+            {rows.map((row) => (
+              <div className={styles.row} key={row.label}>
+                <dt>{row.label}</dt>
+                <dd>{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+          {result.kind === 'EVALUATED' && (
+            <p className={cx(styles.meta, styles.detailsNote)}>
+              A cor só compara a carga com a capacidade: não há níveis de alerta definidos
+              (PEND-004).
+            </p>
+          )}
+        </details>
       )}
     </>
   )

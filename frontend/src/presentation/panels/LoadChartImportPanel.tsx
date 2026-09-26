@@ -1,13 +1,18 @@
-import { type FormEvent, useId, useState } from 'react'
+import { CircleCheck, CircleX, FileUp, Power, Upload } from 'lucide-react'
+import { type FormEvent, useState } from 'react'
 
 import { validateImportForm } from '../../application/loadChart/importForm'
 import type {
   LoadChartActivation,
   LoadChartFailure,
   LoadChartGateway,
+  LoadChartImportIssue,
   LoadChartImportOutcome,
+  LoadChartPoint,
   StoredLoadChart,
 } from '../../application/loadChart/ports'
+import { Badge, Button, Field, Input, Notice, Panel, Spinner, Table, type Tone } from '../ui'
+import styles from './panels.module.css'
 
 function formatNumber(value: number, fractionDigits: number): string {
   return value.toLocaleString('pt-BR', {
@@ -44,54 +49,81 @@ export interface LoadChartImportReportProps {
   onActivate?(): void
 }
 
+const STATUS_TONE: Record<string, Tone> = {
+  ACTIVE: 'ok',
+  DRAFT: 'info',
+  SUPERSEDED: 'neutral',
+  INVALID: 'danger',
+}
+
 function ChartSummary({ chart }: { readonly chart: StoredLoadChart }) {
+  const rows = [
+    { label: 'Tabela', value: chart.chartId },
+    { label: 'Versão', value: chart.version },
+    { label: 'Configuração', value: chart.configurationId },
+    { label: 'Arquivo', value: chart.sourceFileName },
+  ]
   return (
-    <dl className="evaluation-panel__values">
-      <div className="evaluation-panel__row">
-        <dt>Tabela</dt>
-        <dd>{chart.chartId}</dd>
-      </div>
-      <div className="evaluation-panel__row">
-        <dt>Versão</dt>
-        <dd>{chart.version}</dd>
-      </div>
-      <div className="evaluation-panel__row">
-        <dt>Configuração</dt>
-        <dd>{chart.configurationId}</dd>
-      </div>
-      <div className="evaluation-panel__row">
+    <dl className={styles.summaryGrid}>
+      {rows.map((row) => (
+        <div key={row.label} className={styles.summaryCell}>
+          <dt>{row.label}</dt>
+          <dd>{row.value}</dd>
+        </div>
+      ))}
+      <div className={styles.summaryCell}>
         <dt>Status</dt>
-        <dd>{chart.status}</dd>
-      </div>
-      <div className="evaluation-panel__row">
-        <dt>Arquivo</dt>
-        <dd>{chart.sourceFileName}</dd>
+        <dd>
+          <Badge tone={STATUS_TONE[chart.status] ?? 'neutral'}>{chart.status}</Badge>
+        </dd>
       </div>
     </dl>
   )
 }
 
+const POINT_COLUMNS = [
+  {
+    key: 'boom',
+    header: 'Lança (m)',
+    numeric: true,
+    render: (point: LoadChartPoint) => formatNumber(point.boomLengthM, 2),
+  },
+  {
+    key: 'radius',
+    header: 'Raio (m)',
+    numeric: true,
+    render: (point: LoadChartPoint) => formatNumber(point.workingRadiusM, 2),
+  },
+  {
+    key: 'capacity',
+    header: 'Capacidade (kg)',
+    numeric: true,
+    render: (point: LoadChartPoint) => formatNumber(point.maxCapacityKg, 0),
+  },
+]
+
+const ISSUE_COLUMNS = [
+  { key: 'line', header: 'Linha', render: (issue: LoadChartImportIssue) => issue.line ?? '—' },
+  { key: 'column', header: 'Coluna', render: (issue: LoadChartImportIssue) => issue.column ?? '—' },
+  {
+    key: 'code',
+    header: 'Código',
+    render: (issue: LoadChartImportIssue) => <code>{issue.code}</code>,
+  },
+  { key: 'message', header: 'Mensagem', render: (issue: LoadChartImportIssue) => issue.message },
+]
+
 function ChartPoints({ chart }: { readonly chart: StoredLoadChart }) {
   return (
-    <table className="evaluation-panel__reasons">
-      <caption>{chart.points.length} ponto(s) importado(s)</caption>
-      <thead>
-        <tr>
-          <th scope="col">Lança (m)</th>
-          <th scope="col">Raio (m)</th>
-          <th scope="col">Capacidade (kg)</th>
-        </tr>
-      </thead>
-      <tbody>
-        {chart.points.map((point, index) => (
-          <tr key={index}>
-            <td>{formatNumber(point.boomLengthM, 2)}</td>
-            <td>{formatNumber(point.workingRadiusM, 2)}</td>
-            <td>{formatNumber(point.maxCapacityKg, 0)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <Table
+      caption={`${chart.points.length} ponto(s) importado(s)`}
+      showCaption
+      columns={POINT_COLUMNS}
+      rows={chart.points}
+      rowKey={(_, index) => String(index)}
+      maxHeight={280}
+      dense
+    />
   )
 }
 
@@ -105,71 +137,79 @@ export function LoadChartImportReport({
   onActivate,
 }: LoadChartImportReportProps) {
   return (
-    <div aria-live="polite">
+    <div className={styles.stack} aria-live="polite">
       {formProblems.length > 0 && (
-        <ul className="evaluation-panel__error" role="alert">
-          {formProblems.map((problem) => (
-            <li key={problem}>{problem}</li>
-          ))}
-        </ul>
+        <Notice tone="danger" role="alert" compact title="Revise o formulário">
+          <ul className={styles.bullets}>
+            {formProblems.map((problem) => (
+              <li key={problem}>{problem}</li>
+            ))}
+          </ul>
+        </Notice>
       )}
-      {busy === 'importing' && <p className="evaluation-panel__pending">Enviando a tabela…</p>}
-      {busy === 'activating' && <p className="evaluation-panel__pending">Ativando a tabela…</p>}
-      {error && (
-        <p className="evaluation-panel__error" role="alert">
-          {error.message}
+      {busy === 'importing' && (
+        <p className={styles.busy}>
+          <Spinner size={13} /> Enviando a tabela…
         </p>
+      )}
+      {busy === 'activating' && (
+        <p className={styles.busy}>
+          <Spinner size={13} /> Ativando a tabela…
+        </p>
+      )}
+      {error && (
+        <Notice tone="danger" role="alert" compact>
+          {error.message}
+        </Notice>
       )}
 
       {outcome?.kind === 'INVALID' && (
-        <div className="evaluation-panel__reasons">
-          <p className="evaluation-panel__result evaluation-panel__result--not-evaluable">
+        <div className={styles.stack}>
+          <p className={styles.resultLine}>
+            <CircleX size={16} aria-hidden="true" className={styles.iconDanger} />
             Importação recusada: status INVALID, nada foi gravado.
           </p>
-          <table>
-            <caption>Relatório de inconsistências ({outcome.issues.length})</caption>
-            <thead>
-              <tr>
-                <th scope="col">Linha</th>
-                <th scope="col">Coluna</th>
-                <th scope="col">Código</th>
-                <th scope="col">Mensagem</th>
-              </tr>
-            </thead>
-            <tbody>
-              {outcome.issues.map((issue, index) => (
-                <tr key={index}>
-                  <td>{issue.line ?? '—'}</td>
-                  <td>{issue.column ?? '—'}</td>
-                  <td>{issue.code}</td>
-                  <td>{issue.message}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Table
+            caption={`Relatório de inconsistências (${outcome.issues.length})`}
+            showCaption
+            columns={ISSUE_COLUMNS}
+            rows={outcome.issues}
+            rowKey={(_, index) => String(index)}
+            maxHeight={300}
+            dense
+          />
         </div>
       )}
 
       {outcome?.kind === 'IMPORTED' && activation === null && (
-        <div>
-          <p className="evaluation-panel__result">
+        <div className={styles.stack}>
+          <p className={styles.resultLine}>
+            <CircleCheck size={16} aria-hidden="true" className={styles.iconOk} />
             Tabela importada com status {outcome.chart.status}.
           </p>
           <ChartSummary chart={outcome.chart} />
-          <button type="button" onClick={onActivate} disabled={busy !== null}>
-            Ativar
-          </button>
+          <div>
+            <Button
+              variant="primary"
+              icon={<Power size={15} />}
+              onClick={onActivate}
+              disabled={busy !== null}
+            >
+              Ativar
+            </Button>
+          </div>
           <ChartPoints chart={outcome.chart} />
         </div>
       )}
 
       {activation && (
-        <div>
-          <p className="evaluation-panel__result">
+        <div className={styles.stack}>
+          <p className={styles.resultLine}>
+            <CircleCheck size={16} aria-hidden="true" className={styles.iconOk} />
             Tabela ativada: status {activation.chart.status}.
           </p>
           <ChartSummary chart={activation.chart} />
-          <p className="evaluation-panel__meta">
+          <p className={styles.fineprint}>
             {activation.supersededChartId === null
               ? 'Não havia tabela ativa nesta configuração: nenhuma foi substituída.'
               : `Tabela substituída: ${activation.supersededChartId} — agora SUPERSEDED.`}
@@ -191,7 +231,6 @@ export interface LoadChartImportPanelProps {
 
 /** Importação de tabela de carga (CSV/XLSX) e ativação (TASK-034; contrato da TASK-031). */
 export function LoadChartImportPanel({ gateway, configurationId }: LoadChartImportPanelProps) {
-  const idPrefix = useId()
   const [file, setFile] = useState<File | null>(null)
   const [ownConfigurationId, setOwnConfigurationId] = useState('')
   const [chartId, setChartId] = useState('')
@@ -241,62 +280,66 @@ export function LoadChartImportPanel({ gateway, configurationId }: LoadChartImpo
     }
   }
 
-  const titleId = `${idPrefix}-title`
   return (
-    <section className="evaluation-panel" aria-labelledby={titleId}>
-      <h2 id={titleId}>Importar tabela de carga</h2>
-      <form onSubmit={(event) => void handleSubmit(event)} noValidate>
-        <div className="evaluation-input__field">
-          <label htmlFor={`${idPrefix}-file`}>Arquivo (CSV ou XLSX)</label>
-          <input
-            id={`${idPrefix}-file`}
+    <Panel
+      title="Importar tabela de carga"
+      subtitle="CSV ou XLSX; a tabela entra como rascunho e é ativada depois"
+      icon={<FileUp size={16} />}
+    >
+      <form className={styles.stack} onSubmit={(event) => void handleSubmit(event)} noValidate>
+        <Field label="Arquivo (CSV ou XLSX)">
+          <Input
             type="file"
             accept=".csv,.xlsx"
             onChange={(event) => setFile(event.currentTarget.files?.item(0) ?? null)}
           />
-        </div>
+        </Field>
         {configurationId === undefined ? (
-          <div className="evaluation-input__field">
-            <label htmlFor={`${idPrefix}-configuration`}>Configuração (configuration_id)</label>
-            <input
-              id={`${idPrefix}-configuration`}
+          <Field label="Configuração (configuration_id)">
+            <Input
               type="text"
               autoComplete="off"
               spellCheck={false}
               value={ownConfigurationId}
               onChange={(event) => setOwnConfigurationId(event.currentTarget.value)}
             />
-          </div>
+          </Field>
         ) : (
-          <p className="evaluation-panel__meta">
+          <p className={styles.fineprint}>
             Configuração: {configurationId.trim() === '' ? '(nenhuma informada)' : configurationId}
           </p>
         )}
-        <div className="evaluation-input__field">
-          <label htmlFor={`${idPrefix}-chart`}>Id da tabela (chart_id)</label>
-          <input
-            id={`${idPrefix}-chart`}
-            type="text"
-            autoComplete="off"
-            spellCheck={false}
-            value={chartId}
-            onChange={(event) => setChartId(event.currentTarget.value)}
-          />
+        <div className={styles.grid2}>
+          <Field label="Id da tabela (chart_id)">
+            <Input
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              value={chartId}
+              onChange={(event) => setChartId(event.currentTarget.value)}
+            />
+          </Field>
+          <Field label="Versão">
+            <Input
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              value={version}
+              onChange={(event) => setVersion(event.currentTarget.value)}
+            />
+          </Field>
         </div>
-        <div className="evaluation-input__field">
-          <label htmlFor={`${idPrefix}-version`}>Versão</label>
-          <input
-            id={`${idPrefix}-version`}
-            type="text"
-            autoComplete="off"
-            spellCheck={false}
-            value={version}
-            onChange={(event) => setVersion(event.currentTarget.value)}
-          />
+        <div className={styles.formActions}>
+          <Button
+            type="submit"
+            variant="primary"
+            icon={<Upload size={15} />}
+            loading={busy === 'importing'}
+            disabled={busy !== null}
+          >
+            Enviar
+          </Button>
         </div>
-        <button type="submit" disabled={busy !== null}>
-          Enviar
-        </button>
       </form>
       <LoadChartImportReport
         formProblems={formProblems}
@@ -306,6 +349,6 @@ export function LoadChartImportPanel({ gateway, configurationId }: LoadChartImpo
         busy={busy}
         onActivate={() => void handleActivate()}
       />
-    </section>
+    </Panel>
   )
 }

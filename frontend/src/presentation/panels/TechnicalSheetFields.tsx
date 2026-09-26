@@ -1,5 +1,3 @@
-import { useId } from 'react'
-
 import {
   type FormErrors,
   SHEET_FIELD_KEYS,
@@ -7,6 +5,8 @@ import {
   sheetFieldPath,
   type SheetFormValues,
 } from '../../application/catalog/catalogForms'
+import { Field, Input, Notice } from '../ui'
+import styles from './panels.module.css'
 import { SHEET_FIELD_LABELS } from './technicalSheetLabels'
 
 export interface TechnicalSheetFieldsProps {
@@ -24,42 +24,29 @@ export function TechnicalSheetFields({
   disabled = false,
   onChange,
 }: TechnicalSheetFieldsProps) {
-  const idPrefix = useId()
   const sheetError = errors.geometry
 
   return (
-    <fieldset className="catalog-form__sheet" disabled={disabled}>
-      <legend>Ficha técnica (ADR-013 C-4)</legend>
+    <fieldset className={styles.sheetFieldset} disabled={disabled}>
+      <legend className={styles.legend}>Ficha técnica (ADR-013 C-4)</legend>
       {sheetError && (
-        <p className="catalog-form__error" role="alert">
+        <Notice tone="danger" role="alert" compact>
           {sheetError}
-        </p>
+        </Notice>
       )}
-      {SHEET_FIELD_KEYS.map((key) => {
-        const inputId = `${idPrefix}-${key}`
-        const errorId = `${inputId}-error`
-        const error = errors[sheetFieldPath(key)]
-        return (
-          <div className="catalog-form__field" key={key}>
-            <label htmlFor={inputId}>{SHEET_FIELD_LABELS[key]}</label>
-            <input
-              id={inputId}
+      <div className={styles.grid2}>
+        {SHEET_FIELD_KEYS.map((key) => (
+          <Field key={key} label={SHEET_FIELD_LABELS[key]} error={errors[sheetFieldPath(key)]}>
+            <Input
               type="number"
               inputMode="decimal"
               step="any"
               value={values[key]}
-              aria-invalid={error ? true : undefined}
-              aria-describedby={error ? errorId : undefined}
               onChange={(event) => onChange(key, event.currentTarget.value)}
             />
-            {error && (
-              <span className="catalog-form__field-error" id={errorId}>
-                {error}
-              </span>
-            )}
-          </div>
-        )
-      })}
+          </Field>
+        ))}
+      </div>
     </fieldset>
   )
 }

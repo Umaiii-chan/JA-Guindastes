@@ -1,4 +1,5 @@
-import { type FormEvent, type ReactNode, useId, useState } from 'react'
+import { Building2, CircleCheck, Construction, Plus, Settings2 } from 'lucide-react'
+import { type FormEvent, type ReactNode, useState } from 'react'
 
 import type { CatalogMutationResult } from '../../application/catalog/CatalogBrowser'
 import {
@@ -17,6 +18,8 @@ import type {
   CraneTechnicalSheet,
   Manufacturer,
 } from '../../domain/catalog/catalog'
+import { Button, Field, Input, Notice, Panel, Tabs } from '../ui'
+import styles from './panels.module.css'
 import { TechnicalSheetFields } from './TechnicalSheetFields'
 
 export interface CatalogRegistrationPanelProps {
@@ -45,15 +48,38 @@ export function CatalogRegistrationPanel({
   onCreateConfiguration,
 }: CatalogRegistrationPanelProps) {
   return (
-    <details className="catalog-panel catalog-panel--registration">
-      <summary>Cadastros (fabricante, guindaste, configuração)</summary>
-      <p className="catalog-panel__notice">
+    <Panel
+      title="Cadastros"
+      subtitle="Fabricante, guindaste e configuração com ficha técnica"
+      icon={<Plus size={16} />}
+    >
+      <Notice tone="warning" compact>
         Enquanto a empresa não fornece as fichas reais, use só dados FICTÍCIOS (ADR-013 C-4).
-      </p>
-      <ManufacturerForm onCreate={onCreateManufacturer} />
-      <CraneForm manufacturer={selectedManufacturer} onCreate={onCreateCrane} />
-      <ConfigurationForm crane={selectedCrane} onCreate={onCreateConfiguration} />
-    </details>
+      </Notice>
+      <Tabs
+        label="Tipo de cadastro"
+        items={[
+          {
+            id: 'manufacturer',
+            label: 'Fabricante',
+            icon: <Building2 size={14} />,
+            content: <ManufacturerForm onCreate={onCreateManufacturer} />,
+          },
+          {
+            id: 'crane',
+            label: 'Guindaste',
+            icon: <Construction size={14} />,
+            content: <CraneForm manufacturer={selectedManufacturer} onCreate={onCreateCrane} />,
+          },
+          {
+            id: 'configuration',
+            label: 'Configuração',
+            icon: <Settings2 size={14} />,
+            content: <ConfigurationForm crane={selectedCrane} onCreate={onCreateConfiguration} />,
+          },
+        ]}
+      />
+    </Panel>
   )
 }
 
@@ -109,20 +135,20 @@ function FormFeedback({
   return (
     <>
       {state.message && (
-        <div className="catalog-form__error" role="alert">
-          <p>{state.message}</p>
+        <Notice tone="danger" role="alert" compact title={state.message}>
           {unshown.length > 0 && (
-            <ul>
+            <ul className={styles.bullets}>
               {unshown.map((text) => (
                 <li key={text}>{text}</li>
               ))}
             </ul>
           )}
-        </div>
+        </Notice>
       )}
       {state.success && (
-        <p className="catalog-form__success" role="status">
-          {state.success}
+        <p className={styles.formStatusOk} role="status">
+          <CircleCheck size={14} aria-hidden="true" />
+          <span>{state.success}</span>
         </p>
       )}
     </>
@@ -140,26 +166,15 @@ function NameField({
   readonly error: string | undefined
   onChange(value: string): void
 }) {
-  const inputId = useId()
-  const errorId = `${inputId}-error`
   return (
-    <div className="catalog-form__field">
-      <label htmlFor={inputId}>{label}</label>
-      <input
-        id={inputId}
+    <Field label={label} error={error} required>
+      <Input
         type="text"
         autoComplete="off"
         value={value}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : undefined}
         onChange={(event) => onChange(event.currentTarget.value)}
       />
-      {error && (
-        <span className="catalog-form__field-error" id={errorId}>
-          {error}
-        </span>
-      )}
-    </div>
+    </Field>
   )
 }
 
@@ -183,12 +198,21 @@ function CatalogForm({
     onSubmit()
   }
   return (
-    <form className="catalog-form" onSubmit={handleSubmit} noValidate>
-      <h3>{title}</h3>
-      <p className="catalog-form__hint">{hint}</p>
-      <fieldset className="catalog-form__body" disabled={disabled || submitting}>
+    <form className={styles.form} onSubmit={handleSubmit} noValidate aria-label={title}>
+      <p className={styles.formHint}>{hint}</p>
+      <fieldset className={styles.stack} disabled={disabled || submitting}>
         {children}
-        <button type="submit">{submitting ? 'Cadastrando…' : 'Cadastrar'}</button>
+        <div className={styles.formActions}>
+          <Button
+            type="submit"
+            variant="primary"
+            icon={<Plus size={15} />}
+            loading={submitting}
+            disabled={disabled}
+          >
+            {submitting ? 'Cadastrando…' : 'Cadastrar'}
+          </Button>
+        </div>
       </fieldset>
     </form>
   )
@@ -293,7 +317,6 @@ function ConfigurationForm({
   const [withSheet, setWithSheet] = useState(true)
   const [sheetValues, setSheetValues] = useState<SheetFormValues>(EMPTY_SHEET_FORM)
   const { state, run } = useSubmission()
-  const checkboxId = useId()
 
   const submit = async () => {
     if (!crane) return
@@ -335,17 +358,14 @@ function ConfigurationForm({
         error={state.errors.name}
         onChange={setName}
       />
-      <div className="catalog-form__check">
+      <label className={styles.check}>
         <input
-          id={checkboxId}
           type="checkbox"
           checked={withSheet}
           onChange={(event) => setWithSheet(event.currentTarget.checked)}
         />
-        <label htmlFor={checkboxId}>
-          Com ficha técnica (sem ela, a avaliação responde “não avaliável”)
-        </label>
-      </div>
+        <span>Com ficha técnica (sem ela, a avaliação responde “não avaliável”)</span>
+      </label>
       {withSheet && (
         <TechnicalSheetFields
           values={sheetValues}

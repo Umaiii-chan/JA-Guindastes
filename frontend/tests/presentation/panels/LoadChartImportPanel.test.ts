@@ -70,7 +70,8 @@ describe('LoadChartImportReport', () => {
     expect(visible).toContain('2 ponto(s) importado(s)')
     expect(visible).toContain('15,5')
     expect(visible).toContain('5.000')
-    expect(html).toMatch(/<button[^>]*>Ativar<\/button>/)
+    // Botão do design system (TASK-039): o texto fica num <span> dentro do <button>.
+    expect(html).toMatch(/<button[^>]*>(?:(?!<\/button>).)*>Ativar<\/span><\/button>/)
   })
 
   it('422: mostra o relatório com linha, coluna, código e mensagem, sem botão Ativar', async () => {
