@@ -102,13 +102,13 @@ sistema não inventa capacidade fora do domínio conhecido da tabela.
 ## 6. Stack resumida
 
 Detalhes em [`architecture.md`](architecture.md) e [`development-guide.md`](development-guide.md).
-Versões ainda não definidas: **A VALIDAR** na tarefa de toolchain.
+Toolchain no [ADR-012](decisions/ADR-012-toolchain-de-desenvolvimento.md); versões exatas nos arquivos de lock (`backend/uv.lock`, `frontend/package-lock.json`).
 
 | Camada | Tecnologia | Versão |
 |--------|-----------|--------|
-| Linguagem | TypeScript (frontend); Python (backend) | A VALIDAR |
-| Framework | React + Three.js (frontend); FastAPI (backend) | A VALIDAR |
-| Banco de dados | PostgreSQL | A VALIDAR |
+| Linguagem | TypeScript (frontend); Python (backend) | TypeScript 6.0; Python 3.14 |
+| Framework | React + Three.js + Vite (frontend); FastAPI (backend) | React 19, Three.js 0.186, Vite 8; FastAPI 0.141 |
+| Banco de dados | PostgreSQL | definida na TASK-011 (persistência) |
 | Infra / deploy | Docker Compose em desenvolvimento (doc-fonte § 22); implantação fora do ambiente local: não definida | A VALIDAR |
 
 ## 7. Integrações externas
