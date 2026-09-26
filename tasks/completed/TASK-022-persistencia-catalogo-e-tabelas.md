@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (leva A, pedido em sessão com o agente Claude Code) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-022-persistencia-catalogo-e-tabelas` (a partir de `a5b1ab0`, commit-base da leva A) |
-| **PR** | — |
+| **PR** | [#25](https://github.com/Umaiii-chan/JA-Guindastes/pull/25), mergeado em 2026-09-26 |
 | **Requisitos** | RF-001, RF-002, RF-005, RF-007, RF-008, RNF-002, RNF-005, RNF-006 |
 | **Regras de negócio** | RN-001, RN-003, RN-005, RN-006 |
 | **Estimativa** | M |
@@ -98,6 +98,8 @@ pulado), `uv run alembic downgrade base`, `uv run alembic upgrade head`.
 **Resultado:** — (aguardando revisão)
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...

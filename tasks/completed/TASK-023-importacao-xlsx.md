@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | média |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (leva A, pedido em sessão com o agente Claude Code) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-023-importacao-xlsx` (a partir de `a5b1ab0`, commit-base da leva A / TASK-021) |
-| **PR** | — |
+| **PR** | [#24](https://github.com/Umaiii-chan/JA-Guindastes/pull/24), mergeado em 2026-09-26 |
 | **Requisitos** | RF-006, RF-009, RNF-006 |
 | **Regras de negócio** | RN-006 |
 | **Estimativa** | M |
@@ -98,6 +98,8 @@ Não se aplica: as planilhas são geradas em memória nos testes.
 Pendente.
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...

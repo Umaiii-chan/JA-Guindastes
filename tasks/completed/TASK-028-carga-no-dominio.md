@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | média |
 | **Criada em** | 2026-09-26 por Anderson Sehnem |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-028-carga-no-dominio` (a partir de `a5b1ab0`, o commit-base da leva A, TASK-021) |
-| **PR** | — |
+| **PR** | [#22](https://github.com/Umaiii-chan/JA-Guindastes/pull/22), mergeado em 2026-09-26 |
 | **Requisitos** | RF-011, RF-017, RNF-002, RNF-004 |
 | **Regras de negócio** | RN-006; PEND-006 (pendente) |
 | **Estimativa** | P |
@@ -128,6 +128,8 @@ Não há: tudo é coberto por testes unitários.
 **Resultado:** —
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...

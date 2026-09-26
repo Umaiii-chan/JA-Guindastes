@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | média |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (leva A, pedido em sessão com o agente Claude Code) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-026-glb-e-cinematica` (a partir de `a5b1ab0`, commit-base da leva A, TASK-021) |
-| **PR** | — |
+| **PR** | [#28](https://github.com/Umaiii-chan/JA-Guindastes/pull/28), mergeado em 2026-09-26 |
 | **Requisitos** | RF-003, RF-004, RNF-004 (via ADR-008) |
 | **Regras de negócio** | RN-003, RN-008 |
 | **Estimativa** | M |
@@ -133,5 +133,7 @@ Não se aplica nesta tarefa: nada muda na tela (a integração é da leva B).
 —
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
 
 —
