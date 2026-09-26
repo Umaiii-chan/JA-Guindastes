@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Backend do Simulador Web 3D para Análise de Tabelas de Carga de Guindastes"
 requires-python = ">=3.14"
 dependencies = [
+    "alembic>=1.20.0",
     "fastapi",
+    "psycopg[binary]>=3.3.6",
+    "sqlalchemy>=2.1.1",
     "uvicorn[standard]",
 ]
 
@@ -27,6 +30,11 @@ target-version = "py314"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
 
+[tool.ruff.lint.isort]
+# A pasta backend/alembic/ (migrations) faria o ruff tratar o pacote instalado `alembic` como
+# primeira parte; ele é de terceiros.
+known-third-party = ["alembic"]
+
 [tool.mypy]
 python_version = "3.14"
 strict = true
@@ -36,6 +44,9 @@ packages = ["app"]
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q"
+markers = [
+    "integration: precisa de um PostgreSQL real em DATABASE_URL; pulado quando ele não está disponível",
+]
 
 # Regras de dependência da Clean Architecture (ADR-004; docs/architecture.md § 3).
 [tool.importlinter]
