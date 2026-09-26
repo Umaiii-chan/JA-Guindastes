@@ -6,8 +6,11 @@ Liga as peças do motor de cálculo na ordem da doc-fonte § 14.1:
    operacional e da ficha técnica da configuração (`CraneGeometryProvider`);
 2. `LoadChartResolver`: a tabela `ACTIVE` da configuração (`ActiveLoadChartProvider`; RN-001);
 3. `LoadChartInterpolator`: a capacidade para o comprimento de lança do estado e o **raio
-   calculado** (estratégia injetada; hoje só existe `ExactPointLookup`, que busca o ponto exato);
-4. utilização `carga / capacidade × 100` (doc-fonte § 14.3).
+   calculado** (estratégia injetada: `ExactPointLookup` ou, na composição, a
+   `ConservativeTabulatedLookup` provisória do ADR-015);
+4. utilização `carga / capacidade × 100` (doc-fonte § 14.3). O peso comparado com a capacidade é o
+   de `weight_compared_with_capacity` (TASK-028): hoje, exatamente o peso informado (RN-006; a
+   "carga bruta" depende da PEND-006, e nada é somado).
 
 O `SafetyValidator` da doc-fonte não entra: os níveis de alerta e os limiares estão pendentes
 (PEND-004; known-gaps P-005). Por isso o resultado só distingue "avaliado" de "não avaliável" e
@@ -19,7 +22,9 @@ flutuante ao comparar L com os comprimentos tabelados, mas deixa o valor para a 
 como está, e a estratégia decide (a `ExactPointLookup` compara com igualdade exata). Consequência
 conhecida: um raio calculado raramente coincide com um raio tabelado.
 
-Não persiste nada e não tem endpoint (a persistência é a TASK-011).
+Não grava nada. Quem o chama: `POST /api/v1/evaluations` (TASK-024) e o WebSocket
+`/api/v1/ws/evaluation` (TASK-025), ligados aos repositórios de banco na raiz de composição
+(`app.main`, TASK-029).
 """
 
 from dataclasses import dataclass
@@ -27,6 +32,7 @@ from enum import StrEnum
 
 from app.application.ports.active_load_chart_provider import ActiveLoadChartProvider
 from app.application.ports.crane_geometry_provider import CraneGeometryProvider
+from app.domain.entities.load import Load
 from app.domain.entities.load_chart import LoadChart, LoadChartStatus
 from app.domain.exceptions.domain_errors import UndefinedUtilizationError
 from app.domain.exceptions.geometry_errors import (
@@ -34,6 +40,7 @@ from app.domain.exceptions.geometry_errors import (
     OperationalStateOutOfLimitsError,
     OutsideGeometricDomainError,
 )
+from app.domain.services.compared_load_weight import weight_compared_with_capacity
 from app.domain.services.geometry_service import calculate_operational_geometry
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
 from app.domain.services.utilization import calculate_utilization_percent
@@ -174,10 +181,32 @@ class EvaluateOperation:
         self._active_load_chart_provider = active_load_chart_provider
         self._load_chart_interpolator = load_chart_interpolator
 
+    def execute_for_load(
+        self, *, configuration_id: str, state: OperationalState, load: Load
+    ) -> OperationEvaluation:
+        """Avalia `state` com a carga `load` (TASK-028) na configuração `configuration_id`.
+
+        O peso comparado com a capacidade é `weight_compared_with_capacity(load)`: hoje o peso
+        informado, sem somar nada (PEND-006). Descrição, dimensões e centro de gravidade não entram
+        no cálculo (nenhuma regra documentada os usa). O resultado é o mesmo de `execute` com esse
+        peso.
+
+        Levanta `InconsistentActiveLoadChartError` se o provedor da tabela quebrar o contrato.
+        """
+        return self.execute(
+            configuration_id=configuration_id,
+            state=state,
+            load_weight=weight_compared_with_capacity(load),
+        )
+
     def execute(
         self, *, configuration_id: str, state: OperationalState, load_weight: Mass
     ) -> OperationEvaluation:
-        """Avalia `state` com a carga `load_weight` na configuração `configuration_id`.
+        """Avalia `state` com o peso `load_weight` na configuração `configuration_id`.
+
+        É a entrada dos contratos REST e WebSocket, que recebem só `load_weight_kg`: sem descrição
+        nem dimensões, montar uma `Load` ali exigiria inventar dados. Quem tem a carga completa usa
+        `execute_for_load`, que passa pela regra do peso comparado.
 
         Levanta `InconsistentActiveLoadChartError` se o provedor da tabela quebrar o contrato.
         """

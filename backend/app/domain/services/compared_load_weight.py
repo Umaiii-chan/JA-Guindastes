@@ -9,7 +9,7 @@ def weight_compared_with_capacity(load: Load) -> Mass:
     pesos auxiliares **não** são somados: a composição da "carga bruta" depende da PEND-006, ainda
     pendente (known-gaps P-005). Quando ela for respondida, a regra muda só aqui.
 
-    O `EvaluateOperation` ainda recebe `load_weight: Mass` direto; passar a usar esta função com
-    uma `Load` fica para a leva B (handoff da TASK-028).
+    O `EvaluateOperation.execute_for_load` usa esta função (TASK-029); os contratos REST e WebSocket
+    ainda recebem só o peso (`load_weight_kg`) e chamam `execute` com ele.
     """
     return load.weight
