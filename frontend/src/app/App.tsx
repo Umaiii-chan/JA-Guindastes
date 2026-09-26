@@ -8,7 +8,7 @@ import { BackendEvaluationPanel } from '../presentation/panels/BackendEvaluation
 import { CatalogRegistrationPanel } from '../presentation/panels/CatalogRegistrationPanel'
 import { CatalogSelectionPanel } from '../presentation/panels/CatalogSelectionPanel'
 import { type CraneControlKey, CraneControlPanel } from '../presentation/panels/CraneControlPanel'
-import { EvaluationInputPanel } from '../presentation/panels/EvaluationInputPanel'
+import { LoadChartAndLoadPanels } from '../presentation/panels/LoadChartAndLoadPanels'
 import { OperationalGeometryPanel } from '../presentation/panels/OperationalGeometryPanel'
 import type { CraneCommands, CraneState } from '../three/crane/types'
 import { chooseCraneSetup } from './craneSetup'
@@ -132,10 +132,6 @@ export default function App() {
             notes={craneSetup.notes}
             onChange={handleControlChange}
           />
-          <EvaluationInputPanel
-            loadWeightText={loadWeightText}
-            onLoadWeightTextChange={setLoadWeightText}
-          />
           <BackendEvaluationPanel
             connectionStatus={evaluation.connectionStatus}
             result={evaluation.result}
@@ -149,11 +145,11 @@ export default function App() {
             parameters={crane?.commands.geometryParameters ?? null}
             parametersFromSheet={craneSetup.fromSheet}
           />
-          {/*
-            PONTO DE ENCAIXE DA TASK-034 (importação/ativação de tabela de carga): os painéis novos
-            entram aqui, recebendo `selectedConfiguration` (a configuração escolhida, com `id` e
-            `geometry`, ou `null`). Não é preciso mexer no resto deste arquivo.
-          */}
+          {/* Importação/ativação de tabela e carga (TASK-034): a carga válida alimenta o peso da avaliação. */}
+          <LoadChartAndLoadPanels
+            configurationId={selectedConfiguration?.id}
+            onLoadWeightTextChange={setLoadWeightText}
+          />
           <CatalogRegistrationPanel
             selectedManufacturer={selectedManufacturer}
             selectedCrane={selectedCrane}
