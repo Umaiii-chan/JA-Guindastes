@@ -10,8 +10,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc -b",
-    "test": "vitest run"
+    "typecheck": "tsc -b && tsc -p e2e",
+    "test": "vitest run",
+    "e2e": "playwright test --config e2e/playwright.config.ts"
   },
   "dependencies": {
     "react": "^19.2.8",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
