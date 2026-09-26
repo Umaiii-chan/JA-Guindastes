@@ -1,0 +1,42 @@
+name: AI development workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_file:
+        description: Task Markdown path committed in the repository
+        required: true
+        default: tasks/example.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-flow-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  orchestrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync
+      - name: Run audited workflow
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: uv run ai-flow run --task-file "${{ inputs.task_file }}" --repo .
+      - name: Upload handoff
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-development-handoff-${{ github.run_id }}
+          path: .ai/runs/
+          if-no-files-found: error
+          retention-days: 14
+

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentação do fluxo de trabalho
+    url: https://github.com/<org>/<repo>/blob/development/docs/guides/workflow.md
+    about: Como as tarefas, handoffs e IAs se encaixam neste projeto.
