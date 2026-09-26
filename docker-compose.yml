@@ -1,9 +1,14 @@
-# Ambiente local de desenvolvimento (doc-fonte § 22.1; ADR-007; TASK-011).
-# Por enquanto só o PostgreSQL: backend e frontend rodam direto na máquina (uv e npm) até serem
-# conteinerizados. Comandos em docs/development-guide.md § 3.
+# Ambiente local com a stack completa (doc-fonte § 22.1; ADR-007; TASK-011 e TASK-027):
+# postgres + backend (FastAPI) + frontend (nginx servindo o build do Vite e encaminhando /api/).
 #
-# As credenciais vêm do .env da raiz (copiado de .env.example; ignorado pelo Git). Nenhum valor real
+#   docker compose up -d --build            # constrói as imagens e sobe tudo
+#   docker compose ps                       # estado; pronto quando os três estiverem "healthy"
+#   docker compose run --rm backend alembic upgrade head   # aplica as migrations (sob demanda)
+#   docker compose up -d postgres           # só o banco, para rodar backend/frontend direto (uv e npm)
+#
+# As variáveis vêm do .env da raiz (copiado de .env.example; ignorado pelo Git). Nenhum valor real
 # fica neste arquivo. As variáveis POSTGRES_* só valem na PRIMEIRA subida, quando o volume é criado.
+# Todas as portas são publicadas só em 127.0.0.1: nada fica exposto na rede.
 
 # Nome fixo: o volume fica "ja-guindastes_postgres-data" em qualquer pasta ou worktree do projeto.
 name: ja-guindastes
@@ -28,6 +33,48 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    image: ja-guindastes-backend:local
+    environment:
+      # Dentro da rede do Compose o banco é o host "postgres", porta 5432 (não o localhost do .env).
+      # Por padrão a URL é montada com os POSTGRES_*; se a senha tiver caracteres especiais de URL
+      # (@, :, /, #...), defina BACKEND_DATABASE_URL no .env com a senha já codificada.
+      DATABASE_URL: ${BACKEND_DATABASE_URL:-postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}}
+    ports:
+      # API e OpenAPI (/docs) acessíveis direto no host, só na interface local.
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # Não há rota de saúde dedicada; usa o contrato OpenAPI (mesmo teste do HEALTHCHECK da imagem).
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/openapi.json', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+    image: ja-guindastes-frontend:local
+    environment:
+      # Destino do proxy reverso de /api/ no nginx (frontend/nginx.conf.template).
+      API_UPSTREAM: http://backend:8000
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 5s
+      start_period: 5s
+      retries: 5
 
 volumes:
   postgres-data:

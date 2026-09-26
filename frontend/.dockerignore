@@ -1,0 +1,9 @@
+# Contexto de build do frontend (TASK-027). node_modules é reinstalado por `npm ci` dentro da imagem.
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+Dockerfile
+.dockerignore
