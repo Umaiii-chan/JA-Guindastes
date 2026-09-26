@@ -165,5 +165,6 @@ Agentes **não alteram** estes arquivos sem autorização explícita registrada 
 | Sintoma | Causa provável | Solução |
 |---------|----------------|---------|
 | No Windows, `python` abre a Microsoft Store ou diz "Python não foi encontrado" | alias de execução do Windows para a Store | desativar o alias em Configurações > Aplicativos > Configurações avançadas > Aliases de execução, ou usar o Python do gerenciador definido na tarefa de toolchain |
+| `git push` recusado com "refusing to allow a Personal Access Token to create or update workflow ... without `workflow` scope" | o token usado pelo git (no Windows, o do Git Credential Manager) não tem o escopo `workflow`, exigido para alterar `.github/workflows/` | `gh auth refresh -h github.com -s workflow` (concluir no navegador) e fazer o push com a credencial do gh: `gh auth setup-git` (permanente) ou `git -c credential.helper= -c "credential.helper=!gh auth git-credential" push ...` (só naquele comando) |
 
 Agentes: ao resolver um problema de ambiente que tomou tempo, adicione uma linha aqui.

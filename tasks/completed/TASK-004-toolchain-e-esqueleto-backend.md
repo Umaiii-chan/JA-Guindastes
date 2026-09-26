@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (pedido em sessão com o agente Claude Code) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-004-toolchain-e-esqueleto-backend` (a partir de `development` @ `17fea3f`) |
-| **PR** | — |
+| **PR** | [#4](https://github.com/Umaiii-chan/JA-Guindastes/pull/4), mergeado em 2026-09-26 |
 | **Requisitos** | RNF-002, RNF-007, RNF-008 |
 | **Regras de negócio** | — |
 | **Estimativa** | M |
@@ -97,6 +97,8 @@ branch também leva o commit do aceite dos ADR-004..011, decidido pela pessoa de
 **Resultado:** — (aguardando revisão)
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 por decisão da pessoa responsável (em chat). **A revisão independente (AGENTS.md § 3) foi dispensada pela pessoa.** O PR #4 foi mergeado com o job "Backend" do CI falhando (tag `setup-uv@v10` inexistente); a correção é a TASK-005.
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...
