@@ -23,7 +23,7 @@
 
 ## 2. Tarefas em andamento e seus handoffs
 
-Leva D (design, login e fluxo), pedida em chat em 2026-09-26. ADR-016 e ADR-017 estão como Proposto e aguardam aceite.
+Leva D (design, login e fluxo), pedida em chat em 2026-09-26. ADR-016 e ADR-017 aceitos pela pessoa responsável em 2026-09-26.
 
 | Tarefa | Handoff | O que é |
 |--------|---------|---------|
@@ -67,7 +67,7 @@ Ver o handoff de cada tarefa (seção 2).
 | 5 | Perguntas de domínio sem bloqueio: TASK-008 (11), TASK-010 (12), TASK-014 (5) — § 8 dos handoffs em `handoffs/history/` | não | | |
 | 6 | Ativar a virtualização do Windows (Plataforma de Máquina Virtual / BIOS) para o Docker rodar o PostgreSQL local (TASK-011) | não | | |
 | 7 | Licença LGPL-3.0 do psycopg serve para o projeto? (TASK-011) | não | | |
-| 10 | Aceitar ou não os ADR-016 (autenticação) e ADR-017 (navegação e design system) | não | | |
+| 10 | Aceitar ou não os ADR-016 (autenticação) e ADR-017 (navegação e design system) | não | aceitos | 2026-09-26 |
 | 8 | Aceitar ou não o ADR-014 (SQLAlchemy 2 + psycopg 3), hoje Proposto | não | | |
 | 9 | Decisões de produto ainda provisórias (known-gaps § 4.1): substituição ao ativar tabela, unicidade de nomes, 503 com o banco fora, cabo máximo sem ficha, regras da carga, limites do XLSX (P-008) | não | | |
 | 3 | Antes de mergear, conferir se todos os checks estão verdes (sem branch protection, o GitHub não impede) e usar **squash** | — | | |
