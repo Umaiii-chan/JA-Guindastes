@@ -4,13 +4,13 @@ from dataclasses import replace
 
 import pytest
 
+from app.application.ports.user_repository import UsernameTakenError, UserNotFoundError
 from app.application.use_cases.authentication import Login
 from app.application.use_cases.manage_users import (
     LastAdminError,
     ManageUsers,
     OwnAdminAccessError,
 )
-from app.application.ports.user_repository import UsernameTakenError, UserNotFoundError
 from app.domain.entities.user import UserRole
 from app.domain.exceptions.user_errors import (
     InvalidDisplayNameError,
@@ -144,9 +144,7 @@ def test_deactivation_revokes_the_sessions(auth: AuthFicticia) -> None:
     assert auth.sessions.sessions == {}
 
 
-@pytest.mark.parametrize(
-    "changes", [{"active": False}, {"role": UserRole.OPERATOR}]
-)
+@pytest.mark.parametrize("changes", [{"active": False}, {"role": UserRole.OPERATOR}])
 def test_admin_cannot_remove_own_admin_access(
     auth: AuthFicticia, changes: dict[str, object]
 ) -> None:
@@ -172,9 +170,7 @@ def test_admin_can_change_own_name_and_password(auth: AuthFicticia) -> None:
     assert updated.display_name == "Admin Renomeado"
 
 
-@pytest.mark.parametrize(
-    "changes", [{"active": False}, {"role": UserRole.OPERATOR}]
-)
+@pytest.mark.parametrize("changes", [{"active": False}, {"role": UserRole.OPERATOR}])
 def test_the_last_active_admin_cannot_lose_access(
     auth: AuthFicticia, changes: dict[str, object]
 ) -> None:
