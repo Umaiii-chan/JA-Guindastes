@@ -63,13 +63,10 @@ Em `backend/`, depois do código e dos testes:
 | `uv run pytest` | ✅ | `464 passed, 2 skipped in 2.98s` |
 | `uv run pytest tests/domain/test_load.py` | ✅ | `44 passed in 0.06s` |
 | `bash scripts/check-structure.sh` (raiz, antes deste handoff) | ❌ esperado | `✗ tarefa em andamento TASK-028 sem handoff` · `! há 3 tarefas em tasks/in-progress/` |
-| `bash scripts/check-structure.sh` (raiz, com este handoff) | ver § 4.1 | |
+| `bash scripts/check-structure.sh` (raiz, com este handoff, @ `a53b1d5`) | ✅ | `OK: 0 erros, 1 aviso(s)` |
 
-### 4.1 check-structure com o handoff
-
-Saída real registrada no retorno ao coordenador (rodado depois do commit deste arquivo). O aviso
-"há 3 tarefas em tasks/in-progress/" é esperado na leva A (TASK-020, TASK-021 e TASK-028 nesta
-branch; as demais estão nas branches delas).
+O aviso "há 3 tarefas em tasks/in-progress/" é esperado na leva A (TASK-020, TASK-021 e TASK-028
+nesta branch; as demais estão nas branches delas).
 
 ## 5. Decisões tomadas
 
