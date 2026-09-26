@@ -23,7 +23,15 @@
 
 ## 2. Tarefas em andamento e seus handoffs
 
-Nenhuma. Os handoffs das tarefas concluídas ficam em `handoffs/TASK-NNN.md`; as perguntas abertas estão agrupadas em `docs/known-gaps.md` § 4.1.
+Leva D (design, login e fluxo), pedida em chat em 2026-09-26. ADR-016 e ADR-017 estão como Proposto e aguardam aceite.
+
+| Tarefa | Handoff | O que é |
+|--------|---------|---------|
+| TASK-038 | `handoffs/TASK-038.md` | backend: autenticação, usuários, sessões e perfis (ADR-016) |
+| TASK-039 | `handoffs/TASK-039.md` | frontend: design system escuro, casca, páginas e simulador guiado (ADR-017) |
+| TASK-041 | `handoffs/TASK-041.md` | frontend: cena 3D enriquecida (ambiente, anel de raio, carga, câmera) |
+
+No backlog, para a leva D2, depois das três acima: TASK-040 (login e usuários no frontend) e TASK-042 (páginas completas de catálogo e tabelas).
 
 ## 3. Autorizações permanentes da pessoa responsável
 
@@ -59,6 +67,7 @@ Ver o handoff de cada tarefa (seção 2).
 | 5 | Perguntas de domínio sem bloqueio: TASK-008 (11), TASK-010 (12), TASK-014 (5) — § 8 dos handoffs em `handoffs/history/` | não | | |
 | 6 | Ativar a virtualização do Windows (Plataforma de Máquina Virtual / BIOS) para o Docker rodar o PostgreSQL local (TASK-011) | não | | |
 | 7 | Licença LGPL-3.0 do psycopg serve para o projeto? (TASK-011) | não | | |
+| 10 | Aceitar ou não os ADR-016 (autenticação) e ADR-017 (navegação e design system) | não | | |
 | 8 | Aceitar ou não o ADR-014 (SQLAlchemy 2 + psycopg 3), hoje Proposto | não | | |
 | 9 | Decisões de produto ainda provisórias (known-gaps § 4.1): substituição ao ativar tabela, unicidade de nomes, 503 com o banco fora, cabo máximo sem ficha, regras da carga, limites do XLSX (P-008) | não | | |
 | 3 | Antes de mergear, conferir se todos os checks estão verdes (sem branch protection, o GitHub não impede) e usar **squash** | — | | |

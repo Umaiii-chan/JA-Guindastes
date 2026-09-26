@@ -53,3 +53,5 @@ Crie um ADR quando a decisão:
 | [ADR-013](ADR-013-convencoes-geometricas-provisorias.md) | Convenções geométricas provisórias: coordenadas, ângulos, referência do raio, parâmetros do guindaste e fórmulas | Aceito | 2026-09-26 |
 | [ADR-014](ADR-014-orm-e-driver-postgresql.md) | SQLAlchemy 2 como ORM e psycopg 3 como driver do PostgreSQL | Proposto | 2026-09-26 |
 | [ADR-015](ADR-015-consulta-conservadora-provisoria.md) | Consulta conservadora provisória entre pontos da tabela de carga | Aceito (provisório) | 2026-09-26 |
+| [ADR-016](ADR-016-autenticacao-e-perfis.md) | Autenticação por sessão em cookie e perfis Admin/Operador | Proposto | 2026-09-26 |
+| [ADR-017](ADR-017-navegacao-e-design-system-do-frontend.md) | Navegação por páginas e design system escuro do frontend | Proposto | 2026-09-26 |
