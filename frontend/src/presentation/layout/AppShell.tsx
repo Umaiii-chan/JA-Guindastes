@@ -5,7 +5,7 @@ import { NavLink, Outlet, useLocation } from 'react-router'
 import { cx, IconButton } from '../ui'
 import styles from './AppShell.module.css'
 import { BrandMark } from './BrandMark'
-import { NAV_ITEMS, navItemFor } from './navigation'
+import { NAV_ITEMS, type NavItem, navItemFor } from './navigation'
 
 const RAIL_STORAGE_KEY = 'ja-guindastes.rail-collapsed'
 /** Abaixo desta largura o trilho começa recolhido (mais espaço para a cena). */
@@ -28,13 +28,22 @@ export interface AppShellProps {
   readonly topBarActions?: ReactNode
   /** Conteúdo da página; sem ele, usa o `<Outlet />` do roteador. */
   readonly children?: ReactNode
+  /** Quais itens do trilho mostrar (perfis, TASK-040). Padrão: todos. */
+  readonly isNavItemVisible?: (item: NavItem) => boolean
 }
+
+const SHOW_ALL = () => true
 
 /**
  * Casca da aplicação (ADR-017 § 1): trilho de navegação recolhível com ícones à esquerda e barra
  * superior com o título da página e o menu do usuário. A página do simulador ocupa a área inteira.
  */
-export function AppShell({ userMenu, topBarActions, children }: AppShellProps) {
+export function AppShell({
+  userMenu,
+  topBarActions,
+  children,
+  isNavItemVisible = SHOW_ALL,
+}: AppShellProps) {
   const [collapsed, setCollapsed] = useState(initialCollapsed)
   const location = useLocation()
   const current = navItemFor(location.pathname)
@@ -47,8 +56,9 @@ export function AppShell({ userMenu, topBarActions, children }: AppShellProps) {
     }
   }, [collapsed])
 
-  const mainItems = NAV_ITEMS.filter((item) => item.section === 'main')
-  const adminItems = NAV_ITEMS.filter((item) => item.section === 'admin')
+  const visibleItems = NAV_ITEMS.filter((item) => isNavItemVisible(item))
+  const mainItems = visibleItems.filter((item) => item.section === 'main')
+  const adminItems = visibleItems.filter((item) => item.section === 'admin')
 
   const renderItem = (item: (typeof NAV_ITEMS)[number]) => {
     const Icon = item.icon
@@ -83,8 +93,12 @@ export function AppShell({ userMenu, topBarActions, children }: AppShellProps) {
           </span>
         </div>
         <ul className={styles.navList}>{mainItems.map(renderItem)}</ul>
-        <p className={styles.navSection}>Administração</p>
-        <ul className={styles.navList}>{adminItems.map(renderItem)}</ul>
+        {adminItems.length > 0 && (
+          <>
+            <p className={styles.navSection}>Administração</p>
+            <ul className={styles.navList}>{adminItems.map(renderItem)}</ul>
+          </>
+        )}
         <div className={styles.railFooter}>
           <IconButton
             label={collapsed ? 'Expandir menu' : 'Recolher menu'}

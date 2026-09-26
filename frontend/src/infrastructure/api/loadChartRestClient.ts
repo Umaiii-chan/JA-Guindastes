@@ -25,6 +25,7 @@ import {
   readRecord,
   readString,
 } from '../shared/readJson'
+import { createApiFetch } from './apiFetch'
 
 export const LOAD_CHARTS_PATH = '/api/v1/load-charts'
 
@@ -54,7 +55,7 @@ export class LoadChartClientError extends Error implements LoadChartFailure {
 }
 
 export interface LoadChartRestClientOptions {
-  /** `fetch` injetável (testes). Padrão: o `fetch` global. */
+  /** `fetch` injetável (testes). Padrão: o `fetch` global. Sempre embrulhado por `createApiFetch` (cookie e CSRF). */
   readonly fetchFn?: typeof fetch
   /** Prefixo da origem; vazio = mesma origem (proxy do Vite em dev, nginx no container). */
   readonly baseUrl?: string
@@ -71,7 +72,7 @@ const STATUSES: readonly LoadChartStatus[] = [
 export function createLoadChartRestClient(
   options: LoadChartRestClientOptions = {},
 ): LoadChartGateway {
-  const fetchFn = options.fetchFn ?? ((input, init) => fetch(input, init))
+  const fetchFn = createApiFetch(options.fetchFn)
   const base = `${options.baseUrl ?? ''}${LOAD_CHARTS_PATH}`
 
   async function send(url: string, init: RequestInit): Promise<Response> {
