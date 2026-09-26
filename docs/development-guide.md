@@ -22,7 +22,7 @@
 | Bash (Git Bash no Windows) | — | necessário para `scripts/check-structure.sh` |
 | uv (gerencia o Python e as dependências do backend) | 0.12+ | `uv --version`; instala o Python 3.14 sozinho a partir de `backend/.python-version` |
 | Node.js + npm (frontend) | Node 24 LTS, npm 11 | `node --version`, `npm --version` |
-| Docker + Docker Compose (PostgreSQL local; só para rodar o banco e os testes de integração) | Docker 29, Compose v2+ (verificado com Docker 29.8.0 e Compose v5.5.1) | `docker --version`, `docker compose version`; no Windows, o Docker Desktop precisa estar rodando (ver § 9) |
+| Docker + Docker Compose (PostgreSQL local; só para rodar o banco e os testes de integração) | Docker 29, Compose v2 ou mais novo (instalados na máquina de desenvolvimento: Docker 29.8.0, Compose v5.5.1) | `docker --version`, `docker compose version`; no Windows, o Docker Desktop precisa estar rodando (ver § 9) |
 
 ---
 
