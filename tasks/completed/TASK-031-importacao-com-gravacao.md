@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por pessoa responsável (leva B) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-031-importacao-com-gravacao` (a partir de `e5a8945`) |
-| **PR** | — |
+| **PR** | [#30](https://github.com/Umaiii-chan/JA-Guindastes/pull/30), mergeado em 2026-09-26 com CI verde |
 | **Requisitos** | RF-006, RF-007, RF-008, RF-009, RNF-005, RNF-006 |
 | **Regras de negócio** | RN-001, RN-005, RN-006 |
 | **Estimativa** | M |

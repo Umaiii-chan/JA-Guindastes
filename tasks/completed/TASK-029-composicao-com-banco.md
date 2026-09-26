@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por pessoa responsável (leva B, via orquestrador) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-029-composicao-com-banco` (a partir de `development` @ `e5a8945`) |
-| **PR** | — |
+| **PR** | [#30](https://github.com/Umaiii-chan/JA-Guindastes/pull/30), mergeado em 2026-09-26 com CI verde |
 | **Requisitos** | RF-011, RF-015..RF-018, RF-020, RNF-007 |
 | **Regras de negócio** | RN-001, RN-004..RN-008; PEND-006 (sem mudança de regra) |
 | **Estimativa** | M |
@@ -126,6 +126,8 @@ domínio (TASK-028) e stack Docker sem rota de saúde dedicada (TASK-027, health
 **Resultado:** — (pendente)
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...
