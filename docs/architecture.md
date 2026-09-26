@@ -178,7 +178,7 @@ Resumo com link. O detalhe está no ADR.
 | [ADR-010](decisions/ADR-010-rest-e-websocket.md) | REST + WebSocket (doc-fonte § 7) | Aceito |
 | [ADR-011](decisions/ADR-011-monorepo.md) | Monorepo (doc-fonte § 7) | Aceito |
 | [ADR-012](decisions/ADR-012-toolchain-de-desenvolvimento.md) | Toolchain: Python 3.14 + uv, ruff, mypy, pytest, import-linter, Alembic; Node 24 + npm, Vite, Three.js puro, Vitest, ESLint, Prettier | Aceito |
-| [ADR-013](decisions/ADR-013-convencoes-geometricas-provisorias.md) | Convenções geométricas provisórias: sistema destro com Y para cima, metros e graus; raio medido do eixo de giro até a vertical do gancho (A VALIDAR); parâmetros geométricos vindos da ficha técnica no backend, que é a fonte de verdade | Proposto |
+| [ADR-013](decisions/ADR-013-convencoes-geometricas-provisorias.md) | Convenções geométricas provisórias: sistema destro com Y para cima, metros e graus; raio medido do eixo de giro até a vertical do gancho (A VALIDAR); parâmetros geométricos vindos da ficha técnica no backend, que é a fonte de verdade | Aceito |
 
 ---
 
