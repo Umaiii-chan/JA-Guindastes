@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (leva TASK-010..013, definida em chat) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-011-persistencia-postgresql` (a partir de `ae2ec66`, o commit que abriu a leva TASK-010..013) |
-| **PR** | — |
+| **PR** | [#15](https://github.com/Umaiii-chan/JA-Guindastes/pull/15), mergeado em 2026-09-26 com CI verde |
 | **Requisitos** | RNF-002 (domínio sem SQLAlchemy); doc-fonte §§ 19 e 22.1 |
 | **Regras de negócio** | — |
 | **Estimativa** | M |
@@ -145,6 +145,8 @@ Tarefa paralela às TASK-010, 012 e 013 (sem arquivos em comum); handoff própri
 **Resultado:** — (aguardando revisão)
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada). A verificação com banco real ficou NÃO EXECUTADA (virtualização desativada na máquina).
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...

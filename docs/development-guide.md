@@ -74,7 +74,7 @@ cd backend && set -a && source ../.env && set +a && uv run alembic upgrade head 
 | Ver o estado do banco local | `docker compose ps` | na raiz |
 | Parar o banco local (mantém os dados) | `docker compose down` | na raiz; **não** use `down -v`: o `-v` apaga o volume `ja-guindastes_postgres-data` com os dados |
 | Exportar as variáveis do `.env` no shell | `set -a && source ../.env && set +a` | em `backend/`, no Bash/Git Bash; o backend, o Alembic e o pytest **não** leem o `.env` sozinhos (§ 6) |
-| Migrations (aplicar) | `uv run alembic upgrade head` | em `backend/`, com `DATABASE_URL` exportada e o banco no ar; ainda não há nenhuma revisão (as tabelas entram com cada caso de uso) |
+| Migrations (aplicar) | `uv run alembic upgrade head` | em `backend/`, com `DATABASE_URL` exportada e o banco no ar (o CI roda contra um PostgreSQL de serviço, TASK-018); ainda não há nenhuma revisão (as tabelas entram com cada caso de uso) |
 | Migrations (criar) | `uv run alembic revision --autogenerate -m "<descrição>"` | em `backend/`, com o banco no ar; compara o banco com `Base.metadata` (os modelos precisam estar importados em `backend/alembic/env.py`); o arquivo sai em `backend/alembic/versions/` já passado pelo `ruff format` e `ruff check --fix`; **revise-o** antes de commitar |
 | Migrations (gerar o SQL sem conectar) | `uv run alembic upgrade head --sql` | em `backend/`; só precisa de `DATABASE_URL` definida |
 | Testes de integração com banco | `uv run pytest -m integration` | em `backend/`, com o banco no ar e `DATABASE_URL` exportada; sem isso, são pulados (é o que acontece no CI, que ainda não tem banco) |
