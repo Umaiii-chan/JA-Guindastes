@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por pessoa responsável (leva C, via orquestrador) |
 | **Iniciada em** | 2026-09-26 |
@@ -74,3 +74,5 @@ job novo no CI), TASK-037 (docs consolidadas).
 ## 7. Teste manual (se houver)
 
 O próprio `docs/demo.md`, seções 3 a 8.
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).

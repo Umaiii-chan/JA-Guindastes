@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | média |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (pedido em chat, leva C) |
 | **Iniciada em** | 2026-09-26 |
@@ -113,3 +113,5 @@ TASK-035 (seed, Docker, `docs/demo.md`) e TASK-036 (e2e, Vite, CI) e não toca o
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...
 - Aprendizados para o template/docs:
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
