@@ -4,6 +4,7 @@ import type { AuthGateway } from '../../application/auth/ports'
 import { AuthRequestError, type User } from '../../domain/auth/user'
 import { onApiAuthEvent } from '../../infrastructure/api/apiFetch'
 import { createAuthRestClient } from '../../infrastructure/api/authRestClient'
+import { isBackendAbsent } from './sessionCheckFailure'
 import { AuthContext, type AuthState, type AuthUser, type SignInResult } from './authContext'
 
 interface SessionState {
@@ -37,8 +38,10 @@ export interface AuthProviderProps {
  * Sessão real (TASK-040; ADR-016): confere `GET /auth/session` na abertura, faz login e logout e
  * volta para `unauthenticated` quando qualquer chamada responde 401 `NOT_AUTHENTICATED`.
  *
- * Se a conferência da sessão falha (sem backend, como no E2E contra o `vite preview`), a aplicação
- * cai no modo sem autenticação: é só apresentação, o backend continua decidindo o acesso.
+ * Se a conferência da sessão falha porque o backend não está lá (sem backend, como no E2E contra o
+ * `vite preview`), a aplicação cai no modo sem autenticação: é só apresentação, o backend continua
+ * decidindo o acesso. Qualquer outra falha (ex.: HTTP 500) leva ao login, para a tela não oferecer
+ * ações de admin a quem não se identificou (`isBackendAbsent`).
  */
 export function AuthProvider({ gateway, children }: AuthProviderProps) {
   const [client] = useState(() => gateway ?? createAuthRestClient())
@@ -52,8 +55,8 @@ export function AuthProvider({ gateway, children }: AuthProviderProps) {
         if (!result.authEnabled) setSession(DISABLED)
         else setSession(result.user ? authenticated(result.user) : unauthenticated(null))
       },
-      () => {
-        if (!cancelled) setSession(DISABLED)
+      (error: unknown) => {
+        if (!cancelled) setSession(isBackendAbsent(error) ? DISABLED : unauthenticated(null))
       },
     )
     return () => {
