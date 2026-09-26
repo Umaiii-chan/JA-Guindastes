@@ -67,7 +67,7 @@
    e descobrir qual é parte da tarefa.
 3. Workflows de CI usam actions fixadas por versão (`@v4`) ou por hash; não `@main`.
 4. Workflows não expõem segredos em logs (`echo $SECRET` é proibido).
-5. Nenhum workflow deve chamar IA externa neste template (ver ADR-001). Se um dia for adicionado,
+5. Nenhum workflow deve chamar IA externa neste template (ver ADR-003, princípio (g)). Se um dia for adicionado,
    exige aprovação humana, `permissions: contents: read` e ambiente protegido.
 6. Segredos de ambiente ficam nos *Environment secrets* do GitHub, nunca em *repository secrets*
    compartilhados entre ambientes — um vazamento em desenvolvimento não pode dar acesso a produção.

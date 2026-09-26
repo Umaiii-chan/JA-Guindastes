@@ -8,7 +8,7 @@
 | **Iniciada em** | 2026-09-26 |
 | **Concluída em** | — |
 | **Branch** | `task/TASK-001-registrar-analise-orquestrador` (a partir de `development` @ `86e2fdc`) |
-| **PR** | — (não aberto) |
+| **PR** | [#1](https://github.com/Umaiii-chan/JA-Guindastes/pull/1), mergeado em 2026-09-26 por merge commit (`7d0e2a9`) |
 | **Requisitos** | — |
 | **Regras de negócio** | — (nenhuma regra funcional envolvida) |
 | **Estimativa** | G: cerca de 11 mil palavras no diff, acima do limite de revisão de 15–20 min de `tasks/README.md` (ver pendência 7 em `handoffs/current.md`) |
@@ -117,7 +117,7 @@ responsável (pendência 1 em `handoffs/current.md`).
 | 3 | Escrever o ADR-003 `Proposto` e a entrada no índice | `docs/decisions/ADR-003-...`, `docs/decisions/README.md` | CA-2, CA-3 | [x] |
 | 4 | Arquivar e reescrever o handoff | `handoffs/` | CA-5 | [x] |
 | 5 | Revisão cética antes do commit (4 revisores somente leitura) e aplicação das correções confirmadas | os da § 5 | handoff § 4 | [x] |
-| 6 | Rodar `check-structure.sh` e fazer o commit sem rodapé de co-autoria | — | CA-4; seção 8 do script | [ ] |
+| 6 | Rodar `check-structure.sh` e fazer o commit sem rodapé de co-autoria | — | CA-4; seção 8 do script | [x] |
 
 **Análise de impacto:**
 - Arquivos que podem quebrar indiretamente: nenhum. A checagem de links da seção 6 do script
@@ -131,7 +131,11 @@ Não se aplica: tarefa só de documentação. A verificação é pelos CAs e pel
 
 ## 10. Parecer da revisão (preenchido pelo Revisor)
 
-**Resultado:** — (aguardando revisão)
+**Resultado:** sem revisão independente. O PR #1 foi mergeado pela pessoa responsável em 2026-09-26
+sem parecer; a única revisão no PR é um aviso automático do bot `sourcery-ai` sobre o plano do
+serviço. Antes do commit, 4 subagentes da mesma sessão fizeram uma revisão cética, registrada em
+`handoffs/history/2026-09-26-TASK-001-implementacao.md` § 2, mas ela não substitui a revisão
+independente do AGENTS.md § 3. Dispensar ou pedir essa revisão é a pendência 1 de `handoffs/current.md`.
 
 ## 11. Encerramento (preenchido ao mover para completed/)
 

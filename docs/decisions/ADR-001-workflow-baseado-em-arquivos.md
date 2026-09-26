@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | Aceito |
+| **Status** | Substituído por ADR-003 |
 | **Data** | 2026-09-05 |
 | **Autor** | Anderson Sehnem |
 | **Decisores** | Anderson Sehnem |

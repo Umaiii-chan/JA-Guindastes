@@ -153,8 +153,10 @@ Guia detalhado de uso das ferramentas em `docs/guides/using-ai-tools.md`.
 
 ## O que este template **não** é
 
-- Não é um orquestrador automático. As IAs são acionadas manualmente por você.
-- Não chama nenhuma API de IA. Se um dia você quiser isso, veja `reference/langgraph-prototype/`.
+- Ainda não é um orquestrador automático. Hoje as IAs são acionadas manualmente por você. O
+  [ADR-003](docs/decisions/ADR-003-orquestracao-local-via-clis-de-assinatura.md) permite um orquestrador
+  local que chama as CLIs de agente autenticadas pela sua assinatura, mas ele ainda não foi construído.
+- Não chama nenhuma API de IA paga. O protótipo em `reference/langgraph-prototype/` usa API e fica só como referência.
 - Não substitui julgamento humano. A aprovação final é sempre de uma pessoa.
 
 ---

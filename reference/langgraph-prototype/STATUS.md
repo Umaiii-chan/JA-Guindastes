@@ -19,9 +19,13 @@ O workflow ativo deste repositório (na raiz) foi redesenhado para:
 - usar as interfaces gratuitas/assinadas do ChatGPT, Claude e Gemini **manualmente**;
 - manter a continuidade entre agentes por **arquivos versionados** em vez de um orquestrador em memória.
 
-A decisão está registrada em [`docs/decisions/ADR-001-workflow-baseado-em-arquivos.md`](../../docs/decisions/ADR-001-workflow-baseado-em-arquivos.md).
+A decisão original está em [`docs/decisions/ADR-001-workflow-baseado-em-arquivos.md`](../../docs/decisions/ADR-001-workflow-baseado-em-arquivos.md), substituído pelo [`docs/decisions/ADR-003-orquestracao-local-via-clis-de-assinatura.md`](../../docs/decisions/ADR-003-orquestracao-local-via-clis-de-assinatura.md).
 
 ## Quando voltar a usar
+
+> **Desde o ADR-003 (2026-09-26), este protótipo deixou de ser a base prevista para a segunda versão.**
+> O orquestrador vai chamar CLIs de agente autenticadas pela assinatura, sem API paga. O texto abaixo
+> fica como registro; aproveitam-se só ideias (papéis, recorte do repositório, manifesto de execução).
 
 Este protótipo pode servir de base para uma **segunda versão** quando houver:
 

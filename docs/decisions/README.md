@@ -38,6 +38,6 @@ Crie um ADR quando a decisão:
 
 | ADR | Título | Status | Data |
 |-----|--------|--------|------|
-| [ADR-001](ADR-001-workflow-baseado-em-arquivos.md) | Workflow de múltiplas IAs baseado em arquivos versionados, sem API | Aceito | 2026-09-05 |
+| [ADR-001](ADR-001-workflow-baseado-em-arquivos.md) | Workflow de múltiplas IAs baseado em arquivos versionados, sem API | Substituído por ADR-003 | 2026-09-05 |
 | [ADR-002](ADR-002-modelo-de-branches-por-ambiente.md) | Modelo de branches por ambiente (development, homologation, production) | Aceito | 2026-09-05 |
-| [ADR-003](ADR-003-orquestracao-local-via-clis-de-assinatura.md) | Orquestração local de agentes via CLIs de assinatura, sem API paga (substitui o ADR-001 se aceito) | Proposto | 2026-09-26 |
+| [ADR-003](ADR-003-orquestracao-local-via-clis-de-assinatura.md) | Orquestração local de agentes via CLIs de assinatura, sem API paga (substitui o ADR-001) | Aceito | 2026-09-26 |

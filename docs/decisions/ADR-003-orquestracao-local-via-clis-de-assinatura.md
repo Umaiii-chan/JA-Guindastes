@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | Proposto |
+| **Status** | Aceito |
 | **Data** | 2026-09-26 |
 | **Autor** | agente Claude Code 2.1.280 (modelo Opus 5.5), sessão de 2026-09-26 |
 | **Decisores** | Anderson Sehnem |
@@ -176,19 +176,19 @@ isso ele não é substituído.
 
 ## Impacto na documentação
 
-Nada abaixo foi alterado enquanto este ADR está `Proposto`. Tudo depende do aceite:
+Estado no aceite (2026-09-26). Os itens marcados foram feitos no mesmo commit do aceite:
 
-- [ ] `docs/architecture.md` § 8: incluir o ADR-003 e marcar o ADR-001 como substituído
-- [ ] `docs/decisions/ADR-001-workflow-baseado-em-arquivos.md`: só o campo Status muda, para "Substituído por ADR-003" (feito pela pessoa responsável)
-- [x] índice em `docs/decisions/README.md`: ADR-003 listado como `Proposto` (atualizar os dois status no aceite)
-- [ ] `README.md`, seção "O que este template **não** é": hoje diz "Não é um orquestrador automático"
-- [ ] `docs/policies/security.md` § 6, item 5: citar este ADR em vez do ADR-001
-- [ ] comentário de `.github/workflows/ci.yml` (linhas 276–281): citar este ADR e trocar o motivo "exigiria chaves de API (custo)" pelo do princípio (g) (arquivo protegido; só a pessoa altera)
-- [ ] `docs/guides/adapting-template.md` (linha 93): "Revise `ADR-001`" passa a apontar para o ADR-003
-- [ ] `docs/guides/using-ai-tools.md`: descrever o modo orquestrado ao lado do manual
-- [ ] `reference/langgraph-prototype/STATUS.md`: a linha 22 passa a citar o ADR-003, e a seção "Quando voltar a usar" deixa de ser o caminho previsto
+- [x] `docs/architecture.md` § 8: ADR-003 incluído e ADR-001 marcado como substituído
+- [x] `docs/decisions/ADR-001-workflow-baseado-em-arquivos.md`: só o campo Status mudou, para "Substituído por ADR-003"
+- [x] índice em `docs/decisions/README.md`: status do ADR-001 e do ADR-003 atualizados
+- [x] `README.md`, seção "O que este template **não** é"
+- [x] `docs/policies/security.md` § 6, item 5: cita este ADR em vez do ADR-001
+- [ ] comentário de `.github/workflows/ci.yml` (linhas 276–281): citar este ADR e trocar o motivo "exigiria chaves de API (custo)" pelo do princípio (g). Arquivo protegido: só a pessoa altera (texto sugerido em `handoffs/current.md`)
+- [x] `docs/guides/adapting-template.md` (linha 93): passa a apontar para o ADR-003
+- [ ] `docs/guides/using-ai-tools.md`: descrever o modo orquestrado ao lado do manual, quando o orquestrador existir
+- [x] `reference/langgraph-prototype/STATUS.md`: a linha 22 cita o ADR-003, e a seção "Quando voltar a usar" avisa que deixou de ser o caminho previsto
 - [ ] `docs/development-guide.md`: comandos do orquestrador, quando ele existir
-- [ ] `docs/known-gaps.md`: só o Claude Code instalado; termos de uso ainda não confirmados
+- [x] `docs/known-gaps.md` § 5: só o Claude Code instalado; termos de uso, cota e formato de saída do `claude -p` ainda não confirmados
 
 ## Evidências
 

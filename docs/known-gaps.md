@@ -57,6 +57,9 @@ Lista explícita. Se está aqui, o agente deve **verificar** antes de depender.
 - `<ex.: que a API externa Y está disponível em ambiente de teste — não está>`
 - `<ex.: que existe índice na coluna Z — não existe>`
 - `<ex.: que os testes e2e rodam localmente sem Docker — precisam de Docker>`
+- que `codex` ou `gemini` estão instalados: em 2026-09-26 só o `claude` (Claude Code 2.1.280) estava no PATH (ADR-003)
+- que os termos de uso das assinaturas permitem automação local via CLI: não confirmado para nenhum fornecedor (ADR-003, princípio (e))
+- que `claude -p` consome a cota da assinatura, e não crédito de API, nem qual é o formato do JSON de saída: não verificado, `claude -p` nunca foi executado (ADR-003, "Evidências")
 
 ---
 

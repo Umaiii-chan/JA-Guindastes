@@ -90,7 +90,7 @@ Preencha nesta ordem. Substitua **todos** os `<preencher>`. Se um item não se a
       critérios de aceite. Pode começar com 3 a 5.
 - [ ] `docs/decisions/`: crie ADRs para decisões já tomadas (stack, banco, hospedagem, arquitetura).
       Um por decisão. Status `Aceito`. Atualize o índice.
-- [ ] Revise `ADR-001`: ele é do template. Mantenha se você adota este fluxo; ajuste autor/data se quiser.
+- [ ] Revise `ADR-003` (que substituiu o `ADR-001`): ele é do template. Mantenha se você adota este fluxo; ajuste autor/data se quiser.
 
 ## Fase 5 — Primeira tarefa e handoff inicial (15 min)
 
