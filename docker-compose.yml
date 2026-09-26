@@ -4,6 +4,8 @@
 #   docker compose up -d --build            # constrói as imagens e sobe tudo
 #   docker compose ps                       # estado; pronto quando os três estiverem "healthy"
 #   docker compose run --rm backend alembic upgrade head   # aplica as migrations (sob demanda)
+#   docker compose run --rm backend sh -c "alembic upgrade head && python -m app.demo_seed"
+#                                           # migra e semeia a demonstração FICTÍCIA (TASK-035; docs/demo.md)
 #   docker compose up -d postgres           # só o banco, para rodar backend/frontend direto (uv e npm)
 #
 # As variáveis vêm do .env da raiz (copiado de .env.example; ignorado pelo Git). Nenhum valor real
@@ -43,6 +45,12 @@ services:
       # Por padrão a URL é montada com os POSTGRES_*; se a senha tiver caracteres especiais de URL
       # (@, :, /, #...), defina BACKEND_DATABASE_URL no .env com a senha já codificada.
       DATABASE_URL: ${BACKEND_DATABASE_URL:-postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}}
+      # Arquivo-fonte das tabelas de carga importadas (TASK-031), no volume nomeado abaixo (TASK-035).
+      # Caminho fixo dentro do container, criado na imagem com o dono do processo (backend/Dockerfile);
+      # o FILE_STORAGE_DIR do .env vale só para o backend rodando fora do container.
+      FILE_STORAGE_DIR: /data/load-charts
+    volumes:
+      - load-chart-files:/data/load-charts
     ports:
       # API e OpenAPI (/docs) acessíveis direto no host, só na interface local.
       - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
@@ -50,8 +58,9 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      # Não há rota de saúde dedicada; usa o contrato OpenAPI (mesmo teste do HEALTHCHECK da imagem).
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/openapi.json', timeout=3)"]
+      # Rota de saúde da TASK-029 (mesmo teste do HEALTHCHECK da imagem). Responde 200 enquanto o
+      # processo atende, mesmo com o banco DOWN (pendência 1 do handoff da TASK-029).
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"]
       interval: 10s
       timeout: 5s
       start_period: 10s
@@ -78,3 +87,6 @@ services:
 
 volumes:
   postgres-data:
+  # Arquivos-fonte das tabelas importadas (TASK-035); "ja-guindastes_load-chart-files".
+  # `docker compose down --volumes` apaga este e o do banco (recomeça a demonstração do zero).
+  load-chart-files:
