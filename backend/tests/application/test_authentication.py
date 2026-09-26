@@ -151,8 +151,8 @@ def test_current_user_is_none_without_a_valid_token(auth: AuthFicticia, token: s
 
 
 def test_deactivated_user_loses_the_session(auth: AuthFicticia) -> None:
-    token = build_login(auth).execute(ADMIN_FICTICIO_USERNAME, ADMIN_FICTICIO_SENHA).token
-    auth.users.update(replace(auth.admin, active=False))
+    token = build_login(auth).execute(OPERADOR_FICTICIO_USERNAME, OPERADOR_FICTICIO_SENHA).token
+    auth.users.update(replace(auth.operator, active=False))
 
     assert GetCurrentUser(auth.sessions, clock=auth.clock).execute(token) is None
 

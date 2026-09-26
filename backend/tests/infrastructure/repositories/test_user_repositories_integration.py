@@ -9,7 +9,7 @@ from dataclasses import replace
 from datetime import timedelta
 
 import pytest
-from sqlalchemy import Engine, inspect, select
+from sqlalchemy import Engine, inspect, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.ports.session_repository import SessionRepository, UserSession
@@ -20,6 +20,7 @@ from app.application.ports.user_repository import (
 )
 from app.application.use_cases.authentication import hash_session_token
 from app.domain.entities.user import UserRole
+from app.domain.exceptions.user_errors import LastAdminError
 from app.infrastructure.database.models.user import UserSessionModel
 from app.infrastructure.repositories.sqlalchemy_user_repository import SqlAlchemyUserRepository
 from app.infrastructure.repositories.sqlalchemy_user_session_repository import (
@@ -86,17 +87,17 @@ def test_duplicate_username_is_rejected(users: SqlAlchemyUserRepository) -> None
         users.add(user_ficticio("repetido.int", UserRole.ADMIN, user_id="id-2"), HASH_FICTICIO)
 
 
-def test_list_update_and_count_active_admins(users: SqlAlchemyUserRepository) -> None:
-    before = users.count_active_admins()
+def test_list_and_update(users: SqlAlchemyUserRepository) -> None:
+    # Um segundo admin garante que desativar o primeiro não esbarra no "último admin".
     admin = user_ficticio("zz.admin.int", UserRole.ADMIN, user_id="id-zz-admin")
+    other_admin = user_ficticio("zz.admin2.int", UserRole.ADMIN, user_id="id-zz-admin2")
     operator = user_ficticio("zz.operador.int", UserRole.OPERATOR, user_id="id-zz-op")
     users.add(admin, HASH_FICTICIO)
+    users.add(other_admin, HASH_FICTICIO)
     users.add(operator, HASH_FICTICIO)
-    assert users.count_active_admins() == before + 1
 
     users.update(replace(admin, active=False, display_name="Renomeado FICTÍCIO"), "novo-hash")
 
-    assert users.count_active_admins() == before
     stored = users.get_credentials_by_username("zz.admin.int")
     assert stored is not None
     assert stored.user.active is False
@@ -105,6 +106,29 @@ def test_list_update_and_count_active_admins(users: SqlAlchemyUserRepository) ->
     names = [user.username for user in users.list_users()]
     assert names == sorted(names)
     assert {"zz.admin.int", "zz.operador.int"} <= set(names)
+
+
+@pytest.mark.parametrize("changes", [{"active": False}, {"role": UserRole.OPERATOR}])
+def test_the_last_active_admin_cannot_lose_access(
+    users: SqlAlchemyUserRepository,
+    session_factory: sessionmaker[Session],
+    changes: dict[str, object],
+) -> None:
+    # Dentro da transação desfeita no fim: desativa os admins que já existirem no banco.
+    with session_factory.begin() as db:
+        db.execute(text("UPDATE app_user SET active = false WHERE role = 'ADMIN'"))
+    last = user_ficticio("ultimo.admin.int", UserRole.ADMIN, user_id="id-ultimo-admin")
+    users.add(last, HASH_FICTICIO)
+
+    with pytest.raises(LastAdminError):
+        users.update(replace(last, **changes), "hash-que-nao-deve-ser-gravado")  # type: ignore[arg-type]
+
+    stored = users.get_credentials_by_username("ultimo.admin.int")
+    assert stored is not None
+    assert stored.user == last
+    assert stored.password_hash == HASH_FICTICIO
+    users.update(replace(last, display_name="Último admin renomeado"))
+    assert users.get_by_id(last.id) == replace(last, display_name="Último admin renomeado")
 
 
 def test_update_of_a_missing_user_fails(users: SqlAlchemyUserRepository) -> None:

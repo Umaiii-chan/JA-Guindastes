@@ -193,7 +193,28 @@ def test_another_admin_can_be_demoted_when_one_admin_remains(auth: AuthFicticia)
     )
 
     assert updated.role is UserRole.OPERATOR
-    assert auth.users.count_active_admins() == 1
+    assert [user.username for user in auth.users.list_users() if user.is_active_admin] == [
+        auth.admin.username
+    ]
+
+
+@pytest.mark.parametrize("changes", [{"active": False}, {"role": UserRole.OPERATOR}])
+def test_repository_refuses_to_remove_the_last_active_admin_without_saving(
+    auth: AuthFicticia, changes: dict[str, object]
+) -> None:
+    # A garantia é do repositório (conferência e escrita juntas), não só do caso de uso.
+    with pytest.raises(LastAdminError):
+        auth.users.update(replace(auth.admin, **changes))  # type: ignore[arg-type]
+
+    assert auth.users.get_by_id(auth.admin.id) == auth.admin
+
+
+def test_repository_allows_other_changes_to_the_last_admin(auth: AuthFicticia) -> None:
+    auth.users.update(replace(auth.admin, display_name="Admin Renomeado"), "fake$nova")
+
+    assert auth.users.get_by_id(auth.admin.id) == replace(
+        auth.admin, display_name="Admin Renomeado"
+    )
 
 
 def test_inactive_user_can_be_reactivated(auth: AuthFicticia) -> None:

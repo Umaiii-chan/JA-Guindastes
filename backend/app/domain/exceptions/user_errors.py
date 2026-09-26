@@ -31,3 +31,10 @@ class InvalidDisplayNameError(InvalidUserError):
 class InvalidPasswordError(InvalidUserError):
     def __init__(self, message: str) -> None:
         super().__init__("password", message)
+
+
+class LastAdminError(DomainError):
+    """A mudança deixaria o sistema sem nenhum admin ativo (ADR-016 § 2)."""
+
+    def __init__(self) -> None:
+        super().__init__("o sistema precisa de pelo menos um admin ativo")

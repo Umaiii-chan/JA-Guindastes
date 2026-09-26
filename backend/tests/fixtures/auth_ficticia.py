@@ -23,6 +23,7 @@ from app.application.ports.user_repository import (
     UserNotFoundError,
 )
 from app.domain.entities.user import User, UserRole
+from app.domain.exceptions.user_errors import LastAdminError
 
 INSTANTE_FICTICIO = datetime(2026, 9, 26, 12, 0, tzinfo=UTC)
 
@@ -99,14 +100,15 @@ class InMemoryUserRepository:
         current = self.users.get(user.id)
         if current is None:
             raise UserNotFoundError(user.id)
+        # Mesmo contrato do repositório SQLAlchemy: conferência e escrita juntas.
+        others = [u for u in self.users.values() if u.is_active_admin and u.id != user.id]
+        if current.is_active_admin and not user.is_active_admin and not others:
+            raise LastAdminError()
         self.users[user.id] = replace(
             current, display_name=user.display_name, role=user.role, active=user.active
         )
         if password_hash is not None:
             self.password_hashes[user.id] = password_hash
-
-    def count_active_admins(self) -> int:
-        return sum(1 for user in self.users.values() if user.is_active_admin)
 
 
 class InMemorySessionRepository:

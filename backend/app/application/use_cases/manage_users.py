@@ -9,9 +9,9 @@
   (`OwnAdminAccessError`), e o sistema nunca fica sem admin ativo (`LastAdminError`).
 - Desativar revoga todas as sessões do usuário (ADR-016 § 3).
 
-A checagem de "último admin" lê a contagem e depois grava, sem trava: duas mudanças simultâneas em
-admins diferentes poderiam, em tese, passar juntas. Com a proteção de não se desativar, isso exige
-dois admins mexendo um no outro ao mesmo tempo; fica registrado como dívida no handoff.
+A garantia de "último admin" fica no repositório (`UserRepository.update`), que confere e grava na
+mesma operação atômica (no PostgreSQL, travando as linhas dos admins ativos): conferir aqui e gravar
+depois deixaria duas requisições simultâneas rebaixarem, cada uma, um dos dois últimos admins.
 """
 
 from app.application.ports.password_hasher import PasswordHasher
@@ -30,13 +30,9 @@ from app.domain.entities.user import (
     normalize_username,
     validate_password,
 )
+from app.domain.exceptions.user_errors import LastAdminError
 
-
-class LastAdminError(Exception):
-    """A mudança deixaria o sistema sem nenhum admin ativo."""
-
-    def __init__(self) -> None:
-        super().__init__("o sistema precisa de pelo menos um admin ativo")
+__all__ = ["LastAdminError", "ManageUsers", "OwnAdminAccessError"]
 
 
 class OwnAdminAccessError(Exception):
@@ -53,7 +49,8 @@ class ManageUsers:
     - `InvalidUserError` (domínio): nome de usuário, nome de exibição ou senha fora das regras;
     - `UsernameTakenError`: o `username` já existe;
     - `UserNotFoundError`: o usuário a atualizar não existe;
-    - `OwnAdminAccessError` e `LastAdminError`: as proteções do ADR-016 § 2.
+    - `OwnAdminAccessError` e `LastAdminError` (domínio, levantado pelo repositório): as proteções
+      do ADR-016 § 2.
     """
 
     def __init__(
@@ -121,13 +118,11 @@ class ManageUsers:
             created_at=current.created_at,
         )
 
-        loses_admin_access = current.is_active_admin and not updated.is_active_admin
-        if loses_admin_access and current.id == actor.id:
+        if current.id == actor.id and current.is_active_admin and not updated.is_active_admin:
             raise OwnAdminAccessError()
-        if loses_admin_access and self._users.count_active_admins() <= 1:
-            raise LastAdminError()
 
         password_hash = None if password is None else self._hasher.hash(password)
+        # `LastAdminError` vem daqui: o repositório confere e grava atomicamente.
         self._users.update(updated, password_hash)
         if current.active and not updated.active:
             self._sessions.delete_for_user(updated.id)

@@ -52,9 +52,10 @@ class UserRepository(Protocol):
         """Grava nome, perfil e situação de `user`; troca o hash se `password_hash` vier.
 
         O `username` e a data de criação não mudam. `UserNotFoundError` se o id não existe.
-        """
-        ...
 
-    def count_active_admins(self) -> int:
-        """Quantos usuários ativos têm o perfil `ADMIN`."""
+        **Garante que sempre resta um admin ativo**, de forma atômica e à prova de concorrência:
+        se a mudança tira de `user` o acesso de admin ativo e ele é o último, levanta
+        `LastAdminError` (domínio) e não grava nada. A conferência e a escrita acontecem juntas,
+        para duas mudanças simultâneas não removerem, cada uma, "um dos dois últimos" admins.
+        """
         ...

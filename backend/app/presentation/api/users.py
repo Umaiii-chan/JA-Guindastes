@@ -19,13 +19,9 @@ from fastapi import APIRouter, Depends, status
 from fastapi.exceptions import RequestValidationError
 
 from app.application.ports.user_repository import UsernameTakenError, UserNotFoundError
-from app.application.use_cases.manage_users import (
-    LastAdminError,
-    ManageUsers,
-    OwnAdminAccessError,
-)
+from app.application.use_cases.manage_users import ManageUsers, OwnAdminAccessError
 from app.domain.entities.user import User
-from app.domain.exceptions.user_errors import InvalidUserError
+from app.domain.exceptions.user_errors import InvalidUserError, LastAdminError
 from app.presentation.api.auth_schemas import (
     UserCreateRequest,
     UserListResponse,

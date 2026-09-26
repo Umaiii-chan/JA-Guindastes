@@ -1,9 +1,11 @@
 """Rotas `/api/v1/users*` (ADR-016 §§ 2 e 4; TASK-038). Dados FICTÍCIOS, sem banco."""
 
+from dataclasses import replace
+
 import pytest
 from fastapi.testclient import TestClient
 
-from app.domain.entities.user import UserRole
+from app.domain.entities.user import User, UserRole
 from app.presentation.api.auth import SESSION_PATH
 from app.presentation.api.main import create_app
 from app.presentation.api.users import USERS_PATH
@@ -219,11 +221,17 @@ def test_admin_cannot_remove_own_admin_access(
 
 
 def test_last_admin_protection_gives_409(admin_client: TestClient, auth: AuthFicticia) -> None:
-    # Simula uma corrida: o admin da sessão continua válido para a guarda, mas a contagem de admins
-    # ativos (a outra requisição já rebaixou todo mundo) diz que o alvo é o último.
+    # Simula uma corrida: o admin da sessão passou pela guarda, mas outra requisição o rebaixa logo
+    # antes da gravação; o alvo vira o último admin ativo e o repositório recusa.
     second_admin = user_ficticio("admin.dois", UserRole.ADMIN)
     auth.users.add(second_admin, "hash-ficticio")
-    auth.users.count_active_admins = lambda: 1  # type: ignore[method-assign]
+    original_update = auth.users.update
+
+    def update_after_a_concurrent_demotion(user: User, password_hash: str | None = None) -> None:
+        auth.users.users[auth.admin.id] = replace(auth.admin, role=UserRole.OPERATOR)
+        original_update(user, password_hash)
+
+    auth.users.update = update_after_a_concurrent_demotion  # type: ignore[method-assign]
 
     response = admin_client.patch(
         f"{USERS_PATH}/{second_admin.id}", json={"role": "OPERATOR"}, headers=CSRF_HEADERS
