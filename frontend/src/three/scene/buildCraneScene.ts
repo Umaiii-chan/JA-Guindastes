@@ -1,33 +1,127 @@
-import { Mesh, type Scene } from 'three'
+import { Mesh, type Object3D, type Scene } from 'three'
 
+import type { Vec3 } from '../camera/cameraPresets'
 import { CraneController, type CraneRig } from '../crane/CraneController'
 import { createProvisionalCrane } from '../crane/createProvisionalCrane'
 import {
   PROVISIONAL_CRANE_INITIAL_STATE,
   PROVISIONAL_CRANE_SETUP,
 } from '../crane/provisionalCraneSpec'
+import { findOperatorEye } from '../crane/rigLandmarks'
+import { SwitchableCrane } from '../crane/SwitchableCrane'
 import type { CraneSetup } from '../crane/types'
 import { addEnvironment, type SceneEnvironment } from './addEnvironment'
 import { createScene } from './createScene'
+import { disposeObject3D } from './disposeObject3D'
 import { HookLoad } from './HookLoad'
 import { RadiusIndicator } from './RadiusIndicator'
 
-export interface CraneSceneContents {
-  readonly scene: Scene
+/** Modelo 3D que substitui o guindaste provisório (o GLB da TASK-043), já mapeado para um rig. */
+export interface CraneModelSwap {
+  /** Raiz a pôr na cena (a cena do GLB); `rig.base` descende dela. */
+  readonly root: Object3D
   readonly rig: CraneRig
-  readonly crane: CraneController
+  /** Roda depois de cada comando: reaponta peças que só acompanham (cilindro de levantamento). */
+  readonly afterCommand?: () => void
+}
+
+/**
+ * Cena montada, sem renderer: ambiente, guindaste, anel de raio e carga no gancho.
+ *
+ * Começa com o guindaste provisório e pode trocar para o modelo 3D (`useModel`) sem mudar os
+ * comandos que a UI recebeu (`crane`), os limites nem os parâmetros a e h da ficha (TASK-041).
+ */
+export class CraneSceneContents {
+  readonly scene: Scene
+  /** Comandos do guindaste; o mesmo objeto antes e depois da troca de modelo. */
+  readonly crane: SwitchableCrane
   /** Céu, luzes, chão e grade (TASK-041). */
   readonly environment: SceneEnvironment
   /** Anel de raio, arco de alcance e âncora do rótulo, no chão (TASK-041). */
   readonly radiusIndicator: RadiusIndicator
   /** Carga pendurada no gancho e halo de situação (TASK-041). */
   readonly hookLoad: HookLoad
+  /** Limites e a/h com que a cena foi montada (ficha técnica ou FICTÍCIOS). */
+  readonly setup: CraneSetup
+
+  private currentRig: CraneRig
+  private currentRoot: Object3D
+  private eye: Vec3 | null
+  private modelInUse = false
+
+  constructor(parts: {
+    scene: Scene
+    environment: SceneEnvironment
+    rig: CraneRig
+    crane: CraneController
+    radiusIndicator: RadiusIndicator
+    hookLoad: HookLoad
+    setup: CraneSetup
+  }) {
+    this.scene = parts.scene
+    this.environment = parts.environment
+    this.currentRig = parts.rig
+    this.currentRoot = parts.rig.base
+    this.crane = new SwitchableCrane(parts.crane)
+    this.radiusIndicator = parts.radiusIndicator
+    this.hookLoad = parts.hookLoad
+    this.setup = parts.setup
+    this.eye = findOperatorEye(parts.rig)
+  }
+
+  /** Rig desenhado agora (provisório ou do modelo 3D). */
+  get rig(): CraneRig {
+    return this.currentRig
+  }
+
+  /** `true` depois que o modelo 3D substituiu o guindaste provisório. */
+  get usingModel(): boolean {
+    return this.modelInUse
+  }
+
+  /** Olho do operador medido no rig atual (base com ψ = 0), ou `null` sem vidro de cabine. */
+  get operatorEye(): Vec3 | null {
+    return this.eye
+  }
+
+  /**
+   * Troca o guindaste provisório pelo modelo 3D, na mesma pose: o controller novo recebe o estado
+   * atual, a carga e o halo passam para o gancho novo e o provisório é liberado. O anel continua
+   * lendo a geometria do controller, que não muda (ADR-013 C-7). Só pode ser chamado uma vez.
+   */
+  useModel(model: CraneModelSwap): void {
+    if (this.modelInUse) throw new Error('A cena já usa o modelo 3D.')
+    // Primeiro o controller: se os limites não servirem para o rig, lança antes de mexer na cena.
+    this.crane.switchTo(model.rig, model.afterCommand)
+    enableShadows(model.root)
+    this.scene.add(model.root)
+    this.hookLoad.attachTo(model.rig.hook)
+
+    const previous = this.currentRoot
+    previous.removeFromParent()
+    disposeObject3D(previous)
+
+    this.currentRig = model.rig
+    this.currentRoot = model.root
+    this.eye = findOperatorEye(model.rig)
+    this.modelInUse = true
+  }
+}
+
+/** Sombras suaves no chão (CA-1): malhas opacas projetam e recebem; vidro só recebe. */
+function enableShadows(root: Object3D): void {
+  root.traverse((object) => {
+    if (!(object instanceof Mesh)) return
+    const materials = Array.isArray(object.material) ? object.material : [object.material]
+    object.castShadow = !materials.some((material) => material.transparent)
+    object.receiveShadow = true
+  })
 }
 
 /**
  * Monta a cena sem renderer: ambiente (céu, luzes, chão, grade), guindaste provisório com seu
  * controller, anel de raio e carga no gancho. Separada de `mountCraneScene` para poder ser testada
- * sem WebGL.
+ * sem WebGL. O modelo 3D entra depois, por `upgradeCraneModel` (carregamento assíncrono).
  *
  * O guindaste fica na origem da cena (ponto O do ADR-013). Os mesmos parâmetros a e h de `setup`
  * posicionam o pino da lança no modelo e entram no cálculo de `getOperationalGeometry()`, para o
@@ -45,13 +139,7 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     },
     setup.geometryParameters,
   )
-  // Sombras suaves do guindaste no chão (CA-1); não muda nenhum nó do rig.
-  rig.base.traverse((object) => {
-    if (object instanceof Mesh) {
-      object.castShadow = true
-      object.receiveShadow = true
-    }
-  })
+  enableShadows(rig.base)
   scene.add(rig.base)
   const crane = new CraneController(
     rig,
@@ -69,5 +157,13 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     workingRadiusM: crane.getOperationalGeometry().workingRadiusM,
     turretRotationDeg: crane.getState().turretRotationDeg,
   })
-  return { scene, rig, crane, environment, radiusIndicator, hookLoad }
+  return new CraneSceneContents({
+    scene,
+    environment,
+    rig,
+    crane,
+    radiusIndicator,
+    hookLoad,
+    setup,
+  })
 }

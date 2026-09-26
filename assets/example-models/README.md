@@ -15,7 +15,8 @@
 | Pose | repouso do ADR-013 C-4, regra 4: ψ = 0, θ = 0, lança toda recolhida, gancho na ponta (c = 0) |
 | Rótulo no arquivo | `extras` do nó `crane-base`: `{ "ficticio": true, "aviso": "MODELO FICTÍCIO: ..." }` |
 
-Medidas FICTÍCIAS usadas para montá-lo (as mesmas da PoC): pino da lança com a = −1,2 m e h = 3,3 m;
+Medidas FICTÍCIAS usadas para montá-lo (as mesmas da PoC): pino da lança com a = −1,56 m e h = 3,3 m
+(a passou de −1,2 m para −1,56 m na TASK-041, igual à ficha de demo e ao modelo ilustrativo da TASK-043);
 lança recolhida de 12 m e estendida de 22 m. No sistema, a, h e os limites vêm da ficha técnica, **nunca
 do GLB** (RN-003; ADR-013 C-4, regra 1). O GLB só precisa ser coerente com eles, e a divergência é
 avisada pelo mapeamento como erro de calibração (só visual).

@@ -31,11 +31,12 @@ export const PROVISIONAL_CRANE_LIMITS: CraneLimits = {
 
 /**
  * FICTÍCIO: parâmetros geométricos do guindaste provisório (ADR-013 C-4). O pino do pé da lança fica
- * 1,2 m atrás do eixo de giro (a < 0) e 3,3 m acima do plano de apoio. Em produção, a e h virão da
+ * 1,56 m atrás do eixo de giro (a < 0) e 3,3 m acima do plano de apoio, como a ficha de demo do
+ * backend e o modelo 3D ilustrativo (TASK-043; TASK-041). Em produção, a e h virão da
  * ficha técnica cadastrada no backend, nunca do modelo 3D (RN-003).
  */
 export const PROVISIONAL_CRANE_GEOMETRY: CraneGeometryParameters = {
-  boomPivotOffsetM: -1.2,
+  boomPivotOffsetM: -1.56,
   boomPivotHeightM: 3.3,
 }
 

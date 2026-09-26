@@ -55,8 +55,8 @@ const DEMO_CONFIG: Omit<CraneKinematicsConfig, 'nodeNames'> = {
 }
 
 /**
- * Padrão FICTÍCIO do frontend sem ficha (`PROVISIONAL_CRANE_GEOMETRY`, a = −1,2 m), que a
- * integração ainda vai alinhar.
+ * Padrão FICTÍCIO do frontend sem ficha (`PROVISIONAL_CRANE_GEOMETRY`), alinhado à ficha de demo
+ * (a = −1,56 m) na TASK-041.
  */
 const FRONTEND_DEFAULT_CONFIG: Omit<CraneKinematicsConfig, 'nodeNames'> = {
   ...DEMO_CONFIG,
@@ -157,22 +157,11 @@ describe('GLB do guindaste sobre caminhão (public/models, TASK-043)', () => {
     expect(result.report).toEqual({ errors: [], warnings: [], synthesizedRoles: [] })
   })
 
-  it('com o padrão do frontend (a = −1,2 m), só P e T divergem, pelo a; h e L_min batem', async () => {
+  it('com o padrão do frontend (a = −1,56 m desde a TASK-041), a pose de repouso passa sem aviso', async () => {
     const result = mapTruckCraneKinematics(await loadModel(), FRONTEND_DEFAULT_CONFIG)
-    const expectedDeviation = Math.abs(
-      TRUCK_CRANE_MODEL_MEASUREMENTS.boomPivotOffsetM - PROVISIONAL_CRANE_GEOMETRY.boomPivotOffsetM,
-    )
 
-    // Documentado em handoffs/TASK-043.md: o padrão FICTÍCIO do frontend ainda é −1,2 m (a
-    // integração alinha); a divergência é só visual.
-    expect(result.report.warnings.map((warning) => warning.kind)).toEqual(['position', 'position'])
-    for (const warning of result.report.warnings) {
-      if (warning.kind !== 'position') continue
-      expect(['boom-pivot', 'boom-tip']).toContain(warning.point)
-      expectClose(warning.deviationM, expectedDeviation, 1e-3, warning.point)
-      expectClose(warning.actual[1], PROVISIONAL_CRANE_GEOMETRY.boomPivotHeightM, 1e-3, 'y')
-      expectClose(warning.actual[0], 0, 1e-3, 'x')
-    }
+    expect(PROVISIONAL_CRANE_GEOMETRY).toEqual(DEMO_CONFIG.geometryParameters)
+    expect(result.report).toEqual({ errors: [], warnings: [], synthesizedRoles: [] })
   })
 
   it('o CraneController comanda o rig: o gancho fica em G (ADR-013 C-5) e na vertical da ponta', async () => {

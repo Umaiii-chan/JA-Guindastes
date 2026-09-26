@@ -42,6 +42,15 @@ describe('loadBox', () => {
     expect(layout.center.y + layout.size.y / 2).toBeLessThan(0)
   })
 
+  it('usa o ponto de amarração medido no gancho, e o padrão se a medida for inválida', () => {
+    const load = { lengthM: 2, widthM: 2, heightM: 1 }
+
+    expect(computeLoadBox(load, 2.4)!.slingTop.y).toBe(-2.4)
+    expect(computeLoadBox(load, 2.4)!.slingBottoms[0].y).toBe(-(2.4 + slingDropM(load)))
+    expect(computeLoadBox(load, 0)!.slingTop.y).toBe(-HOOK_ATTACH_OFFSET_M)
+    expect(computeLoadBox(load, Number.NaN)!.slingTop.y).toBe(-HOOK_ATTACH_OFFSET_M)
+  })
+
   it('limita a altura das lingas entre 0,6 e 3 m', () => {
     expect(slingDropM({ lengthM: 0.4, widthM: 0.4, heightM: 1 })).toBe(0.6)
     expect(slingDropM({ lengthM: 12, widthM: 2, heightM: 1 })).toBe(3)

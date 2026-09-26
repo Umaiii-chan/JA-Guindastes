@@ -239,3 +239,127 @@ Playwright e é derrubado por ele.
 
 - Comece pelos módulos puros (`radiusGeometry.ts`, `loadBox.ts`, `cameraPresets.ts`), que têm a
   lógica e os testes; depois `mountCraneScene.ts` (laço, visibilidade, dispose).
+
+---
+
+## 12. Continuação: modelo GLB na cena e ficha FICTÍCIA com a = −1,56 m (2026-09-26)
+
+| Campo | Valor |
+|-------|-------|
+| **Pedido** | sessão principal, via orquestrador: ligar o GLB da TASK-043 à cena e alinhar a ficha fictícia do frontend |
+| **Papel** | Planejador, Engenheiro de testes e Implementador (mesma sessão; a revisão deve ser outra) |
+| **Ferramenta** | Claude Code (Opus 5.5), agente em worktree isolado |
+| **Branch** | `task/TASK-041-modelo-glb-na-cena`, a partir de `0061422` (integração da leva D) |
+
+### 12.1 Como a cena liga o modelo
+
+- **Carregamento em dois tempos.** A cena monta na hora com o guindaste provisório, como antes, e
+  baixa o GLB em segundo plano (`upgradeCraneModel`). Quando o modelo chega, ele substitui o
+  provisório na mesma pose. Escolhi isso em vez de um indicador de carregamento porque:
+  - a cena nunca fica vazia;
+  - os sliders funcionam desde o início;
+  - não precisa de UI nova (páginas e componentes são da TASK-039).
+- **Comandos estáveis.** A UI recebe um `SwitchableCrane` (`src/three/crane/SwitchableCrane.ts`).
+  Ele implementa `CraneCommands` e repassa os comandos ao `CraneController` do rig atual. Na troca, o
+  controller novo nasce com os mesmos limites e o mesmo a/h de `setup` (ficha técnica ou FICTÍCIOS,
+  nunca do GLB; RN-003) e com o estado atual. O `onCraneChange` não é chamado de novo: a UI continua
+  com o mesmo objeto.
+- **Mapeamento.** Usa `mapTruckCraneKinematics(model, { geometryParameters, boomRetractedLengthM:
+  limits.boomLengthM.min, calibrationTolerance: SCENE_CALIBRATION_TOLERANCE })`. A tolerância é de
+  1 cm e 0,5°, e só decide o que vira aviso no console: a tolerância de engenharia continua em aberto
+  (ADR-013, G-7).
+- **Queda segura.** A cena fica no provisório, com um `console.warn` e sem erro para a UI, em três
+  casos:
+  - o download ou o parse falha (`GltfLoadError`);
+  - o mapeamento recusa o modelo;
+  - o controller não aceita os limites.
+
+  Se a cena desmontar antes do fim, o `AbortController` cancela e o GLB é liberado sem entrar na
+  cena.
+- **Cilindro de levantamento.** `model.updateLuffingCylinder()` roda depois de cada comando, pelo
+  `afterCommand` do `SwitchableCrane`.
+- **Integração com a TASK-041.**
+  - Sombras: as malhas do GLB projetam e recebem sombra. O vidro, que é transparente, só recebe.
+  - Carga e halo: `HookLoad.attachTo(rig.hook)` leva a carga e o halo para o gancho novo, com a
+    situação e a carga atuais.
+  - Medida do gancho: o ponto das lingas e o tamanho do halo agora saem da caixa das malhas do gancho
+    em uso (`measureHookExtent`). O provisório desce 1,1 m abaixo de G, e o moitão do GLB, cerca de
+    2,4 m.
+  - Olho do operador: fica 0,5 m acima do vidro da cabine da torre (`findOperatorEye`, malhas
+    `*vidro*`). Por dentro da cabine, o painel tapava a vista, como mostrou a captura. Sem vidro, vale
+    `OPERATOR_EYE_LOCAL`.
+  - O anel não mudou: continua lendo a geometria do controller.
+- **Descarte.** `disposeObject3D(scene)` já cobre o GLB, que fica dentro da cena. O provisório é
+  liberado na troca.
+- **Desempenho.**
+  - O laço agora **desenha sob demanda**: só renderiza quando mudam a câmera, o estado do guindaste,
+    os ajustes visuais, o tamanho, a visibilidade ou o modelo. Sem isso, a malha de 103 mil
+    triângulos, com sombra, travou 3 testes E2E no SwiftShader (timeout de 30 s).
+  - Os bytes do GLB são baixados uma vez por página (`loadDefaultCraneModel`), porque trocar a
+    configuração remonta a cena.
+- **API.** A API do viewport não mudou. `mountCraneScene(container, setup?, options?)` ganhou duas
+  opções:
+  - `loadModel`: carregador injetável; `null` desliga o GLB;
+  - `onModelResult`.
+
+  O `CraneViewport` não foi alterado e usa o padrão, que é carregar o GLB.
+
+### 12.2 Ficha FICTÍCIA do frontend: a = −1,56 m
+
+- `PROVISIONAL_CRANE_GEOMETRY.boomPivotOffsetM` passou de −1,2 para −1,56 m, igual à ficha de demo
+  do backend e ao GLB.
+- O GLB de exemplo foi regenerado (`UPDATE_EXAMPLE_GLB=1 npx vitest run
+  tests/three/loaders/exampleModel.test.ts`, 63 560 → 63 564 bytes) e o
+  `assets/example-models/README.md` foi atualizado.
+- Testes ajustados:
+  - `craneKinematics.test.ts`: aviso de P com h diferente; o desvio continua 0,2 m;
+  - `createProvisionalCrane.test.ts`;
+  - `catalogForms.test.ts`: só o valor de entrada do parser;
+  - `buildCraneScene.test.ts`: R inicial 8,269825 m (awk);
+  - `radiusGeometry.test.ts` e `RadiusIndicator.test.ts`: R_min 0,523778 m, R_max 20,44 m.
+- `truckCraneModel.test.ts`: com o padrão do frontend, a calibração agora dá **zero avisos**. O teste
+  que fixava os dois avisos de 0,359 m foi trocado por um que exige o relatório vazio.
+- Pose inicial sem ficha: R = 8,27 m (antes 8,63 m).
+
+### 12.3 Capturas (Playwright + SwiftShader; vite nas portas 5190 e 5191, encerrados; script fora do repositório)
+
+- `docs/assets/screenshots/modelo-3d/01..08` foram refeitas na cena escura, com a ficha nova e as
+  mesmas poses da TASK-043. A bolinha vermelha é o G calculado pelas fórmulas do ADR-013 e agora
+  coincide com o topo do moitão. A distância medida no script, `|G − gancho|`, foi de **0,9 mm** em
+  todas as poses: é o a do GLB, −1,5591 m, contra −1,56 m da ficha.
+- `docs/assets/screenshots/cena-3d/` é nova e mostra a cena escura com o GLB:
+  - `ok-perspectiva`: carga e anel verde;
+  - `warning-lateral`: âmbar;
+  - `over-topo`: vermelho, vista de topo, lança em 22 m;
+  - `unknown-operador`: vista do operador;
+  - `over-perspectiva-sem-carga`: só o halo no gancho.
+- As capturas da TASK-043 estão descritas no `handoffs/TASK-043.md` § 2 como "antes da mudança da
+  ficha". Não editei o handoff dela; o texto dela ficou desatualizado nesse ponto.
+
+### 12.4 Gates (em `frontend/`, salvo indicação)
+
+| Comando | Resultado |
+|---------|-----------|
+| `npm ci` | ✅ necessário: a integração trouxe dependências da TASK-039 (`lucide-react` etc.) |
+| `npm run lint` | ✅ sem apontamentos |
+| `npm run format:check` | ✅ |
+| `npm run typecheck` | ✅ |
+| `npm test` | ✅ `Test Files 46 passed (46)` · `Tests 459 passed \| 1 skipped (460)` |
+| `npm run build` | ✅ sem aviso de 500 kB. `three-addons` subiu para 67,57 kB porque o `GLTFLoader` passou a entrar no app |
+| `npm run e2e` (3 execuções) | ✅ `7 passed · 2 skipped`, cerca de 25 s cada, depois do desenho sob demanda. Antes dele: 3 timeouts |
+| `bash scripts/check-structure.sh` (raiz) | ✅ ver saída no relatório final |
+
+### 12.5 Limitações e pendências
+
+- **A troca é visível.** O provisório aparece por uma fração de segundo antes do GLB. Se a pessoa
+  responsável preferir, dá para esconder o guindaste até o GLB chegar ou falhar (decisão de UX).
+- **SwiftShader.** O GLB pesa na renderização por software, mas com o desenho sob demanda os E2E
+  ficaram em cerca de 3,5 s por teste. O CA-6 (60 fps num notebook com GPU) continua **sem medição
+  em hardware real**.
+- **Ficha diferente do modelo.** Com a ficha de outra configuração (a, h e L_min diferentes do
+  modelo), o GLB é usado mesmo assim, com aviso de calibração no console. O erro é só visual (ADR-013
+  C-4, regra 3). Não há critério para recusar o modelo por desvio grande: isso depende da G-7.
+- **Olho do operador por nome de malha.** A busca por `vidro`/`glass` é uma convenção do GLB da
+  TASK-043. Um modelo sem essa malha cai no olho do provisório.
+- **Carga e moitão.** A carga pende do fundo do moitão do GLB, cerca de 2,4 m abaixo de G, e não do
+  topo. Com c pequeno, a caixa pode entrar no chão; é só desenho.

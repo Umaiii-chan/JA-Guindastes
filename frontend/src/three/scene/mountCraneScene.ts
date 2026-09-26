@@ -14,7 +14,7 @@ import {
   createOrbitControls,
   keepCameraAboveGround,
 } from '../controls/createOrbitControls'
-import type { CraneCommands, CraneSetup } from '../crane/types'
+import type { CraneCommands, CraneSetup, CraneState } from '../crane/types'
 import { buildCraneScene } from './buildCraneScene'
 import { disposeObject3D } from './disposeObject3D'
 import type { LoadDimensions } from './loadBox'
@@ -25,6 +25,23 @@ import {
   statusCssColor,
   toCssHex,
 } from './palette'
+import {
+  type CraneModelLoader,
+  type CraneModelUpgradeResult,
+  loadDefaultCraneModel,
+  upgradeCraneModel,
+} from './upgradeCraneModel'
+
+/** Opções de `mountCraneScene`. */
+export interface MountCraneSceneOptions {
+  /**
+   * Carregador do modelo 3D que substitui o guindaste provisório. Padrão: o GLB público
+   * (`loadDefaultCraneModel`). `null`: fica no provisório.
+   */
+  readonly loadModel?: CraneModelLoader | null
+  /** Avisado quando a troca termina, com o modelo em uso ou o motivo de ficar no provisório. */
+  readonly onModelResult?: (result: CraneModelUpgradeResult) => void
+}
 
 /** Opções de `setCameraPreset`. */
 export interface CameraPresetOptions {
@@ -43,6 +60,15 @@ export interface CraneSceneHandle {
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
   /** Para o laço de renderização e libera renderer, controles, geometrias e materiais. Idempotente. */
   dispose(): void
+}
+
+function sameCraneState(a: CraneState, b: CraneState): boolean {
+  return (
+    a.turretRotationDeg === b.turretRotationDeg &&
+    a.boomAngleDeg === b.boomAngleDeg &&
+    a.boomLengthM === b.boomLengthM &&
+    a.cableLengthM === b.cableLengthM
+  )
 }
 
 /** `true` se a pessoa pediu menos movimento ao sistema (`prefers-reduced-motion: reduce`). */
@@ -84,9 +110,18 @@ function createRadiusLabelElement(): HTMLDivElement {
  * os FICTÍCIOS da PoC; TASK-033). Lança erro se o navegador não oferecer WebGL.
  *
  * A renderização pausa com a aba oculta e volta quando ela aparece (TASK-041, CA-6).
+ *
+ * Em seguida baixa o modelo 3D ilustrativo (`options.loadModel`, por padrão o GLB público) e troca o
+ * guindaste provisório por ele quando chega, na mesma pose e com os mesmos comandos; se falhar, a cena
+ * fica no provisório com aviso no console. `loadModel: null` desliga o carregamento.
  */
-export function mountCraneScene(container: HTMLElement, setup?: CraneSetup): CraneSceneHandle {
-  const { scene, crane, environment, radiusIndicator, hookLoad } = buildCraneScene(setup)
+export function mountCraneScene(
+  container: HTMLElement,
+  setup?: CraneSetup,
+  options: MountCraneSceneOptions = {},
+): CraneSceneHandle {
+  const contents = buildCraneScene(setup)
+  const { scene, crane, environment, radiusIndicator, hookLoad } = contents
 
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -133,6 +168,13 @@ export function mountCraneScene(container: HTMLElement, setup?: CraneSetup): Cra
     controls.target.set(view.target.x, view.target.y, view.target.z)
   }
 
+  // Renderização sob demanda (CA-6): o laço roda a cada quadro, mas só desenha quando algo mudou
+  // (câmera, guindaste, ajustes visuais, tamanho, troca de modelo). Parado, não gasta GPU.
+  let dirty = true
+  const invalidate = (): void => {
+    dirty = true
+  }
+
   const resize = (): void => {
     const width = container.clientWidth
     const height = container.clientHeight
@@ -141,29 +183,39 @@ export function mountCraneScene(container: HTMLElement, setup?: CraneSetup): Cra
     renderer.setSize(width, height, false)
     labelRenderer.setSize(width, height)
     resizeCamera(camera, width, height)
+    invalidate()
   }
   resize()
   const resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(container)
 
-  const syncWithCrane = (): void => {
+  let lastState: CraneState | null = null
+  /** Atualiza o anel e o rótulo; devolve `true` se o estado do guindaste mudou desde o último quadro. */
+  const syncWithCrane = (): boolean => {
+    const state = crane.getState()
+    if (lastState && sameCraneState(state, lastState)) return false
+    lastState = state
     const changed = radiusIndicator.update({
       workingRadiusM: crane.getOperationalGeometry().workingRadiusM,
-      turretRotationDeg: crane.getState().turretRotationDeg,
+      turretRotationDeg: state.turretRotationDeg,
     })
     if (changed) labelElement.textContent = radiusIndicator.labelText
+    return true
   }
 
   const renderFrame = (): void => {
-    syncWithCrane()
+    const craneChanged = syncWithCrane()
+    const moving = transition !== null
     if (transition) {
       const { view, done } = transition.sample(performance.now())
       applyView(view)
       if (done) transition = null
     }
     applyCameraLimits(controls)
-    controls.update()
-    keepCameraAboveGround(controls)
+    const cameraChanged = controls.update()
+    const lifted = keepCameraAboveGround(controls)
+    if (!(dirty || craneChanged || moving || cameraChanged || lifted)) return
+    dirty = false
     environment.update(camera.position, camera.position.distanceTo(controls.target))
     renderer.render(scene, camera)
     labelRenderer.render(scene, camera)
@@ -173,10 +225,21 @@ export function mountCraneScene(container: HTMLElement, setup?: CraneSetup): Cra
   // Aba oculta: nada de quadros (o navegador já freia o rAF, mas aqui o laço para de vez).
   const onVisibilityChange = (): void => {
     if (disposed) return
+    invalidate()
     renderer.setAnimationLoop(document.hidden ? null : renderFrame)
   }
   document.addEventListener('visibilitychange', onVisibilityChange)
   if (!document.hidden) renderer.setAnimationLoop(renderFrame)
+
+  // Modelo 3D: carrega em segundo plano; enquanto isso, o provisório fica na cena.
+  const modelAbort = new AbortController()
+  const loadModel = options.loadModel === undefined ? loadDefaultCraneModel : options.loadModel
+  if (loadModel) {
+    void upgradeCraneModel(contents, loadModel, { signal: modelAbort.signal }).then((result) => {
+      invalidate()
+      options.onModelResult?.(result)
+    })
+  }
 
   const handle: CraneSceneHandle = {
     crane,
@@ -185,9 +248,11 @@ export function mountCraneScene(container: HTMLElement, setup?: CraneSetup): Cra
       radiusIndicator.setStatus(normalized)
       hookLoad.setStatus(normalized)
       labelElement.style.borderColor = statusCssColor(normalized)
+      invalidate()
     },
     setLoad(load) {
       hookLoad.setLoad(load)
+      invalidate()
     },
     setCameraPreset(preset, options = {}) {
       if (disposed) return
@@ -195,6 +260,7 @@ export function mountCraneScene(container: HTMLElement, setup?: CraneSetup): Cra
         turretRotationDeg: crane.getState().turretRotationDeg,
         geometry: crane.getOperationalGeometry(),
         maxReachM: radiusIndicator.reach.maxM,
+        operatorEye: contents.operatorEye ?? undefined,
       })
       const animate = (options.animate ?? true) && !prefersReducedMotion()
       if (!animate) {
@@ -202,6 +268,7 @@ export function mountCraneScene(container: HTMLElement, setup?: CraneSetup): Cra
         applyView(to)
         applyCameraLimits(controls)
         controls.update()
+        invalidate()
         return
       }
       const from: CameraView = {
@@ -213,6 +280,8 @@ export function mountCraneScene(container: HTMLElement, setup?: CraneSetup): Cra
     dispose() {
       if (disposed) return
       disposed = true
+      // Um GLB que chegue depois é liberado por `upgradeCraneModel` sem entrar na cena.
+      modelAbort.abort()
       renderer.setAnimationLoop(null)
       document.removeEventListener('visibilitychange', onVisibilityChange)
       resizeObserver.disconnect()
