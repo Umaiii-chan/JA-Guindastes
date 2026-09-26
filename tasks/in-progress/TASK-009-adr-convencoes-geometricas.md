@@ -110,9 +110,9 @@ empresa fica marcado.
 | # | Passo | Arquivos | Como verificar | Feito |
 |---|-------|----------|----------------|-------|
 | 1 | Criar a tarefa | esta tarefa | CA-1..CA-8 escritos | [x] |
-| 2 | Redigir o ADR-013 e atualizar o índice | ADR-013, `decisions/README.md` | CA-1..CA-6 | [ ] |
-| 3 | Referenciar o ADR-013 em architecture § 8 e known-gaps | 2 arquivos | CA-7 | [ ] |
-| 4 | Rodar check-structure e escrever o handoff | `handoffs/TASK-009.md` | CA-8 | [ ] |
+| 2 | Redigir o ADR-013 e atualizar o índice | ADR-013, `decisions/README.md` | CA-1..CA-6 | [x] |
+| 3 | Referenciar o ADR-013 em architecture § 8 e known-gaps | 2 arquivos | CA-7 | [x] |
+| 4 | Rodar check-structure e escrever o handoff | `handoffs/TASK-009.md` | CA-8 | [x] |
 
 **Análise de impacto:**
 - Arquivos que podem quebrar indiretamente: nenhum código; só links Markdown (verificados pelo check).
