@@ -2,11 +2,11 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (pedido em sessão com o agente Claude Code) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-002-camada-1-simulador` (a partir de `development` @ `c17358a`) |
 | **PR** | — |
 | **Requisitos** | todos (RF-001..024, RNF-001..012) são registrados por esta tarefa |
@@ -114,6 +114,8 @@ Não se aplica: tarefa só de documentação.
 **Resultado:** — (aguardando revisão)
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 por decisão da pessoa responsável (em chat), após o merge do PR #2. **A revisão independente (AGENTS.md § 3) foi dispensada pela pessoa responsável**; nenhum parecer foi registrado.
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...

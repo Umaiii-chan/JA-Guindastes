@@ -2,11 +2,11 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (pedido em sessão com o agente Claude Code) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-003-adrs-do-simulador` (a partir de `development` @ `1b4dbaa`) |
 | **PR** | — |
 | **Requisitos** | — (os ADRs citam os RF/RNF relacionados) |
@@ -85,6 +85,8 @@ Não se aplica: tarefa só de documentação.
 **Resultado:** — (aguardando revisão)
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 por decisão da pessoa responsável (em chat), após o merge do PR #3. **A revisão independente (AGENTS.md § 3) foi dispensada pela pessoa responsável**; nenhum parecer foi registrado.
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...
