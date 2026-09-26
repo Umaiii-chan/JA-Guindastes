@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | Proposto |
+| **Status** | Aceito |
 | **Data** | 2026-09-26 |
 | **Autor** | equipe do projeto (decisão na doc-fonte v0.1 § 7); formato ADR redigido pelo agente Claude Code 2.1.280, sessão de 2026-09-26 |
 | **Decisores** | Anderson Sehnem |
@@ -46,7 +46,7 @@ ser feito antes do aceite, porque depois o ADR fica imutável.
 
 ## Impacto na documentação
 
-- [x] `docs/architecture.md` § 8 lista este ADR como `Proposto`
+- [x] `docs/architecture.md` § 8 lista este ADR como `Aceito`
 - [ ] `docs/development-guide.md`: não se aplica até existir código
 - [ ] `docs/known-gaps.md`: sem limitação nova
 - [x] índice em `docs/decisions/README.md` atualizado

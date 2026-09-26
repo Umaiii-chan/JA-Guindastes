@@ -8,7 +8,7 @@
 | Campo | Valor |
 |-------|-------|
 | Última revisão | 2026-09-26 |
-| ADRs que afetam este documento | ADR-002, ADR-003; ADR-004..011 (`Proposto`, decisões da doc-fonte § 7) |
+| ADRs que afetam este documento | ADR-002, ADR-003; ADR-004..011 (Aceitos em 2026-09-26; decisões da doc-fonte § 7) |
 
 ---
 
@@ -169,14 +169,14 @@ Resumo com link. O detalhe está no ADR.
 | [ADR-001](decisions/ADR-001-workflow-baseado-em-arquivos.md) | Workflow de IAs baseado em arquivos versionados, sem API | Substituído por ADR-003 |
 | [ADR-002](decisions/ADR-002-modelo-de-branches-por-ambiente.md) | Três branches por ambiente: `development`, `homologation`, `production` | Aceito |
 | [ADR-003](decisions/ADR-003-orquestracao-local-via-clis-de-assinatura.md) | Agentes acionados manualmente ou por orquestrador local via CLIs de assinatura; sem API paga; CI sem IA | Aceito |
-| [ADR-004](decisions/ADR-004-clean-architecture-no-backend.md) | Clean Architecture (doc-fonte § 7) | Proposto |
-| [ADR-005](decisions/ADR-005-frontend-react-typescript-threejs.md) | Frontend React + TypeScript + Three.js (doc-fonte § 7) | Proposto |
-| [ADR-006](decisions/ADR-006-backend-fastapi-python.md) | Backend FastAPI + Python (doc-fonte § 7) | Proposto |
-| [ADR-007](decisions/ADR-007-postgresql.md) | PostgreSQL (doc-fonte § 7) | Proposto |
-| [ADR-008](decisions/ADR-008-glb-gltf-como-formato-3d-interno.md) | GLB/glTF como formato 3D interno (doc-fonte § 7) | Proposto |
-| [ADR-009](decisions/ADR-009-tabelas-de-carga-estruturadas-no-banco.md) | Tabelas estruturadas no banco (doc-fonte § 7) | Proposto |
-| [ADR-010](decisions/ADR-010-rest-e-websocket.md) | REST + WebSocket (doc-fonte § 7) | Proposto |
-| [ADR-011](decisions/ADR-011-monorepo.md) | Monorepo (doc-fonte § 7) | Proposto |
+| [ADR-004](decisions/ADR-004-clean-architecture-no-backend.md) | Clean Architecture (doc-fonte § 7) | Aceito |
+| [ADR-005](decisions/ADR-005-frontend-react-typescript-threejs.md) | Frontend React + TypeScript + Three.js (doc-fonte § 7) | Aceito |
+| [ADR-006](decisions/ADR-006-backend-fastapi-python.md) | Backend FastAPI + Python (doc-fonte § 7) | Aceito |
+| [ADR-007](decisions/ADR-007-postgresql.md) | PostgreSQL (doc-fonte § 7) | Aceito |
+| [ADR-008](decisions/ADR-008-glb-gltf-como-formato-3d-interno.md) | GLB/glTF como formato 3D interno (doc-fonte § 7) | Aceito |
+| [ADR-009](decisions/ADR-009-tabelas-de-carga-estruturadas-no-banco.md) | Tabelas estruturadas no banco (doc-fonte § 7) | Aceito |
+| [ADR-010](decisions/ADR-010-rest-e-websocket.md) | REST + WebSocket (doc-fonte § 7) | Aceito |
+| [ADR-011](decisions/ADR-011-monorepo.md) | Monorepo (doc-fonte § 7) | Aceito |
 
 ---
 

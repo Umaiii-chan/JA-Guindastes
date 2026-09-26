@@ -72,7 +72,7 @@ Registrar as 8 decisões da doc-fonte § 7 como ADR-004..011 `Proposto`.
 
 | # | Pergunta | Bloqueia? | Resposta | Respondida em |
 |---|----------|-----------|----------|---------------|
-| 1 | Aceitar, pedir mudanças ou rejeitar os ADR-004..011? (dá para aceitar em bloco) | sim, para os esqueletos do código | | |
+| 1 | Aceitar, pedir mudanças ou rejeitar os ADR-004..011? (dá para aceitar em bloco) | — | **Aceitos em bloco** pela pessoa responsável, em chat ("aceito os ADR-004 a 011"), depois do merge do PR #3; status trocado em cada ADR, no índice e em `docs/architecture.md` § 8 | 2026-09-26 |
 | 2 | Dados fictícios rotulados nos testes até a tabela oficial chegar? (P-007) | sim, para testes do motor | | |
 | 3 | Versão mais nova da doc-fonte? (P-013) · Onde fica o orquestrador? (P-010) | não | | |
 | 4 | Mover TASK-001 e TASK-002 para `completed/` (sem revisão independente) ou pedir revisão antes; apagar as branches delas | não | | |
@@ -86,8 +86,8 @@ Registrar as 8 decisões da doc-fonte § 7 como ADR-004..011 `Proposto`.
 **Papel:** Pessoa responsável (depois, Planejador da tarefa de toolchain)
 
 **O que fazer, concretamente:**
-1. Revisar o PR da TASK-003 e responder a pendência 1.
-2. Depois: tarefa de toolchain (ADR com versões de Node/Python, gerenciadores, testes, lint e
+1. ~~Revisar o PR da TASK-003 e responder a pendência 1.~~ Feito: PR #3 mergeado e ADR-004..011 aceitos (2026-09-26).
+2. Próximo: tarefa de toolchain (ADR com versões de Node/Python, gerenciadores, testes, lint e
    migrations, e o que muda no `ci.yml`, arquivo protegido), seguida dos esqueletos de backend e frontend.
 
 **Ler primeiro:**
