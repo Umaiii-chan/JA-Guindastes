@@ -39,6 +39,13 @@ from app.main import create_database_app
 from app.presentation.api.evaluations import EVALUATIONS_PATH
 from app.presentation.api.health import HEALTH_PATH
 from app.presentation.websocket.evaluation import EVALUATION_WEBSOCKET_PATH
+from tests.fixtures.auth_api_ficticia import CSRF_HEADERS
+from tests.fixtures.auth_postgres_ficticia import (
+    LOCAL_HTTP_ENVIRON,
+    log_in,
+    stored_user,
+    websocket_headers,
+)
 from tests.fixtures.avaliacao_operacional_ficticia import build_load_chart_avaliacao_ficticio
 from tests.fixtures.crane_geometry_ficticia import build_crane_geometry_ficticia
 from tests.infrastructure.database.postgres_integration_support import (
@@ -141,11 +148,23 @@ def evaluation_body(configuration_id: str) -> dict[str, Any]:
     }
 
 
+@pytest.fixture
+def client(engine: Engine) -> Iterator[TestClient]:
+    """API com banco e um admin FICTÍCIO logado (desde a TASK-038, as rotas exigem sessão)."""
+    with (
+        stored_user(engine) as admin,
+        TestClient(create_database_app(engine, LOCAL_HTTP_ENVIRON)) as client,
+    ):
+        log_in(client, admin)
+        yield client
+
+
 def test_rest_evaluates_a_configuration_stored_by_the_repositories(
-    engine: Engine, stored: StoredFicticio
+    client: TestClient, stored: StoredFicticio
 ) -> None:
-    with TestClient(create_database_app(engine)) as client:
-        response = client.post(EVALUATIONS_PATH, json=evaluation_body(stored.configuration_id))
+    response = client.post(
+        EVALUATIONS_PATH, json=evaluation_body(stored.configuration_id), headers=CSRF_HEADERS
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -159,17 +178,16 @@ def test_rest_evaluates_a_configuration_stored_by_the_repositories(
 
 
 def test_websocket_evaluates_a_configuration_stored_by_the_repositories(
-    engine: Engine, stored: StoredFicticio
+    client: TestClient, stored: StoredFicticio
 ) -> None:
     message = {
         "type": "simulation.state.changed",
         "sequence": 1,
         "payload": evaluation_body(stored.configuration_id),
     }
-    with (
-        TestClient(create_database_app(engine)) as client,
-        client.websocket_connect(EVALUATION_WEBSOCKET_PATH) as websocket,
-    ):
+    with client.websocket_connect(
+        EVALUATION_WEBSOCKET_PATH, headers=websocket_headers(client)
+    ) as websocket:
         websocket.send_json(message)
         reply = websocket.receive_json()
 
@@ -178,17 +196,19 @@ def test_websocket_evaluates_a_configuration_stored_by_the_repositories(
     assert reply["payload"]["load_chart_id"] == stored.load_chart_id
 
 
-def test_unknown_configuration_is_not_evaluable_with_the_database(engine: Engine) -> None:
-    with TestClient(create_database_app(engine)) as client:
-        response = client.post(
-            EVALUATIONS_PATH, json=evaluation_body("CFG-FICTICIA-T029-INEXISTENTE")
-        )
+def test_unknown_configuration_is_not_evaluable_with_the_database(client: TestClient) -> None:
+    response = client.post(
+        EVALUATIONS_PATH,
+        json=evaluation_body("CFG-FICTICIA-T029-INEXISTENTE"),
+        headers=CSRF_HEADERS,
+    )
 
     assert response.status_code == 200
     assert response.json()["status"] == "NOT_EVALUABLE"
 
 
 def test_health_reports_the_database_up(engine: Engine) -> None:
+    # A saúde continua pública (ADR-016 § 1): sem login.
     with TestClient(create_database_app(engine)) as client:
         response = client.get(HEALTH_PATH)
 
