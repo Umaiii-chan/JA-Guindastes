@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | Proposto |
+| **Status** | Aceito (pela pessoa responsável em chat, 2026-09-26) |
 | **Data** | 2026-09-26 |
 | **Autor** | agente Claude Code 2.1.280 (modelo Opus 5.5), registrando as escolhas da pessoa responsável |
 | **Decisores** | Anderson Sehnem (em chat, 2026-09-26: visual "Escuro tipo software 3D"; fluxo "Páginas + simulador guiado") |
