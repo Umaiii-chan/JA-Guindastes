@@ -1,0 +1,50 @@
+# Servidor do frontend no container (TASK-027). Template: o entrypoint da imagem nginx troca
+# ${API_UPSTREAM} pelo valor da variável de ambiente ao subir (ver frontend/Dockerfile).
+
+# Upgrade de conexão para WebSocket (ADR-010), caso ele passe por /api/.
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 8080;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    server_tokens off;
+    add_header X-Content-Type-Options nosniff always;
+
+    # O backend aplica o próprio limite de upload (1 MiB, provisório, P-008) e responde 413 no formato
+    # da API. O limite do nginx fica acima para não responder antes dele (o padrão do nginx é 1 MiB).
+    client_max_body_size 10m;
+
+    # API: mesma origem, encaminhada ao backend sem reescrever o caminho (as rotas já começam com /api).
+    location /api/ {
+        proxy_pass ${API_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+    }
+
+    # Arquivos com hash no nome (saída do Vite): cache longo.
+    location /assets/ {
+        try_files $uri =404;
+        expires 1y;
+        add_header Cache-Control "public, immutable" always;
+        add_header X-Content-Type-Options nosniff always;
+    }
+
+    # Aplicação de página única: rota desconhecida cai no index.html, que não entra em cache.
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache" always;
+        add_header X-Content-Type-Options nosniff always;
+    }
+}
