@@ -17,9 +17,29 @@ import { disposeObject3D } from './disposeObject3D'
 /** Baixa o modelo; recebe o sinal para abortar quando a cena é desmontada antes do fim. */
 export type CraneModelLoader = (signal: AbortSignal) => Promise<LoadedTruckCraneModel>
 
-/** Carregador padrão: o GLB público `models/guindaste-caminhao.glb`. */
+/** Bytes do GLB já baixados: trocar a configuração remonta a cena, e o arquivo tem ~1,8 MB. */
+let cachedGlb: Promise<ArrayBuffer> | null = null
+
+/**
+ * `fetch` que guarda os bytes da primeira resposta bem-sucedida e os reaproveita nas montagens
+ * seguintes (cada montagem ainda interpreta o GLB de novo, porque a cena anterior foi liberada).
+ * Respostas de erro passam direto, para `loadGltf` classificá-las, e não ficam guardadas.
+ */
+const cachingFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  if (cachedGlb) return new Response((await cachedGlb).slice(0), { status: 200 })
+  const response = await fetch(input, init)
+  if (!response.ok) return response
+  const bytes = response.arrayBuffer()
+  cachedGlb = bytes
+  bytes.catch(() => {
+    if (cachedGlb === bytes) cachedGlb = null
+  })
+  return new Response((await bytes).slice(0), { status: 200 })
+}) as typeof fetch
+
+/** Carregador padrão: o GLB público `models/guindaste-caminhao.glb`, baixado uma vez por página. */
 export const loadDefaultCraneModel: CraneModelLoader = (signal) =>
-  loadTruckCraneModel(undefined, { signal })
+  loadTruckCraneModel(undefined, { signal, fetch: cachingFetch })
 
 /**
  * Tolerância da conferência de calibração na cena. Só decide o que vira aviso no console: um desvio

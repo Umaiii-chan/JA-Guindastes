@@ -240,3 +240,33 @@ describe('upgradeCraneModel', () => {
     expect(contents.scene.getObjectsByProperty('name', TRUCK_CRANE_NODE_NAMES.base)).toHaveLength(1)
   })
 })
+
+describe('loadDefaultCraneModel', () => {
+  it('baixa o GLB uma vez por página e não guarda respostas de erro', async () => {
+    // Módulo novo: o cache dos bytes é do módulo.
+    vi.resetModules()
+    const { loadDefaultCraneModel } = await import('../../../src/three/scene/upgradeCraneModel')
+    const responses = [new Response('não achei', { status: 404 })]
+    const requested: string[] = []
+    const fakeFetch = vi.fn(async (url: RequestInfo | URL) => {
+      requested.push(String(url))
+      return responses.shift() ?? new Response(readGlb(), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fakeFetch)
+    try {
+      const signal = new AbortController().signal
+
+      await expect(loadDefaultCraneModel(signal)).rejects.toMatchObject({ code: 'http-error' })
+      const first = await loadDefaultCraneModel(signal)
+      const second = await loadDefaultCraneModel(signal)
+
+      expect(fakeFetch).toHaveBeenCalledTimes(2)
+      expect(requested[0]).toMatch(/models\/guindaste-caminhao\.glb$/)
+      // Cada montagem recebe uma cena própria (a anterior é liberada no dispose).
+      expect(second.scene).not.toBe(first.scene)
+      expect(second.scene.getObjectByName(TRUCK_CRANE_NODE_NAMES.hook)).toBeDefined()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})

@@ -37,8 +37,11 @@ export function applyCameraLimits(controls: OrbitControls): void {
 /**
  * Rede de segurança depois de `controls.update()`: o limite polar usa a distância do quadro anterior,
  * então um zoom para fora com a câmera baixa pode deixá-la abaixo da altura mínima por um quadro.
+ * Devolve `true` se precisou subir a câmera.
  */
-export function keepCameraAboveGround(controls: OrbitControls): void {
+export function keepCameraAboveGround(controls: OrbitControls): boolean {
   const position = controls.object.position
-  if (position.y < CAMERA_LIMITS.minHeightM) position.y = CAMERA_LIMITS.minHeightM
+  if (position.y >= CAMERA_LIMITS.minHeightM) return false
+  position.y = CAMERA_LIMITS.minHeightM
+  return true
 }
