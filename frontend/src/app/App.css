@@ -279,3 +279,125 @@ body,
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
+
+/* Catálogo: seleção encadeada e cadastros (TASK-033). */
+.catalog-panel {
+  padding: 1rem;
+  border-bottom: 1px solid #d5dbe1;
+}
+
+.catalog-panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.catalog-panel--registration {
+  border-top: 1px solid #d5dbe1;
+  border-bottom: none;
+}
+
+.catalog-panel--registration summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.catalog-panel__notice {
+  margin: 0.5rem 0;
+  font-size: 0.8125rem;
+  color: #57606a;
+}
+
+.catalog-panel__field,
+.catalog-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.catalog-panel__field select,
+.catalog-form__field input {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid #d5dbe1;
+  border-radius: 4px;
+  font: inherit;
+}
+
+.catalog-form__field input[aria-invalid='true'] {
+  border-color: #cf222e;
+}
+
+.catalog-panel__status {
+  font-size: 0.8125rem;
+  color: #57606a;
+}
+
+.catalog-panel__status--error,
+.catalog-form__field-error {
+  font-size: 0.8125rem;
+  color: #82071e;
+}
+
+.catalog-form {
+  margin-top: 1rem;
+}
+
+.catalog-form h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.9375rem;
+}
+
+.catalog-form__hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  color: #57606a;
+}
+
+.catalog-form__body,
+.catalog-form__sheet {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.catalog-form__sheet legend {
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.catalog-form__check {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.catalog-form__error {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  background: #ffebe9;
+  color: #82071e;
+  font-size: 0.875rem;
+}
+
+.catalog-form__error p,
+.catalog-form__error ul {
+  margin: 0;
+}
+
+.catalog-form__success {
+  margin: 0.5rem 0;
+  font-size: 0.875rem;
+  color: #1a7f37;
+}
+
+.crane-panel__note {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: #9a6700;
+}

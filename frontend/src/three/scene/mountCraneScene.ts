@@ -2,7 +2,7 @@ import { WebGLRenderer } from 'three'
 
 import { createCamera, INITIAL_CAMERA_TARGET, resizeCamera } from '../camera/createCamera'
 import { createOrbitControls } from '../controls/createOrbitControls'
-import type { CraneCommands } from '../crane/types'
+import type { CraneCommands, CraneSetup } from '../crane/types'
 import { buildCraneScene } from './buildCraneScene'
 import { disposeObject3D } from './disposeObject3D'
 
@@ -15,10 +15,11 @@ export interface CraneSceneHandle {
 
 /**
  * Cria o renderer WebGL dentro de `container` (que deve ter tamanho definido pelo layout) e começa a
- * desenhar a cena do guindaste provisório. Lança erro se o navegador não oferecer WebGL.
+ * desenhar a cena do guindaste provisório, com os limites e os parâmetros a e h de `setup` (sem ele,
+ * os FICTÍCIOS da PoC; TASK-033). Lança erro se o navegador não oferecer WebGL.
  */
-export function mountCraneScene(container: HTMLElement): CraneSceneHandle {
-  const { scene, crane } = buildCraneScene()
+export function mountCraneScene(container: HTMLElement, setup?: CraneSetup): CraneSceneHandle {
+  const { scene, crane } = buildCraneScene(setup)
 
   const renderer = new WebGLRenderer({ antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))

@@ -21,6 +21,16 @@ export interface CraneLimits {
 }
 
 /**
+ * Com o que a cena monta o guindaste (TASK-033): limites dos comandos e parâmetros a e h. Vêm da ficha
+ * técnica da configuração escolhida (ADR-013 C-4) ou, sem ficha, dos valores FICTÍCIOS da PoC. O
+ * modelo provisório desenha a lança recolhida em `limits.boomLengthM.min` e toda estendida no `max`.
+ */
+export interface CraneSetup {
+  readonly limits: CraneLimits
+  readonly geometryParameters: CraneGeometryParameters
+}
+
+/**
  * Valores aplicados na cena, nas convenções do ADR-013 C-2: ψ = `turretRotationDeg`,
  * θ = `boomAngleDeg`, L = `boomLengthM` e c = `cableLengthM`. É estado visual: não é fonte de verdade
  * de geometria nem de capacidade (RN-008).
