@@ -39,6 +39,8 @@ Dadas em chat em 2026-09-26. Valem até a pessoa revogar.
    desde que não toquem os mesmos arquivos (TASK-006).
 3. **Alterar `.github/workflows/ci.yml`** para os gates de backend e frontend (TASK-004).
 4. **Dados fictícios rotulados FICTÍCIO** nos testes, até a tabela oficial chegar (ADR-012).
+5. **Fazer push e abrir PR** de cada tarefa assim que ela ficar pronta, sem perguntar a cada vez. O
+   merge continua sendo da pessoa.
 
 ## 4. O que foi feito
 
