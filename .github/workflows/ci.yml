@@ -60,6 +60,37 @@ jobs:
         #   STRICT: "1"
 
   # ---------------------------------------------------------------------------
+  # Backend (Python 3.14 + uv) — ADR-012. Mesmos comandos de
+  # docs/development-guide.md § 3.
+  # ---------------------------------------------------------------------------
+  backend:
+    name: Backend (lint, tipos, camadas, testes)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: structure
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Instalar dependências
+        run: uv sync --locked
+      - name: Lint
+        run: uv run ruff check .
+      - name: Formatação
+        run: uv run ruff format --check .
+      - name: Tipos
+        run: uv run mypy app
+      - name: Camadas da Clean Architecture
+        run: uv run lint-imports
+      - name: Testes
+        run: uv run pytest
+
+  # ---------------------------------------------------------------------------
   # Qualidade do código. Descomente o bloco da sua stack.
   # ---------------------------------------------------------------------------
   quality:
@@ -199,7 +230,7 @@ jobs:
     name: Deploy (${{ github.ref_name }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [structure, quality]
+    needs: [structure, backend, quality]
     if: github.event_name == 'push'
     environment:
       name: ${{ github.ref_name }}
