@@ -243,6 +243,53 @@ jobs:
       # =========================================================================
 
   # ---------------------------------------------------------------------------
+  # Imagens Docker da stack (TASK-027): valida o docker-compose.yml, constrói as
+  # imagens do backend e do frontend (sem push) e sobe a stack para um teste de
+  # fumaça. As credenciais do .env abaixo valem só para os containers efêmeros
+  # deste job: não são segredo.
+  # ---------------------------------------------------------------------------
+  docker:
+    name: Imagens Docker (build e teste de fumaça)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: structure
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gerar .env de CI
+        run: |
+          cat > .env <<'EOF'
+          POSTGRES_USER=crane_ci
+          POSTGRES_PASSWORD=ci_only_not_a_secret
+          POSTGRES_DB=crane_simulator_ci
+          EOF
+      - name: Validar docker-compose.yml
+        run: docker compose config --quiet
+      - name: Build da imagem do backend
+        run: docker build --tag ja-guindastes-backend:local backend
+      - name: Build da imagem do frontend
+        run: docker build --tag ja-guindastes-frontend:local frontend
+      - name: Subir a stack (espera os healthchecks)
+        run: docker compose up --detach --no-build --wait --wait-timeout 180
+      - name: Migrations dentro do container (Alembic)
+        run: docker compose run --rm --no-deps backend alembic upgrade head
+      - name: Teste de fumaça
+        run: |
+          set -euo pipefail
+          # backend direto
+          curl -fsS http://127.0.0.1:8000/openapi.json > /dev/null
+          # frontend estático (index.html do build do Vite)
+          curl -fsS http://127.0.0.1:8080/ | grep -q '<div id="root">'
+          # proxy /api/ do nginx até o backend: POST sem arquivo → 422 do FastAPI
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8080/api/v1/load-charts/validate)
+          test "$code" = "422" || { echo "esperado 422 pelo proxy, recebido $code"; exit 1; }
+      - name: Logs da stack (em caso de falha)
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Derrubar a stack
+        if: always()
+        run: docker compose down --volumes
+
+  # ---------------------------------------------------------------------------
   # Deploy do ambiente correspondente à branch.
   #
   # Só roda em `push` numa das três branches longas — nunca em PR, nunca em
