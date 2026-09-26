@@ -8,7 +8,7 @@
 | **Papel exercido** | Planejador, Engenheiro de testes e Implementador (mesma sessão) |
 | **Ferramenta/agente** | Claude Code (Opus 5.5), agente em worktree isolada, disparado pelo orquestrador da leva D |
 | **Branch** | `task/TASK-038-autenticacao-backend` @ commit deste handoff (base `0229d49`) |
-| **Duração aproximada** | 2 h |
+| **Duração aproximada** | 2 h 30 (inclui o ajuste pedido pela pessoa responsável, § 11) |
 
 ---
 
@@ -27,8 +27,8 @@ comando `python -m app.create_admin`. Sem banco, nada muda (ADR-016 § 5).
   `LoginAttemptLimiter`; casos de uso `Login` (token `secrets.token_urlsafe(32)`, só o SHA-256
   gravado, 8 h absolutas, erro genérico, verificação contra hash descartável quando o usuário não
   existe, limite de tentativas, limpeza de sessões expiradas), `Logout` (idempotente),
-  `GetCurrentUser`, `ManageUsers` (listar, criar, atualizar; proteções de "não se desativar/rebaixar"
-  e "último admin"; desativar revoga as sessões).
+  `GetCurrentUser`, `ManageUsers` (listar, criar, atualizar; proteção de "não se desativar/rebaixar";
+  desativar revoga as sessões). O "último admin" é garantido pelo repositório (§ 11).
 - **Infraestrutura:** modelos `app_user`/`user_session` e a migration nova `7c2e9a4d1b36` (a da
   TASK-022 não mudou); `SqlAlchemyUserRepository`, `SqlAlchemyUserSessionRepository` (sessão atual
   numa consulta com join); `Argon2PasswordHasher` (Argon2id, padrão do `argon2-cffi`);
@@ -82,9 +82,9 @@ Em `backend/`, no Windows (Git Bash), sem PostgreSQL nem Docker:
 | `uv sync --locked` | ✅ | `Checked 53 packages` |
 | `uv run ruff check .` | ✅ | `All checks passed!` |
 | `uv run ruff format --check .` | ✅ | `189 files already formatted` |
-| `uv run mypy app` | ✅ | `Success: no issues found in 107 source files` |
+| `uv run mypy app` | ✅ | `Success: no issues found in 107 source files` (também após o § 11) |
 | `uv run lint-imports` | ✅ | `Contracts: 3 kept, 0 broken.` |
-| `uv run pytest` | ✅ | `1016 passed, 49 skipped` (os `integration` pulados: sem `DATABASE_URL`) |
+| `uv run pytest` | ✅ | `1019 passed, 52 skipped` (após o ajuste do § 11; os `integration` pulados: sem `DATABASE_URL`) |
 | `bash scripts/check-structure.sh` (raiz) | ✅ | `OK: 0 erros, 1 aviso(s)` (aviso já existente: 3 tarefas em `in-progress/`) |
 | `python -m app.create_admin --username admin` sem `DATABASE_URL` | ✅ | `ERRO: defina DATABASE_URL...`, exit 2 |
 | YAML de `ci.yml` e `docker-compose.yml` (`yaml.safe_load`) | ✅ | parse ok; passo do admin e `env` do job presentes |
@@ -139,8 +139,8 @@ Em `backend/`, no Windows (Git Bash), sem PostgreSQL nem Docker:
 | # | Pergunta | Bloqueia? | Resposta | Respondida em |
 |---|----------|-----------|----------|---------------|
 | 1 | Aceitar o código `409 OWN_ADMIN_ACCESS` (admin tentando se desativar/rebaixar) como complemento do contrato do ADR-016 § 4? A TASK-040 deve tratá-lo junto com `LAST_ADMIN` | não | | |
-| 2 | A comparação de origem do WebSocket ignora a porta (por causa do nginx e do Vite). Aceitável, ou prefere ajustar o nginx (`Host $http_host`) e o Vite (`changeOrigin: false`) e comparar host+porta? | não | | |
-| 3 | Checagem de "último admin" não é atômica (conta e depois grava). Com a proteção do próprio admin, só dois admins mexendo um no outro ao mesmo tempo passariam. Registrar como dívida? | não | | |
+| 2 | A comparação de origem do WebSocket ignora a porta (por causa do nginx e do Vite). Aceitável, ou prefere ajustar o nginx (`Host $http_host`) e o Vite (`changeOrigin: false`) e comparar host+porta? | não | Aceito como está: ignorar a porta (comentário em `origin_matches_host`) | 2026-09-26 |
+| 3 | Checagem de "último admin" não é atômica (conta e depois grava). Registrar como dívida? | não | Não: tornar atômica e à prova de concorrência. Feito (§ 11) | 2026-09-26 |
 | 4 | Limite de tentativas em memória, por processo (dívida já prevista no ADR-016) | não | | |
 | 5 | Trocar a senha deveria revogar as outras sessões do usuário? Hoje não revoga (o ADR não pede) | não | | |
 
@@ -177,3 +177,44 @@ Em `backend/`, no Windows (Git Bash), sem PostgreSQL nem Docker:
 - `docs/decisions/ADR-016-autenticacao-e-perfis.md`
 - `backend/app/presentation/api/authorization.py`, `auth.py`, `users.py`
 - `backend/tests/presentation/test_route_authorization.py`
+
+## 11. Ajuste após as respostas da pessoa responsável (2026-09-26)
+
+Pedido pelo orquestrador, com as respostas do § 8 itens 2 e 3.
+
+**"Último admin" atômico:**
+- A garantia saiu do caso de uso e foi para o repositório: `UserRepository.update` confere e grava
+  na mesma operação e levanta `LastAdminError`, que agora é erro de **domínio**
+  (`app/domain/exceptions/user_errors.py`). `ManageUsers` só mantém a proteção do próprio admin.
+  `count_active_admins` saiu da porta, porque ninguém mais o usa.
+- `SqlAlchemyUserRepository.update`: quando o novo estado **não** é admin ativo, trava as linhas de
+  todos os admins ativos (`SELECT id ... WHERE role='ADMIN' AND active ORDER BY id FOR UPDATE`), lê o
+  alvo com `FOR UPDATE` e recusa se não sobra outro admin ativo, tudo numa transação.
+  - Por que é à prova de concorrência: a segunda transação espera a trava. No `READ COMMITTED` do
+    PostgreSQL, ao ganhar a trava ela reavalia o filtro na versão gravada pela primeira, deixa de
+    ver o admin rebaixado e conta só o que sobrou.
+  - Sem impasse: todas as transações que podem tirar um admin travam o mesmo conjunto, na mesma
+    ordem (id), antes do alvo. As que não tiram admin travam só a linha do alvo.
+  - Alternativas descartadas: `SERIALIZABLE` (exige repetir a transação em erro de serialização) e
+    trava consultiva (`pg_advisory_xact_lock`), que funcionaria, mas é menos explícita que travar as
+    próprias linhas.
+- O repositório falso (`tests/fixtures/auth_ficticia.py`) segue o mesmo contrato.
+- Testes novos:
+  - unitários do repositório falso (recusa sem gravar; outras mudanças do último admin passam);
+  - `PATCH` com uma corrida simulada (409 `LAST_ADMIN`);
+  - integração `test_the_last_active_admin_cannot_lose_access`, numa transação desfeita;
+  - integração `test_concurrent_demotion_of_the_last_two_admins_keeps_one` em
+    `tests/test_auth_integration.py`: dois admins, cada um rebaixando o outro por requisições em
+    threads diferentes. Uma barreira faz as duas passarem juntas pela guarda de perfil e entrarem
+    juntas na gravação. O teste espera uma resposta 200 e uma 409 `LAST_ADMIN`, e um admin ativo no
+    fim. Ele exige que o banco não tenha outros admins ativos: senão, pula (falha no CI).
+- Limitação que continua: o `PATCH` monta o estado novo a partir de uma leitura feita antes da
+  trava, então um campo que não foi enviado pode sobrescrever uma mudança simultânea desse campo
+  (atualização perdida). A invariante do admin não é afetada.
+
+**Origem do WebSocket:** decisão registrada no § 8 item 2 e na docstring de `origin_matches_host`.
+
+**Comandos (após o ajuste, em `backend/`):** `ruff check` ✅ `All checks passed!`; `ruff format
+--check` ✅ `189 files already formatted`; `mypy app` ✅ `no issues found in 107 source files`;
+`lint-imports` ✅ `3 kept, 0 broken`; `pytest` ✅ `1019 passed, 52 skipped`. Os testes de integração
+novos NÃO foram executados localmente (sem PostgreSQL) e rodam no CI.
