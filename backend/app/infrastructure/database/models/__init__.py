@@ -1,4 +1,4 @@
-"""Modelos ORM (TASK-022). Importar este pacote registra todas as tabelas em `Base.metadata`.
+"""Modelos ORM (TASK-022, TASK-038). Importar este pacote registra as tabelas em `Base.metadata`.
 
 O `backend/alembic/env.py` importa este pacote para que o autogenerate enxergue as tabelas.
 """
@@ -9,11 +9,14 @@ from app.infrastructure.database.models.catalog import (
     ManufacturerModel,
 )
 from app.infrastructure.database.models.load_chart import LoadChartModel, LoadChartPointModel
+from app.infrastructure.database.models.user import AppUserModel, UserSessionModel
 
 __all__ = [
+    "AppUserModel",
     "CraneConfigurationModel",
     "CraneModel",
     "LoadChartModel",
     "LoadChartPointModel",
     "ManufacturerModel",
+    "UserSessionModel",
 ]
