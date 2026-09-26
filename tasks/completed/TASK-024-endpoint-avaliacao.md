@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (leva A, pedido em sessão com o agente Claude Code) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-024-endpoint-avaliacao` (a partir de `a5b1ab0`, commit-base da leva A, TASK-021) |
-| **PR** | — |
+| **PR** | [#23](https://github.com/Umaiii-chan/JA-Guindastes/pull/23), mergeado em 2026-09-26 |
 | **Requisitos** | RF-015..RF-018, RF-020, RNF-007 |
 | **Regras de negócio** | RN-001, RN-004, RN-005, RN-006, RN-007, RN-008 |
 | **Estimativa** | M |

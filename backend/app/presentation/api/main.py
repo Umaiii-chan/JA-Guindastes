@@ -14,7 +14,9 @@ da infraestrutura. Ele continua aqui porque `tests/test_openapi.py`, `docs/devel
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
+from app.application.ports.crane_catalog_listing import CraneCatalogStore
 from app.application.ports.load_chart_parser import LoadChartParser
+from app.presentation.api.catalog import create_catalog_router
 from app.presentation.api.evaluations import EvaluationDependencies, create_evaluations_router
 from app.presentation.api.load_charts import create_load_charts_router
 from app.presentation.api.upload_limits import UploadLimits
@@ -26,11 +28,13 @@ def create_app(
     load_chart_parser: LoadChartParser | None = None,
     upload_limits: UploadLimits | None = None,
     evaluation: EvaluationDependencies | None = None,
+    catalog_repository: CraneCatalogStore | None = None,
 ) -> FastAPI:
     """Monta a aplicação com as rotas cujos adapters foram recebidos.
 
     - as rotas de tabela de carga só entram quando há um `load_chart_parser`;
-    - a rota de avaliação só entra quando há as dependências da avaliação (`evaluation`).
+    - a rota de avaliação só entra quando há as dependências da avaliação (`evaluation`);
+    - as rotas do catálogo só entram quando há um `catalog_repository` (TASK-030).
     """
     app = FastAPI(
         title="Crane Simulator API",
@@ -43,6 +47,8 @@ def create_app(
         app.include_router(create_load_charts_router(load_chart_parser, limits))
     if evaluation is not None:
         app.include_router(create_evaluations_router(evaluation))
+    if catalog_repository is not None:
+        app.include_router(create_catalog_router(catalog_repository))
     return app
 
 

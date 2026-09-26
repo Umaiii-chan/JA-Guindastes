@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-025-websocket-avaliacao` (a partir de `a5b1ab0`, commit-base da leva A) |
-| **PR** | — |
+| **PR** | [#26](https://github.com/Umaiii-chan/JA-Guindastes/pull/26), mergeado em 2026-09-26 |
 | **Requisitos** | RF-015..RF-018, RF-020, RNF-003 |
 | **Regras de negócio** | RN-004, RN-005, RN-007, RN-008 |
 | **Estimativa** | M |
@@ -141,6 +141,8 @@ Todos em `backend/tests/presentation/websocket/test_evaluation_websocket.py` (51
 Pendente.
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...

@@ -7,9 +7,9 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Data/hora** | 2026-09-26 17:30 (UTC-3, Brasília) |
-| **Atualizado por** | agente Claude Code 2.1.280 (Opus 5.5), no commit-base da leva A (TASK-021) |
-| **Branch de referência** | `development` @ `e11b325` + PR #20 |
+| **Data/hora** | 2026-09-26 19:30 (UTC-3, Brasília) |
+| **Atualizado por** | agente Claude Code 2.1.280 (Opus 5.5), no commit-base da leva B |
+| **Branch de referência** | `development` @ `b634392` |
 
 ---
 
@@ -19,15 +19,16 @@
 - Contexto mínimo preenchido (TASK-002); ADR-003..012 aceitos; toolchain no ADR-012.
 - Backend: esqueleto com gates, núcleo de domínio da tabela de carga (sem interpolação), importação CSV provisória (TASK-010) e geometria operacional do ADR-013 (TASK-014). Frontend: esqueleto e PoC Three.js com guindaste provisório (TASK-013).
 - ADR-003..013 aceitos.
-- Concluídas: TASK-001..019, exceto a 020 (PR #20 aberto). Visual: cena 3D com pré-visualização da geometria (TASK-016); endpoint de validação de importação (TASK-019).
+- Concluídas: TASK-001..028 (leva A: persistência, XLSX, endpoint REST e WebSocket de avaliação, GLB, Docker da stack, carga). Faltam leva B (integração) e leva C (demo, E2E, docs).
 
 ## 2. Tarefas em andamento e seus handoffs
 
 | Tarefa | Handoff | O que é |
 |--------|---------|---------|
-| TASK-020 | `handoffs/TASK-020.md` (na branch da tarefa) | consulta conservadora provisória na tabela (ADR-015) |
-| TASK-021 | `handoffs/TASK-021.md` | paralelismo ampliado para 15 + commit-base da leva A |
-| TASK-022..028 | `handoffs/TASK-0NN.md` (na branch de cada tarefa) | leva A: persistência, XLSX, endpoint REST de avaliação, WebSocket, GLB, Docker da stack, carga no domínio |
+| TASK-029 | `handoffs/TASK-029.md` | composição com banco: repositórios reais na avaliação REST, WebSocket registrado, Load na avaliação |
+| TASK-030 | `handoffs/TASK-030.md` | cadastros REST (fabricante, guindaste, configuração com ficha técnica) |
+| TASK-031 | `handoffs/TASK-031.md` | importação com gravação, arquivo-fonte e ativação da tabela |
+| TASK-032 | `handoffs/TASK-032.md` | frontend: avaliação do backend na cena (REST/WebSocket) |
 
 ## 3. Autorizações permanentes da pessoa responsável
 
@@ -58,7 +59,7 @@ Ver o handoff de cada tarefa (seção 2).
 
 | # | Pergunta | Bloqueia? | Resposta | Respondida em |
 |---|----------|-----------|----------|---------------|
-| 1 | Apagar as branches das tarefas mergeadas (`task/TASK-001..019`, remotas e locais) | não | | |
+| 1 | Apagar as branches das tarefas mergeadas (`task/TASK-001..028`, remotas e locais) | não | | |
 | 2 | Versão mais nova da doc-fonte (P-013) · onde fica o orquestrador (P-010) · dados oficiais podem ir ao repositório e a agentes de IA (P-007) | não | | |
 | 5 | Perguntas de domínio sem bloqueio: TASK-008 (11), TASK-010 (12), TASK-014 (5) — § 8 dos handoffs em `handoffs/history/` | não | | |
 | 6 | Ativar a virtualização do Windows (Plataforma de Máquina Virtual / BIOS) para o Docker rodar o PostgreSQL local (TASK-011) | não | | |

@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (pedido em sessão com o agente Claude Code) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-021-paralelismo-ampliado` (a partir da TASK-020 + `development`) |
-| **PR** | — |
+| **PR** | [#21](https://github.com/Umaiii-chan/JA-Guindastes/pull/21), mergeado em 2026-09-26 |
 | **Requisitos** | — |
 | **Regras de negócio** | — |
 | **Estimativa** | P |
@@ -74,6 +74,8 @@ Não se aplica.
 **Resultado:** — (aguardando revisão)
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...

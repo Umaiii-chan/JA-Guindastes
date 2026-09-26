@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | média |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (leva A, pedido em sessão com o agente Claude Code) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-027-docker-stack-completa` (a partir de `a5b1ab0`, commit-base da leva A / TASK-021) |
-| **PR** | — |
+| **PR** | [#27](https://github.com/Umaiii-chan/JA-Guindastes/pull/27), mergeado em 2026-09-26 |
 | **Requisitos** | doc-fonte v0.1 § 22.1 (Docker Compose com frontend, backend e postgres) |
 | **Regras de negócio** | — (infraestrutura; nenhuma regra funcional) |
 | **Estimativa** | M |
