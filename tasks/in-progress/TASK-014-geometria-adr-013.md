@@ -124,9 +124,9 @@ Não há: todo o comportamento é verificado pelos testes automatizados de domí
 | # | Passo | Arquivos | Como verificar | Feito |
 |---|-------|----------|----------------|-------|
 | 1 | Criar esta tarefa | `tasks/in-progress/` | `check-structure.sh` | [x] |
-| 2 | Exceções, `CraneGeometry` e `OperationalState`, com fixture FICTÍCIA e testes | `app/domain/exceptions/`, `app/domain/value_objects/`, `tests/` | CA-1, CA-2, gates | [ ] |
-| 3 | `OperationalGeometry` e `calculate_operational_geometry`, com testes | `app/domain/value_objects/`, `app/domain/services/`, `tests/domain/` | CA-3..CA-8, gates | [ ] |
-| 4 | Handoff | `handoffs/TASK-014.md` | CA-9, CA-10 | [ ] |
+| 2 | Exceções, `CraneGeometry` e `OperationalState`, com fixture FICTÍCIA e testes | `app/domain/exceptions/`, `app/domain/value_objects/`, `tests/` | CA-1, CA-2, gates | [x] |
+| 3 | `OperationalGeometry` e `calculate_operational_geometry`, com testes | `app/domain/value_objects/`, `app/domain/services/`, `tests/domain/` | CA-3..CA-8, gates | [x] |
+| 4 | Handoff | `handoffs/TASK-014.md` | CA-9, CA-10 | [x] |
 
 **Análise de impacto:**
 - Arquivos que podem quebrar indiretamente: nenhum (só arquivos novos; nada existente os importa).
@@ -138,14 +138,14 @@ Não há: todo o comportamento é verificado pelos testes automatizados de domí
 
 | Cenário | Critério | Tipo | Arquivo de teste | Status |
 |---------|----------|------|------------------|--------|
-| ficha técnica coerente guardada; faixas incoerentes, tipos errados, a não finito e h negativo rejeitados | CA-1 | unitário | `backend/tests/domain/test_geometry_value_objects.py` | pendente |
-| ψ normalizado em [0°, 360°); tipos errados rejeitados | CA-2 | unitário | `backend/tests/domain/test_geometry_value_objects.py` | pendente |
-| R, y_T, y_G, P, T e G contra valores calculados à mão | CA-3 | unitário | `backend/tests/domain/test_geometry_service.py` | pendente |
-| ψ = 90° em +X; sentido anti-horário visto de cima | CA-4 | unitário | `backend/tests/domain/test_geometry_service.py` | pendente |
-| fora das faixas → erro com todas as violações; limites inclusivos; c_max e giro opcionais; arco de giro | CA-5 | unitário | `backend/tests/domain/test_geometry_service.py` | pendente |
-| R < 0 → fora do domínio geométrico | CA-6 | unitário | `backend/tests/domain/test_geometry_service.py` | pendente |
-| y_G < 0 devolvido | CA-7 | unitário | `backend/tests/domain/test_geometry_service.py` | pendente |
-| raio do exemplo da doc-fonte | CA-8 | unitário | `backend/tests/domain/test_geometry_service.py` | pendente |
+| ficha técnica coerente guardada; faixas incoerentes, tipos errados, a não finito e h negativo rejeitados | CA-1 | unitário | `backend/tests/domain/test_geometry_value_objects.py` | verde |
+| ψ normalizado em [0°, 360°); tipos errados rejeitados | CA-2 | unitário | `backend/tests/domain/test_geometry_value_objects.py` | verde |
+| R, y_T, y_G, P, T e G contra valores calculados à mão | CA-3 | unitário | `backend/tests/domain/test_geometry_service.py` | verde |
+| ψ = 90° em +X; sentido anti-horário visto de cima | CA-4 | unitário | `backend/tests/domain/test_geometry_service.py` | verde |
+| fora das faixas → erro com todas as violações; limites inclusivos; c_max e giro opcionais; arco de giro | CA-5 | unitário | `backend/tests/domain/test_geometry_service.py` | verde |
+| R < 0 → fora do domínio geométrico | CA-6 | unitário | `backend/tests/domain/test_geometry_service.py` | verde |
+| y_G < 0 devolvido | CA-7 | unitário | `backend/tests/domain/test_geometry_service.py` | verde |
+| raio do exemplo da doc-fonte | CA-8 | unitário | `backend/tests/domain/test_geometry_service.py` | verde |
 
 ## 10. Parecer da revisão (preenchido pelo Revisor)
 
