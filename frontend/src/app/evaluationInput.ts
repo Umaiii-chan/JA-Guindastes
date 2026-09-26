@@ -1,0 +1,38 @@
+// Monta o estado enviado ao backend a partir dos sliders (estado aplicado na cena) e dos campos da
+// tela (TASK-032). Só confere a forma que o backend exige (id não vazio, carga finita e >= 0); as
+// faixas do guindaste são validadas no backend, com a ficha técnica (RN-008; ADR-013 C-5).
+
+import type { EvaluationInput } from '../domain/evaluation/evaluation'
+import type { CraneState } from '../three/crane/types'
+
+export type EvaluationInputResult =
+  | { readonly input: EvaluationInput; readonly problem: null }
+  | { readonly input: null; readonly problem: string }
+
+export function buildEvaluationInput(
+  craneState: CraneState | null,
+  configurationId: string,
+  loadWeightText: string,
+): EvaluationInputResult {
+  if (craneState === null) return { input: null, problem: 'Aguardando a cena 3D.' }
+  const trimmedId = configurationId.trim()
+  if (trimmedId === '') {
+    return { input: null, problem: 'Informe a configuração (configuration_id) para avaliar.' }
+  }
+  const loadText = loadWeightText.trim()
+  const loadWeightKg = loadText === '' ? Number.NaN : Number(loadText)
+  if (!Number.isFinite(loadWeightKg) || loadWeightKg < 0) {
+    return { input: null, problem: 'Informe o peso da carga em kg (número maior ou igual a 0).' }
+  }
+  return {
+    input: {
+      configurationId: trimmedId,
+      boomLengthM: craneState.boomLengthM,
+      boomAngleDeg: craneState.boomAngleDeg,
+      turretRotationDeg: craneState.turretRotationDeg,
+      cableLengthM: craneState.cableLengthM,
+      loadWeightKg,
+    },
+    problem: null,
+  }
+}

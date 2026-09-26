@@ -1,11 +1,15 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import type { OperationalGeometry } from '../domain/geometry/operationalGeometry'
 import { CraneViewport } from '../presentation/components/CraneViewport'
 import { SceneErrorBoundary } from '../presentation/components/SceneErrorBoundary'
+import { BackendEvaluationPanel } from '../presentation/panels/BackendEvaluationPanel'
 import { type CraneControlKey, CraneControlPanel } from '../presentation/panels/CraneControlPanel'
+import { EvaluationInputPanel } from '../presentation/panels/EvaluationInputPanel'
 import { OperationalGeometryPanel } from '../presentation/panels/OperationalGeometryPanel'
 import type { CraneCommands, CraneState } from '../three/crane/types'
+import { buildEvaluationInput } from './evaluationInput'
+import { useEvaluationSession } from './useEvaluationSession'
 import './App.css'
 
 interface CraneBinding {
@@ -29,6 +33,32 @@ function bindCrane(commands: CraneCommands): CraneBinding {
 
 export default function App() {
   const [crane, setCrane] = useState<CraneBinding | null>(null)
+  const [configurationId, setConfigurationId] = useState('')
+  const [loadWeightText, setLoadWeightText] = useState('')
+  const { session, state: evaluation } = useEvaluationSession()
+
+  const evaluationInput = buildEvaluationInput(
+    crane?.state ?? null,
+    configurationId,
+    loadWeightText,
+  )
+  const { input } = evaluationInput
+
+  // A cada mudança dos sliders ou dos campos, o estado vai ao backend (com debounce na sessão).
+  // As dependências são os campos do estado, não o objeto `input`, que é recriado a cada render.
+  useEffect(() => {
+    if (input) session.update(input)
+    else session.clear()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    session,
+    input?.configurationId,
+    input?.boomLengthM,
+    input?.boomAngleDeg,
+    input?.turretRotationDeg,
+    input?.cableLengthM,
+    input?.loadWeightKg,
+  ])
 
   const handleCraneChange = useCallback((commands: CraneCommands | null) => {
     setCrane(commands ? bindCrane(commands) : null)
@@ -45,8 +75,9 @@ export default function App() {
       <header className="app__header">
         <h1>Simulador de Tabelas de Carga de Guindastes</h1>
         <p>
-          Prova de conceito da cena 3D, com pré-visualização da geometria do ADR-013. Arraste para
-          girar a câmera; role para aproximar.
+          Prova de conceito da cena 3D. O resultado que vale é o do backend; a geometria do painel
+          de pré-visualização é calculada no navegador (ADR-013). Arraste para girar a câmera; role
+          para aproximar.
         </p>
       </header>
       <main className="app__main">
@@ -66,6 +97,20 @@ export default function App() {
             limits={crane?.commands.limits ?? null}
             state={crane?.state ?? null}
             onChange={handleControlChange}
+          />
+          <EvaluationInputPanel
+            configurationId={configurationId}
+            loadWeightText={loadWeightText}
+            onConfigurationIdChange={setConfigurationId}
+            onLoadWeightTextChange={setLoadWeightText}
+          />
+          <BackendEvaluationPanel
+            connectionStatus={evaluation.connectionStatus}
+            result={evaluation.result}
+            error={evaluation.error}
+            pending={evaluation.pending}
+            transport={evaluation.transport}
+            inputProblem={evaluationInput.problem}
           />
           <OperationalGeometryPanel
             geometry={crane?.geometry ?? null}
