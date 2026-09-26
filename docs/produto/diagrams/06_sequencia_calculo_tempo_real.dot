@@ -1,0 +1,30 @@
+
+digraph G {
+  graph [rankdir=LR, bgcolor="white", pad="0.2", nodesep="0.28", ranksep="0.45", fontname="DejaVu Sans"];
+  node [fontname="DejaVu Sans", shape=box, style="rounded,filled", fillcolor="#F8FAFC", color="#17365D", fontsize=9];
+  edge [fontname="DejaVu Sans", color="#4A5568", fontsize=8, arrowsize=0.7];
+
+  UI [label="React UI"];
+  Three [label="Three.js /\nCraneController"];
+  WS [label="WebSocket\nHandler"];
+  UC [label="ValidateOperation\nUseCase"];
+  Geo [label="Geometry\nService"];
+  Calc [label="Capacity\nCalculator"];
+  Repo [label="LoadChart\nRepository"];
+  Safety [label="Safety\nValidator"];
+
+  UI -> Three [label="1. alterar lança/giro/cabo"];
+  Three -> UI [label="2. atualizar cena"];
+  Three -> WS [label="3. enviar estado operacional"];
+  WS -> UC [label="4. execute(state)"];
+  UC -> Geo [label="5. calcular raio/altura"];
+  Geo -> UC [label="6. geometria"];
+  UC -> Calc [label="7. calcular capacidade"];
+  Calc -> Repo [label="8. obter pontos da tabela"];
+  Repo -> Calc [label="9. pontos válidos"];
+  Calc -> UC [label="10. capacidade"];
+  UC -> Safety [label="11. validar carga x limite"];
+  Safety -> UC [label="12. status + motivos"];
+  UC -> WS [label="13. resultado"];
+  WS -> UI [label="14. métricas + alertas"];
+}

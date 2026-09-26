@@ -1,0 +1,26 @@
+
+digraph G {
+  graph [rankdir=LR, bgcolor="white", pad="0.2", nodesep="0.3", ranksep="0.5", fontname="DejaVu Sans"];
+  node [fontname="DejaVu Sans", shape=box, style="rounded,filled", fillcolor="#F8FAFC", color="#17365D", fontsize=9];
+  edge [fontname="DejaVu Sans", color="#4A5568", fontsize=8, arrowsize=0.7];
+
+  Admin [label="Admin UI"];
+  API [label="FastAPI\nRouter"];
+  UC [label="ImportLoadChart\nUseCase"];
+  Importer [label="CSV/XLSX\nImporter"];
+  Validator [label="LoadChart\nValidator"];
+  Storage [label="File\nStorage"];
+  Repo [label="LoadChart\nRepository"];
+
+  Admin -> API [label="1. upload arquivo + metadados"];
+  API -> UC [label="2. execute"];
+  UC -> Storage [label="3. preservar original"];
+  UC -> Importer [label="4. extrair/normalizar linhas"];
+  Importer -> UC [label="5. pontos normalizados"];
+  UC -> Validator [label="6. validar unidades, duplicidades, domínio"];
+  Validator -> UC [label="7. relatório de validação"];
+  UC -> Repo [label="8. persistir tabela/pontos"];
+  Repo -> UC [label="9. id/version"];
+  UC -> API [label="10. resultado"];
+  API -> Admin [label="11. status + inconsistências"];
+}

@@ -1,0 +1,17 @@
+
+digraph G {
+  graph [rankdir=LR, bgcolor="white", pad="0.2", nodesep="0.45", ranksep="0.75", fontname="DejaVu Sans"];
+  node [fontname="DejaVu Sans", shape=box, style="rounded,filled", color="#17365D", penwidth=1.3, fontsize=10];
+  edge [fontname="DejaVu Sans", color="#4A5568", fontsize=9, arrowsize=0.8];
+
+  user [label="Usuário", shape=oval, fillcolor="#EAF0F8"];
+  frontend [label="Frontend Web\nReact + TypeScript + Three.js\n\nUI, cena 3D, interação, estado local", fillcolor="#D9E2F3"];
+  api [label="Backend API\nFastAPI + Python\n\nUse cases, cálculo, validação, integração", fillcolor="#DDEBF7"];
+  db [label="PostgreSQL\n\nDados estruturados, configurações,\ntabelas normalizadas e simulações", shape=cylinder, fillcolor="#F3F6FA"];
+  storage [label="Object/File Storage\n\nGLB/GLTF, CSV/XLSX e\ndocumentos originais", shape=folder, fillcolor="#F3F6FA"];
+
+  user -> frontend [label="HTTPS"];
+  frontend -> api [label="REST / WebSocket"];
+  api -> db [label="SQL / ORM"];
+  api -> storage [label="arquivos"];
+}
