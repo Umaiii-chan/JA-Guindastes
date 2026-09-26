@@ -80,7 +80,7 @@ test.describe('login e perfis com o backend', () => {
     await drawer.getByLabel('Nome de usuário').fill(operator.username)
     await drawer.getByLabel('Nome de exibição').fill('Operador FICTÍCIO E2E')
     await drawer.getByLabel('Perfil').selectOption('OPERATOR')
-    await drawer.getByLabel('Senha', { exact: true }).fill(operator.password)
+    await drawer.getByLabel(/^Senha/).fill(operator.password)
     await drawer.getByRole('button', { name: 'Criar usuário' }).click()
     await expect(page.getByText(`Conta @${operator.username} criada`)).toBeVisible()
     await page.getByLabel('Buscar').fill(operator.username)

@@ -39,8 +39,8 @@ export async function loginViaForm(
   page: Page,
   credentials: { username: string; password: string },
 ): Promise<void> {
-  await page.getByLabel('Usuário', { exact: true }).fill(credentials.username)
-  await page.getByLabel('Senha', { exact: true }).fill(credentials.password)
+  await page.getByLabel(/^Usuário/).fill(credentials.username)
+  await page.getByLabel(/^Senha/).fill(credentials.password)
   await page.getByRole('button', { name: 'Entrar' }).click()
 }
 

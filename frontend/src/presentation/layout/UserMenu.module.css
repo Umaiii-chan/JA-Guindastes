@@ -89,16 +89,11 @@
   padding: var(--space-2);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border-strong);
-  background: var(--glass-highlight), var(--glass-bg-strong);
+  /* Fundo opaco: a barra superior já tem `backdrop-filter`, e um desfoque aninhado não alcançaria o
+     conteúdo da página por baixo do menu. */
+  background: var(--glass-highlight), var(--color-surface-2);
   box-shadow: var(--shadow-overlay);
-  backdrop-filter: blur(var(--glass-blur));
   animation: menu-in var(--duration-fast) var(--ease-out);
-}
-
-@supports not (backdrop-filter: blur(1px)) {
-  .menu {
-    background: var(--glass-bg-solid);
-  }
 }
 
 .menuHeader {
