@@ -1,7 +1,7 @@
 # Guia de desenvolvimento
 
 > **Status deste documento:** parcial (2026-09-26). Os comandos do **backend** são reais (TASK-004,
-> ADR-012). Os do **frontend** estão marcados **A VALIDAR** até o esqueleto da TASK-005. Os comandos listados aqui são os **únicos** que os agentes devem executar. Se um comando
+> ADR-012). Os do **frontend** também (TASK-007). Os comandos listados aqui são os **únicos** que os agentes devem executar. Se um comando
 > não está aqui, ou está "A VALIDAR", o agente pergunta antes de rodar.
 > Mantenha este documento sincronizado com o CI (`.github/workflows/ci.yml`): os dois devem rodar
 > os mesmos comandos.
@@ -20,7 +20,7 @@
 | Git | 2.x | `git --version` |
 | Bash (Git Bash no Windows) | — | necessário para `scripts/check-structure.sh` |
 | uv (gerencia o Python e as dependências do backend) | 0.12+ | `uv --version`; instala o Python 3.14 sozinho a partir de `backend/.python-version` |
-| Node.js + npm (frontend, a partir da TASK-005) | Node 24 LTS, npm 11 | `node --version`, `npm --version` |
+| Node.js + npm (frontend) | Node 24 LTS, npm 11 | `node --version`, `npm --version` |
 | Docker + Docker Compose (PostgreSQL, quando a persistência entrar) | A VALIDAR | `docker --version` |
 
 ---
@@ -34,7 +34,7 @@ cd JA-Guindastes
 
 # instalar dependências do backend
 cd backend && uv sync --locked && cd ..
-# frontend: A VALIDAR (TASK-005)
+cd frontend && npm ci && cd ..
 
 # configurar ambiente
 cp .env.example .env
@@ -57,8 +57,14 @@ cp .env.example .env
 | Formatação — corrigir (backend) | `uv run ruff format .` | em `backend/` |
 | Verificação de tipos (backend) | `uv run mypy app` | em `backend/`; modo strict (RNF-008) |
 | Regras de camadas (backend) | `uv run lint-imports` | em `backend/`; contratos em `backend/pyproject.toml` (ADR-004, RNF-002) |
-| Frontend (rodar, testar, lint, tipos, build) | A VALIDAR | TASK-005 |
-| Build | não se aplica ao backend; frontend: A VALIDAR | |
+| Rodar o frontend em desenvolvimento | `npm run dev` | em `frontend/` (Vite) |
+| Rodar testes (frontend) | `npm test` | em `frontend/`; Vitest, testes em `frontend/tests/` |
+| Rodar um teste específico (frontend) | `npx vitest run tests/<caminho>.test.ts` | em `frontend/` |
+| Lint (frontend) | `npm run lint` | em `frontend/`; ESLint, inclui a regra "Three.js só em `src/three/`" (ADR-005) |
+| Formatação — verificar (frontend) | `npm run format:check` | em `frontend/`; Prettier |
+| Formatação — corrigir (frontend) | `npm run format` | em `frontend/` |
+| Verificação de tipos (frontend) | `npm run typecheck` | em `frontend/`; `tsc -b` com `strict` |
+| Build (frontend) | `npm run build` | em `frontend/`; saída em `frontend/dist/` |
 | Migrations (criar) | A VALIDAR | Alembic (ADR-012), quando a persistência entrar |
 | Migrations (aplicar) | A VALIDAR | Alembic (ADR-012) |
 | Auditoria de dependências | A VALIDAR | ver [`security.md`](security.md) § 5 |
@@ -68,7 +74,7 @@ Comando único que roda tudo antes de abrir PR:
 
 ```bash
 bash scripts/check-structure.sh && (cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy app && uv run lint-imports && uv run pytest)
-# frontend: acrescentar na TASK-005
+(cd frontend && npm run lint && npm run format:check && npm run typecheck && npm test && npm run build)
 ```
 
 ---
@@ -107,8 +113,8 @@ Regras de dependência entre pastas estão em [`architecture.md`](architecture.m
 
 | Tema | Convenção |
 |------|-----------|
-| Estilo | seguir o linter configurado (A VALIDAR); não desligar regras sem ADR |
-| Nomes de arquivos | backend: `snake_case.py` (PEP 8); frontend: A VALIDAR (TASK-005) |
+| Estilo | seguir o linter configurado (ruff no backend, ESLint no frontend); não desligar regras sem ADR |
+| Nomes de arquivos | backend: `snake_case.py` (PEP 8); frontend: componentes React em `PascalCase.tsx`, demais módulos em `camelCase.ts` |
 | Nomes de classes/funções | entidades de domínio com os nomes em inglês da doc-fonte § 10.2 (`Crane`, `LoadChart`, `CraneConfiguration`...); casos de uso como na § 11.1 (`CreateCrane`, `CalculateCapacity`...) |
 | Campos com unidade | sufixo da unidade no nome, como nos contratos da doc-fonte §§ 14–15 (`boom_length_m`, `boom_angle_deg`, `load_weight_kg`) |
 | Tratamento de erros | consulta fora do domínio da tabela é erro/resultado de domínio explícito, nunca extrapolação silenciosa (RN-007; doc-fonte § 14.4) |

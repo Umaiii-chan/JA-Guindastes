@@ -40,3 +40,6 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# worktrees dos agentes do Claude Code (tarefas em paralelo)
+.claude/worktrees/
