@@ -139,10 +139,10 @@ Não há: todo o comportamento é verificado pelos testes automatizados.
 
 | # | Passo | Arquivos | Como verificar | Feito |
 |---|-------|----------|----------------|-------|
-| 1 | Criar esta tarefa | `tasks/in-progress/` | `check-structure.sh` | [ ] |
-| 2 | Porta, tipos do relatório e caso de uso, com testes (parser falso) | `app/application/`, `tests/application/` | CA-6..CA-9 | [ ] |
-| 3 | Parser CSV, CSVs FICTÍCIOS e testes (inclusive com o caso de uso) | `app/infrastructure/importers/`, `tests/infrastructure/`, `tests/fixtures/load_chart_csv/` | CA-1..CA-5 | [ ] |
-| 4 | known-gaps (P-006) e handoff | `docs/known-gaps.md`, `handoffs/TASK-010.md` | CA-10, CA-11 | [ ] |
+| 1 | Criar esta tarefa | `tasks/in-progress/` | `check-structure.sh` | [x] |
+| 2 | Porta, tipos do relatório e caso de uso, com testes (parser falso) | `app/application/`, `tests/application/` | CA-6..CA-9 | [x] |
+| 3 | Parser CSV, CSVs FICTÍCIOS e testes (inclusive com o caso de uso) | `app/infrastructure/importers/`, `tests/infrastructure/`, `tests/fixtures/load_chart_csv/` | CA-1..CA-5 | [x] |
+| 4 | known-gaps (P-006) e handoff | `docs/known-gaps.md`, `handoffs/TASK-010.md` | CA-10, CA-11 | [x] |
 
 **Análise de impacto:**
 - Arquivos que podem quebrar indiretamente: nenhum (pacotes `application` e `importers` estavam vazios).
@@ -151,9 +151,22 @@ Não há: todo o comportamento é verificado pelos testes automatizados.
 
 ## 9. Cenários de teste (preenchido pelo Engenheiro de testes)
 
+Arquivos: `backend/tests/infrastructure/test_csv_load_chart_parser.py` (parser),
+`backend/tests/application/test_validate_load_chart_import.py` (caso de uso com parser falso) e
+`backend/tests/infrastructure/test_csv_load_chart_import.py` (caso de uso + parser real + CSVs FICTÍCIOS).
+
 | Cenário | Critério | Tipo | Arquivo de teste | Status |
 |---------|----------|------|------------------|--------|
-| — | — | — | — | — |
+| CSV FICTÍCIO válido → pontos em m/kg com linha, sem inconsistência; LF/CRLF, BOM, ordem das colunas, espaços, aspas, linhas em branco | CA-1 | unitário | `test_csv_load_chart_parser.py` | verde |
+| CSV com vários problemas → todos reportados numa passada, pontos válidos mantidos | CA-2 | unitário | `test_csv_load_chart_parser.py` | verde |
+| coluna ausente, sem unidade, unidade não reconhecida, repetida, desconhecida, sem nome, maiúsculas | CA-3 | unitário | `test_csv_load_chart_parser.py` | verde |
+| valor vazio, não numérico, NaN/infinito, grande demais, negativo; nº de campos errado; vários problemas numa linha | CA-4 | unitário | `test_csv_load_chart_parser.py` | verde |
+| arquivo vazio, não UTF-8, CSV malformado, separador `;`/tab, só cabeçalho; parser nunca levanta exceção | CA-5 | unitário + integração | `test_csv_load_chart_parser.py`, `test_csv_load_chart_import.py` | verde |
+| pontos conflitantes → todas as linhas do grupo reportadas; repetidos iguais aceitos | CA-6 | unitário + integração | `test_validate_load_chart_import.py`, `test_csv_load_chart_import.py` | verde |
+| importação sem inconsistência → `LoadChart` `DRAFT` com id, versão, configuração e pontos; nunca `ACTIVE` | CA-7 | unitário + integração | `test_validate_load_chart_import.py`, `test_csv_load_chart_import.py` | verde |
+| qualquer inconsistência ou metadado em branco → `INVALID` com relatório, sem `LoadChart`; relatório ordenado | CA-8 | unitário | `test_validate_load_chart_import.py` | verde |
+| contratos de camadas e ausência de dependência nova | CA-9 | gate | `uv run lint-imports`, `git diff` de `pyproject.toml`/`uv.lock` | verde |
+| gates do backend | CA-10 | gate | `handoffs/TASK-010.md` § 4 | verde |
 
 ## 10. Parecer da revisão (preenchido pelo Revisor)
 
