@@ -290,6 +290,70 @@ jobs:
         run: docker compose down --volumes
 
   # ---------------------------------------------------------------------------
+  # Testes ponta a ponta (TASK-036): sobe a stack como o job "Imagens Docker" e
+  # roda o Playwright (Chromium) contra o frontend servido pelo nginx, com o
+  # backend atrás de /api. O teste do fluxo com dados semeados só roda quando
+  # E2E_SEED_CONFIGURATION_ID estiver definida (seed da TASK-035); sem ela, é
+  # pulado. As credenciais do .env valem só para os containers efêmeros deste
+  # job: não são segredo.
+  # ---------------------------------------------------------------------------
+  e2e:
+    name: E2E (Playwright contra a stack Docker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: structure
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gerar .env de CI
+        run: |
+          cat > .env <<'EOF'
+          POSTGRES_USER=crane_ci
+          POSTGRES_PASSWORD=ci_only_not_a_secret
+          POSTGRES_DB=crane_simulator_ci
+          EOF
+      - name: Build das imagens
+        run: |
+          docker build --tag ja-guindastes-backend:local backend
+          docker build --tag ja-guindastes-frontend:local frontend
+      - name: Subir a stack (espera os healthchecks)
+        run: docker compose up --detach --no-build --wait --wait-timeout 180
+      - name: Migrations dentro do container (Alembic)
+        run: docker compose run --rm --no-deps backend alembic upgrade head
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Instalar dependências do frontend
+        working-directory: frontend
+        run: npm ci
+      - name: Instalar o Chromium do Playwright
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Testes ponta a ponta
+        working-directory: frontend
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8080
+          E2E_BACKEND: "1"
+        run: npm run e2e
+      - name: Relatório do Playwright (em caso de falha)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          # Relatório HTML e traces (ver frontend/e2e/playwright.config.ts).
+          path: frontend/node_modules/.tmp/e2e/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Logs da stack (em caso de falha)
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Derrubar a stack
+        if: always()
+        run: docker compose down --volumes
+
+  # ---------------------------------------------------------------------------
   # Deploy do ambiente correspondente à branch.
   #
   # Só roda em `push` numa das três branches longas — nunca em PR, nunca em

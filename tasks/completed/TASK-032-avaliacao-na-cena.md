@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (leva B, em chat) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-032-avaliacao-na-cena` (a partir de `e5a8945`) |
-| **PR** | — (evidência dos CAs: `handoffs/TASK-032.md` §§ 2 e 4) |
+| **PR** | [#31](https://github.com/Umaiii-chan/JA-Guindastes/pull/31), mergeado em 2026-09-26 com CI verde |
 | **Requisitos** | RF-015..RF-020, RNF-003, RNF-008 |
 | **Regras de negócio** | RN-007, RN-008 (PEND-004 aberta) |
 | **Estimativa** | M |
@@ -131,6 +131,8 @@ Ver `handoffs/TASK-032.md` § 11.
 **Resultado:** —
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...

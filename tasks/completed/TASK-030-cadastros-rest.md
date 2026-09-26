@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por pessoa responsável (leva B, via orquestrador) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-030-cadastros-rest` (a partir de `e5a8945`) |
-| **PR** | — |
+| **PR** | [#30](https://github.com/Umaiii-chan/JA-Guindastes/pull/30), mergeado em 2026-09-26 com CI verde |
 | **Requisitos** | RF-001, RF-002, RF-005, RF-010 (seleção: listagem e leitura) |
 | **Regras de negócio** | RN-001, RN-003, RN-006, RN-008 |
 | **Estimativa** | M |
@@ -102,6 +102,8 @@ Ver handoff § 2.
 **Resultado:** —
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...
