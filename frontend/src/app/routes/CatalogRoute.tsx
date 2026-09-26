@@ -1,16 +1,23 @@
+import { useState } from 'react'
+
 import type { CatalogMutationResult } from '../../application/catalog/CatalogBrowser'
-import { selectedConfiguration } from '../../application/catalog/CatalogBrowser'
+import { createCatalogRestClient } from '../../infrastructure/api/catalogRestClient'
+import { createLoadChartRestClient } from '../../infrastructure/api/loadChartRestClient'
+import { createKnownChartsStorage } from '../../infrastructure/storage/knownChartsStorage'
 import { CatalogPage } from '../../presentation/pages/CatalogPage'
 import { useToast } from '../../presentation/ui'
 import { useCatalog } from '../catalog/catalogContext'
-import { catalogSelectionProps } from './catalogSelectionProps'
+import { useCanEdit } from '../permissions/useCanEdit'
 
 export function CatalogRoute() {
-  const context = useCatalog()
-  const { catalog, state } = context
+  const { catalog, state } = useCatalog()
+  const canEdit = useCanEdit()
   const toast = useToast()
+  const [catalogGateway] = useState(() => createCatalogRestClient())
+  const [loadChartGateway] = useState(() => createLoadChartRestClient())
+  const [store] = useState(() => createKnownChartsStorage())
 
-  /** Avisa o cadastro gravado também numa notificação (o formulário mostra a mensagem ao lado). */
+  /** Avisa o cadastro gravado numa notificação; o erro fica no próprio formulário do Drawer. */
   const notify = async <T,>(
     promise: Promise<CatalogMutationResult<T>>,
     title: string,
@@ -22,26 +29,33 @@ export function CatalogRoute() {
 
   return (
     <CatalogPage
-      selection={catalogSelectionProps(context)}
-      selectedConfiguration={selectedConfiguration(state)}
-      registration={{
-        selectedManufacturer:
-          state.manufacturers.items.find((item) => item.id === state.selectedManufacturerId) ??
-          null,
-        selectedCrane: state.cranes.items.find((item) => item.id === state.selectedCraneId) ?? null,
-        onCreateManufacturer: (name) =>
-          notify(catalog.createManufacturer(name), `Fabricante "${name}" cadastrado`),
-        onCreateCrane: (manufacturerId, modelName) =>
-          notify(
-            catalog.createCrane(manufacturerId, modelName),
-            `Guindaste "${modelName}" cadastrado`,
-          ),
-        onCreateConfiguration: (craneId, name, geometry) =>
-          notify(
-            catalog.createConfiguration(craneId, name, geometry),
-            `Configuração "${name}" cadastrada`,
-          ),
+      selection={{
+        selectedManufacturerId: state.selectedManufacturerId,
+        selectedCraneId: state.selectedCraneId,
+        selectedConfigurationId: state.selectedConfigurationId,
+        onSelectManufacturer: (id) => void catalog.selectManufacturer(id),
+        onSelectCrane: (id) => void catalog.selectCrane(id),
+        onSelectConfiguration: (id) => catalog.selectConfiguration(id),
       }}
+      catalogGateway={catalogGateway}
+      loadChartGateway={loadChartGateway}
+      store={store}
+      canEdit={canEdit}
+      onCreateManufacturer={(name) =>
+        notify(catalog.createManufacturer(name), `Fabricante "${name}" cadastrado`)
+      }
+      onCreateCrane={(manufacturerId, modelName) =>
+        notify(
+          catalog.createCrane(manufacturerId, modelName),
+          `Guindaste "${modelName}" cadastrado`,
+        )
+      }
+      onCreateConfiguration={(craneId, name, geometry) =>
+        notify(
+          catalog.createConfiguration(craneId, name, geometry),
+          `Configuração "${name}" cadastrada`,
+        )
+      }
     />
   )
 }
