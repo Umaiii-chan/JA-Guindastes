@@ -1,0 +1,19 @@
+
+digraph G {
+  graph [rankdir=LR, bgcolor="white", pad="0.2", nodesep="0.5", ranksep="0.8", fontname="DejaVu Sans"];
+  node [fontname="DejaVu Sans", shape=box, style="rounded,filled", fillcolor="#F5F7FA", color="#17365D", penwidth=1.4, fontsize=11];
+  edge [fontname="DejaVu Sans", color="#4A5568", fontsize=9, arrowsize=0.8];
+
+  operador [label="Operador / Planejador\nde içamento", shape=oval, fillcolor="#EAF0F8"];
+  admin [label="Administrador técnico", shape=oval, fillcolor="#EAF0F8"];
+  empresa [label="Equipe técnica\nGuindastes Ribas", shape=oval, fillcolor="#EAF0F8"];
+  fabricante [label="Documentação oficial\ndo fabricante", shape=folder, fillcolor="#FFF7E6", color="#9A6700"];
+
+  sistema [label="Simulador Web 3D para\nAnálise de Tabelas de Carga", shape=box3d, fillcolor="#D9E2F3", penwidth=2];
+
+  operador -> sistema [label="configura cenário, carga\ne movimentos"];
+  sistema -> operador [label="capacidade, limites\ne alertas"];
+  admin -> sistema [label="cadastra guindastes,\nmodelos 3D e tabelas"];
+  empresa -> sistema [label="valida regras e resultados"];
+  fabricante -> sistema [label="tabelas de carga\ne dados técnicos"];
+}

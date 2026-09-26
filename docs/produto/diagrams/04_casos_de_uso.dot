@@ -1,0 +1,39 @@
+
+digraph G {
+  graph [rankdir=LR, bgcolor="white", pad="0.2", nodesep="0.28", ranksep="0.55", fontname="DejaVu Sans"];
+  node [fontname="DejaVu Sans", fontsize=9];
+  edge [fontname="DejaVu Sans", color="#4A5568", fontsize=8, arrowsize=0.7];
+
+  op [label="Operador", shape=oval, style=filled, fillcolor="#EAF0F8", color="#17365D"];
+  adm [label="Administrador\ntécnico", shape=oval, style=filled, fillcolor="#EAF0F8", color="#17365D"];
+
+  subgraph cluster_sys {
+    label="Simulador de Guindastes";
+    color="#17365D";
+    style="rounded";
+    fontsize=11;
+    fontname="DejaVu Sans";
+    node [shape=ellipse, style=filled, fillcolor="#F8FAFC", color="#2F5597"];
+    uc1 [label="Selecionar guindaste\ne configuração"];
+    uc2 [label="Configurar carga\ne cenário"];
+    uc3 [label="Manipular guindaste\nno ambiente 3D"];
+    uc4 [label="Calcular raio, altura\ne posição"];
+    uc5 [label="Consultar/interpolar\ntabela de carga"];
+    uc6 [label="Validar capacidade\ne limites"];
+    uc7 [label="Exibir alertas\nem tempo real"];
+    uc8 [label="Salvar e consultar\nsimulação"];
+    uc9 [label="Cadastrar guindaste"];
+    uc10 [label="Importar modelo 3D"];
+    uc11 [label="Importar e validar\ntabela de carga"];
+    uc12 [label="Configurar vínculos\ncinemáticos do modelo"];
+  }
+
+  op -> uc1; op -> uc2; op -> uc3; op -> uc7; op -> uc8;
+  uc3 -> uc4 [label="inclui"];
+  uc4 -> uc5 [label="inclui"];
+  uc5 -> uc6 [label="inclui"];
+  uc6 -> uc7 [label="inclui"];
+
+  adm -> uc9; adm -> uc10; adm -> uc11; adm -> uc12;
+  uc9 -> uc10 [style=dashed];
+}

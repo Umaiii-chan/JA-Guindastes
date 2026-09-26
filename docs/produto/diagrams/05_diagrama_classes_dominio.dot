@@ -1,0 +1,30 @@
+
+digraph G {
+  graph [rankdir=LR, bgcolor="white", pad="0.2", nodesep="0.4", ranksep="0.7", fontname="DejaVu Sans"];
+  node [fontname="DejaVu Sans", shape=record, style="filled", fillcolor="#F8FAFC", color="#17365D", penwidth=1.2, fontsize=8.5];
+  edge [fontname="DejaVu Sans", color="#4A5568", fontsize=8, arrowsize=0.7];
+
+  Manufacturer [label="{Manufacturer|id\lname\l}"];
+  Crane [label="{Crane|id\lmanufacturer_id\lmodel\ldescription\l}"];
+  Asset [label="{Crane3DModel|id\lcrane_id\lfile_uri\lformat\lversion\lscale\l}"];
+  Kinematics [label="{CraneKinematics|id\lcrane_id\lnode_mapping\llimits\l}"];
+  Config [label="{CraneConfiguration|id\lcrane_id\lname\lboom_config\lcounterweight\loutriggers\l}"];
+  Chart [label="{LoadChart|id\lconfiguration_id\lsource_document\lversion\lunits\lstatus\l}"];
+  Point [label="{LoadChartPoint|id\lload_chart_id\lboom_length\lworking_radius\lmax_capacity\l}"];
+  Load [label="{Load|id\lweight\ldimensions\lcenter_of_gravity?\l}"];
+  Sim [label="{Simulation|id\lcrane_id\lconfiguration_id\lload_id\lstatus\lcreated_at\l}"];
+  State [label="{SimulationState|id\lsimulation_id\lboom_length\lboom_angle\lturret_rotation\lcable_length\lworking_radius\lhook_height\l}"];
+  Result [label="{SimulationResult|id\lsimulation_state_id\lmax_capacity\lutilization\lstatus\lreason\l}"];
+
+  Manufacturer -> Crane [label="1 .. *"];
+  Crane -> Asset [label="1 .. *"];
+  Crane -> Kinematics [label="1 .. 1"];
+  Crane -> Config [label="1 .. *"];
+  Config -> Chart [label="1 .. *"];
+  Chart -> Point [label="1 .. *"];
+  Crane -> Sim [label="1 .. *"];
+  Config -> Sim [label="1 .. *"];
+  Load -> Sim [label="1 .. *"];
+  Sim -> State [label="1 .. *"];
+  State -> Result [label="1 .. 0..1"];
+}

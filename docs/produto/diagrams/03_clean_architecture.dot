@@ -1,0 +1,16 @@
+
+digraph G {
+  graph [rankdir=TB, bgcolor="white", pad="0.25", nodesep="0.32", ranksep="0.45", fontname="DejaVu Sans"];
+  node [fontname="DejaVu Sans", shape=box, style="rounded,filled", color="#17365D", penwidth=1.4, fontsize=10, width=5.2];
+  edge [fontname="DejaVu Sans", color="#4A5568", fontsize=9, arrowsize=0.8];
+
+  presentation [label="Presentation / Delivery\nFastAPI routers, schemas, WebSocket handlers", fillcolor="#EAF0F8"];
+  application [label="Application\nUse cases + ports (interfaces)", fillcolor="#D9E2F3"];
+  domain [label="Domain\nEntidades, value objects, regras e serviços de domínio", fillcolor="#BDD7EE", penwidth=2];
+  infrastructure [label="Infrastructure\nSQLAlchemy, PostgreSQL, storage, importadores CSV/XLSX", fillcolor="#F3F6FA"];
+
+  presentation -> application [label="depende de"];
+  application -> domain [label="depende de"];
+  infrastructure -> application [label="implementa ports", style=dashed];
+  infrastructure -> domain [label="mapeia/persiste", style=dashed];
+}

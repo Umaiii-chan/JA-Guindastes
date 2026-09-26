@@ -1,0 +1,17 @@
+
+digraph G {
+  graph [rankdir=LR, bgcolor="white", pad="0.2", nodesep="0.45", ranksep="0.7", fontname="DejaVu Sans"];
+  node [fontname="DejaVu Sans", shape=box, style="rounded,filled", color="#17365D", fontsize=9];
+  edge [fontname="DejaVu Sans", color="#4A5568", fontsize=8, arrowsize=0.7];
+
+  browser [label="Navegador\nReact + Three.js", fillcolor="#EAF0F8"];
+  proxy [label="Reverse Proxy / TLS\n(opcional no MVP local)", fillcolor="#F8FAFC"];
+  api [label="FastAPI\nUvicorn/Gunicorn", fillcolor="#D9E2F3"];
+  db [label="PostgreSQL", shape=cylinder, fillcolor="#F3F6FA"];
+  storage [label="Storage de arquivos\nGLB, CSV/XLSX, PDF", shape=folder, fillcolor="#F3F6FA"];
+
+  browser -> proxy [label="HTTPS / WSS"];
+  proxy -> api [label="HTTP / WS"];
+  api -> db [label="TCP 5432"];
+  api -> storage [label="filesystem / object API"];
+}
