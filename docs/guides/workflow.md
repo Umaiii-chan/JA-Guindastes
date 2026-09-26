@@ -1,7 +1,10 @@
 # Fluxo de trabalho entre as IAs
 
 Este guia descreve o ciclo de vida de uma tarefa, do backlog até `completed/`, e como as IAs se
-revezam sem se falar. A regra de ouro: **cada etapa termina com `handoffs/current.md` atualizado**.
+revezam sem se falar. A regra de ouro: **cada etapa termina com o handoff da tarefa atualizado** —
+`handoffs/TASK-NNN.md`, porque desde a TASK-006 (ampliada na TASK-021) até 15 tarefas andam em
+paralelo e `handoffs/current.md` virou o índice geral, que as branches de tarefa não editam (ver
+[`handoffs/README.md`](../../handoffs/README.md) → "Tarefas em paralelo").
 
 O repositório tem três branches longas, uma por ambiente — `development` (default), `homologation` e
 `production`. As tarefas nascem e voltam para `development`; a promoção entre ambientes é um
@@ -75,12 +78,16 @@ o que está escrito.
 2. Preencha: objetivo, contexto, **critérios de aceite verificáveis**, escopo (dentro/fora),
    arquivos provavelmente afetados, requisitos e regras de negócio relacionados.
 3. Quando for começar, mova para `tasks/in-progress/` (`git mv`).
-4. Atualize `handoffs/current.md`: tarefa atual = TASK-NNN; próximo passo = "Planejador".
+4. Crie o handoff da tarefa em `handoffs/TASK-NNN.md` (template `docs/templates/handoff-template.md`),
+   com próximo passo = "Planejador", e registre a tarefa na tabela de `handoffs/current.md` § 2 (o
+   índice é atualizado pela pessoa responsável ou pela sessão principal, não pela branch da tarefa).
 5. Crie a branch a partir de `development` atualizada:
    `git checkout development && git pull && git checkout -b task/TASK-NNN-<slug>`.
 6. Commit: `chore(tasks): iniciar TASK-NNN`.
 
-**Uma tarefa em `in-progress/` por vez** é o ideal. Duas no máximo, e nunca tocando os mesmos arquivos.
+**Até 15 tarefas em `in-progress/`** ao mesmo tempo (decisão da pessoa responsável em 2026-09-26,
+TASK-006 e TASK-021; limite conferido por `scripts/check-structure.sh`), **nunca tocando os mesmos
+arquivos**. Cada leva de tarefas paralelas parte do mesmo commit-base de `development`.
 
 Uma tarefa boa cabe em um PR revisável em 15 minutos. Se não cabe, quebre em duas.
 
@@ -172,8 +179,13 @@ três, a tarefa provavelmente está mal definida — pare e reveja a tarefa.
 
 ## 8. Etapa 6 — CI (GitHub Actions)
 
-Automático ao abrir/atualizar o PR. Roda **exatamente** os comandos de `development-guide.md`:
-lint, formatação, tipos, testes, build, auditoria de dependências e `scripts/check-structure.sh`.
+Automático ao abrir/atualizar o PR. Roda **exatamente** os comandos de `development-guide.md`, em
+cinco jobs: `structure` (`scripts/check-structure.sh`), `backend` (lint, formatação, tipos, camadas,
+migrations e testes com PostgreSQL de serviço), `quality` (frontend: lint, formatação, tipos, testes e
+build), `docker` (build das imagens e teste de fumaça da stack) e `e2e` (stack Docker migrada e com o
+seed da demonstração, Playwright contra o frontend servido pelo nginx; TASK-036). Auditoria de dependências ainda não
+está configurada ([`../security.md`](../security.md) § 5). Detalhes em
+[`../testing-strategy.md`](../testing-strategy.md) § 5.
 
 O CI **não usa IA** e **não custa nada** dentro do limite gratuito do GitHub. Ele é o único
 participante do fluxo que nunca alucina.
@@ -199,9 +211,11 @@ Se não aprovar, comenta no PR e atualiza o handoff com próximo passo.
 
 1. `git mv tasks/in-progress/TASK-NNN-*.md tasks/completed/`
 2. Preencher na tarefa: data de conclusão, PR, resumo do que foi entregue.
-3. Copiar `handoffs/current.md` para `handoffs/history/AAAA-MM-DD-TASK-NNN-encerramento.md`.
-4. Reescrever `handoffs/current.md`: "Nenhuma tarefa em andamento. Próximo passo: escolher tarefa do
-   backlog." (ou já apontar a próxima).
+3. Mover `handoffs/TASK-NNN.md` para `handoffs/history/AAAA-MM-DD-TASK-NNN-<etapa>.md`.
+4. Atualizar o índice `handoffs/current.md` (estado do projeto, tabela de tarefas em andamento,
+   pendências gerais). Com a autorização permanente de `handoffs/current.md` § 3, um agente pode
+   mover para `completed/` a tarefa que a pessoa mergeou, registrando que a revisão independente foi
+   dispensada por ela.
 5. Atualizar `docs/known-gaps.md` se algo foi resolvido ou descoberto.
 6. Commit `chore(tasks): concluir TASK-NNN` — via PR pequeno ou, **somente a pessoa responsável** e
    somente quando a proteção de branch não estiver disponível, direto na `development`. Agentes nunca

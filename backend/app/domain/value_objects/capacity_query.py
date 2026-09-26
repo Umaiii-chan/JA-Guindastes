@@ -9,7 +9,8 @@ class CapacityQuery:
 
     Como os pontos da tabela (doc-fonte § 10.2), a consulta inicial usa comprimento de lança e
     raio de trabalho. O raio vem da geometria operacional do ADR-013; o tratamento de comprimentos
-    entre colunas da tabela continua pendente (PEND-001; ADR-013).
+    entre colunas da tabela continua pendente (PEND-001; ADR-013). Provisoriamente, a
+    `ConservativeTabulatedLookup` (ADR-015) só aceita comprimentos que coincidem com uma coluna.
     """
 
     boom_length: Length

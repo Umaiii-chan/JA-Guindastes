@@ -6,9 +6,9 @@ escolhe os adapters e chama `create_app` é a raiz de composição, `app.main` (
 TASK-029). A aplicação completa, com os endpoints de negócio, é `app.main:app`.
 
 O `app` deste módulo é só a base do contrato OpenAPI (e da rota de saúde), sem os endpoints que
-dependem de um adapter da infraestrutura. Ele continua aqui porque `tests/test_openapi.py`,
-`docs/development-guide.md` § 3 e o `README.md` ainda apontam para `app.presentation.api.main:app`
-(atualização pendente, ver `handoffs/TASK-019.md`).
+dependem de um adapter da infraestrutura. Ele continua aqui porque `tests/test_openapi.py` ainda o
+importa; a documentação já aponta para `app.main:app` (TASK-037). Remover este `app` é dívida
+registrada em `docs/known-gaps.md` (D-001).
 """
 
 from collections.abc import AsyncIterator, Callable

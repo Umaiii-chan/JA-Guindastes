@@ -40,7 +40,8 @@ esforço na direção errada.
 **Nível A — ChatGPT web sem integrações**
 
 1. Abra uma conversa nova por papel (não reutilize a conversa do Implementador para revisar).
-2. Cole o kickoff + o conteúdo de `AGENTS.md` + `handoffs/current.md` + a tarefa.
+2. Cole o kickoff + o conteúdo de `AGENTS.md` + `handoffs/current.md` (índice) + o handoff da
+   tarefa (`handoffs/TASK-NNN.md`) + a tarefa.
 3. Cole os arquivos relevantes conforme a IA pedir (ela deve pedir, não adivinhar).
 4. Para revisão: cole a saída de `git diff development...task/TASK-NNN`.
 5. Copie o resultado (plano, cenários, parecer) para o arquivo certo no repositório **você mesmo**.
@@ -126,12 +127,12 @@ Para nível A/B, a IA precisa "ver" o repositório. Opções, da melhor para a p
    git archive -o contexto.zip HEAD . ':!reference'
    ```
    Se precisar incluir alterações ainda não commitadas, commite antes (em uma branch de trabalho).
-3. **Colar arquivos sob demanda**: cole `AGENTS.md`, `handoffs/current.md`, a tarefa, e deixe a IA
+3. **Colar arquivos sob demanda**: cole `AGENTS.md`, `handoffs/current.md`, `handoffs/TASK-NNN.md`, a tarefa, e deixe a IA
    pedir o resto. Ela deve pedir pelo caminho completo; você cola com o caminho no topo.
 4. **Um único arquivo concatenado** para IAs com contexto grande:
    ```bash
    # gera um .md com todos os docs e a tarefa atual, com o caminho de cada arquivo como cabeçalho
-   for f in AGENTS.md handoffs/current.md tasks/in-progress/*.md docs/*.md docs/decisions/*.md; do
+   for f in AGENTS.md handoffs/current.md handoffs/TASK-*.md tasks/in-progress/*.md docs/*.md docs/decisions/*.md; do
      echo -e "\n\n===== $f =====\n"; cat "$f"; done > /tmp/contexto.md
    ```
 

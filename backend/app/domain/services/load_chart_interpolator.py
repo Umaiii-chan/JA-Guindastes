@@ -12,12 +12,17 @@ class LoadChartInterpolator(Protocol):
     uso de valor conservador (PEND-003). Por isso a estratégia fica atrás desta interface e pode ser
     trocada sem mudar os casos de uso.
 
+    Implementações: `ExactPointLookup` (só ponto exato; referência e testes) e
+    `ConservativeTabulatedLookup` (ADR-015, provisória: menor capacidade entre os vizinhos), que é
+    a estratégia ligada na raiz de composição (`app.main`).
+
     Contrato de toda implementação:
     - devolve `CapacityFound` só quando a tabela suporta a consulta (RN-004);
     - fora do domínio suportado, devolve `CapacityUnsupported` com o motivo, nunca extrapola em
       silêncio (RN-007);
     - nos dois casos, informa o id e a versão da tabela usada (RN-005);
-    - não escolhe a tabela nem olha o status dela: isso é do `LoadChartResolver`.
+    - não escolhe a tabela nem olha o status dela: isso é da porta `ActiveLoadChartProvider` da
+      aplicação (o papel do `LoadChartResolver` da doc-fonte § 14.1).
     """
 
     def calculate_capacity(self, chart: LoadChart, query: CapacityQuery) -> CapacityResult: ...

@@ -11,8 +11,8 @@ arquivos.
 
 | Arquivo | Conteúdo | Usado em |
 |---------|----------|----------|
-| `load_chart_ficticio_valido.csv` | os mesmos 6 pontos FICTÍCIOS de `tests/fixtures/load_chart_ficticio.py`, sem inconsistência | `tests/infrastructure/` |
-| `load_chart_ficticio_inconsistencias.csv` | cabeçalho válido; linhas com valor vazio, texto, negativo, `NaN`, campo faltando, vírgula decimal e um ponto que conflita com outro | `tests/infrastructure/` |
+| `load_chart_ficticio_valido.csv` | os mesmos 6 pontos FICTÍCIOS de `tests/fixtures/load_chart_ficticio.py`, sem inconsistência | `tests/infrastructure/` (inclusive `repositories/`), `tests/application/`, `tests/presentation/` |
+| `load_chart_ficticio_inconsistencias.csv` | cabeçalho válido; linhas com valor vazio, texto, negativo, `NaN`, campo faltando, vírgula decimal e um ponto que conflita com outro | `tests/infrastructure/` (inclusive `repositories/`), `tests/application/`, `tests/presentation/` |
 | `load_chart_ficticio_cabecalho_invalido.csv` | cabeçalho com unidade não reconhecida (`ft`), coluna sem unidade e coluna desconhecida | `tests/infrastructure/` |
 
 Os números esperados de linha, coluna e motivo de cada inconsistência estão nos próprios testes.

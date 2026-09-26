@@ -29,7 +29,8 @@ Nas duas, a estratégia de consulta é a `ConservativeTabulatedLookup` (ADR-015,
 WebSocket usam a mesma montagem do `EvaluateOperation` (`build_evaluate_operation`).
 
 Catálogo (TASK-030): as rotas de cadastro usam o `SqlAlchemyCraneCatalogRepository` (TASK-022) e só
-são registradas quando `DATABASE_URL` está definida (ver `build_catalog_repository`).
+são registradas quando `DATABASE_URL` está definida (`create_database_app`, no mesmo engine da
+avaliação). `build_catalog_repository` hoje só é usado pelos testes (`docs/known-gaps.md` D-002).
 
 Rodar a API completa, em `backend/`: `uv run uvicorn app.main:app --reload`.
 """
