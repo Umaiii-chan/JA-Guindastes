@@ -94,21 +94,34 @@ jobs:
   # Qualidade do código. Descomente o bloco da sua stack.
   # ---------------------------------------------------------------------------
   quality:
-    name: Lint, testes e build
+    name: Frontend (lint, formatação, tipos, testes, build)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: structure
+    defaults:
+      run:
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
 
-      # ======================= PLACEHOLDER (apague ao adaptar) =================
-      # Enquanto nenhuma stack estiver configurada, este passo lembra que o CI
-      # ainda não valida código. Remova-o ao descomentar um bloco abaixo.
-      - name: Stack ainda não configurada
-        run: |
-          echo "::warning::Nenhuma stack configurada em .github/workflows/ci.yml."
-          echo "Descomente o bloco da sua stack e alinhe com docs/development-guide.md § 3."
-      # =========================================================================
+      # Frontend (Node 24 + npm + Vite) — ADR-012. Mesmos comandos de docs/development-guide.md § 3.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Instalar dependências
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Formatação
+        run: npm run format:check
+      - name: Tipos
+        run: npm run typecheck
+      - name: Testes
+        run: npm test
+      - name: Build
+        run: npm run build
 
       # ======================= NODE.JS / TYPESCRIPT ============================
       # - uses: actions/setup-node@v4
