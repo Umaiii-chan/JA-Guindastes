@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | Proposto |
+| **Status** | Aceito |
 | **Data** | 2026-09-26 |
 | **Autor** | agente Claude Code (modelo Opus 5.5), sessão de 2026-09-26 |
 | **Decisores** | Anderson Sehnem (aceita ou rejeita). Os itens marcados **A VALIDAR** dependem da Guindastes Ribas |
@@ -376,7 +376,7 @@ responsável transforma a resposta em RN, em novo ADR ou nos dois.
 
 ## Impacto na documentação
 
-- [x] `docs/architecture.md` § 8 lista este ADR como `Proposto`
+- [x] `docs/architecture.md` § 8 lista este ADR como `Aceito`
 - [ ] `docs/development-guide.md`: não se aplica (não muda comando nem convenção de código)
 - [x] `docs/known-gaps.md`: P-001 a P-004 apontam para esta proposta, sem apagar o texto (continuam abertos)
 - [x] índice em `docs/decisions/README.md` atualizado
