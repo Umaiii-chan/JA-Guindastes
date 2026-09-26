@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (pedido em sessão com o agente Claude Code) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-006-tarefas-paralelas` (a partir de `development` @ `c0955b2`) |
-| **PR** | — |
+| **PR** | [#6](https://github.com/Umaiii-chan/JA-Guindastes/pull/6), mergeado em 2026-09-26 |
 | **Requisitos** | — |
 | **Regras de negócio** | — |
 | **Estimativa** | P |
@@ -85,6 +85,8 @@ Simulação manual em cópia temporária (handoff § 4).
 **Resultado:** — (aguardando revisão)
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (tarefas mergeadas; revisão independente dispensada). O CI do PR rodou antes da TASK-006 entrar em `development`; o CI de `development` depois dos merges foi o que validou.
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...

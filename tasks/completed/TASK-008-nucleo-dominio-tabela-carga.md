@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (pedido em sessão com o agente Claude Code; tarefas em paralelo) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-008-nucleo-dominio-tabela-carga` (a partir de `development` @ `c0955b2`) |
-| **PR** | — |
+| **PR** | [#9](https://github.com/Umaiii-chan/JA-Guindastes/pull/9), mergeado em 2026-09-26 |
 | **Requisitos** | RF-016, RF-017, RF-020, RNF-001, RNF-002, RNF-004, RNF-008, RNF-010 |
 | **Regras de negócio** | RN-001, RN-004, RN-005, RN-006, RN-007 |
 | **Estimativa** | M |
@@ -133,6 +133,8 @@ Não há: todo o comportamento é verificado pelos testes automatizados de domí
 **Resultado:** — (aguardando revisão)
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (tarefas mergeadas; revisão independente dispensada). O CI do PR rodou antes da TASK-006 entrar em `development`; o CI de `development` depois dos merges foi o que validou.
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...
