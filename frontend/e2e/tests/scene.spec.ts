@@ -94,6 +94,6 @@ test('sem configuração informada, o painel de avaliação pede a configuraçã
   await expect(
     page
       .getByRole('region', { name: /Avaliação/ })
-      .getByText('Informe a configuração (configuration_id) para avaliar.'),
+      .getByText('Escolha a configuração (fabricante → guindaste → configuração) para avaliar.'),
   ).toBeVisible()
 })

@@ -8,6 +8,10 @@ interface CraneControlPanelProps {
   /** `null` enquanto a cena não montou: os controles ficam desabilitados. */
   limits: CraneLimits | null
   state: CraneState | null
+  /** De onde vêm os limites e os parâmetros a/h (ficha técnica ou FICTÍCIOS; TASK-033). */
+  notice: string
+  /** Observação por controle quando o limite não veio da ficha (ex.: cabo máximo FICTÍCIO). */
+  notes?: Readonly<Partial<Record<CraneControlKey, string>>>
   onChange: (key: CraneControlKey, value: number) => void
 }
 
@@ -35,16 +39,20 @@ function format(value: number, control: ControlDefinition): string {
 }
 
 /** Sliders dos comandos do guindaste. Mostra o valor aplicado pela cena (já limitado aos limites). */
-export function CraneControlPanel({ limits, state, onChange }: CraneControlPanelProps) {
+export function CraneControlPanel({
+  limits,
+  state,
+  notice,
+  notes = {},
+  onChange,
+}: CraneControlPanelProps) {
   const idPrefix = useId()
   const titleId = `${idPrefix}-title`
 
   return (
     <section className="crane-panel" aria-labelledby={titleId}>
       <h2 id={titleId}>Controles do guindaste</h2>
-      <p className="crane-panel__notice">
-        Guindaste provisório com medidas e limites FICTÍCIOS. Sem cálculo de capacidade.
-      </p>
+      <p className="crane-panel__notice">{notice}</p>
       {CONTROLS.map((control) => {
         const inputId = `${idPrefix}-${control.key}`
         const range = limits?.[control.key]
@@ -73,6 +81,7 @@ export function CraneControlPanel({ limits, state, onChange }: CraneControlPanel
                 <span>{format(range.max, control)}</span>
               </div>
             )}
+            {notes[control.key] && <p className="crane-panel__note">{notes[control.key]}</p>}
           </div>
         )
       })}
