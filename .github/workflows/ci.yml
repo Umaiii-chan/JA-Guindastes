@@ -71,6 +71,26 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # PostgreSQL descartável, só para os testes de integração e para o Alembic (TASK-018).
+    # As credenciais abaixo valem só para este container efêmero do CI: não são segredo.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: crane_ci
+          POSTGRES_PASSWORD: ci_only_not_a_secret
+          POSTGRES_DB: crane_simulator_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U crane_ci -d crane_simulator_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://crane_ci:ci_only_not_a_secret@localhost:5432/crane_simulator_ci
+      # Faz os testes de integração falharem (e não pularem) se o banco não responder.
+      REQUIRE_INTEGRATION_DB: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v10.2.0
@@ -87,7 +107,9 @@ jobs:
         run: uv run mypy app
       - name: Camadas da Clean Architecture
         run: uv run lint-imports
-      - name: Testes
+      - name: Migrations (Alembic)
+        run: uv run alembic upgrade head
+      - name: Testes (inclui integração com PostgreSQL)
         run: uv run pytest
 
   # ---------------------------------------------------------------------------
