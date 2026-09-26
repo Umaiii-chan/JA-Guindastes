@@ -20,8 +20,10 @@ from app.application.use_cases.evaluate_operation import (
     NotEvaluableReason,
     OperationEvaluation,
 )
+from app.domain.entities.load import Load
 from app.domain.entities.load_chart import LoadChart, LoadChartStatus
 from app.domain.exceptions.geometry_errors import OperationalLimitViolation
+from app.domain.services.compared_load_weight import weight_compared_with_capacity
 from app.domain.services.exact_point_lookup import ExactPointLookup
 from app.domain.services.geometry_service import calculate_operational_geometry
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
@@ -34,6 +36,8 @@ from app.domain.value_objects.capacity_result import (
 )
 from app.domain.value_objects.crane_geometry import CraneGeometry
 from app.domain.value_objects.length import Length
+from app.domain.value_objects.load_center_of_gravity import LoadCenterOfGravity
+from app.domain.value_objects.load_dimensions import LoadDimensions
 from app.domain.value_objects.mass import Mass
 from app.domain.value_objects.operational_geometry import OperationalGeometry
 from tests.fixtures.avaliacao_operacional_ficticia import (
@@ -452,3 +456,57 @@ def test_not_evaluable_result_requires_at_least_one_reason() -> None:
     # RN-007: "não avaliável" é sempre identificado explicitamente.
     with pytest.raises(ValueError):
         NotEvaluableOperation(reasons=())
+
+
+# --- carga da TASK-028 (`execute_for_load`, TASK-029) -------------------------------------------
+
+
+def load_ficticia(weight_kg: float = LOAD_FICTICIA_KG) -> Load:
+    return Load(
+        description="FICTÍCIO — carga de teste da avaliação",
+        weight=Mass(weight_kg),
+        dimensions=LoadDimensions(length=Length(4.0), width=Length(2.0), height=Length(1.0)),
+        center_of_gravity=LoadCenterOfGravity(
+            along_length_m=0.0, along_width_m=0.0, along_height_m=0.0
+        ),
+    )
+
+
+def evaluate_load(harness: Harness, load: Load) -> OperationEvaluation:
+    return harness.use_case.execute_for_load(
+        configuration_id=CONFIGURATION_AVALIACAO_FICTICIA_ID,
+        state=state_ficticio(**ON_CHART_POINT),
+        load=load,
+    )
+
+
+def test_ficticio_load_is_evaluated_with_only_the_informed_weight() -> None:
+    result = assert_evaluated(evaluate_load(make_harness(), load_ficticia()))
+
+    assert result.utilization_percent == 75.0  # 3000 / 4000 × 100: nada somado (PEND-006)
+
+
+def test_evaluating_a_load_equals_evaluating_its_compared_weight() -> None:
+    harness = make_harness()
+    load = load_ficticia(weight_kg=1234.5)
+
+    by_load = evaluate_load(harness, load)
+    by_weight = harness.use_case.execute(
+        configuration_id=CONFIGURATION_AVALIACAO_FICTICIA_ID,
+        state=state_ficticio(**ON_CHART_POINT),
+        load_weight=weight_compared_with_capacity(load),
+    )
+
+    assert by_load == by_weight
+    assert weight_compared_with_capacity(load) == Mass(1234.5)
+
+
+def test_ficticio_load_on_a_configuration_without_data_is_not_evaluable() -> None:
+    result = assert_not_evaluable(
+        evaluate_load(make_harness(geometries={}, charts={}), load_ficticia())
+    )
+
+    assert result.reasons == (
+        NotEvaluableReason.CRANE_GEOMETRY_NOT_FOUND,
+        NotEvaluableReason.ACTIVE_LOAD_CHART_NOT_FOUND,
+    )
