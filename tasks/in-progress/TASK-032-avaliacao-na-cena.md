@@ -8,7 +8,7 @@
 | **Iniciada em** | 2026-09-26 |
 | **Concluída em** | — |
 | **Branch** | `task/TASK-032-avaliacao-na-cena` (a partir de `e5a8945`) |
-| **PR** | — |
+| **PR** | — (evidência dos CAs: `handoffs/TASK-032.md` §§ 2 e 4) |
 | **Requisitos** | RF-015..RF-020, RNF-003, RNF-008 |
 | **Regras de negócio** | RN-007, RN-008 (PEND-004 aberta) |
 | **Estimativa** | M |
@@ -37,29 +37,29 @@ capacidade, utilização, ponto tabelado usado), com a marca da consulta conserv
 
 ## 3. Critérios de aceite
 
-- [ ] **CA-1** — Dado o cliente REST com `fetch` falso, quando ele avalia um estado, então envia
+- [x] **CA-1** — Dado o cliente REST com `fetch` falso, quando ele avalia um estado, então envia
   `POST /api/v1/evaluations` com os campos do backend (`configuration_id`, `boom_length_m`, ...,
   `load_weight_kg`) e mapeia a resposta 200 (`EVALUATED` e `NOT_EVALUABLE`) para o resultado da
   tela; 422/500/falha de rede viram erro com mensagem.
-- [ ] **CA-2** — Dado o cliente WebSocket com `WebSocket` falso, quando o estado muda, então envia
+- [x] **CA-2** — Dado o cliente WebSocket com `WebSocket` falso, quando o estado muda, então envia
   `simulation.state.changed` com `sequence` crescente e mapeia `simulation.evaluated` e
   `simulation.error`; mensagem de servidor inválida vira erro, sem derrubar a sessão.
-- [ ] **CA-3** — Dada uma resposta com `sequence` menor ou igual à última aplicada, quando ela
+- [x] **CA-3** — Dada uma resposta com `sequence` menor ou igual à última aplicada, quando ela
   chega, então é descartada (doc-fonte § 15.4).
-- [ ] **CA-4** — Dada a conexão caindo sem ter sido fechada pelo cliente, então o estado passa a
+- [x] **CA-4** — Dada a conexão caindo sem ter sido fechada pelo cliente, então o estado passa a
   `reconnecting`, uma nova conexão é aberta depois de um intervalo e, ao reabrir, o último estado é
   reenviado; `connectionStatus` segue `connecting` → `connected` → `reconnecting` → ... (§ 17.2).
-- [ ] **CA-5** — Dadas várias mudanças seguidas, quando elas chegam em menos que o intervalo de
+- [x] **CA-5** — Dadas várias mudanças seguidas, quando elas chegam em menos que o intervalo de
   debounce, então só o último estado é enviado (com espera máxima durante mudanças contínuas).
-- [ ] **CA-6** — A tela tem campos de configuração (`configuration_id`, texto) e peso da carga, e um
+- [x] **CA-6** — A tela tem campos de configuração (`configuration_id`, texto) e peso da carga, e um
   painel com: resultado (avaliado / não avaliável com os motivos), capacidade, utilização, ponto
   tabelado usado, estado da conexão, erro, e a marca "PROVISÓRIO — consulta conservadora
   (ADR-015)"; sem níveis de alerta (PEND-004).
-- [ ] **CA-7** — O painel de geometria do frontend continua, rotulado como pré-visualização; os
+- [x] **CA-7** — O painel de geometria do frontend continua, rotulado como pré-visualização; os
   componentes React não importam `three` (lint).
-- [ ] **CA-8** — `vite.config.ts` encaminha `/api` (inclusive WebSocket) para
+- [x] **CA-8** — `vite.config.ts` encaminha `/api` (inclusive WebSocket) para
   `http://localhost:8000` no servidor de desenvolvimento.
-- [ ] **CA-9** — Sem dependência nova; `npm ci`, `lint`, `format:check`, `typecheck`, `test`,
+- [x] **CA-9** — Sem dependência nova; `npm ci`, `lint`, `format:check`, `typecheck`, `test`,
   `build` e `bash scripts/check-structure.sh` passam; nenhum teste existente quebra.
 
 ## 4. Escopo
