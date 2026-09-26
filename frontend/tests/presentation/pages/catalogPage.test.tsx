@@ -18,14 +18,18 @@ import { catalogFicticio } from '../../fixtures/catalogFicticio'
 import { createFakeCatalogFetch, jsonResponse } from '../../helpers/fakeCatalogFetch'
 import { combineFetch, createFakeLoadChartFetch } from '../../helpers/fakeLoadChartFetch'
 
-function renderCatalog() {
-  return render(
+async function renderCatalog() {
+  const result = render(
     <MemoryRouter initialEntries={['/catalogo']}>
       <AppProviders>
         <AppRoutes />
       </AppProviders>
     </MemoryRouter>,
   )
+  // A sessão (TASK-040) é conferida antes de montar as páginas; sem /auth no backend falso, o app
+  // cai no modo sem autenticação.
+  await waitFor(() => expect(screen.queryByText('Conferindo a sessão…')).toBeNull())
+  return result
 }
 
 function column(name: string) {
@@ -52,7 +56,7 @@ afterEach(() => {
 
 describe('página Catálogo', () => {
   it('carregando → colunas com contagens e totais', async () => {
-    renderCatalog()
+    await renderCatalog()
     expect(screen.getByText('Carregando fabricantes…')).toBeTruthy()
 
     const manufacturers = await within(column('Fabricantes')).findAllByRole('button', {
@@ -69,7 +73,7 @@ describe('página Catálogo', () => {
   })
 
   it('mestre-detalhe: fabricante → guindaste → configuração, com ficha técnica e tabela ativa', async () => {
-    renderCatalog()
+    await renderCatalog()
     await openConfiguration()
 
     expect(
@@ -123,7 +127,7 @@ describe('página Catálogo', () => {
         ]),
       ),
     )
-    renderCatalog()
+    await renderCatalog()
     await openConfiguration()
 
     const detail = await screen.findByRole('region', { name: 'Config FICTÍCIA com ficha' })
@@ -132,7 +136,7 @@ describe('página Catálogo', () => {
   })
 
   it('busca filtra os três níveis e destaca o termo; sem resultado, orienta', async () => {
-    renderCatalog()
+    await renderCatalog()
     await screen.findByRole('list', { name: 'Fabricantes' })
     const search = screen.getByRole('searchbox', { name: 'Buscar no catálogo' })
 
@@ -154,7 +158,7 @@ describe('página Catálogo', () => {
   })
 
   it('setas movem o foco dentro da lista', async () => {
-    renderCatalog()
+    await renderCatalog()
     const [first, second] = await within(column('Fabricantes')).findAllByRole('button', {
       name: /Fabricante FICTÍCIO/,
     })
@@ -166,7 +170,7 @@ describe('página Catálogo', () => {
   })
 
   it('novo fabricante em Drawer: erro no campo, depois grava, notifica e escolhe', async () => {
-    renderCatalog()
+    await renderCatalog()
     await screen.findByRole('list', { name: 'Fabricantes' })
     fireEvent.click(screen.getAllByRole('button', { name: 'Novo fabricante' })[0])
 
@@ -194,7 +198,7 @@ describe('página Catálogo', () => {
   })
 
   it('nova configuração: a ficha valida no campo enquanto se digita', async () => {
-    renderCatalog()
+    await renderCatalog()
     fireEvent.click(
       await within(column('Fabricantes')).findByRole('button', { name: /FICTÍCIO A/ }),
     )
@@ -214,7 +218,7 @@ describe('página Catálogo', () => {
   })
 
   it('editar configuração: formulário preenchido e aviso de que grava uma cópia', async () => {
-    renderCatalog()
+    await renderCatalog()
     await openConfiguration()
     const detail = await screen.findByRole('region', { name: 'Config FICTÍCIA com ficha' })
     fireEvent.click(within(detail).getByRole('button', { name: 'Editar' }))
@@ -240,7 +244,7 @@ describe('página Catálogo', () => {
         createFakeLoadChartFetch(),
       ),
     )
-    renderCatalog()
+    await renderCatalog()
     expect(await screen.findByText('O catálogo está vazio')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Cadastrar fabricante' })).toBeTruthy()
   })
@@ -256,7 +260,7 @@ describe('página Catálogo', () => {
         createFakeLoadChartFetch(),
       ),
     )
-    renderCatalog()
+    await renderCatalog()
     const alert = await screen.findByText('Não foi possível ler o catálogo')
     failing = false
     fireEvent.click(

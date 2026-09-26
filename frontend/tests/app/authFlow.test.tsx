@@ -169,13 +169,15 @@ describe('sessão durante o uso', () => {
   it('um 401 NOT_AUTHENTICATED em qualquer chamada leva ao login, preservando o destino', async () => {
     useBackend({ accounts: [ADMIN()], loggedInId: 'USR-admin.ficticio' })
     renderAt('/catalogo')
-    const selection = await screen.findByRole('region', { name: 'Guindaste e configuração' })
-    await within(selection).findByRole('option', { name: 'Fabricante FICTÍCIO A' })
+    // Página Catálogo da TASK-042: colunas fabricante → guindaste → configuração.
+    const manufacturers = await screen.findByRole('region', { name: 'Fabricantes' })
+    const manufacturer = await within(manufacturers).findByRole('button', {
+      name: /Fabricante FICTÍCIO A/,
+    })
 
     backend.loggedInId = null // a sessão expirou no servidor
-    fireEvent.change(within(selection).getByLabelText('Fabricante'), {
-      target: { value: 'FAB-A' },
-    })
+    fireEvent.click(manufacturer) // carrega os guindastes: a chamada volta 401
+
     expect(await screen.findByRole('heading', { level: 1, name: 'Entrar' })).toBeTruthy()
     expect(screen.getByText('A sessão acabou. Entre de novo para continuar.')).toBeTruthy()
 

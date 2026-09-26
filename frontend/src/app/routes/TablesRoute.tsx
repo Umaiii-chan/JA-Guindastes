@@ -5,12 +5,12 @@ import { createLoadChartRestClient } from '../../infrastructure/api/loadChartRes
 import { createKnownChartsStorage } from '../../infrastructure/storage/knownChartsStorage'
 import { TablesPage } from '../../presentation/pages/TablesPage'
 import { useCatalog } from '../catalog/catalogContext'
-import { useCanEdit } from '../permissions/useCanEdit'
+import { usePermissions } from '../auth/usePermissions'
 import { catalogSelectionProps } from './catalogSelectionProps'
 
 export function TablesRoute() {
   const context = useCatalog()
-  const canEdit = useCanEdit()
+  const { canEdit } = usePermissions()
   const [gateway] = useState(createLoadChartRestClient)
   const [store] = useState(() => createKnownChartsStorage())
   return (

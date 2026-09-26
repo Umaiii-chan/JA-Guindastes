@@ -7,11 +7,11 @@ import { createKnownChartsStorage } from '../../infrastructure/storage/knownChar
 import { CatalogPage } from '../../presentation/pages/CatalogPage'
 import { useToast } from '../../presentation/ui'
 import { useCatalog } from '../catalog/catalogContext'
-import { useCanEdit } from '../permissions/useCanEdit'
+import { usePermissions } from '../auth/usePermissions'
 
 export function CatalogRoute() {
   const { catalog, state } = useCatalog()
-  const canEdit = useCanEdit()
+  const { canEdit } = usePermissions()
   const toast = useToast()
   const [catalogGateway] = useState(() => createCatalogRestClient())
   const [loadChartGateway] = useState(() => createLoadChartRestClient())

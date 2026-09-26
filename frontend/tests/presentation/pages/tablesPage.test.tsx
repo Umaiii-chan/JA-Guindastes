@@ -25,14 +25,18 @@ function demoCsv(name: string): File {
   return new File([readFileSync(path, 'utf8')], name, { type: 'text/csv' })
 }
 
-function renderTables() {
-  return render(
+async function renderTables() {
+  const result = render(
     <MemoryRouter initialEntries={['/tabelas']}>
       <AppProviders>
         <AppRoutes />
       </AppProviders>
     </MemoryRouter>,
   )
+  // A sessão (TASK-040) é conferida antes de montar as páginas; sem /auth no backend falso, o app
+  // cai no modo sem autenticação.
+  await waitFor(() => expect(screen.queryByText('Conferindo a sessão…')).toBeNull())
+  return result
 }
 
 async function chooseConfiguration() {
@@ -66,15 +70,15 @@ afterEach(() => {
 })
 
 describe('página Tabelas', () => {
-  it('sem configuração: pede a escolha, e a linha do tempo explica', () => {
-    renderTables()
+  it('sem configuração: pede a escolha, e a linha do tempo explica', async () => {
+    await renderTables()
     expect(screen.getByRole('heading', { level: 1, name: 'Tabelas' })).toBeTruthy()
     expect(screen.getByText('Escolha a configuração')).toBeTruthy()
     expect(screen.getByText('Escolha uma configuração')).toBeTruthy()
   })
 
   it('arquivo com erros: relatório em tabela com linha e coluna, sem liberar a importação', async () => {
-    renderTables()
+    await renderTables()
     await chooseConfiguration()
     expect(await screen.findByText('Nenhuma versão conhecida')).toBeTruthy()
 
@@ -108,7 +112,7 @@ describe('página Tabelas', () => {
   })
 
   it('arquivo válido: prévia da matriz colorida; importar; ativar com confirmação e toast', async () => {
-    renderTables()
+    await renderTables()
     await chooseConfiguration()
     await screen.findByText('Nenhuma versão conhecida')
 
@@ -154,7 +158,7 @@ describe('página Tabelas', () => {
   })
 
   it('segunda versão: o Dialog compara com a ativa; a antiga vira Substituída', async () => {
-    renderTables()
+    await renderTables()
     await chooseConfiguration()
     await screen.findByText('Nenhuma versão conhecida')
 
@@ -190,7 +194,7 @@ describe('página Tabelas', () => {
   })
 
   it('falha na ativação: toast de erro e a lista é relida', async () => {
-    renderTables()
+    await renderTables()
     await chooseConfiguration()
     await screen.findByText('Nenhuma versão conhecida')
     drop(demoCsv('tabela_carga_ficticia_demo_v1.csv'))
@@ -221,7 +225,7 @@ describe('página Tabelas', () => {
       },
     ])
     vi.stubGlobal('fetch', combineFetch(createFakeCatalogFetch(catalogFicticio()), loadChartFetch))
-    renderTables()
+    await renderTables()
     await chooseConfiguration()
     await screen.findByText('Nenhuma versão conhecida')
 
@@ -239,7 +243,7 @@ describe('página Tabelas', () => {
   })
 
   it('XLSX passa pela conferência local e fica para a importação; outro formato é recusado', async () => {
-    renderTables()
+    await renderTables()
     await chooseConfiguration()
     await screen.findByText('Nenhuma versão conhecida')
 
@@ -267,7 +271,7 @@ describe('página Tabelas', () => {
     loadChartFetch.mockImplementation(async () => {
       throw new TypeError('rede')
     })
-    renderTables()
+    await renderTables()
     await chooseConfiguration()
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('Não foi possível ler as versões')
