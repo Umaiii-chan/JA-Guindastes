@@ -97,7 +97,7 @@ pré-visualização do frontend. O gancho desenhado na cena fica exatamente no p
 | `frontend/src/three/scene/buildCraneScene.ts` | alterar | sim |
 | `frontend/src/presentation/panels/OperationalGeometryPanel.tsx` | criar | sim |
 | `frontend/src/presentation/panels/CraneControlPanel.tsx`, `frontend/src/app/{App.tsx,App.css}` | alterar | sim |
-| `frontend/tests/fixtures/geometryParityCases.ts` | criar | sim |
+| `frontend/tests/fixtures/geometryParityCases.ts`, `frontend/tests/helpers/expectClose.ts` | criar | sim |
 | `frontend/tests/domain/geometry/operationalGeometry.test.ts` | criar | sim |
 | `frontend/tests/three/crane/operationalGeometryInScene.test.ts` | criar | sim |
 | `frontend/tests/three/crane/{CraneController,createProvisionalCrane}.test.ts`, `frontend/tests/three/scene/buildCraneScene.test.ts` | alterar | sim |
@@ -116,7 +116,8 @@ pré-visualização do frontend. O gancho desenhado na cena fica exatamente no p
 
 1. Em `frontend/`: `npm ci` (se preciso) e `npm run dev`; abrir a URL do Vite.
    **Esperado:** cena como na TASK-013; à direita, o painel de controles e, abaixo dele, o painel
-   "Geometria — pré-visualização — frontend" com raio, altura da ponta e altura do gancho. Na pose
+   "Geometria" com o selo "pré-visualização — frontend", raio de trabalho, altura da ponta, altura do
+   gancho e o aviso de que capacidade e segurança não são decididas no frontend. Na pose
    inicial (0°, 35°, 12,0 m, 5,0 m), com a = −1,2 m e h = 3,3 m FICTÍCIOS: raio 8,63 m, altura da
    ponta 10,18 m, altura do gancho 5,18 m.
 2. Mover cada slider.
@@ -135,10 +136,10 @@ pré-visualização do frontend. O gancho desenhado na cena fica exatamente no p
 
 | # | Passo | Arquivos | Como verificar | Feito |
 |---|-------|----------|----------------|-------|
-| 1 | Cálculo puro das fórmulas do ADR-013 e testes de paridade | `src/domain/geometry/`, `tests/domain/`, `tests/fixtures/` | CA-2, CA-3, CA-5 (Vitest) | [ ] |
-| 2 | `getOperationalGeometry()` no controller; guindaste provisório com a e h; coincidência do gancho | `src/three/crane/`, `src/three/scene/`, `tests/three/` | CA-1, CA-3, CA-4 (Vitest) | [ ] |
-| 3 | Painel da geometria e avisos da UI | `src/presentation/`, `src/app/` | CA-6 (manual); CA-7 (lint) | [ ] |
-| 4 | Gates, check-structure e handoff | — | CA-7 | [ ] |
+| 1 | Cálculo puro das fórmulas do ADR-013 e testes de paridade | `src/domain/geometry/`, `tests/domain/`, `tests/fixtures/` | CA-2, CA-3, CA-5 (Vitest) | [x] |
+| 2 | `getOperationalGeometry()` no controller; guindaste provisório com a e h; coincidência do gancho | `src/three/crane/`, `src/three/scene/`, `tests/three/` | CA-1, CA-3, CA-4 (Vitest) | [x] |
+| 3 | Painel da geometria e avisos da UI | `src/presentation/`, `src/app/` | CA-6 (manual); CA-7 (lint) | [x] |
+| 4 | Gates, check-structure e handoff | — | CA-7 | [x] |
 
 **Análise de impacto:**
 - Arquivos que podem quebrar indiretamente: testes do `CraneController` e do guindaste provisório
@@ -150,13 +151,13 @@ pré-visualização do frontend. O gancho desenhado na cena fica exatamente no p
 
 | Cenário | Critério | Tipo | Arquivo de teste | Status |
 |---------|----------|------|------------------|--------|
-| casos calculados à mão do backend (θ 0/30/60/90/−30, ψ 45/90/180/270, a < 0) | CA-2 | unitário | `frontend/tests/domain/geometry/operationalGeometry.test.ts` | — |
-| raio a partir do eixo de giro; raio não depende do giro; gancho abaixo da ponta a c metros; R = 0; y_G < 0 não bloqueado; exemplo da doc-fonte (só o raio) | CA-2 | unitário | idem | — |
-| giro anti-horário visto de cima; ψ = 90° no lado +X | CA-3 | unitário | idem e `frontend/tests/three/crane/operationalGeometryInScene.test.ts` | — |
-| R < 0: raio `null`, alcance com sinal preservado | CA-5 | unitário | `frontend/tests/domain/geometry/operationalGeometry.test.ts` | — |
-| `getOperationalGeometry()` segue o estado do controller | CA-1 | unitário | `frontend/tests/three/crane/CraneController.test.ts` | — |
-| nó do gancho (e da ponta e da lança) na posição calculada, nos casos do backend e na cena da PoC | CA-4 | unitário | `frontend/tests/three/crane/operationalGeometryInScene.test.ts` | — |
-| painel atualiza com os sliders, rótulo e avisos | CA-6 | manual | § 7 | — |
+| casos calculados à mão do backend (θ 0/30/60/90/−30, ψ 45/90/180/270, a < 0) | CA-2 | unitário | `frontend/tests/domain/geometry/operationalGeometry.test.ts` | verde |
+| raio a partir do eixo de giro; raio não depende do giro; gancho abaixo da ponta a c metros; R = 0; y_G < 0 não bloqueado; exemplo da doc-fonte (só o raio) | CA-2 | unitário | idem | verde |
+| giro anti-horário visto de cima; ψ = 0° em +Z e ψ = 90° em +X | CA-3 | unitário | idem e `frontend/tests/three/crane/operationalGeometryInScene.test.ts` | verde |
+| R < 0: raio `null`, alcance com sinal preservado | CA-5 | unitário | `frontend/tests/domain/geometry/operationalGeometry.test.ts` | verde |
+| `getOperationalGeometry()` segue o estado do controller, com o valor já limitado | CA-1 | unitário | `frontend/tests/three/crane/CraneController.test.ts` | verde |
+| nó do gancho (e da ponta e da lança) na posição calculada, nos casos do backend e em 162 estados da cena da PoC | CA-4 | unitário | `frontend/tests/three/crane/operationalGeometryInScene.test.ts` | verde |
+| painel atualiza com os sliders, rótulo e avisos | CA-6 | manual | § 7 | executado pelo agente (ver handoff) |
 
 ## 10. Parecer da revisão (preenchido pelo Revisor)
 
