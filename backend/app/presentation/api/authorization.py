@@ -153,7 +153,8 @@ def origin_matches_host(headers: Headers) -> bool:
     A porta não entra na comparação: o nginx do container repassa `Host` sem a porta
     (`proxy_set_header Host $host`) e o proxy do Vite troca o `Host` pelo do backend
     (`changeOrigin`), mas nos dois o nome do host é o da página. Sem `Origin`, ou com `Origin`
-    ilegível, a origem não bate.
+    ilegível, a origem não bate. Ignorar a porta foi aceito pela pessoa responsável em 2026-09-26
+    (handoffs/TASK-038.md § 8).
     """
     origin = headers.get("origin")
     host = headers.get("host")
