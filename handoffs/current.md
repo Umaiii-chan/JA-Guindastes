@@ -66,7 +66,7 @@ Fazer o job "Backend" do CI voltar a rodar.
 
 | # | Pergunta | Bloqueia? | Resposta | Respondida em |
 |---|----------|-----------|----------|---------------|
-| 1 | Mover a TASK-004 para `completed/` (sem revisão independente)? | não | | |
+| 1 | Mover a TASK-004 para `completed/` (sem revisão independente)? | — | Sim, movida nesta branch (pessoa, em chat) | 2026-09-26 |
 | 2 | Antes de mergear, conferir se todos os checks estão verdes (sem branch protection no plano Free, o GitHub não impede o merge) | — | | |
 | 3 | Herdadas: apagar as branches das tarefas mergeadas; P-013, P-010, P-007 (dados oficiais); convenções geométricas P-001..P-003 | não | | |
 
