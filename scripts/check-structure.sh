@@ -87,10 +87,12 @@ echo "3. Tarefas"
 shopt -s nullglob
 in_progress=(tasks/in-progress/*.md)
 n_in_progress=${#in_progress[@]}
-if (( n_in_progress > 2 )); then
-  fail "há ${n_in_progress} tarefas em tasks/in-progress/ (máximo recomendado: 2)"
-elif (( n_in_progress == 2 )); then
-  warn "há 2 tarefas em tasks/in-progress/ — confirme que não tocam os mesmos arquivos"
+# Máximo de tarefas em paralelo: decisão da pessoa responsável em 2026-09-26 (TASK-006).
+max_in_progress=4
+if (( n_in_progress > max_in_progress )); then
+  fail "há ${n_in_progress} tarefas em tasks/in-progress/ (máximo: ${max_in_progress})"
+elif (( n_in_progress >= 2 )); then
+  warn "há ${n_in_progress} tarefas em tasks/in-progress/ — confirme que não tocam os mesmos arquivos"
 else
   ok "${n_in_progress} tarefa(s) em in-progress"
 fi
@@ -106,10 +108,10 @@ for t in "${in_progress[@]}"; do
   if ! grep -qE '^- \[[ x]\] \*\*CA-[0-9]+\*\*' "$t"; then
     warn "tarefa sem critérios no formato '- [ ] **CA-n** — ...': $t"
   fi
-  # handoff deve referenciar a tarefa em andamento
+  # handoff da tarefa: handoffs/TASK-NNN.md (tarefas em paralelo) ou menção em handoffs/current.md
   id=$(echo "$base" | grep -oE '^TASK-[0-9]+')
-  if [[ -f handoffs/current.md ]] && ! grep -q "$id" handoffs/current.md; then
-    fail "handoffs/current.md não menciona a tarefa em andamento $id"
+  if [[ ! -f "handoffs/${id}.md" ]] && [[ -f handoffs/current.md ]] && ! grep -q "$id" handoffs/current.md; then
+    fail "tarefa em andamento $id sem handoff: crie handoffs/${id}.md (ou mencione-a em handoffs/current.md)"
   fi
 done
 

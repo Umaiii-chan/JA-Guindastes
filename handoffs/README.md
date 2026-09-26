@@ -32,6 +32,19 @@ Pessoa lê, responde pendências, commita ◄───────────�
 Agente B lê current.md ──► trabalha ──► repete
 ```
 
+## Tarefas em paralelo
+
+Decisão da pessoa responsável em 2026-09-26 (TASK-006): até 4 tarefas podem ficar em
+`tasks/in-progress/` ao mesmo tempo, desde que não toquem os mesmos arquivos. Nesse caso:
+
+1. cada tarefa escreve o próprio handoff em `handoffs/TASK-NNN.md` (mesmo template);
+2. a branch da tarefa **não** edita `handoffs/current.md`, que vira o índice geral (estado do projeto,
+   autorizações permanentes da pessoa e pendências gerais);
+3. quando a tarefa vai para `tasks/completed/`, o `handoffs/TASK-NNN.md` vai para
+   `history/AAAA-MM-DD-TASK-NNN-<etapa>.md`;
+4. o `scripts/check-structure.sh` aceita o handoff da tarefa em `handoffs/TASK-NNN.md` ou uma menção
+   ao ID dela em `current.md`.
+
 ## Convenção de nome no histórico
 
 `AAAA-MM-DD-TASK-NNN-<etapa>.md`, onde etapa ∈ {criacao, planejamento, testes, implementacao,
