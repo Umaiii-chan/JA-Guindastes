@@ -5,6 +5,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { guidedStepStatuses } from '../../../src/application/simulator/guidedSteps'
+import { CameraPresetButtons } from '../../../src/presentation/simulator/CameraPresetButtons'
 import { ConnectionStatusBar } from '../../../src/presentation/simulator/ConnectionStatusBar'
 import { GuidedStepsPanel } from '../../../src/presentation/simulator/GuidedStepsPanel'
 
@@ -98,6 +99,22 @@ describe('ConnectionStatusBar', () => {
     )
     expect(bar.textContent).toContain('Último resultado por REST')
     expect(bar.textContent).toContain('atualizando')
+  })
+
+  it('os botões de câmera marcam a predefinição escolhida e avisam a escolha', () => {
+    const onSelect = vi.fn()
+    render(<CameraPresetButtons active="topo" onSelect={onSelect} />)
+    const group = screen.getByRole('group', { name: 'Câmera' })
+    expect(
+      within(group)
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label')),
+    ).toEqual(['Câmera em perspectiva', 'Câmera lateral', 'Câmera de topo', 'Câmera do operador'])
+    expect(
+      screen.getByRole('button', { name: 'Câmera de topo' }).getAttribute('aria-pressed'),
+    ).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Câmera lateral' }))
+    expect(onSelect).toHaveBeenCalledWith('lateral')
   })
 
   it('aceita as ações de câmera no lugar da dica (encaixe da TASK-041)', () => {
