@@ -1,0 +1,33 @@
+# Ambiente local de desenvolvimento (doc-fonte § 22.1; ADR-007; TASK-011).
+# Por enquanto só o PostgreSQL: backend e frontend rodam direto na máquina (uv e npm) até serem
+# conteinerizados. Comandos em docs/development-guide.md § 3.
+#
+# As credenciais vêm do .env da raiz (copiado de .env.example; ignorado pelo Git). Nenhum valor real
+# fica neste arquivo. As variáveis POSTGRES_* só valem na PRIMEIRA subida, quando o volume é criado.
+
+# Nome fixo: o volume fica "ja-guindastes_postgres-data" em qualquer pasta ou worktree do projeto.
+name: ja-guindastes
+
+services:
+  postgres:
+    # Tag major fixada (PostgreSQL 18). Trocar de major exige migrar os dados do volume.
+    image: postgres:18
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env (ver .env.example)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env (ver .env.example)}
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env (ver .env.example)}
+    ports:
+      # Só na interface local da máquina: o banco não fica exposto na rede.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # A partir do PostgreSQL 18, a imagem oficial guarda os dados em /var/lib/postgresql/18/docker;
+      # o volume é montado no diretório pai, como a imagem espera.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
