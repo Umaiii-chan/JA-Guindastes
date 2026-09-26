@@ -1,0 +1,128 @@
+.viewport {
+  position: fixed;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(380px, calc(100vw - 2 * var(--space-5)));
+  pointer-events: none;
+}
+
+.ok {
+  --tone: var(--color-status-ok);
+}
+
+.warning {
+  --tone: var(--color-status-warning);
+}
+
+.danger {
+  --tone: var(--color-status-danger);
+}
+
+.neutral {
+  --tone: var(--color-status-neutral);
+}
+
+.info {
+  --tone: var(--color-accent);
+}
+
+.toast {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-strong);
+  background: var(--glass-highlight), var(--glass-bg-strong);
+  backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: var(--shadow-overlay);
+  overflow: hidden;
+  pointer-events: auto;
+  animation: toast-in var(--duration-slow) var(--ease-spring);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .toast {
+    background: var(--glass-bg-solid);
+  }
+}
+
+.icon {
+  display: grid;
+  flex: none;
+  padding-top: 1px;
+  color: var(--tone);
+}
+
+.content {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.description {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-3);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.close:hover {
+  color: var(--color-text-1);
+  background: rgb(148 178 214 / 0.1);
+}
+
+.timer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--tone);
+  transform-origin: left;
+  opacity: 0.7;
+  animation: timer linear forwards;
+}
+
+.timerPaused {
+  animation-play-state: paused;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+
+@keyframes timer {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}

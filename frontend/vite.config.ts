@@ -36,7 +36,10 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['tests/**/*.test.ts'],
+    // Os testes de componente (TASK-039) são `.test.tsx` e pedem o jsdom no próprio arquivo
+    // (`// @vitest-environment jsdom`); os demais continuam no ambiente node.
+    include: ['tests/**/*.test.{ts,tsx}'],
     environment: 'node',
+    setupFiles: ['tests/setup.ts'],
   },
 })
