@@ -186,7 +186,7 @@ individualmente; o que se revisa neles é o conjunto, não cada linha.)
 git checkout development && git pull
 git checkout -b task/TASK-012-login-por-email
 git mv tasks/backlog/TASK-012-login-por-email.md tasks/in-progress/
-# editar handoffs/current.md
+# criar handoffs/TASK-012.md (com tarefas em paralelo, a branch não edita handoffs/current.md)
 git add -A && git commit -m "chore(tasks): iniciar TASK-012"
 
 # 2. durante o trabalho (repetir muitas vezes)

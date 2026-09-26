@@ -10,7 +10,7 @@
 | Nome do projeto | Simulador Web 3D para Análise de Tabelas de Carga de Guindastes |
 | Pessoa responsável | Anderson Sehnem |
 | Repositório | `Umaiii-chan/JA-Guindastes` (GitHub, privado) |
-| Última revisão deste documento | 2026-09-26 |
+| Última revisão deste documento | 2026-09-26 (TASK-037: stack e glossário) |
 
 ---
 
@@ -108,8 +108,8 @@ Toolchain no [ADR-012](decisions/ADR-012-toolchain-de-desenvolvimento.md); vers�
 |--------|-----------|--------|
 | Linguagem | TypeScript (frontend); Python (backend) | TypeScript 6.0; Python 3.14 |
 | Framework | React + Three.js + Vite (frontend); FastAPI (backend) | React 19, Three.js 0.186, Vite 8; FastAPI 0.141 |
-| Banco de dados | PostgreSQL | definida na TASK-011 (persistência) |
-| Infra / deploy | Docker Compose em desenvolvimento (doc-fonte § 22); implantação fora do ambiente local: não definida | A VALIDAR |
+| Banco de dados | PostgreSQL, com SQLAlchemy 2 + psycopg 3 e Alembic | PostgreSQL 18 (imagem `postgres:18`, TASK-011) |
+| Infra / deploy | Docker Compose em desenvolvimento com `postgres`, `backend` e `frontend` (doc-fonte § 22; TASK-027); implantação fora do ambiente local: não definida (P-011) | Docker 29 / Compose v2+ ([`development-guide.md`](development-guide.md) § 1); implantação PENDENTE |
 
 ## 7. Integrações externas
 
@@ -150,8 +150,8 @@ estão marcados e registrados em [`known-gaps.md`](known-gaps.md).
 | Simulation | agrega equipamento, configuração, carga, status e histórico relevante |
 | SimulationState | snapshot operacional: comprimento/ângulo da lança, giro, cabo, raio, altura |
 | SimulationResult | resultado do motor: capacidade admissível, utilização, status e motivos/alertas |
-| Raio de trabalho | **definição PENDENTE** (ponto de referência da medição não definido na doc-fonte) |
-| Comprimento de lança | **definição PENDENTE** (tratamento de lança telescópica não definido na doc-fonte) |
+| Raio de trabalho | **definição PENDENTE** (ponto de referência da medição não definido na doc-fonte); convenção provisória em uso: do eixo de giro até a vertical do gancho ([ADR-013](decisions/ADR-013-convencoes-geometricas-provisorias.md), A VALIDAR) |
+| Comprimento de lança | **definição PENDENTE** (tratamento de lança telescópica não definido na doc-fonte); convenção provisória: [ADR-013](decisions/ADR-013-convencoes-geometricas-provisorias.md) |
 
 ## 10. Documentos relacionados
 
