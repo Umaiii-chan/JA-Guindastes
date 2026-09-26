@@ -25,6 +25,23 @@ import {
   statusCssColor,
   toCssHex,
 } from './palette'
+import {
+  type CraneModelLoader,
+  type CraneModelUpgradeResult,
+  loadDefaultCraneModel,
+  upgradeCraneModel,
+} from './upgradeCraneModel'
+
+/** Opções de `mountCraneScene`. */
+export interface MountCraneSceneOptions {
+  /**
+   * Carregador do modelo 3D que substitui o guindaste provisório. Padrão: o GLB público
+   * (`loadDefaultCraneModel`). `null`: fica no provisório.
+   */
+  readonly loadModel?: CraneModelLoader | null
+  /** Avisado quando a troca termina, com o modelo em uso ou o motivo de ficar no provisório. */
+  readonly onModelResult?: (result: CraneModelUpgradeResult) => void
+}
 
 /** Opções de `setCameraPreset`. */
 export interface CameraPresetOptions {
@@ -84,9 +101,18 @@ function createRadiusLabelElement(): HTMLDivElement {
  * os FICTÍCIOS da PoC; TASK-033). Lança erro se o navegador não oferecer WebGL.
  *
  * A renderização pausa com a aba oculta e volta quando ela aparece (TASK-041, CA-6).
+ *
+ * Em seguida baixa o modelo 3D ilustrativo (`options.loadModel`, por padrão o GLB público) e troca o
+ * guindaste provisório por ele quando chega, na mesma pose e com os mesmos comandos; se falhar, a cena
+ * fica no provisório com aviso no console. `loadModel: null` desliga o carregamento.
  */
-export function mountCraneScene(container: HTMLElement, setup?: CraneSetup): CraneSceneHandle {
-  const { scene, crane, environment, radiusIndicator, hookLoad } = buildCraneScene(setup)
+export function mountCraneScene(
+  container: HTMLElement,
+  setup?: CraneSetup,
+  options: MountCraneSceneOptions = {},
+): CraneSceneHandle {
+  const contents = buildCraneScene(setup)
+  const { scene, crane, environment, radiusIndicator, hookLoad } = contents
 
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -178,6 +204,15 @@ export function mountCraneScene(container: HTMLElement, setup?: CraneSetup): Cra
   document.addEventListener('visibilitychange', onVisibilityChange)
   if (!document.hidden) renderer.setAnimationLoop(renderFrame)
 
+  // Modelo 3D: carrega em segundo plano; enquanto isso, o provisório fica na cena.
+  const modelAbort = new AbortController()
+  const loadModel = options.loadModel === undefined ? loadDefaultCraneModel : options.loadModel
+  if (loadModel) {
+    void upgradeCraneModel(contents, loadModel, { signal: modelAbort.signal }).then((result) =>
+      options.onModelResult?.(result),
+    )
+  }
+
   const handle: CraneSceneHandle = {
     crane,
     setEvaluationStatus(status) {
@@ -195,6 +230,7 @@ export function mountCraneScene(container: HTMLElement, setup?: CraneSetup): Cra
         turretRotationDeg: crane.getState().turretRotationDeg,
         geometry: crane.getOperationalGeometry(),
         maxReachM: radiusIndicator.reach.maxM,
+        operatorEye: contents.operatorEye ?? undefined,
       })
       const animate = (options.animate ?? true) && !prefersReducedMotion()
       if (!animate) {
@@ -213,6 +249,8 @@ export function mountCraneScene(container: HTMLElement, setup?: CraneSetup): Cra
     dispose() {
       if (disposed) return
       disposed = true
+      // Um GLB que chegue depois é liberado por `upgradeCraneModel` sem entrar na cena.
+      modelAbort.abort()
       renderer.setAnimationLoop(null)
       document.removeEventListener('visibilitychange', onVisibilityChange)
       resizeObserver.disconnect()
