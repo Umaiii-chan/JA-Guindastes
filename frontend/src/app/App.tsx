@@ -6,6 +6,7 @@ import { SceneErrorBoundary } from '../presentation/components/SceneErrorBoundar
 import { BackendEvaluationPanel } from '../presentation/panels/BackendEvaluationPanel'
 import { type CraneControlKey, CraneControlPanel } from '../presentation/panels/CraneControlPanel'
 import { EvaluationInputPanel } from '../presentation/panels/EvaluationInputPanel'
+import { LoadChartAndLoadPanels } from '../presentation/panels/LoadChartAndLoadPanels'
 import { OperationalGeometryPanel } from '../presentation/panels/OperationalGeometryPanel'
 import type { CraneCommands, CraneState } from '../three/crane/types'
 import { buildEvaluationInput } from './evaluationInput'
@@ -102,6 +103,10 @@ export default function App() {
             configurationId={configurationId}
             loadWeightText={loadWeightText}
             onConfigurationIdChange={setConfigurationId}
+            onLoadWeightTextChange={setLoadWeightText}
+          />
+          <LoadChartAndLoadPanels
+            configurationId={configurationId}
             onLoadWeightTextChange={setLoadWeightText}
           />
           <BackendEvaluationPanel
