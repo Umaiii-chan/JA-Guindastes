@@ -124,9 +124,9 @@ Não há: todo o comportamento é verificado pelos testes automatizados com fake
 | # | Passo | Arquivos | Como verificar | Feito |
 |---|-------|----------|----------------|-------|
 | 1 | Criar esta tarefa | `tasks/in-progress/` | `check-structure.sh` | [x] |
-| 2 | Portas, caso de uso e tipos do resultado | `app/application/ports/`, `app/application/use_cases/` | mypy, lint-imports | [ ] |
-| 3 | Fixture FICTÍCIA e testes com fakes | `tests/application/`, `tests/fixtures/` | CA-1..CA-7, pytest | [ ] |
-| 4 | Handoff | `handoffs/TASK-015.md` | CA-8, CA-9 | [ ] |
+| 2 | Portas, caso de uso e tipos do resultado | `app/application/ports/`, `app/application/use_cases/` | mypy, lint-imports | [x] |
+| 3 | Fixture FICTÍCIA e testes com fakes | `tests/application/`, `tests/fixtures/` | CA-1..CA-7, pytest | [x] |
+| 4 | Handoff | `handoffs/TASK-015.md` | CA-8, CA-9 | [x] |
 
 **Análise de impacto:**
 - Arquivos que podem quebrar indiretamente: nenhum (só arquivos novos; nada existente os importa).
@@ -139,7 +139,15 @@ Não há: todo o comportamento é verificado pelos testes automatizados com fake
 
 | Cenário | Critério | Tipo | Arquivo de teste | Status |
 |---------|----------|------|------------------|--------|
-| — | — | — | `backend/tests/application/test_evaluate_operation.py` | — |
+| providers recebem o `configuration_id` pedido | CA-1 | unitário | `backend/tests/application/test_evaluate_operation.py` | verde |
+| estado sobre ponto da tabela → avaliado com capacidade, utilização, geometria do domínio, id e versão | CA-2 | unitário | `backend/tests/application/test_evaluate_operation.py` | verde |
+| utilização = carga / capacidade × 100 (0 %, 75 %, 100 %, 125 %) | CA-2 | unitário | `backend/tests/application/test_evaluate_operation.py` | verde |
+| raio calculado fora da tabela; L entre colunas; capacidade 0 kg → não avaliável com motivo, id e versão | CA-3 | unitário | `backend/tests/application/test_evaluate_operation.py` | verde |
+| estado fora das faixas (uma e várias violações) e R < 0 → não avaliável, sem exceção e sem consulta | CA-4 | unitário | `backend/tests/application/test_evaluate_operation.py` | verde |
+| sem tabela ativa (geometria mantida); sem ficha técnica; os dois motivos juntos na ordem das etapas | CA-5 | unitário | `backend/tests/application/test_evaluate_operation.py` | verde |
+| consulta com L do estado e raio calculado; estratégia injetada; raio igual ao tabelado só na conta à mão não é achado | CA-6 | unitário | `backend/tests/application/test_evaluate_operation.py` | verde |
+| carga acima da capacidade só "avaliada", sem `status` | CA-7 | unitário | `backend/tests/application/test_evaluate_operation.py` | verde |
+| provedor devolve tabela de outra configuração ou não `ACTIVE` → erro de contrato | CA-1 | unitário | `backend/tests/application/test_evaluate_operation.py` | verde |
 
 ## 10. Parecer da revisão (preenchido pelo Revisor)
 
