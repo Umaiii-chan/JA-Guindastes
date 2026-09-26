@@ -43,7 +43,7 @@ mensuráveis: "responde em < 300 ms no p95", "suporta 500 usuários simultâneos
 
 ## Índice
 
-| ID | Título | Prioridade | Status | Tarefas |
-|----|--------|------------|--------|---------|
-| RF-001 | `<preencher>` | Must | Proposto | — |
-| RNF-001 | `<preencher>` | Must | Proposto | — |
+| Arquivo | Conteúdo | Status |
+|---------|----------|--------|
+| [`functional.md`](functional.md) | RF-001..RF-024, transcritos da doc-fonte § 4 | Proposto |
+| [`non-functional.md`](non-functional.md) | RNF-001..RNF-012, transcritos da doc-fonte § 5 | Proposto |

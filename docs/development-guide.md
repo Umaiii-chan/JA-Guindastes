@@ -1,14 +1,16 @@
 # Guia de desenvolvimento
 
-> **Status deste documento:** `<preencher>`. Os comandos listados aqui são os **únicos** que os
-> agentes devem executar. Se um comando não está aqui, o agente pergunta antes de rodar.
+> **Status deste documento:** parcial (2026-09-26). Ainda não existe código: todo comando que depende
+> de `frontend/` ou `backend/` está marcado **A VALIDAR** e será definido nas tarefas de toolchain e de
+> esqueleto. Os comandos listados aqui são os **únicos** que os agentes devem executar. Se um comando
+> não está aqui, ou está "A VALIDAR", o agente pergunta antes de rodar.
 > Mantenha este documento sincronizado com o CI (`.github/workflows/ci.yml`): os dois devem rodar
 > os mesmos comandos.
 
 | Campo | Valor |
 |-------|-------|
-| Última revisão | `<AAAA-MM-DD>` |
-| Stack | `<linguagem> <versão>` / `<framework>` / `<banco>` |
+| Última revisão | 2026-09-26 |
+| Stack | TypeScript + React + Three.js (frontend) / Python + FastAPI (backend) / PostgreSQL — versões A VALIDAR |
 
 ---
 
@@ -16,9 +18,11 @@
 
 | Ferramenta | Versão | Como instalar / verificar |
 |------------|--------|---------------------------|
-| `<ex.: Node.js>` | `<ex.: 22.x>` | `node --version` |
-| `<ex.: gerenciador de pacotes>` | `<versão>` | `<comando>` |
 | Git | 2.x | `git --version` |
+| Bash (Git Bash no Windows) | — | necessário para `scripts/check-structure.sh` |
+| Node.js e gerenciador de pacotes do frontend | A VALIDAR | A VALIDAR |
+| Python e gerenciador de pacotes do backend | A VALIDAR | A VALIDAR |
+| Docker + Docker Compose (ambiente local previsto na doc-fonte § 22) | A VALIDAR | A VALIDAR |
 
 ---
 
@@ -26,11 +30,11 @@
 
 ```bash
 # clonar
-git clone <url-do-repositorio>
-cd <nome-do-projeto>
+git clone https://github.com/Umaiii-chan/JA-Guindastes.git
+cd JA-Guindastes
 
 # instalar dependências
-<preencher>          # ex.: npm ci | uv sync | go mod download | dotnet restore
+# A VALIDAR — ainda não existe código (tarefas de esqueleto do backend e do frontend)
 
 # configurar ambiente
 cp .env.example .env
@@ -45,39 +49,51 @@ cp .env.example .env
 
 | Ação | Comando | Observações |
 |------|---------|-------------|
-| Rodar em desenvolvimento | `<preencher>` | |
-| Rodar testes | `<preencher>` | ver [`testing-strategy.md`](testing-strategy.md) |
-| Rodar um teste específico | `<preencher>` | |
-| Lint | `<preencher>` | |
-| Formatação (verificar) | `<preencher>` | |
-| Formatação (corrigir) | `<preencher>` | |
-| Verificação de tipos | `<preencher>` | se aplicável |
-| Build | `<preencher>` | |
-| Migrations (criar) | `<preencher>` | se aplicável |
-| Migrations (aplicar) | `<preencher>` | se aplicável |
-| Auditoria de dependências | `<preencher>` | ex.: `npm audit`, `pip-audit`, `govulncheck` — ver [`security.md`](security.md) § 5 |
+| Rodar em desenvolvimento | A VALIDAR | doc-fonte § 22 prevê Docker Compose com frontend, backend e postgres |
+| Rodar testes | A VALIDAR | ver [`testing-strategy.md`](testing-strategy.md) e doc-fonte § 20 |
+| Rodar um teste específico | A VALIDAR | |
+| Lint | A VALIDAR | |
+| Formatação (verificar) | A VALIDAR | |
+| Formatação (corrigir) | A VALIDAR | |
+| Verificação de tipos | A VALIDAR | tipagem estática no frontend e type hints no backend (RNF-008) |
+| Build | A VALIDAR | |
+| Migrations (criar) | A VALIDAR | ferramenta não definida na doc-fonte |
+| Migrations (aplicar) | A VALIDAR | |
+| Auditoria de dependências | A VALIDAR | ver [`security.md`](security.md) § 5 |
 | Validar estrutura do repo | `bash scripts/check-structure.sh` | universal, já funciona |
 
-Comando único que roda tudo antes de abrir PR (crie um script/alias e documente aqui):
+Comando único que roda tudo antes de abrir PR:
 
 ```bash
-<preencher>   # ex.: npm run check  →  lint + format:check + typecheck + test + build
+# A VALIDAR — hoje o único gate existente é: bash scripts/check-structure.sh
 ```
 
 ---
 
 ## 4. Estrutura de pastas do código
 
-```text
-src/
-├── <preencher>/     ← descrição
-├── <preencher>/     ← descrição
-└── <preencher>/     ← descrição
+Estrutura **planejada** (doc-fonte § 9, adaptada à raiz deste repositório). Nada disso existe ainda.
 
-tests/
-├── unit/
-├── integration/
-└── e2e/             ← se houver
+```text
+frontend/
+├── src/
+│   ├── app/             ← bootstrap, router, providers
+│   ├── domain/          ← tipos e regras locais independentes da UI
+│   ├── application/     ← casos de uso do cliente / orquestração
+│   ├── infrastructure/  ← api/ e websocket/
+│   ├── presentation/    ← pages/, components/, panels/
+│   └── three/           ← scene/, camera/, controls/, loaders/, crane/, animation/, collision/
+└── tests/
+backend/
+├── app/
+│   ├── domain/          ← entities/, value_objects/, services/, exceptions/
+│   ├── application/     ← ports/, use_cases/
+│   ├── infrastructure/  ← database/, repositories/, storage/, importers/
+│   └── presentation/    ← api/, websocket/
+└── tests/
+assets/example-models/   ← modelos 3D de exemplo
+docker/                  ← imagens e configuração do Docker Compose
+docs/                    ← documentação do projeto (este diretório); doc-fonte em docs/produto/
 ```
 
 Regras de dependência entre pastas estão em [`architecture.md`](architecture.md) § 3.
@@ -88,20 +104,20 @@ Regras de dependência entre pastas estão em [`architecture.md`](architecture.m
 
 | Tema | Convenção |
 |------|-----------|
-| Estilo | `<ex.: seguir o linter configurado; não desligar regras sem ADR>` |
-| Nomes de arquivos | `<ex.: kebab-case.ts>` |
-| Nomes de classes/funções | `<preencher>` |
-| Tratamento de erros | `<ex.: nunca engolir exceção; erros de domínio em src/domain/errors>` |
-| Logs | `<ex.: usar o logger do projeto; nunca console.log/print em código de produção>` |
+| Estilo | seguir o linter configurado (A VALIDAR); não desligar regras sem ADR |
+| Nomes de arquivos | A VALIDAR (definido no esqueleto de cada serviço) |
+| Nomes de classes/funções | entidades de domínio com os nomes em inglês da doc-fonte § 10.2 (`Crane`, `LoadChart`, `CraneConfiguration`...); casos de uso como na § 11.1 (`CreateCrane`, `CalculateCapacity`...) |
+| Campos com unidade | sufixo da unidade no nome, como nos contratos da doc-fonte §§ 14–15 (`boom_length_m`, `boom_angle_deg`, `load_weight_kg`) |
+| Tratamento de erros | consulta fora do domínio da tabela é erro/resultado de domínio explícito, nunca extrapolação silenciosa (RN-007; doc-fonte § 14.4) |
+| Logs | não substituem os dados persistidos necessários para reproduzir um resultado (doc-fonte § 21) |
 | Comentários | explicam **por quê**, não **o quê** |
-| Idioma | código em inglês; docs, commits e comentários em `<português/inglês>` |
+| Idioma | código em inglês; docs e commits em português; comentários no código: A VALIDAR |
 
 ---
 
 ## 6. Variáveis de ambiente
 
 Documentadas em [`.env.example`](../.env.example) na raiz. Regras:
-
 - toda variável nova entra em `.env.example` **na mesma tarefa** em que passa a ser lida;
 - valores reais nunca vão para o repositório;
 - em CI, variáveis vêm do próprio workflow;
@@ -114,7 +130,6 @@ Documentadas em [`.env.example`](../.env.example) na raiz. Regras:
 ## 7. Fluxo de branches e commits
 
 Resumo (detalhes em [`guides/git-github.md`](guides/git-github.md)):
-
 - Três branches longas, uma por ambiente: `development` (default), `homologation` e `production`.
   Nenhuma recebe commit direto — só PR.
 - Uma branch por tarefa: `task/<TASK-ID>-<slug>`, criada a partir de `development` e mesclada de
@@ -138,7 +153,7 @@ Agentes **não alteram** estes arquivos sem autorização explícita registrada 
 | `docs/decisions/ADR-*` com status Aceito | histórico de decisões | ninguém (criar novo ADR) |
 | `handoffs/history/`, `tasks/completed/` | histórico | ninguém |
 | `.github/workflows/*` | segurança do CI | pessoa responsável |
-| `<preencher>` | `<ex.: schema de produção, contratos de API públicos>` | `<preencher>` |
+| `docs/produto/documentacao-tecnica-v0.1.md` e `docs/produto/diagrams/` | cópia congelada da doc-fonte v0.1; uma versão nova entra como arquivo novo | ninguém (nova versão = novo arquivo) |
 
 ---
 
@@ -146,6 +161,6 @@ Agentes **não alteram** estes arquivos sem autorização explícita registrada 
 
 | Sintoma | Causa provável | Solução |
 |---------|----------------|---------|
-| `<preencher>` | `<preencher>` | `<preencher>` |
+| No Windows, `python` abre a Microsoft Store ou diz "Python não foi encontrado" | alias de execução do Windows para a Store | desativar o alias em Configurações > Aplicativos > Configurações avançadas > Aliases de execução, ou usar o Python do gerenciador definido na tarefa de toolchain |
 
 Agentes: ao resolver um problema de ambiente que tomou tempo, adicione uma linha aqui.
