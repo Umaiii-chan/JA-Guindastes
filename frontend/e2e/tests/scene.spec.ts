@@ -1,19 +1,30 @@
-// Página, cena 3D e sliders, sem depender do backend (TASK-036). Roda contra o `vite preview` local
-// e contra a stack Docker no CI.
+// Casca, páginas, cena 3D e simulador guiado, sem depender do backend (TASK-036, adaptado às páginas
+// da TASK-039). O catálogo é FICTÍCIO e respondido no navegador (catalogMock.ts). Roda contra o
+// `vite preview` local e contra a stack Docker no CI.
 
 import { expect, type Locator, type Page, test } from '@playwright/test'
 
-const TITLE = 'Simulador de Tabelas de Carga de Guindastes'
+import { chooseConfiguration, fillValidLoad, mockCatalog } from './catalogMock.js'
 
 function geometryValue(page: Page, label: string): Locator {
   return page.getByRole('region', { name: /Geometria/ }).locator(`dt:text-is("${label}") + dd`)
 }
 
-async function openApp(page: Page): Promise<string[]> {
+async function open(page: Page, path: string): Promise<string[]> {
   const pageErrors: string[] = []
   page.on('pageerror', (error) => pageErrors.push(error.message))
-  await page.goto('/')
+  await mockCatalog(page)
+  await page.goto(path)
   return pageErrors
+}
+
+/** Passos 1 e 2 concluídos: abre o passo 3 (Posição), com os sliders. */
+async function openPositionStep(page: Page): Promise<void> {
+  await chooseConfiguration(page)
+  await page.getByRole('button', { name: 'Continuar para Carga' }).click()
+  await fillValidLoad(page)
+  await page.getByRole('button', { name: 'Continuar para Posição' }).click()
+  await expect(page.getByLabel('Inclinação da lança')).toBeEnabled()
 }
 
 /** Leva o slider ao mínimo e ao máximo pelo teclado (eventos reais do navegador) e devolve o valor lido em cada ponta. */
@@ -27,39 +38,78 @@ async function readAtBothEnds(slider: Locator, value: Locator): Promise<[string,
   return [atMin, atMax]
 }
 
-test('a página carrega com o título e os painéis', async ({ page }) => {
-  const pageErrors = await openApp(page)
+test('o Início carrega com a casca, os atalhos, o resumo do catálogo e os avisos', async ({
+  page,
+}) => {
+  const pageErrors = await open(page, '/')
 
   await expect(page).toHaveTitle(/.+/)
-  await expect(page.getByRole('heading', { level: 1, name: TITLE })).toBeVisible()
-  await expect(page.getByRole('region', { name: 'Controles do guindaste' })).toBeVisible()
-  await expect(page.getByRole('region', { name: /Geometria/ })).toBeVisible()
-  await expect(page.getByRole('region', { name: /Avaliação/ })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Simulador de Tabelas de Carga de Guindastes' }),
+  ).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Atalhos' }).getByRole('link')).toHaveCount(3)
+  await expect(page.getByRole('list', { name: 'Contagens do catálogo' })).toBeVisible()
+  await expect(page.getByText('Dados FICTÍCIOS')).toBeVisible()
+  await expect(page.getByText('Estratégia PROVISÓRIA')).toBeVisible()
   expect(pageErrors).toEqual([])
 })
 
-test('a cena 3D aparece num canvas e libera os sliders', async ({ page }) => {
-  const pageErrors = await openApp(page)
+test('o trilho navega pelas páginas do ADR-017', async ({ page }) => {
+  const pageErrors = await open(page, '/')
+  const nav = page.getByRole('navigation', { name: 'Navegação principal' })
+
+  for (const name of ['Catálogo', 'Tabelas', 'Usuários', 'Simulador', 'Início']) {
+    await nav.getByRole('link', { name }).click()
+    await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
+    await expect(nav.getByRole('link', { name })).toHaveAttribute('aria-current', 'page')
+  }
+  await page.goto('/nao-existe')
+  await expect(page.getByRole('heading', { level: 1, name: 'Página não encontrada' })).toBeVisible()
+  expect(pageErrors).toEqual([])
+})
+
+test('a cena 3D aparece num canvas que ocupa a página do simulador', async ({ page }) => {
+  const pageErrors = await open(page, '/simulador')
 
   const canvas = page.locator('canvas')
   await expect(canvas).toHaveCount(1)
   await expect(canvas).toBeVisible()
   const box = await canvas.boundingBox()
-  expect(box?.width ?? 0).toBeGreaterThan(0)
-  expect(box?.height ?? 0).toBeGreaterThan(0)
-
-  // Os sliders só habilitam quando a cena montou e entregou os comandos do guindaste.
-  await expect(page.getByLabel('Inclinação da lança')).toBeEnabled()
+  expect(box?.width ?? 0).toBeGreaterThan(600)
+  expect(box?.height ?? 0).toBeGreaterThan(400)
   await expect(page.getByText('Não foi possível iniciar a cena 3D')).toHaveCount(0)
+  await expect(page.getByRole('group', { name: 'Status da conexão e câmera' })).toBeVisible()
+  expect(pageErrors).toEqual([])
+})
+
+test('os passos liberam em sequência: guindaste → carga → posição', async ({ page }) => {
+  const pageErrors = await open(page, '/simulador')
+  const steps = page.getByRole('list', { name: 'Passos da simulação' })
+
+  await expect(steps.getByRole('button', { name: /Passo 2/ })).toBeDisabled()
+  await expect(steps.getByRole('button', { name: /Passo 3/ })).toBeDisabled()
+
+  await chooseConfiguration(page)
+  await expect(steps.getByRole('button', { name: /Passo 2/ })).toBeEnabled()
+  await expect(steps.getByRole('button', { name: /Passo 3/ })).toBeDisabled()
+  await page.getByRole('button', { name: 'Continuar para Carga' }).click()
+
+  await fillValidLoad(page)
+  await expect(page.getByText('Carga válida: 3.000 kg vão para a avaliação.')).toBeVisible()
+  await page.getByRole('button', { name: 'Continuar para Posição' }).click()
+  await expect(page.getByLabel('Inclinação da lança')).toBeEnabled()
+  // 2 de 3; 3 de 3 se houver backend respondendo a avaliação.
+  await expect(page.getByText(/^[23] de 3 passos concluídos$/)).toBeVisible()
   expect(pageErrors).toEqual([])
 })
 
 test('a inclinação da lança muda o raio de trabalho e a altura da ponta na pré-visualização', async ({
   page,
 }) => {
-  const pageErrors = await openApp(page)
+  const pageErrors = await open(page, '/simulador')
+  await openPositionStep(page)
   const slider = page.getByLabel('Inclinação da lança')
-  await expect(slider).toBeEnabled()
 
   const radius = geometryValue(page, 'Raio de trabalho')
   const tipHeight = geometryValue(page, 'Altura da ponta')
@@ -75,25 +125,25 @@ test('a inclinação da lança muda o raio de trabalho e a altura da ponta na pr
 })
 
 test('o comprimento do cabo muda a altura do gancho na pré-visualização', async ({ page }) => {
-  await openApp(page)
-  const slider = page.getByLabel('Comprimento do cabo')
-  await expect(slider).toBeEnabled()
+  await open(page, '/simulador')
+  await openPositionStep(page)
 
   const [hookAtMin, hookAtMax] = await readAtBothEnds(
-    slider,
+    page.getByLabel('Comprimento do cabo'),
     geometryValue(page, 'Altura do gancho'),
   )
   expect(hookAtMin).toMatch(/\d m$/)
   expect(hookAtMax).toMatch(/\d m$/)
 })
 
-test('sem configuração informada, o painel de avaliação pede a configuração', async ({ page }) => {
-  await openApp(page)
-  await expect(page.getByLabel('Inclinação da lança')).toBeEnabled()
+test('sem configuração escolhida, o resultado pede a configuração', async ({ page }) => {
+  await open(page, '/simulador')
 
+  const result = page.getByRole('region', { name: /Avaliação/ })
   await expect(
-    page
-      .getByRole('region', { name: /Avaliação/ })
-      .getByText('Escolha a configuração (fabricante → guindaste → configuração) para avaliar.'),
+    result.getByText(
+      'Escolha a configuração (fabricante → guindaste → configuração) para avaliar.',
+    ),
   ).toBeVisible()
+  await expect(result.getByText('Sem avaliação')).toBeVisible()
 })
