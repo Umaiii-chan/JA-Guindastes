@@ -319,6 +319,8 @@ jobs:
         run: docker compose up --detach --no-build --wait --wait-timeout 180
       - name: Migrations dentro do container (Alembic)
         run: docker compose run --rm --no-deps backend alembic upgrade head
+      - name: Dados de demonstração FICTÍCIOS (seed da TASK-035)
+        run: docker compose run --rm --no-deps backend python -m app.demo_seed
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
@@ -335,6 +337,9 @@ jobs:
         env:
           E2E_BASE_URL: http://127.0.0.1:8080
           E2E_BACKEND: "1"
+          E2E_SEED_MANUFACTURER_ID: demo-ficticio-fabricante
+          E2E_SEED_CRANE_ID: demo-ficticio-guindaste
+          E2E_SEED_CONFIGURATION_ID: demo-ficticio-configuracao
         run: npm run e2e
       - name: Relatório do Playwright (em caso de falha)
         if: failure()
