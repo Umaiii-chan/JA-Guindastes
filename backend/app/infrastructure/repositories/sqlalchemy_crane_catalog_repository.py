@@ -1,9 +1,11 @@
 """Catálogo de guindastes no PostgreSQL via SQLAlchemy (TASK-022).
 
-Implementa `CraneCatalogRepository` e `CraneGeometryProvider`. Cada método abre a própria sessão e
-a própria transação (a aplicação ainda não tem porta de unidade de trabalho).
+Implementa `CraneCatalogRepository`, `CraneCatalogListing` (TASK-030) e `CraneGeometryProvider`.
+Cada método abre a própria sessão e a própria transação (a aplicação ainda não tem porta de unidade
+de trabalho).
 """
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -122,7 +124,7 @@ def _angle_or_none(value: float | None) -> Angle | None:
 
 
 class SqlAlchemyCraneCatalogRepository:
-    """Implementa `CraneCatalogRepository` e `CraneGeometryProvider`."""
+    """Implementa `CraneCatalogRepository`, `CraneCatalogListing` e `CraneGeometryProvider`."""
 
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
@@ -166,6 +168,30 @@ class SqlAlchemyCraneCatalogRepository:
         with self._session_factory() as session:
             model = session.get(CraneConfigurationModel, configuration_id)
             return None if model is None else geometry_from_model(model)
+
+    def list_manufacturers(self) -> list[Manufacturer]:
+        """`CraneCatalogListing` (TASK-030): todos, por nome e id."""
+        statement = select(ManufacturerModel).order_by(ManufacturerModel.name, ManufacturerModel.id)
+        with self._session_factory() as session:
+            return [manufacturer_from_model(model) for model in session.scalars(statement)]
+
+    def list_cranes(self, manufacturer_id: str | None = None) -> list[Crane]:
+        """`CraneCatalogListing` (TASK-030): todos ou os de um fabricante, por modelo e id."""
+        statement = select(CraneModel).order_by(CraneModel.model_name, CraneModel.id)
+        if manufacturer_id is not None:
+            statement = statement.where(CraneModel.manufacturer_id == manufacturer_id)
+        with self._session_factory() as session:
+            return [crane_from_model(model) for model in session.scalars(statement)]
+
+    def list_configurations(self, crane_id: str) -> list[CraneConfiguration]:
+        """`CraneCatalogListing` (TASK-030): as de um guindaste, por nome e id."""
+        statement = (
+            select(CraneConfigurationModel)
+            .where(CraneConfigurationModel.crane_id == crane_id)
+            .order_by(CraneConfigurationModel.name, CraneConfigurationModel.id)
+        )
+        with self._session_factory() as session:
+            return [configuration_from_model(model) for model in session.scalars(statement)]
 
     def _add(
         self,
