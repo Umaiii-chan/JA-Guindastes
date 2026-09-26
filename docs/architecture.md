@@ -8,7 +8,7 @@
 | Campo | Valor |
 |-------|-------|
 | Última revisão | 2026-09-26 |
-| ADRs que afetam este documento | ADR-002, ADR-003; ADR-004..011 (Aceitos em 2026-09-26; decisões da doc-fonte § 7) |
+| ADRs que afetam este documento | ADR-002, ADR-003; ADR-004..011 (Aceitos em 2026-09-26; decisões da doc-fonte § 7), ADR-012 (toolchain) |
 
 ---
 
@@ -177,6 +177,7 @@ Resumo com link. O detalhe está no ADR.
 | [ADR-009](decisions/ADR-009-tabelas-de-carga-estruturadas-no-banco.md) | Tabelas estruturadas no banco (doc-fonte § 7) | Aceito |
 | [ADR-010](decisions/ADR-010-rest-e-websocket.md) | REST + WebSocket (doc-fonte § 7) | Aceito |
 | [ADR-011](decisions/ADR-011-monorepo.md) | Monorepo (doc-fonte § 7) | Aceito |
+| [ADR-012](decisions/ADR-012-toolchain-de-desenvolvimento.md) | Toolchain: Python 3.14 + uv, ruff, mypy, pytest, import-linter, Alembic; Node 24 + npm, Vite, Three.js puro, Vitest, ESLint, Prettier | Aceito |
 
 ---
 

@@ -49,3 +49,4 @@ Crie um ADR quando a decisão:
 | [ADR-009](ADR-009-tabelas-de-carga-estruturadas-no-banco.md) | Tabelas estruturadas no banco (doc-fonte v0.1 § 7) | Aceito | 2026-09-26 |
 | [ADR-010](ADR-010-rest-e-websocket.md) | REST + WebSocket (doc-fonte v0.1 § 7) | Aceito | 2026-09-26 |
 | [ADR-011](ADR-011-monorepo.md) | Monorepo (doc-fonte v0.1 § 7) | Aceito | 2026-09-26 |
+| [ADR-012](ADR-012-toolchain-de-desenvolvimento.md) | Toolchain de desenvolvimento do backend e do frontend | Aceito | 2026-09-26 |
