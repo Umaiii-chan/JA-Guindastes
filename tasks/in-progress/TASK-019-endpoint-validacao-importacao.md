@@ -137,11 +137,11 @@ Decisões da pessoa responsável para esta tarefa (2026-09-26):
 | # | Passo | Arquivos | Como verificar | Feito |
 |---|-------|----------|----------------|-------|
 | 1 | Criar esta tarefa | `tasks/in-progress/TASK-019-endpoint-validacao-importacao.md` | `bash scripts/check-structure.sh` | [x] |
-| 2 | Adicionar `python-multipart` (o FastAPI 0.141 exige para `Form`/`File`) | `backend/pyproject.toml`, `backend/uv.lock` | `uv sync --locked`; import no Python 3.14 | [ ] |
-| 3 | Limite de upload, schemas, router e registro no `create_app` | `backend/app/presentation/api/*` | `mypy`, `ruff` | [ ] |
-| 4 | Raiz de composição com o `CsvLoadChartParser` | `backend/app/main.py` | `uv run lint-imports` | [ ] |
-| 5 | Testes com `TestClient` e CSVs FICTÍCIOS | `backend/tests/presentation/` | `uv run pytest` | [ ] |
-| 6 | Handoff | `handoffs/TASK-019.md` | `bash scripts/check-structure.sh` | [ ] |
+| 2 | Adicionar `python-multipart` (o FastAPI 0.141 exige para `Form`/`File`) | `backend/pyproject.toml`, `backend/uv.lock` | `uv sync --locked`; import no Python 3.14 | [x] |
+| 3 | Limite de upload, schemas, router e registro no `create_app` | `backend/app/presentation/api/*` | `mypy`, `ruff` | [x] |
+| 4 | Raiz de composição com o `CsvLoadChartParser` | `backend/app/main.py` | `uv run lint-imports` | [x] |
+| 5 | Testes com `TestClient` e CSVs FICTÍCIOS | `backend/tests/presentation/` | `uv run pytest` | [x] |
+| 6 | Handoff | `handoffs/TASK-019.md` | `bash scripts/check-structure.sh` | [x] |
 
 **Análise de impacto:**
 - Arquivos que podem quebrar indiretamente: `backend/tests/test_openapi.py` (importa
@@ -154,7 +154,22 @@ Decisões da pessoa responsável para esta tarefa (2026-09-26):
 
 | Cenário | Critério | Tipo | Arquivo de teste | Status |
 |---------|----------|------|------------------|--------|
-| a preencher na implementação | — | — | `backend/tests/presentation/` | — |
+| deve responder 200 `DRAFT` com metadados e os 6 pontos quando o CSV FICTÍCIO é válido | CA-1 | API (`TestClient`) | `backend/tests/presentation/test_load_charts_validate.py` | verde |
+| deve responder 200 `INVALID` com o relatório completo (linha, coluna, código, mensagem) e sem pontos | CA-2 | API | idem | verde |
+| deve devolver os metadados enviados também quando `INVALID` | CA-2 | API | idem | verde |
+| deve reportar `INVALID_ENCODING` quando o arquivo não é UTF-8 | CA-2 | API | idem | verde |
+| deve reportar `MISSING_METADATA` quando os campos têm só espaços | CA-2 | API | idem | verde |
+| não deve recusar por tamanho o arquivo com exatamente 1 MiB | CA-3 | API | idem | verde |
+| deve responder 413 sem chamar o parser quando o arquivo tem 1 MiB + 1 byte | CA-3 | API | idem | verde |
+| deve responder 413 na aplicação composta (`app.main:app`) | CA-3 | API | idem | verde |
+| deve responder 413 antes de ler o formulário quando o corpo passa do limite (`Content-Length`) | CA-3 | API | idem | verde |
+| deve aplicar o limite configurado no lugar do padrão | CA-3 | API | idem | verde |
+| deve responder 413 cortando a leitura quando o corpo sem `Content-Length` passa do limite | CA-3 | ASGI direto | `backend/tests/presentation/test_upload_limits.py` | verde |
+| deve aceitar corpo sem `Content-Length` dentro do limite | CA-3 | ASGI direto | idem | verde |
+| limite padrão é 1 MiB (provisório); corpo = arquivo + margem; limite inválido → `ValueError` | CA-3 | unitário | idem | verde |
+| deve responder o 422 do FastAPI sem `configuration_id`, `chart_id`, `version` ou `file`, com campo vazio, com texto no lugar do arquivo e sem corpo | CA-4 | API | `backend/tests/presentation/test_load_charts_validate.py` | verde |
+| deve publicar no OpenAPI o corpo multipart, o 200 (`DRAFT`/`INVALID`), o schema da inconsistência e os 413/422 | CA-5 | contrato | `backend/tests/presentation/test_openapi_load_charts.py` | verde |
+| sem parser, `create_app` não registra a rota | CA-6 | contrato | idem | verde |
 
 ## 10. Parecer da revisão (preenchido pelo Revisor)
 
