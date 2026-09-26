@@ -46,7 +46,7 @@ export const TRUCK_CRANE_LUFFING_NODE_NAMES = {
  * nos `extras` do nó base, em `medidasDoModelo`). A escala foi escolhida pela ficha FICTÍCIA de demo
  * (h = 3,3 m; lança recolhida de 12 m, com os tubos esticados); o pino da lança ficou em a ≈ −1,56 m,
  * e a ficha de demo do backend passou a usar a = −1,56 m (`backend/app/demo_seed.py`). O padrão
- * FICTÍCIO do frontend (`PROVISIONAL_CRANE_GEOMETRY`) ainda tem −1,2 m. Servem só de referência
+ * FICTÍCIO do frontend (`PROVISIONAL_CRANE_GEOMETRY`) também, desde a TASK-041. Servem só de referência
  * para a conferência de calibração: nunca são entrada de cálculo (RN-003; ADR-013 C-4, regra 1).
  */
 export const TRUCK_CRANE_MODEL_MEASUREMENTS = {
