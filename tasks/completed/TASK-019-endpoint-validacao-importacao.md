@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (leva TASK-018..019, tarefas em paralelo) |
 | **Iniciada em** | 2026-09-26 |
-| **Concluída em** | — |
+| **Concluída em** | 2026-09-26 |
 | **Branch** | `task/TASK-019-endpoint-validacao-importacao` (a partir de `438d812`, commit-base da leva TASK-018..019) |
-| **PR** | — |
+| **PR** | [#19](https://github.com/Umaiii-chan/JA-Guindastes/pull/19), mergeado em 2026-09-26 com CI verde |
 | **Requisitos** | RF-006, RF-009, RNF-006, RNF-007 |
 | **Regras de negócio** | RN-001, RN-005, RN-006 (aplicadas pelo caso de uso da TASK-010) |
 | **Estimativa** | M |
@@ -176,6 +176,8 @@ Decisões da pessoa responsável para esta tarefa (2026-09-26):
 —
 
 ## 11. Encerramento (preenchido ao mover para completed/)
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
 
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...

@@ -167,7 +167,7 @@ Sempre use `docs/templates/handoff-template.md`. Os campos mínimos são:
 Ao encerrar, copie o handoff da tarefa para `handoffs/history/<AAAA-MM-DD>-<TASK-ID>-<etapa>.md`
 e reescreva-o apontando para o próximo passo.
 
-**Tarefas em paralelo** (até 4, decisão de 2026-09-26): cada tarefa escreve o próprio handoff em
+**Tarefas em paralelo** (até 15, decisão de 2026-09-26; TASK-006 e TASK-021): cada tarefa escreve o próprio handoff em
 `handoffs/TASK-NNN.md` e **não** edita `handoffs/current.md`, que passa a ser o índice geral. Assim
 branches paralelas não entram em conflito. Detalhes em `handoffs/README.md`.
 

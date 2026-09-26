@@ -34,7 +34,7 @@ Agente B lê current.md ──► trabalha ──► repete
 
 ## Tarefas em paralelo
 
-Decisão da pessoa responsável em 2026-09-26 (TASK-006): até 4 tarefas podem ficar em
+Decisão da pessoa responsável em 2026-09-26 (TASK-006, ampliada na TASK-021): até 15 tarefas podem ficar em
 `tasks/in-progress/` ao mesmo tempo, desde que não toquem os mesmos arquivos. Nesse caso:
 
 1. cada tarefa escreve o próprio handoff em `handoffs/TASK-NNN.md` (mesmo template);
