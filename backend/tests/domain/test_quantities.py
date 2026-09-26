@@ -60,8 +60,8 @@ def test_length_and_mass_accept_zero(factory: QuantityFactory) -> None:
     factory(0.0)
 
 
-def test_angle_accepts_negative_values_because_sign_convention_is_pending() -> None:
-    # P-001 (known-gaps): zero e sentido dos ângulos não definidos; o domínio não restringe o sinal.
+def test_angle_accepts_negative_values_because_limits_come_from_crane_geometry() -> None:
+    # ADR-013: o value object não restringe o sinal; as faixas vêm da ficha técnica (CraneGeometry).
     assert Angle(-15.0).degrees == -15.0
 
 
