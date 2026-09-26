@@ -1,14 +1,14 @@
 # Estratégia de testes
 
-> **Status deste documento:** preenchido na TASK-037 (2026-09-26) com o que existe em `development`
-> @ `d58edf6`. Define o que é "testado" neste projeto. Um agente que disser "testei" sem seguir o que
+> **Status deste documento:** preenchido na TASK-037 (2026-09-26) com o que existe com a leva C
+> (TASK-033..036) integrada. Define o que é "testado" neste projeto. Um agente que disser "testei" sem seguir o que
 > está aqui está alucinando.
 
 | Campo | Valor |
 |-------|-------|
 | Última revisão | 2026-09-26 (TASK-037) |
-| Framework de testes | backend: pytest; frontend: Vitest (ADR-012) |
-| Comando principal | backend: `uv run pytest` (em `backend/`); frontend: `npm test` (em `frontend/`) — iguais aos de [`development-guide.md`](development-guide.md) § 3 |
+| Framework de testes | backend: pytest; frontend: Vitest (ADR-012); ponta a ponta: Playwright com Chromium (TASK-036) |
+| Comando principal | backend: `uv run pytest` (em `backend/`); frontend: `npm test` (em `frontend/`); E2E: `npm run e2e` (em `frontend/`) — iguais aos de [`development-guide.md`](development-guide.md) § 3 |
 
 ---
 
@@ -40,8 +40,10 @@
 | Paridade de geometria | os mesmos casos calculados à mão no backend e no frontend (ADR-013 C-7) | backend `tests/domain/test_geometry_service.py`; frontend `tests/fixtures/geometryParityCases.ts` (transcrição) | pytest e Vitest | os dois acima | sim |
 | Contrato | OpenAPI gerado pelo FastAPI (rotas e schemas presentes) | `backend/tests/test_openapi.py`, `presentation/test_openapi_*.py` | pytest | `uv run pytest` | sim |
 | Fumaça da stack Docker | build das imagens, `docker compose up --wait`, migrations no container, `/openapi.json`, `index.html` e proxy `/api/` pelo nginx | `.github/workflows/ci.yml` (job `docker`) | Docker Compose + curl | — (só no CI) | sim |
-| Ponta a ponta (e2e) | fluxo completo pela interface | não existe em `d58edf6` (TASK-036 em andamento) | — | — | não |
-| Manual | cena 3D no navegador, painel ligado ao backend, stack Docker local | descrito em cada tarefa (§ 7) | pessoa ou agente com navegador | — | não |
+| Ponta a ponta (E2E) — sem backend | a página carrega com os painéis; a cena 3D aparece num `canvas` (WebGL no SwiftShader, sem GPU) e libera os sliders; inclinação e cabo mudam raio e alturas da pré-visualização; sem configuração, o painel de avaliação pede a configuração | `frontend/e2e/tests/scene.spec.ts` | Playwright (Chromium, 1 worker) | `npm run e2e` (sobe `vite preview`) | sim (job `e2e`) |
+| Ponta a ponta (E2E) — com backend | o catálogo carrega do backend e, sem configuração escolhida, a avaliação não é enviada; com os dados semeados, seleção fabricante → guindaste → configuração + carga válida levam a "Avaliado" ou "Não avaliável", **nunca** por falta de ficha ou tabela ativa | `frontend/e2e/tests/evaluation.spec.ts` | Playwright | `E2E_BASE_URL=... E2E_BACKEND=1 npm run e2e` (+ `E2E_SEED_*` para o fluxo semeado) | sim: o job `e2e` sobe a stack Docker, migra, roda o seed da demo (`python -m app.demo_seed`) e passa `E2E_SEED_*` com os ids fixos `demo-ficticio-*`; sem essas variáveis, os testes são pulados |
+| Seed da demonstração | idempotência, tabela `SUPERSEDED` não reativada, ficha existente não sobrescrita, ficha FICTÍCIA espelhando o guindaste provisório do frontend, valores esperados do roteiro de [`demo.md`](demo.md), mensagens de erro da linha de comando | `backend/tests/test_demo_seed.py` (sem banco), `backend/tests/test_demo_seed_integration.py` (marcador `integration`) | pytest | `uv run pytest` | sim (job `backend`) |
+| Manual | cena 3D no navegador, interação com os painéis (cliques e digitação), stack Docker local, roteiro de [`demo.md`](demo.md) | descrito em cada tarefa (§ 7) | pessoa ou agente com navegador | — | não |
 
 Os tipos TypeScript do frontend que espelham os contratos REST e WebSocket
 (`frontend/src/infrastructure/api/evaluationContract.ts`, `infrastructure/websocket/evaluationMessages.ts`)
@@ -95,8 +97,10 @@ código, ver os testes falharem, restaurar) e registraram o resultado no handoff
 - [ ] há teste novo para cada critério de aceite (ou teste manual descrito e executado);
 - [ ] lint, formatação, tipos, camadas e build passam: o "comando único" de
       [`development-guide.md`](development-guide.md) § 3, igual aos jobs do CI;
-- [ ] os jobs do CI (`structure`, `backend`, `quality`, `docker`) estão verdes no PR — testes de
-      integração que não rodaram localmente precisam passar no CI;
+- [ ] os jobs do CI (`structure`, `backend`, `quality`, `docker`, `e2e`) estão verdes no PR — testes
+      de integração e E2E contra a stack que não rodaram localmente precisam passar no CI (se o
+      job `e2e` é obrigatório por branch protection está em aberto, TASK-036 § 8 item 3);
+- [ ] mudança na tela: `npm run e2e` local (sem backend) passa, ou o job `e2e` passa no PR;
 - [ ] nenhum teste foi marcado como `skip`/`ignore` sem justificativa no handoff;
 - [ ] saída do comando de teste está no handoff.
 
@@ -109,6 +113,7 @@ código, ver os testes falharem, restaurar) e registraram o resultado no handoff
 | Fixtures | `backend/tests/fixtures/` (tabelas, fichas técnicas, catálogo, CSVs em `load_chart_csv/`) e `frontend/tests/fixtures/` | sintéticos, rotulados FICTÍCIO, versionados; planilhas XLSX geradas em memória pelo openpyxl (nenhum binário) |
 | Modelo 3D | `assets/example-models/guindaste-provisorio.ficticio.glb` | exportado do guindaste provisório; o teste confere que está em dia (regeneração em `development-guide.md` § 3) |
 | Banco de teste | PostgreSQL 18: local via `docker compose up -d postgres`; no CI, serviço do job `backend` | migrations em `head` antes dos testes; transação desfeita ou limpeza no `finally` |
+| Dados do E2E | seed da demonstração (`backend/app/demo_seed.py`, CSVs em `backend/app/demo_data/`), rodado na stack Docker do job `e2e` | FICTÍCIOS; ids fixos `demo-ficticio-*`; a stack é derrubada com `--volumes` no fim |
 | Segredos de teste | variáveis do próprio workflow do CI (credenciais descartáveis do container, não são segredo) | nunca credencial real no repositório |
 
 ---
@@ -117,8 +122,8 @@ código, ver os testes falharem, restaurar) e registraram o resultado no handoff
 
 Também em [`known-gaps.md`](known-gaps.md) § 6.
 
-- Testes ponta a ponta pela interface (TASK-036 em andamento em `d58edf6`).
-- Componentes React com interação (exigiriam jsdom/Testing Library, dependências não autorizadas); a cena WebGL real (`mountCraneScene`) e o viewport são verificados só manualmente.
+- E2E: não cobre cadastro pela tela, importação/ativação de tabela pela tela nem o WebSocket de forma explícita (o teste semeado aceita o resultado por qualquer transporte); o job `e2e` não foi executado localmente (Docker indisponível; TASK-036 § 7).
+- Componentes React com interação no Vitest (exigiriam jsdom/Testing Library, dependências não autorizadas): a interação só é coberta pelos poucos fluxos do E2E e por verificação manual.
 - Integração com banco na máquina de desenvolvimento: só no CI (L-005).
 - WebSocket contra um servidor uvicorn real e pelo proxy do nginx (o job `docker` testa o proxy só com REST).
 - Casos de paridade backend × frontend num arquivo único (hoje transcritos; known-gaps D-004).

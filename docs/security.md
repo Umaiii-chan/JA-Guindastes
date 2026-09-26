@@ -1,7 +1,7 @@
 # Segurança — contexto do projeto
 
-> **Status deste documento:** preenchido na TASK-037 (2026-09-26) com o estado de `development` @
-> `d58edf6`. O sistema roda **só em ambiente local**, sem autenticação (P-009) e com limites de
+> **Status deste documento:** preenchido na TASK-037 (2026-09-26) com o estado da leva C
+> (TASK-033..036) integrada. O sistema roda **só em ambiente local**, sem autenticação (P-009) e com limites de
 > upload **provisórios** (P-008): não deve ser exposto fora da máquina. Este arquivo descreve a
 > situação de segurança **deste projeto**. As regras universais que todo agente segue estão em
 > [`policies/security.md`](policies/security.md) e não precisam ser repetidas aqui.
@@ -21,7 +21,7 @@ O sistema não tem usuários nem cadastro de pessoas: **não trata dado pessoal*
 |------|---------------|-------------------|-------------------------|
 | Catálogo (fabricantes, modelos, configurações e ficha técnica geométrica) | interno (técnico) | PostgreSQL (`manufacturers`, `cranes`, `crane_configurations`) | hoje só dados FICTÍCIOS de teste e demo |
 | Tabelas de carga e seus pontos | interno (técnico; dado oficial do fabricante, quando chegar) | PostgreSQL (`load_charts`, `load_chart_points`) | se os dados oficiais podem ir ao repositório e a agentes de IA está **PENDENTE** (P-007) |
-| Arquivo-fonte das tabelas importadas (CSV/XLSX) | interno (técnico) | disco local em `FILE_STORAGE_DIR`, nomeado pelo SHA-256 | fora do repositório; retenção e limpeza de arquivos órfãos **PENDENTES** (TASK-031 § 8 item 8) |
+| Arquivo-fonte das tabelas importadas (CSV/XLSX) | interno (técnico) | disco local em `FILE_STORAGE_DIR`, nomeado pelo SHA-256; no Docker Compose, `/data/load-charts` no volume `ja-guindastes_load-chart-files` | fora do repositório; retenção e limpeza de arquivos órfãos **PENDENTES** (TASK-031 § 8 item 8) |
 | Logs do backend | interno | saída do processo (uvicorn / `docker compose logs`) | a verificação de saúde registra só o tipo do erro; erros de configuração não repetem a `DATABASE_URL`; retenção não definida |
 
 Regra para agentes: dados classificados como **pessoal** ou **sensível** nunca aparecem em logs,
@@ -48,7 +48,7 @@ Mitigação atual: todas as portas do Docker Compose são publicadas só em `127
 
 | Segredo | Local | CI | development | homologation | production | Rotação |
 |---------|-------|----|-------------|--------------|------------|---------|
-| `POSTGRES_PASSWORD` (e `POSTGRES_USER`, `POSTGRES_DB`) | `.env` da raiz (lido pelo Docker Compose) | valor descartável no próprio workflow (`ci_only_not_a_secret`, só para o container efêmero) | PENDENTE (sem implantação; P-011) | PENDENTE | PENDENTE | PENDENTE |
+| `POSTGRES_PASSWORD` (e `POSTGRES_USER`, `POSTGRES_DB`) | `.env` da raiz (lido pelo Docker Compose) | valor descartável no próprio workflow (`ci_only_not_a_secret`, só para os containers efêmeros dos jobs `backend`, `docker` e `e2e`) | PENDENTE (sem implantação; P-011) | PENDENTE | PENDENTE | PENDENTE |
 | `DATABASE_URL` (contém a senha) | `.env`, exportado no shell para backend, Alembic e testes | idem, no ambiente do job `backend` | PENDENTE | PENDENTE | PENDENTE | PENDENTE |
 | `BACKEND_DATABASE_URL` (opcional) | `.env` (lido pelo Compose) | não usada | PENDENTE | PENDENTE | PENDENTE | PENDENTE |
 

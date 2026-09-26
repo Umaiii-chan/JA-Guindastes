@@ -180,9 +180,10 @@ três, a tarefa provavelmente está mal definida — pare e reveja a tarefa.
 ## 8. Etapa 6 — CI (GitHub Actions)
 
 Automático ao abrir/atualizar o PR. Roda **exatamente** os comandos de `development-guide.md`, em
-quatro jobs: `structure` (`scripts/check-structure.sh`), `backend` (lint, formatação, tipos, camadas,
+cinco jobs: `structure` (`scripts/check-structure.sh`), `backend` (lint, formatação, tipos, camadas,
 migrations e testes com PostgreSQL de serviço), `quality` (frontend: lint, formatação, tipos, testes e
-build) e `docker` (build das imagens e teste de fumaça da stack). Auditoria de dependências ainda não
+build), `docker` (build das imagens e teste de fumaça da stack) e `e2e` (stack Docker migrada e com o
+seed da demonstração, Playwright contra o frontend servido pelo nginx; TASK-036). Auditoria de dependências ainda não
 está configurada ([`../security.md`](../security.md) § 5). Detalhes em
 [`../testing-strategy.md`](../testing-strategy.md) § 5.
 

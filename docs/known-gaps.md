@@ -6,7 +6,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Última revisão | 2026-09-26 (TASK-037, estado de `development` @ `d58edf6`) |
+| Última revisão | 2026-09-26 (TASK-037, estado com a leva C — TASK-033..036 — integrada) |
 
 ---
 
@@ -16,15 +16,15 @@ Coisas que o sistema **não faz** hoje, mesmo que pareça que deveria.
 
 | # | Limitação | Impacto | Decisão / plano | Tarefa |
 |---|-----------|---------|-----------------|--------|
-| L-001 | O fluxo básico roda: cadastro de fabricante, guindaste e configuração com ficha técnica (REST), importação CSV/XLSX com gravação e ativação (REST), avaliação por REST e WebSocket lendo do banco, e painel na tela mostrando o resultado do backend. **Não existem:** simulação persistida (`Simulation`, `SimulationState`, `SimulationResult`; RF-021/022), `SafetyValidator` e níveis de alerta (RF-019), upload/cadastro de modelo 3D (`Crane3DModel`, `CraneKinematics` no backend), exportação de resumo (RF-023), obstáculos (RF-024). A API de avaliação recebe só `load_weight_kg` (a `Load` completa existe só no domínio, via `execute_for_load`). A geometria do backend não é aplicada na cena (ela segue a PoC FICTÍCIA) | o fluxo de `project-overview.md` § 4 roda só em parte e sem alertas | telas de catálogo e importação: TASK-033/034 (em andamento em `d58edf6`); o resto sem tarefa | TASK-022..032 |
+| L-001 | O fluxo básico roda, pela tela e pela API: cadastro e seleção de fabricante → guindaste → configuração com ficha técnica, importação CSV/XLSX com relatório de inconsistências e ativação de tabela, carga (descrição, peso, dimensões, CG opcional), avaliação por WebSocket (REST de reserva) lendo do banco e painel com o resultado do backend; a demo FICTÍCIA é reproduzível pelo seed ([`demo.md`](demo.md)). **Não existem:** simulação persistida (`Simulation`, `SimulationState`, `SimulationResult`; RF-021/022), `SafetyValidator` e níveis de alerta (RF-019), upload/cadastro de modelo 3D (`Crane3DModel`, `CraneKinematics` no backend), exportação de resumo (RF-023), obstáculos (RF-024). Editar/excluir cadastros pela tela (L-006). A API de avaliação recebe só `load_weight_kg`: descrição, dimensões e CG da carga ficam na tela (a `Load` completa existe no backend só no domínio, via `execute_for_load`). A cena desenha o guindaste provisório; da ficha técnica vêm só os limites dos sliders e a/h | o fluxo de `project-overview.md` § 4 roda sem alertas e sem simulação salva | sem tarefa | TASK-022..035 |
 | L-002 | Ainda não há tabela de carga oficial nem modelo 3D real do guindaste. Existe um GLB de exemplo FICTÍCIO (`assets/example-models/guindaste-provisorio.ficticio.glb`); os requisitos de um GLB real estão em `assets/example-models/README.md` | motor de cálculo, golden tests e demo não usam dados reais | depende da Guindastes Ribas (PEND-008; doc-fonte § 26, perguntas 1 a 5) | TASK-026 |
 | L-003 | Sem autenticação nem autorização ("autenticação futura", doc-fonte § 8.4). Todas as rotas estão abertas, inclusive as de escrita: cadastro (`POST /manufacturers`, `/cranes`, `/cranes/{id}/configurations`), importação e **ativação** de tabelas, e o WebSocket (sem validação de `Origin`) | qualquer cliente que alcance a API pode mudar a tabela ativa, o que afeta a capacidade calculada; uso só local (portas em `127.0.0.1`) | ver P-009 | TASK-019, 030, 031 |
 | L-004 | A composição usa a `ConservativeTabulatedLookup` (ADR-015, **provisória**): comprimento de lança tem de coincidir (±1e-6 m) com uma coluna da tabela (senão `BOOM_LENGTH_NOT_IN_CHART`); entre dois raios tabelados vale o ponto de **menor** capacidade; abaixo do menor ou acima do maior raio, "fora do domínio". A `ExactPointLookup` fica só como referência e nos testes. Não há interpolação, arredondamento nem nível de alerta | com o comprimento da lança fora das colunas da tabela, a avaliação volta "não avaliável"; a capacidade entre pontos é conservadora, não a oficial | trocar a estratégia atrás da porta `LoadChartInterpolator` quando PEND-001..003 forem respondidas | TASK-008, 020, 024 |
-| L-005 | O PostgreSQL e o Docker não foram verificados na máquina de desenvolvimento: o Docker não sobe porque a virtualização do Windows está desativada | banco, migrations conectadas, testes de integração e a stack Docker só foram exercitados no CI (TASK-018, 027) | a pessoa ativa a "Plataforma de Máquina Virtual"/virtualização no BIOS e roda o teste manual da TASK-011 (`handoffs/current.md` § 7, item 6) | TASK-011 |
+| L-005 | O PostgreSQL e o Docker não foram verificados na máquina de desenvolvimento: o Docker não sobe porque a virtualização do Windows está desativada | banco, migrations conectadas, testes de integração, seed, stack Docker e E2E contra a stack só são exercitados no CI (TASK-018, 027, 035, 036) | a pessoa ativa a "Plataforma de Máquina Virtual"/virtualização no BIOS e roda o teste manual da TASK-011 (`handoffs/current.md` § 7, item 6) | TASK-011 |
 | L-006 | Catálogo só cria, lista e lê: não edita nem exclui (as FKs são `ON DELETE RESTRICT`); nomes não são únicos, não são normalizados nem têm tamanho máximo; sem paginação. A configuração tem só nome e ficha técnica: os atributos que selecionam a tabela estão pendentes (PEND-005) | cadastro errado não se corrige pela API | pendências TASK-022 § 8 e TASK-030 § 8 | TASK-022, 030 |
 | L-007 | Ciclo de vida da tabela incompleto: a importação grava só `DRAFT`; a ativação leva `DRAFT → VALIDATED → ACTIVE` e rebaixa a `ACTIVE` anterior para `SUPERSEDED` (interpretação a confirmar); tabelas `INVALID` e o relatório de inconsistências **não são gravados**; não há `POST /load-charts/{id}/validate`, reativação de `SUPERSEDED` nem listagem de tabelas | rollback de versão e auditoria das importações recusadas não são possíveis | pendências TASK-022 § 8 e TASK-031 § 8 | TASK-022, 031 |
-| L-008 | Stack Docker: o `docker-compose.yml` não passa `FILE_STORAGE_DIR` nem monta volume para o arquivo-fonte (as rotas de importação com gravação e ativação não aparecem no container); healthcheck do backend em `/openapi.json`, não em `/api/v1/health`; migrations só sob demanda; imagens base por tag, não por digest; `--ws-max-size` do uvicorn não configurado | a demo pela stack Docker não importa tabelas | ajustes do Docker na TASK-035 (em andamento em `d58edf6`); TASK-027 § 8, TASK-029 § 10, TASK-031 § 8 item 7 | TASK-027, 029, 031 |
-| L-009 | Tela: a configuração é digitada como texto (sem seleção pelo catálogo); os limites dos sliders são os FICTÍCIOS da PoC, diferentes da ficha técnica do backend; debounce (150/400 ms) e reconexão (2 s, sem limite nem backoff) provisórios; utilização com 2 casas e capacidade sem casas enquanto PEND-002 está aberta | valores fora das faixas da ficha voltam "não avaliável" pelo backend | seleção por catálogo na TASK-033; demais pendências TASK-032 § 8 | TASK-032 |
+| L-008 | Stack Docker: desde a TASK-035, o backend tem `FILE_STORAGE_DIR=/data/load-charts` num volume nomeado e o healthcheck usa `/api/v1/health`. Continuam: migrations e seed só sob demanda (`docker compose run ...`); o healthcheck dá 200 mesmo com o banco `DOWN`; imagens base por tag, não por digest; `--ws-max-size` do uvicorn não configurado; o job `docker` do CI não roda o seed (o job `e2e` roda) | subir a stack não deixa o banco pronto sozinho | TASK-027 § 8 itens 3, 5 e 6; TASK-029 § 8 item 1; TASK-035 § 8 item 1 | TASK-027, 029, 035 |
+| L-009 | Tela: a configuração é escolhida na seleção fabricante → guindaste → configuração (TASK-033); sem ficha técnica, os sliders usam os limites FICTÍCIOS do guindaste provisório (rotulados), e sem c_max na ficha o máximo do cabo é FICTÍCIO (15 m); a câmera não se ajusta ao tamanho do guindaste; o peso só vai para a avaliação quando o formulário de carga inteiro é válido (TASK-034); a tabela importada lista todos os pontos, sem paginação; sem backend com `DATABASE_URL`, a lista de fabricantes mostra só "HTTP 404"/"HTTP 502"; debounce (150/400 ms) e reconexão (2 s, sem limite nem backoff) provisórios; utilização com 2 casas e capacidade sem casas enquanto PEND-002 está aberta | valores fora das faixas da ficha voltam "não avaliável" pelo backend | pendências TASK-032 § 8, TASK-033 § 8, TASK-034 § 8 | TASK-032, 033, 034 |
 | L-010 | Com `DATABASE_URL` definida mas o banco fora do ar, a avaliação REST responde 500 e o WebSocket responde `simulation.error` com `INTERNAL_ERROR`; não há timeout de conexão configurado (usa o do driver/SO); a saúde responde 200 com `database: DOWN` | respostas lentas e erros genéricos sem banco | pendências TASK-029 § 8 itens 1, 2 e 4 | TASK-029 |
 
 ---
@@ -35,14 +35,15 @@ Atalhos tomados conscientemente que precisam ser pagos.
 
 | # | Dívida | Onde | Por que foi feito assim | Risco de não resolver | Tarefa |
 |---|--------|------|-------------------------|-----------------------|--------|
-| D-001 | `app` de compatibilidade que sobe **sem** as rotas que dependem de adapters; o docstring do módulo e `tests/test_openapi.py` ainda o usam | `backend/app/presentation/api/main.py`, `backend/tests/test_openapi.py` | manter o contrato antigo enquanto a documentação apontava para ele (TASK-019 § 8 item 1) | alguém subir a API pelo comando antigo e não achar as rotas | TASK-019 |
-| D-002 | `build_catalog_repository` não é usado pela composição (`create_database_app` monta o repositório do catálogo direto), só pelos testes; o docstring de `app/main.py` ainda aponta para ele | `backend/app/main.py`, `backend/tests/presentation/test_catalog.py` | sobra da mescla da TASK-030 com a TASK-029 (verificado nesta tarefa com `grep`) | leitor acreditar que as rotas do catálogo dependem dessa função | TASK-030 |
+| D-001 | `app` de compatibilidade que sobe **sem** as rotas que dependem de adapters; `tests/test_openapi.py` ainda o usa | `backend/app/presentation/api/main.py`, `backend/tests/test_openapi.py` | manter o contrato antigo enquanto a documentação apontava para ele (TASK-019 § 8 item 1) | alguém subir a API pelo comando antigo e não achar as rotas | TASK-019 |
+| D-002 | `build_catalog_repository` não é usado pela composição (`create_database_app` monta o repositório do catálogo direto), só pelos testes | `backend/app/main.py`, `backend/tests/presentation/test_catalog.py` | sobra da mescla da TASK-030 com a TASK-029 (verificado nesta tarefa com `grep`) | leitor acreditar que as rotas do catálogo dependem dessa função | TASK-030 |
 | D-003 | O parser XLSX importa funções privadas (`_read_header`, `_read_cell`) do parser CSV | `backend/app/infrastructure/importers/` | não divergir as regras dos dois formatos (TASK-023 § 8 item 6) | mudança no CSV quebrar o XLSX sem aviso | TASK-023 |
 | D-004 | Casos de paridade de geometria transcritos no frontend em vez de um arquivo único lido por pytest e Vitest (ADR-013 C-7) | `frontend/tests/fixtures/geometryParityCases.ts` | a TASK-016 só podia tocar `frontend/` | os dois lados divergirem sem teste pegar | TASK-016 |
 | D-005 | Contratos REST e WebSocket da avaliação com nomes diferentes (`status`/`result`, `queried_working_radius_m`/`queried_radius_m`, motivos com/sem categoria); o frontend trata os dois | `backend/app/presentation/api/evaluation_schemas.py`, `backend/app/presentation/websocket/evaluation_messages.py` | tarefas paralelas da leva A (TASK-024 e 025) | manutenção dobrada; cliente novo errar o formato | TASK-025 § 8 item 4, TASK-032 § 8 item 4 |
 | D-006 | Arquivo-fonte fica órfão no storage quando a gravação da tabela falha depois dele (409/404) | `backend/app/application/use_cases/import_load_chart.py` | armazenamento endereçado pelo conteúdo, idempotente (TASK-031 § 8 item 8) | acúmulo de arquivos sem tabela | TASK-031 |
 | D-007 | Sem porta de unidade de trabalho: ficha técnica e tabela são lidas em duas sessões (`READ COMMITTED`), não num mesmo instantâneo | `backend/app/main.py`, repositórios | nenhum caso de uso grava em mais de um repositório ainda (TASK-022 § 8 item 5; TASK-029 § 8 item 3) | leitura inconsistente numa ativação concorrente | TASK-022, 029 |
-| D-008 | O build do frontend avisa que o pacote passa de 500 kB (Three.js inteiro) | `frontend/` | PoC (TASK-013 § 8 item 3) | carregamento inicial lento | divisão do pacote na TASK-036 (em andamento) |
+| D-009 | `EvaluationInputPanel.tsx` (campo de peso da TASK-032) não é importado por nenhum módulo desde a mescla da leva C: o peso vem do painel "Carga" (verificado com `grep` na TASK-037) | `frontend/src/presentation/panels/EvaluationInputPanel.tsx` | sobra da mescla das TASK-033 e 034 (TASK-034 § 7) | código morto confundir quem mexer na tela | TASK-033, 034 |
+| D-010 | Toda a cena continua carregada na abertura da página: a divisão do pacote (D-008, resolvida) separou os arquivos, mas não há carregamento sob demanda (`import()`/`React.lazy`) | `frontend/src/presentation/components/CraneViewport.tsx` | fora do escopo da TASK-036 (`frontend/src`) | JS inicial maior (~560 kB do Three.js) | TASK-036 § 8 item 1 |
 
 ---
 
@@ -50,7 +51,7 @@ Atalhos tomados conscientemente que precisam ser pagos.
 
 | # | Problema | Como reproduzir | Contorno | Tarefa |
 |---|----------|-----------------|----------|--------|
-| — | nenhum registrado nos handoffs até `d58edf6` | — | — | — |
+| — | nenhum registrado nos handoffs até a leva C | — | — | — |
 
 ---
 
@@ -84,20 +85,23 @@ handoffs das tarefas.
 
 ### 4.1 Outras perguntas abertas nos handoffs
 
-Sem bloqueio, todas sem resposta até `d58edf6`. Resumo por tema; a pergunta exata está na § 8 do
-handoff indicado (`handoffs/history/2026-09-26-TASK-NNN-implementacao.md`).
+Sem bloqueio, todas sem resposta até a leva C. Resumo por tema; a pergunta exata está na § 8 do
+handoff indicado (`handoffs/history/2026-09-26-TASK-NNN-implementacao.md`; para a TASK-033..036,
+`handoffs/TASK-NNN.md` até serem arquivados).
 
 | Tema | Onde |
 |------|------|
 | Domínio da tabela de carga (tolerâncias, capacidade 0 kg, valores a menos de ε) | TASK-008 (11 perguntas), TASK-010 (12), TASK-015 itens 1–6, TASK-020 itens 1–2 |
 | Geometria (erro × resultado com violações, limites de giro, comparação sem tolerância, normalização do giro, R < 0 no frontend) | TASK-013 item 1, TASK-014 itens 1–3, TASK-016 itens 2–3 |
-| Carga (peso 0 kg, dimensões nulas, descrição obrigatória, referencial do CG, orientação) | TASK-028 itens 1–6 |
+| Carga (peso 0 kg, dimensões nulas, descrição obrigatória, referencial do CG, orientação; na tela: peso só com a carga toda válida, CG pela metade) | TASK-028 itens 1–6, TASK-034 itens 1, 2 e 4 |
 | Importação (primeira planilha, fórmulas, 415 × CSV, texto numérico, `/validate` ao lado do `/import`, `chart_id` do cliente, configuração inexistente como 404) | TASK-019 itens 2–5, TASK-023 itens 1–5, TASK-031 itens 4–9 |
 | API de avaliação (rota avulsa × simulações, `CONFIGURATION_NOT_FOUND`, `crane_id`, mensagens legíveis dos motivos, carga completa na API) | TASK-024 itens 1–4, TASK-029 item 5 |
 | WebSocket (rota provisória, limite, `sequence` negativo/repetido, `Origin`, textos de erro) | TASK-025 itens 1–6 |
 | Modelo 3D (pose de repouso, avisos de calibração, onde fica o mapa de nós) | TASK-026 itens 1–4 |
-| Docker (rota de saúde no healthcheck, digest das imagens, migrations automáticas, teste de fumaça) | TASK-027 itens 1–6, TASK-029 item 1 |
-| Tela (fallback REST, debounce/reconexão, casas decimais, limites dos sliders pela ficha) | TASK-032 itens 1–5 |
+| Docker (digest das imagens, migrations automáticas, teste de fumaça, healthcheck com banco `DOWN`, seed no job `docker`) | TASK-027 itens 3, 5 e 6, TASK-029 item 1, TASK-035 item 1 |
+| Tela (fallback REST, debounce/reconexão, casas decimais, cabo sem c_max, ficha com L_min = 0, item recém-cadastrado escolhido, aviso de backend sem `DATABASE_URL`, tabelas com muitos pontos) | TASK-032 itens 1–4, TASK-033 itens 1–4, TASK-034 item 3 |
+| Demonstração (valores FICTÍCIOS servem para a banca, ids fixos `demo-ficticio-*`, timeout de conexão do seed) | TASK-035 itens 2–4 |
+| E2E e build (cena sob demanda, job `e2e` obrigatório ou informativo) | TASK-036 itens 1 e 3 |
 | Documentação protegida ("Testes relacionados" de RN-001, 004, 005, 007 e 008 em `business-rules.md`, pela pessoa) | TASK-015 item 8, TASK-020 item 5, TASK-025 § 10, TASK-028 § 10 |
 
 ---
@@ -106,7 +110,8 @@ handoff indicado (`handoffs/history/2026-09-26-TASK-NNN-implementacao.md`).
 
 Lista explícita. Se está aqui, o agente deve **verificar** antes de depender.
 
-- que existe simulação persistida, `SafetyValidator`, nível de alerta, upload de modelo 3D, autenticação ou teste ponta a ponta: ainda não (2026-09-26, `d58edf6`)
+- que existe simulação persistida, `SafetyValidator`, nível de alerta, upload de modelo 3D ou autenticação: ainda não (2026-09-26, leva C)
+- que o E2E cobre cadastro e importação pela tela: cobre a cena, o catálogo carregando e a avaliação com os dados semeados ([`testing-strategy.md`](testing-strategy.md) § 2)
 - que a API tem persistência sem `DATABASE_URL`: sem ela, a avaliação volta `NOT_EVALUABLE` e as rotas de catálogo e de tabelas gravadas não existem; as de importação com gravação exigem também `FILE_STORAGE_DIR`
 - que a capacidade mostrada é a oficial: vem da consulta conservadora provisória (ADR-015) sobre dados FICTÍCIOS
 - que os números dos exemplos da doc-fonte (§§ 14.2, 14.3 e 15.4: raio 13,5 m, capacidade 5200 kg etc.) são capacidades reais ou casos de teste: são ilustrativos
@@ -124,8 +129,8 @@ Lista explícita. Se está aqui, o agente deve **verificar** antes de depender.
 
 Cópia de [`testing-strategy.md`](testing-strategy.md) § 7 para ficar visível aqui.
 
-- Testes ponta a ponta pela interface (TASK-036 em andamento em `d58edf6`).
-- Componentes React com interação (exigiriam jsdom/Testing Library, dependências não autorizadas); a cena WebGL real (`mountCraneScene`) e o viewport são verificados só manualmente.
+- E2E: não cobre cadastro pela tela, importação/ativação de tabela pela tela nem o WebSocket de forma explícita (o teste semeado aceita o resultado por qualquer transporte); o job `e2e` não foi executado localmente (Docker indisponível; TASK-036 § 7).
+- Componentes React com interação no Vitest (exigiriam jsdom/Testing Library, dependências não autorizadas): a interação só é coberta pelos poucos fluxos do E2E e por verificação manual.
 - Integração com banco na máquina de desenvolvimento: só no CI (L-005).
 - WebSocket contra um servidor uvicorn real e pelo proxy do nginx (o job `docker` testa o proxy só com REST).
 - Casos de paridade backend × frontend num arquivo único (hoje transcritos; D-004).
@@ -142,4 +147,4 @@ Histórico do que saiu das seções acima.
 
 | # | Item | Resolvido em | Tarefa / PR |
 |---|------|--------------|-------------|
-| — | — | — | — |
+| D-008 | O build do frontend avisava que o pacote passava de 500 kB (Three.js inteiro, um chunk de 806,91 kB; TASK-013 § 8 item 3). Resolvido pela divisão em `react`, `three-core`, `three`, `three-addons` e aplicação, sem o aviso; o carregamento sob demanda continua como D-010. Fechada na TASK-037, a pedido da sessão principal | 2026-09-26 | TASK-036 (PR #34) |
