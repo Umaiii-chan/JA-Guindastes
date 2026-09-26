@@ -14,7 +14,8 @@ relatório é o resultado pedido. O 422 fica para o que o FastAPI já usa, a req
 (arquivo ou campo obrigatório faltando). O 413 é o arquivo ou o corpo grande demais
 (`upload_limits`).
 
-Sem autenticação: P-009 está pendente (known-gaps L-003).
+Autorização (ADR-016; TASK-038): com banco, exige sessão de qualquer perfil (o Operador pode validar
+sem gravar); a composição liga a dependência na inclusão do router.
 
 O router recebe o `LoadChartParser` pronto porque a apresentação não pode importar a infraestrutura
 (contrato de camadas em `backend/pyproject.toml`): quem escolhe o adapter é a raiz de composição,
@@ -61,7 +62,7 @@ def create_load_charts_router(parser: LoadChartParser, upload_limits: UploadLimi
             "Tabela inválida responde 200 com `status: INVALID`. Nada é gravado e a tabela não "
             f"é ativada. Arquivo acima de {upload_limits.max_file_bytes} bytes responde 413 "
             "(o limite padrão de 1 MiB é provisório, a validar em P-008). "
-            "Sem autenticação (P-009 pendente)."
+            "Com banco, exige sessão de qualquer perfil (ADR-016)."
         ),
         responses={
             status.HTTP_413_CONTENT_TOO_LARGE: {

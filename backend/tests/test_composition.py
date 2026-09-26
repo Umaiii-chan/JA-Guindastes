@@ -22,6 +22,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine, event
 
 from app.application.use_cases.evaluate_operation import EvaluateOperation
+from app.auth_composition import (
+    SESSION_COOKIE_SECURE_ENV_VAR,
+    AuthConfigurationError,
+    session_cookie_secure,
+)
 from app.domain.services.conservative_tabulated_lookup import ConservativeTabulatedLookup
 from app.infrastructure.database.config import DatabaseConfigurationError
 from app.main import (
@@ -30,10 +35,13 @@ from app.main import (
     evaluate_operation_per_request,
     load_chart_interpolator,
 )
+from app.presentation.api.auth import LOGIN_PATH, LOGOUT_PATH, SESSION_PATH
 from app.presentation.api.evaluations import EVALUATIONS_PATH
 from app.presentation.api.health import HEALTH_PATH
 from app.presentation.api.main import create_app
+from app.presentation.api.users import USERS_PATH
 from app.presentation.websocket.evaluation import EVALUATION_WEBSOCKET_PATH
+from tests.fixtures.auth_api_ficticia import CSRF_HEADERS
 from tests.fixtures.avaliacao_operacional_ficticia import CONFIGURATION_AVALIACAO_FICTICIA_ID
 
 SENHA_FICTICIA = "senha-FICTICIA-nao-vazar"
@@ -164,10 +172,14 @@ def test_unreachable_database_starts_and_health_reports_down_without_leaking_the
 
 
 def test_unreachable_database_makes_the_rest_evaluation_fail_with_500() -> None:
+    # Com banco configurado a rota exige sessão (TASK-038): a consulta da sessão já falha com 500.
     app = compose_app({"DATABASE_URL": UNREACHABLE_DATABASE_URL})
 
     with TestClient(app, raise_server_exceptions=False) as client:
-        response = client.post(EVALUATIONS_PATH, json=evaluation_body_ficticio())
+        client.cookies.set("crane_session", "token-ficticio")
+        response = client.post(
+            EVALUATIONS_PATH, json=evaluation_body_ficticio(), headers=CSRF_HEADERS
+        )
 
     assert response.status_code == 500
     assert SENHA_FICTICIA not in response.text
@@ -215,8 +227,13 @@ def test_request_dependency_holds_one_connection_and_returns_it_at_the_end(
 
 def test_request_connection_is_returned_when_the_evaluation_fails(sqlite_engine: Engine) -> None:
     # Sem as tabelas, a primeira consulta do repositório falha: a rota dá 500 e a conexão volta.
+    # Só a rota de avaliação com a dependência por requisição, sem a autenticação da TASK-038 (a
+    # consulta da sessão falharia antes, pelo mesmo motivo, e o teste não chegaria à dependência).
     counter = PoolCounter(sqlite_engine)
-    client = TestClient(create_database_app(sqlite_engine), raise_server_exceptions=False)
+    client = TestClient(
+        create_app(evaluation=evaluate_operation_per_request(sqlite_engine)),
+        raise_server_exceptions=False,
+    )
 
     response = client.post(EVALUATIONS_PATH, json=evaluation_body_ficticio())
 
@@ -229,6 +246,56 @@ def test_database_health_check_reports_up_when_select_1_works(sqlite_engine: Eng
     response = TestClient(create_database_app(sqlite_engine)).get(HEALTH_PATH)
 
     assert response.json() == {"status": "UP", "database": "UP"}
+
+
+# --- autenticação (TASK-038; ADR-016) ---------------------------------------------------------
+
+
+def test_without_database_url_auth_is_disabled_and_routes_stay_open(
+    app_without_database: TestClient,
+) -> None:
+    assert app_without_database.get(SESSION_PATH).json() == {"authEnabled": False, "user": None}
+    assert app_without_database.post(LOGIN_PATH, json={}).status_code == 404
+    assert app_without_database.get(USERS_PATH).status_code == 404
+
+
+def test_with_database_url_the_api_requires_a_session(sqlite_engine: Engine) -> None:
+    client = TestClient(create_database_app(sqlite_engine, {}), raise_server_exceptions=False)
+
+    csrf = client.post(EVALUATIONS_PATH, json=evaluation_body_ficticio())
+    no_session = client.post(
+        EVALUATIONS_PATH, json=evaluation_body_ficticio(), headers=CSRF_HEADERS
+    )
+    paths = client.get("/openapi.json").json()["paths"]
+
+    assert csrf.status_code == 403
+    assert csrf.json()["code"] == "CSRF_HEADER_MISSING"
+    # Sem cookie não há consulta ao banco: 401 direto.
+    assert no_session.status_code == 401
+    assert no_session.json()["code"] == "NOT_AUTHENTICATED"
+    assert {LOGIN_PATH, LOGOUT_PATH, SESSION_PATH, USERS_PATH} <= set(paths)
+
+
+@pytest.mark.parametrize(
+    ("value", "secure"),
+    [
+        (None, True),
+        ("", True),
+        ("true", True),
+        ("TRUE", True),
+        ("false", False),
+        (" False ", False),
+    ],
+)
+def test_session_cookie_secure_setting(value: str | None, secure: bool) -> None:
+    environ = {} if value is None else {SESSION_COOKIE_SECURE_ENV_VAR: value}
+
+    assert session_cookie_secure(environ) is secure
+
+
+def test_invalid_session_cookie_secure_prevents_startup(sqlite_engine: Engine) -> None:
+    with pytest.raises(AuthConfigurationError):
+        create_database_app(sqlite_engine, {SESSION_COOKIE_SECURE_ENV_VAR: "talvez"})
 
 
 def test_shutdown_hook_runs_when_the_application_stops() -> None:

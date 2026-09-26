@@ -20,7 +20,8 @@ Códigos HTTP:
 - **500** se o provedor da tabela ativa quebrar o contrato da porta (tabela não `ACTIVE` ou de
   outra configuração): é erro de programação, não resultado de avaliação.
 
-Sem níveis de alerta (PEND-004) e sem autenticação (P-009; known-gaps L-003).
+Sem níveis de alerta (PEND-004). Autorização (ADR-016; TASK-038): com banco, exige sessão de
+qualquer perfil; a composição liga a dependência na inclusão do router.
 
 O router recebe as dependências prontas porque a apresentação não pode importar a infraestrutura
 (contrato de camadas em `backend/pyproject.toml`): quem escolhe provedores e estratégia é a raiz
@@ -123,7 +124,7 @@ def create_evaluations_router(
             "Estado fora das faixas, configuração sem ficha técnica ou sem tabela ativa e "
             "consulta fora da tabela respondem **200** com `status: NOT_EVALUABLE` e os motivos "
             "(RN-007). Sem níveis de alerta (PEND-004). Nada é gravado. "
-            "Sem autenticação (P-009 pendente)."
+            "Com banco, exige sessão de qualquer perfil (ADR-016)."
         ),
         responses={
             status.HTTP_500_INTERNAL_SERVER_ERROR: {

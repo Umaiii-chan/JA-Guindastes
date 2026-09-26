@@ -2,8 +2,9 @@
 
 Os CSVs e os metadados são FICTÍCIOS (`tests/fixtures/`): servem só para testar o mecanismo e não
 representam capacidade real (ADR-012). Os testes que usam o CSV de verdade passam pela raiz de
-composição (`app.main:app`, com o `CsvLoadChartParser`); os de limite de tamanho usam um parser
-espião, para provar que o arquivo recusado nem chega a ser lido.
+composição sem banco (`compose_app({})`, com o `CsvLoadChartParser`): sem banco a rota fica aberta
+(ADR-016 § 5), e o teste não depende da `DATABASE_URL` do ambiente. Os de limite de tamanho usam um
+parser espião, para provar que o arquivo recusado nem chega a ser lido.
 """
 
 import pytest
@@ -12,7 +13,7 @@ from fastapi.testclient import TestClient
 from httpx2 import Response
 
 from app.application.ports.load_chart_parser import ImportIssueCode, LoadChartParseResult
-from app.main import app as composed_app
+from app.main import compose_app
 from app.presentation.api.load_charts import VALIDATE_PATH
 from app.presentation.api.main import create_app
 from app.presentation.api.upload_limits import MIB, UploadLimits
@@ -48,7 +49,7 @@ class SpyParser:
 
 @pytest.fixture
 def client() -> TestClient:
-    return TestClient(composed_app)
+    return TestClient(compose_app({}))
 
 
 def spied_client(upload_limits: UploadLimits | None = None) -> tuple[TestClient, SpyParser]:
