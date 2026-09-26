@@ -1,0 +1,64 @@
+[project]
+name = "crane-simulator-backend"
+version = "0.1.0"
+description = "Backend do Simulador Web 3D para Análise de Tabelas de Carga de Guindastes"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2",
+    "import-linter",
+    "mypy",
+    "pytest",
+    "ruff",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+# Regras de dependência da Clean Architecture (ADR-004; docs/architecture.md § 3).
+[tool.importlinter]
+root_package = "app"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Camadas: apresentação e infraestrutura dependem de aplicação, que depende de domínio"
+type = "layers"
+layers = [
+    "app.presentation | app.infrastructure",
+    "app.application",
+    "app.domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "Domínio não depende de frameworks (RNF-002)"
+type = "forbidden"
+source_modules = ["app.domain"]
+forbidden_modules = ["fastapi", "starlette", "pydantic", "sqlalchemy"]
+
+[[tool.importlinter.contracts]]
+name = "Aplicação não depende de framework web nem de ORM (RNF-002)"
+type = "forbidden"
+source_modules = ["app.application"]
+forbidden_modules = ["fastapi", "starlette", "sqlalchemy"]
