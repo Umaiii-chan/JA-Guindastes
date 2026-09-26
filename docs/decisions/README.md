@@ -41,3 +41,11 @@ Crie um ADR quando a decisão:
 | [ADR-001](ADR-001-workflow-baseado-em-arquivos.md) | Workflow de múltiplas IAs baseado em arquivos versionados, sem API | Substituído por ADR-003 | 2026-09-05 |
 | [ADR-002](ADR-002-modelo-de-branches-por-ambiente.md) | Modelo de branches por ambiente (development, homologation, production) | Aceito | 2026-09-05 |
 | [ADR-003](ADR-003-orquestracao-local-via-clis-de-assinatura.md) | Orquestração local de agentes via CLIs de assinatura, sem API paga (substitui o ADR-001) | Aceito | 2026-09-26 |
+| [ADR-004](ADR-004-clean-architecture-no-backend.md) | Clean Architecture (doc-fonte v0.1 § 7) | Proposto | 2026-09-26 |
+| [ADR-005](ADR-005-frontend-react-typescript-threejs.md) | Frontend React + TypeScript + Three.js (doc-fonte v0.1 § 7) | Proposto | 2026-09-26 |
+| [ADR-006](ADR-006-backend-fastapi-python.md) | Backend FastAPI + Python (doc-fonte v0.1 § 7) | Proposto | 2026-09-26 |
+| [ADR-007](ADR-007-postgresql.md) | PostgreSQL (doc-fonte v0.1 § 7) | Proposto | 2026-09-26 |
+| [ADR-008](ADR-008-glb-gltf-como-formato-3d-interno.md) | GLB/glTF como formato 3D interno (doc-fonte v0.1 § 7) | Proposto | 2026-09-26 |
+| [ADR-009](ADR-009-tabelas-de-carga-estruturadas-no-banco.md) | Tabelas estruturadas no banco (doc-fonte v0.1 § 7) | Proposto | 2026-09-26 |
+| [ADR-010](ADR-010-rest-e-websocket.md) | REST + WebSocket (doc-fonte v0.1 § 7) | Proposto | 2026-09-26 |
+| [ADR-011](ADR-011-monorepo.md) | Monorepo (doc-fonte v0.1 § 7) | Proposto | 2026-09-26 |
