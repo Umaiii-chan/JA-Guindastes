@@ -1,8 +1,12 @@
 import { DirectionalLight, GridHelper, HemisphereLight, MathUtils, Mesh } from 'three'
 import { describe, expect, it } from 'vitest'
 
-import { PROVISIONAL_CRANE_INITIAL_STATE } from '../../../src/three/crane/createProvisionalCrane'
+import {
+  PROVISIONAL_CRANE_GEOMETRY,
+  PROVISIONAL_CRANE_INITIAL_STATE,
+} from '../../../src/three/crane/createProvisionalCrane'
 import { buildCraneScene } from '../../../src/three/scene/buildCraneScene'
+import { expectClose } from '../../helpers/expectClose'
 
 describe('buildCraneScene', () => {
   it('adiciona luzes, chão e grade à cena', () => {
@@ -35,5 +39,18 @@ describe('buildCraneScene', () => {
     crane.setTurretRotation(90)
 
     expect(rig.turret.rotation.y).toBeCloseTo(Math.PI / 2)
+  })
+
+  it('calcula a pré-visualização com os parâmetros geométricos FICTÍCIOS do guindaste provisório', () => {
+    const { crane } = buildCraneScene()
+
+    expect(crane.geometryParameters).toEqual(PROVISIONAL_CRANE_GEOMETRY)
+    // Pose inicial (ψ 0°, θ 35°, L 12 m, c 5 m), a = −1,2 m, h = 3,3 m; valores de referência
+    // conferidos com awk, 6 casas: R = −1,2 + 12·cos 35° = 8,629825; y_T = 3,3 + 12·sin 35° =
+    // 10,182917; y_G = y_T − 5 = 5,182917 (são os números do teste manual da tarefa, § 7).
+    const geometry = crane.getOperationalGeometry()
+    expectClose(geometry.workingRadiusM!, 8.629825, 1e-6)
+    expectClose(geometry.tipHeightM, 10.182917, 1e-6)
+    expectClose(geometry.hookHeightM, 5.182917, 1e-6)
   })
 })

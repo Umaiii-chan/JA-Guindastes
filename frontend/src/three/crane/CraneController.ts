@@ -1,16 +1,32 @@
 import { MathUtils, type Object3D } from 'three'
 
+import {
+  calculateOperationalGeometry,
+  type CraneGeometryParameters,
+  type OperationalGeometry,
+  validateCraneGeometryParameters,
+} from '../../domain/geometry/operationalGeometry'
 import type { CraneCommands, CraneLimits, CraneState, NumericRange } from './types'
 
 /**
  * Nós do guindaste que o controller movimenta, na hierarquia
  * base → torre → lança → extensão → ponta → cabo → gancho.
  *
- * Pose de repouso esperada (do guindaste provisório; o GLB real ainda não existe, L-002): com todos
- * os comandos em zero, a lança fica horizontal ao longo do +Z local da torre, com pivô na origem do
- * nó `boom`; a extensão desliza ao longo do +Z local da lança; o cabo pende no −Y local do nó
- * `cable`, com a linha de altura 1 que é escalada no Y. Essa pose é só visual e não fixa nenhuma
- * convenção geométrica (ADR-013 está Proposto).
+ * O rig segue as convenções do ADR-013 (C-1, C-2 e C-4, regra 4), para a imagem bater com o cálculo
+ * de `getOperationalGeometry()`:
+ *
+ * - `base`: origem no ponto O, onde o eixo de giro encontra o plano de apoio; Y para cima e +Z para
+ *   a frente do chassi (lado da cabine), como no glTF e no Three.js;
+ * - `turret`: gira em torno do seu Y local, que coincide com o eixo de giro (x = z = 0 da base);
+ * - `boom`: origem no pino do pé da lança P, a (0, h, a) da base com ψ = 0, e lança ao longo do
+ *   seu +Z local. Pose de repouso (todos os comandos em zero): lança horizontal (θ = 0), apontando
+ *   para +Z (ψ = 0) e toda recolhida;
+ * - `boomExtension` desliza ao longo do +Z local da lança, e `boomTip` (ponto T) fica na ponta;
+ * - `cable` pende no −Y local, com a linha de altura 1 escalada no Y; a origem de `hook` é o ponto
+ *   de suspensão G.
+ *
+ * Se o rig não bater com os parâmetros a e h (por exemplo, um GLB mal calibrado), o erro é só
+ * visual: o cálculo não lê a posição dos nós (ADR-013 C-4, regra 3; C-7).
  */
 export interface CraneRig {
   readonly base: Object3D
@@ -35,21 +51,35 @@ const LIMIT_KEYS: readonly LimitKey[] = [
 ]
 
 /**
- * Aplica os comandos do guindaste nos nós da cena, sempre dentro dos limites recebidos na construção.
+ * Aplica os comandos do guindaste nos nós da cena, sempre dentro dos limites recebidos na construção,
+ * e devolve a geometria operacional do estado atual para PRÉ-VISUALIZAÇÃO.
  *
- * Só movimenta a representação visual: não calcula raio, altura nem capacidade e nunca decide
- * capacidade ou segurança da operação (doc-fonte § 12.2; RN-003; RN-008).
+ * Nunca decide capacidade ou segurança da operação (doc-fonte § 12.2; RN-003; RN-008). A geometria
+ * de `getOperationalGeometry()` sai das fórmulas do ADR-013 com os parâmetros a e h recebidos na
+ * construção (que, fora da PoC, vêm da ficha técnica no backend, nunca do modelo 3D); o valor oficial
+ * é o do backend (ADR-013 C-7).
  */
 export class CraneController implements CraneCommands {
   readonly limits: CraneLimits
+  readonly geometryParameters: CraneGeometryParameters
 
   private readonly rig: CraneRig
   private state: CraneState
 
-  constructor(rig: CraneRig, limits: CraneLimits, initialState: Partial<CraneState> = {}) {
+  constructor(
+    rig: CraneRig,
+    limits: CraneLimits,
+    geometryParameters: CraneGeometryParameters,
+    initialState: Partial<CraneState> = {},
+  ) {
     validateLimits(limits, rig.boomRetractedLengthM)
+    validateCraneGeometryParameters(geometryParameters)
     this.rig = rig
     this.limits = freezeLimits(limits)
+    this.geometryParameters = Object.freeze({
+      boomPivotOffsetM: geometryParameters.boomPivotOffsetM,
+      boomPivotHeightM: geometryParameters.boomPivotHeightM,
+    })
     this.state = {
       turretRotationDeg: this.clampTo('turretRotationDeg', initialState.turretRotationDeg ?? 0),
       boomAngleDeg: this.clampTo('boomAngleDeg', initialState.boomAngleDeg ?? 0),
@@ -64,6 +94,15 @@ export class CraneController implements CraneCommands {
 
   getState(): CraneState {
     return { ...this.state }
+  }
+
+  /**
+   * Raio de trabalho, alturas da ponta e do gancho e posições P, T e G do estado atual, pelas fórmulas
+   * do ADR-013 C-5 (doc-fonte § 17.3). PRÉ-VISUALIZAÇÃO: não é fonte de verdade (ADR-013 C-7; RN-008).
+   * Não lê a posição dos nós da cena.
+   */
+  getOperationalGeometry(): OperationalGeometry {
+    return calculateOperationalGeometry(this.state, this.geometryParameters)
   }
 
   setTurretRotation(deg: number): number {
@@ -103,22 +142,28 @@ export class CraneController implements CraneCommands {
   }
 
   private applyTurretRotation(): void {
+    // ADR-013 C-2: ψ gira em torno de +Y, com zero em +Z e positivo no sentido anti-horário visto de
+    // cima. É o sentido positivo de `rotation.y`: a rotação de ψ em Y leva o +Z local da torre para
+    // (sin ψ, 0, cos ψ) = u(ψ), a direção horizontal da lança.
     this.rig.turret.rotation.y = MathUtils.degToRad(this.state.turretRotationDeg)
   }
 
   private applyBoomAngle(): void {
-    // Com a lança ao longo do +Z, ângulo positivo levanta a ponta: rotação negativa em torno do X.
+    // ADR-013 C-2: θ = 0 é a lança horizontal e θ > 0 levanta a ponta. Com a lança ao longo do +Z
+    // local, a rotação de −θ em X leva o +Z para (0, sin θ, cos θ).
     const radians = MathUtils.degToRad(this.state.boomAngleDeg)
     this.rig.boom.rotation.x = -radians
-    // O cabo é filho da ponta; a rotação oposta o mantém pendendo na vertical com qualquer ângulo.
+    // O cabo é filho da ponta; a rotação oposta o mantém pendendo na vertical (S-2) com qualquer θ.
     this.rig.cable.rotation.x = radians
   }
 
   private applyBoomLength(): void {
+    // A ponta T fica a L do pino P ao longo do +Z local da lança (ADR-013 C-3).
     this.rig.boomExtension.position.z = this.state.boomLengthM - this.rig.boomRetractedLengthM
   }
 
   private applyCableLength(): void {
+    // O gancho G fica c abaixo da ponta T (fórmula 3).
     this.rig.cableLine.scale.y = this.state.cableLengthM
     this.rig.hook.position.y = -this.state.cableLengthM
   }
