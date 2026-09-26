@@ -65,19 +65,19 @@ class CenarioFicticio:
 
 
 ROTEIRO_FICTICIO = (
-    CenarioFicticio("A: pose inicial", 12.0, 35.0, 8.63, 4200.0, (12.0, 10.0), 71.43),
-    CenarioFicticio("B: lança mais alta", 12.0, 60.0, 4.80, 7000.0, (12.0, 6.0), 42.86),
-    CenarioFicticio("C: lança estendida", 22.0, 35.0, 16.82, 1500.0, (22.0, 18.0), 200.00),
+    CenarioFicticio("A: pose inicial", 12.0, 35.0, 8.27, 4200.0, (12.0, 10.0), 71.43),
+    CenarioFicticio("B: lança mais alta", 12.0, 60.0, 4.44, 7000.0, (12.0, 6.0), 42.86),
+    CenarioFicticio("C: lança estendida", 22.0, 35.0, 16.46, 1500.0, (22.0, 18.0), 200.00),
     CenarioFicticio(
-        "D: lança fora da tabela", 17.5, 35.0, 13.14, reasons=("BOOM_LENGTH_NOT_IN_CHART",)
+        "D: lança fora da tabela", 17.5, 35.0, 12.78, reasons=("BOOM_LENGTH_NOT_IN_CHART",)
     ),
     CenarioFicticio(
-        "E: raio abaixo da tabela", 12.0, 80.0, 0.88, reasons=("RADIUS_BELOW_CHART_MIN",)
+        "E: raio abaixo da tabela", 12.0, 80.0, 0.52, reasons=("RADIUS_BELOW_CHART_MIN",)
     ),
 )
 """Valores arredondados a 2 casas, como em `docs/demo.md`; a tabela ativa é a v1."""
 
-CENARIO_A_COM_V2 = CenarioFicticio("A com a v2", 12.0, 35.0, 8.63, 3780.0, (12.0, 10.0), 79.37)
+CENARIO_A_COM_V2 = CenarioFicticio("A com a v2", 12.0, 35.0, 8.27, 3780.0, (12.0, 10.0), 79.37)
 
 ERROS_ESPERADOS = (
     ("CONFLICTING_POINTS", 2, None),
@@ -268,10 +268,10 @@ def test_tabela_de_demonstracao_invalida_nao_grava_nada(demo: Demo) -> None:
     assert demo.storage.saves == 0
 
 
-def test_ficha_ficticia_espelha_o_guindaste_provisorio_do_frontend() -> None:
+def test_ficha_ficticia_bate_com_o_modelo_3d_ilustrativo() -> None:
     geometry = build_demo_crane_geometry()
 
-    assert geometry.boom_pivot_offset_m == -1.2
+    assert geometry.boom_pivot_offset_m == -1.56
     assert geometry.boom_pivot_height.meters == 3.3
     assert (geometry.boom_length_min.meters, geometry.boom_length_max.meters) == (12.0, 22.0)
     assert (geometry.boom_angle_min.degrees, geometry.boom_angle_max.degrees) == (0.0, 80.0)

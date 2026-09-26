@@ -24,8 +24,12 @@ nada.
 | Fabricante | `demo-ficticio-fabricante` | "Fabricante Demonstração FICTÍCIO" |
 | Guindaste | `demo-ficticio-guindaste` | "Guindaste Demonstração FICTÍCIO" |
 | Configuração | `demo-ficticio-configuracao` | "Configuração Demonstração FICTÍCIA" |
-| Ficha técnica | — | a = −1,2 m; h = 3,3 m; lança 12–22 m; inclinação 0–80°; cabo 1–15 m; giro contínuo — igual ao guindaste provisório da cena 3D |
+| Ficha técnica | — | a = −1,56 m; h = 3,3 m; lança 12–22 m; inclinação 0–80°; cabo 1–15 m; giro contínuo — coerente com o modelo 3D ilustrativo `guindaste-caminhao.glb` (TASK-043; até então, a = −1,2 m) |
 | Tabela de carga | `demo-ficticio-tabela-v1` | versão `demo-ficticia-v1`, 27 pontos, lanças de 12, 17 e 22 m, **ACTIVE** |
+
+> **Banco semeado antes da TASK-043 (a = −1,2 m):** o seed não sobrescreve uma configuração com
+> ficha diferente e termina com erro ("não sobrescreve"). Recrie o banco antes de semear de novo
+> (no Docker: `docker compose down -v`).
 
 Arquivos em `backend/app/demo_data/` (ver o README da pasta):
 
@@ -126,16 +130,16 @@ pt-BR):
 
 | Cenário | Lança | Inclinação | Raio (backend) | Resultado | Capacidade admissível | Ponto tabelado usado | Utilização |
 |---------|-------|------------|----------------|-----------|-----------------------|----------------------|------------|
-| A — pose inicial | 12,0 m | 35° | 8,63 m | Avaliado | 4 200 kg | 12 m × 10 m | 71,43 % |
-| B — lança mais alta | 12,0 m | 60° | 4,80 m | Avaliado | 7 000 kg | 12 m × 6 m | 42,86 % |
-| C — lança estendida | 22,0 m | 35° | 16,82 m | Avaliado | 1 500 kg | 22 m × 18 m | 200,00 % |
-| D — lança fora da tabela | 17,5 m | 35° | 13,14 m | Não avaliável: `BOOM_LENGTH_NOT_IN_CHART` | — | — | — |
-| E — raio abaixo da tabela | 12,0 m | 80° | 0,88 m | Não avaliável: `RADIUS_BELOW_CHART_MIN` | — | — | — |
+| A — pose inicial | 12,0 m | 35° | 8,27 m | Avaliado | 4 200 kg | 12 m × 10 m | 71,43 % |
+| B — lança mais alta | 12,0 m | 60° | 4,44 m | Avaliado | 7 000 kg | 12 m × 6 m | 42,86 % |
+| C — lança estendida | 22,0 m | 35° | 16,46 m | Avaliado | 1 500 kg | 22 m × 18 m | 200,00 % |
+| D — lança fora da tabela | 17,5 m | 35° | 12,78 m | Não avaliável: `BOOM_LENGTH_NOT_IN_CHART` | — | — | — |
+| E — raio abaixo da tabela | 12,0 m | 80° | 0,52 m | Não avaliável: `RADIUS_BELOW_CHART_MIN` | — | — | — |
 
 Como ler:
 
-- raio = a + L·cos θ (ADR-013), com a = −1,2 m; ex.: A → −1,2 + 12·cos 35° ≈ 8,63 m;
-- entre dois raios tabelados vale a **menor** capacidade dos dois vizinhos (ADR-015): em A, 8,63 m
+- raio = a + L·cos θ (ADR-013), com a = −1,56 m; ex.: A → −1,56 + 12·cos 35° ≈ 8,27 m;
+- entre dois raios tabelados vale a **menor** capacidade dos dois vizinhos (ADR-015): em A, 8,27 m
   fica entre 8 m (5 500 kg) e 10 m (4 200 kg) → 4 200 kg; utilização = 3 000 / 4 200 = 71,43 %;
 - em C a utilização passa de 100 %, mas o status continua "Avaliado": ainda não há níveis de alerta
   (PEND-004), e "Avaliado" só quer dizer que a tabela cobre o estado;

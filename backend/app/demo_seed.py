@@ -7,9 +7,9 @@ nada aqui pode ser apresentado como capacidade real (ADR-012; ADR-013 C-4, regra
 Cadastra, pelos casos de uso e repositórios existentes:
 
 1. fabricante, guindaste e configuração FICTÍCIOS (`ManageCraneCatalog`, TASK-030), com a ficha
-   técnica compatível com o guindaste provisório do frontend (TASK-013/016): a = −1,2 m,
-   h = 3,3 m e as faixas dos sliders (lança 12–22 m, inclinação 0–80°, cabo 1–15 m, giro
-   contínuo);
+   técnica compatível com o modelo 3D ilustrativo do guindaste sobre caminhão
+   (`frontend/public/models/guindaste-caminhao.glb`, TASK-043): a = −1,56 m, h = 3,3 m e as
+   faixas dos sliders (lança 12–22 m, inclinação 0–80°, cabo 1–15 m, giro contínuo);
 2. a tabela de carga FICTÍCIA `demo_data/tabela_carga_ficticia_demo_v1.csv`, importada pelo fluxo
    real (`ImportLoadChart`: validação, arquivo-fonte preservado, gravação em `DRAFT`) e ativada
    (`ActivateLoadChart`).
@@ -117,15 +117,17 @@ DEMO_SEED_IDS = DemoSeedIds()
 
 
 def build_demo_crane_geometry() -> CraneGeometry:
-    """Ficha técnica FICTÍCIA, igual ao guindaste provisório do frontend.
+    """Ficha técnica FICTÍCIA, coerente com o modelo 3D ilustrativo do guindaste sobre caminhão.
 
-    Espelha `PROVISIONAL_CRANE_GEOMETRY` e `PROVISIONAL_CRANE_LIMITS`
-    (`frontend/src/three/crane/createProvisionalCrane.ts`): a = −1,2 m (pino atrás do eixo de
-    giro), h = 3,3 m, lança 12–22 m, inclinação 0–80°, cabo 1–15 m. O slider de giro vai de −180° a
-    180° (volta inteira), então o giro é contínuo: sem limites (ADR-013 C-4).
+    a = −1,56 m (pino atrás do eixo de giro) é o valor do GLB ilustrativo
+    (`TRUCK_CRANE_MODEL_MEASUREMENTS` em `frontend/src/three/loaders/loadTruckCraneModel.ts`,
+    TASK-043), para o gancho desenhado coincidir com o G calculado. Até a TASK-043, era −1,2 m.
+    h = 3,3 m, lança 12–22 m, inclinação 0–80°, cabo 1–15 m: as mesmas faixas de
+    `PROVISIONAL_CRANE_LIMITS` (`frontend/src/three/crane/provisionalCraneSpec.ts`). O slider de
+    giro vai de −180° a 180° (volta inteira), então o giro é contínuo: sem limites (ADR-013 C-4).
     """
     return CraneGeometry(
-        boom_pivot_offset_m=-1.2,
+        boom_pivot_offset_m=-1.56,
         boom_pivot_height=Length(3.3),
         boom_length_min=Length(12.0),
         boom_length_max=Length(22.0),
