@@ -2,14 +2,18 @@
 // sessão de avaliação (WebSocket com fallback REST) e HUD do resultado.
 
 import { Link2, TriangleAlert } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 
 import { selectedConfiguration as findSelectedConfiguration } from '../../application/catalog/CatalogBrowser'
+import { evaluationStatus } from '../../application/evaluation/evaluationStatus'
 import { validateLoadForm, loadWeightTextForEvaluation } from '../../application/load/loadForm'
 import { guidedStepStatuses, resolveActiveStep } from '../../application/simulator/guidedSteps'
 import type { OperationalGeometry } from '../../domain/geometry/operationalGeometry'
-import { CraneViewport } from '../../presentation/components/CraneViewport'
+import {
+  CraneViewport,
+  type CraneViewportHandle,
+} from '../../presentation/components/CraneViewport'
 import { SceneErrorBoundary } from '../../presentation/components/SceneErrorBoundary'
 import { ROUTES } from '../../presentation/layout/navigation'
 import { SimulatorPage } from '../../presentation/pages/SimulatorPage'
@@ -21,6 +25,10 @@ import {
 } from '../../presentation/panels/CraneControlPanel'
 import { LoadPanel } from '../../presentation/panels/LoadPanel'
 import { OperationalGeometryPanel } from '../../presentation/panels/OperationalGeometryPanel'
+import {
+  CameraPresetButtons,
+  type CameraPresetId,
+} from '../../presentation/simulator/CameraPresetButtons'
 import { ConnectionStatusBar } from '../../presentation/simulator/ConnectionStatusBar'
 import { GuidedStepsPanel } from '../../presentation/simulator/GuidedStepsPanel'
 import { buttonClassName, EmptyState, Panel } from '../../presentation/ui'
@@ -52,6 +60,8 @@ function bindCrane(commands: CraneCommands): CraneBinding {
 
 export function SimulatorRoute() {
   const [crane, setCrane] = useState<CraneBinding | null>(null)
+  const [cameraPreset, setCameraPreset] = useState<CameraPresetId | null>(null)
+  const viewportRef = useRef<CraneViewportHandle>(null)
   const { load, setLoad, requestedStep, setRequestedStep } = useSimulatorDraft()
   const { session, state: evaluation } = useEvaluationSession()
   const { catalog, state: catalogState } = useCatalog()
@@ -130,6 +140,18 @@ export function SimulatorRoute() {
       ? `R ${crane.geometry.workingRadiusM.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} m · θ ${crane.state.boomAngleDeg.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}°`
       : undefined
 
+  // Situação na cena (TASK-041): só com resultado do backend válido para o estado atual.
+  const sceneStatus = evaluationStatus(
+    evaluationInput.problem === null && evaluation.error === null ? evaluation.result : null,
+  )
+  const sceneLoad = validLoad
+    ? { lengthM: validLoad.lengthM, widthM: validLoad.widthM, heightM: validLoad.heightM }
+    : null
+  const handleCameraPreset = (preset: CameraPresetId) => {
+    setCameraPreset(preset)
+    viewportRef.current?.setCameraPreset(preset)
+  }
+
   const viewport = (
     <SceneErrorBoundary
       fallback={
@@ -146,7 +168,13 @@ export function SimulatorRoute() {
         </div>
       }
     >
-      <CraneViewport setup={craneSetup.setup} onCraneChange={handleCraneChange} />
+      <CraneViewport
+        ref={viewportRef}
+        setup={craneSetup.setup}
+        onCraneChange={handleCraneChange}
+        evaluationStatus={sceneStatus}
+        load={sceneLoad}
+      />
     </SceneErrorBoundary>
   )
 
@@ -220,6 +248,9 @@ export function SimulatorRoute() {
           connectionStatus={evaluation.connectionStatus}
           transport={evaluation.result !== null ? evaluation.transport : null}
           pending={evaluation.pending}
+          cameraActions={
+            <CameraPresetButtons active={cameraPreset} onSelect={handleCameraPreset} />
+          }
         />
       }
     />
