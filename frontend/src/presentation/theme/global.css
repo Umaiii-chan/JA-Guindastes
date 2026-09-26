@@ -200,7 +200,7 @@ code {
   place-items: center;
   padding: var(--space-8);
   text-align: center;
-  color: var(--color-status-danger);
+  color: var(--color-status-danger-text);
 }
 
 @media (prefers-reduced-motion: reduce) {

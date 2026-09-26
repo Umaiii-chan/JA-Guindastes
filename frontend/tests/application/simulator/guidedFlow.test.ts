@@ -66,10 +66,10 @@ describe('situação do resultado (cor)', () => {
   const evaluatedAt = (utilization_percent: number) =>
     mapEvaluationResponse({ ...REST_EVALUATED, utilization_percent })
 
-  it('abaixo de 100 % é ok; 100 % é warning (P-005); acima é over', () => {
+  it('até 100 % é ok (carga igual à capacidade conta como dentro, P-005); acima é over', () => {
     expect(evaluationStatus(evaluatedAt(75))).toBe('ok')
     expect(evaluationStatus(evaluatedAt(99.99))).toBe('ok')
-    expect(evaluationStatus(evaluatedAt(100))).toBe('warning')
+    expect(evaluationStatus(evaluatedAt(100))).toBe('ok')
     expect(evaluationStatus(evaluatedAt(100.01))).toBe('over')
   })
 

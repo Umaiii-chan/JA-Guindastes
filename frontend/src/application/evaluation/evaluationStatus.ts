@@ -4,11 +4,13 @@
 // Não há níveis de alerta definidos (PEND-004): a situação só compara a carga com a capacidade que o
 // BACKEND devolveu, pela utilização (`carga / capacidade × 100`). Nada é calculado aqui (RN-008).
 //
-// - `ok`      (verde): utilização abaixo de 100 % — a carga cabe na capacidade;
-// - `warning` (âmbar): utilização exatamente 100 % — carga igual à capacidade, caso ainda sem regra
-//                      (P-005 em docs/known-gaps.md: se carga = capacidade é violação);
-// - `over`    (vermelho): utilização acima de 100 % — carga acima da capacidade;
+// - `ok`      (verde): avaliado e dentro da capacidade (utilização até 100 %);
+// - `over`    (vermelho): avaliado e acima da capacidade (utilização acima de 100 %);
 // - `unknown` (cinza): sem resultado, erro ou "não avaliável" (RN-007).
+//
+// `warning` (âmbar) existe no tipo, para casar com a paleta da cena, mas a UI NÃO o produz: ainda não
+// há critério de atenção (PEND-004). Carga igual à capacidade conta como "dentro" até a P-005
+// (docs/known-gaps.md) decidir se é violação.
 
 import type { EvaluationResult } from '../../domain/evaluation/evaluation'
 
@@ -21,7 +23,5 @@ export function evaluationStatus(result: EvaluationResult | null): EvaluationSta
   if (result === null || result.kind !== 'EVALUATED') return 'unknown'
   const utilization = result.utilizationPercent
   if (!Number.isFinite(utilization)) return 'unknown'
-  if (utilization > FULL_CAPACITY_PERCENT) return 'over'
-  if (utilization === FULL_CAPACITY_PERCENT) return 'warning'
-  return 'ok'
+  return utilization > FULL_CAPACITY_PERCENT ? 'over' : 'ok'
 }
