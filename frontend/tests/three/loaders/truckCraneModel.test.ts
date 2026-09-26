@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { createHash } from 'node:crypto'
 import { readFileSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
@@ -37,11 +38,29 @@ const GLB_PATH = fileURLToPath(
 const SCENE_TOLERANCE_M = 1e-4
 const TIGHT_CALIBRATION = { positionM: 1e-3, rotationDeg: 1e-3 }
 
-/** Ficha FICTÍCIA de demonstração (a = −1,2 m, h = 3,3 m, L_min = 12 m; ADR-012). */
+/**
+ * SHA-256 do GLB versionado: é o que `node scripts/convert-crane-model.mjs` gera (determinístico).
+ * Mudou o script? Regenere o GLB e atualize este valor e o handoff da TASK-043.
+ */
+const GLB_SHA256 = '637d7a1fa3966a9c19cdb15c3dd50c09bfc44cd99bcabf724823e3c570804936'
+
+/**
+ * Ficha FICTÍCIA de demonstração do backend (`backend/app/demo_seed.py`: a = −1,56 m desde a
+ * TASK-043, h = 3,3 m, L_min = 12 m; ADR-012).
+ */
 const DEMO_CONFIG: Omit<CraneKinematicsConfig, 'nodeNames'> = {
-  geometryParameters: PROVISIONAL_CRANE_GEOMETRY,
+  geometryParameters: { boomPivotOffsetM: -1.56, boomPivotHeightM: 3.3 },
   boomRetractedLengthM: 12,
   calibrationTolerance: TIGHT_CALIBRATION,
+}
+
+/**
+ * Padrão FICTÍCIO do frontend sem ficha (`PROVISIONAL_CRANE_GEOMETRY`, a = −1,2 m), que a
+ * integração ainda vai alinhar.
+ */
+const FRONTEND_DEFAULT_CONFIG: Omit<CraneKinematicsConfig, 'nodeNames'> = {
+  ...DEMO_CONFIG,
+  geometryParameters: PROVISIONAL_CRANE_GEOMETRY,
 }
 
 /** Configuração com as medidas do próprio modelo: a conferência não pode dar aviso nenhum. */
@@ -78,6 +97,12 @@ describe('GLB do guindaste sobre caminhão (public/models, TASK-043)', () => {
     expect(statSync(GLB_PATH).size).toBeLessThan(3_000_000)
   })
 
+  it('é o arquivo que o script de conversão gera (SHA-256 fixo)', () => {
+    const sha = createHash('sha256').update(readFileSync(GLB_PATH)).digest('hex')
+
+    expect(sha).toBe(GLB_SHA256)
+  })
+
   it('usa os mesmos nomes de nós do guindaste provisório, cada um uma vez no arquivo', async () => {
     const model = await loadModel()
 
@@ -103,6 +128,7 @@ describe('GLB do guindaste sobre caminhão (public/models, TASK-043)', () => {
       origem: {
         arquivo: 'cgtrader_optimized_prop_crane.fbx',
         sha256: '81f0b6b4da654a83aa0575216e6a42b39eca3b6e148bdc496f584371380321a1',
+        licenca: expect.stringContaining('permite versionar o GLB derivado'),
       },
       conversao: { script: 'frontend/scripts/convert-crane-model.mjs', tarefa: 'TASK-043' },
       medidasDoModelo: TRUCK_CRANE_MODEL_MEASUREMENTS,
@@ -124,14 +150,21 @@ describe('GLB do guindaste sobre caminhão (public/models, TASK-043)', () => {
     expect(result.report).toEqual({ errors: [], warnings: [], synthesizedRoles: [] })
   })
 
-  it('com a ficha de demo, só P e T divergem, pelo a do modelo (≈ −1,56 m contra −1,2 m); h e L_min batem', async () => {
+  it('com a ficha de demo (a = −1,56 m), a pose de repouso passa na conferência com 1 mm, sem aviso', async () => {
     const result = mapTruckCraneKinematics(await loadModel(), DEMO_CONFIG)
+
+    // O a do modelo é −1,5591 m: 0,9 mm da ficha, dentro da tolerância de 1 mm.
+    expect(result.report).toEqual({ errors: [], warnings: [], synthesizedRoles: [] })
+  })
+
+  it('com o padrão do frontend (a = −1,2 m), só P e T divergem, pelo a; h e L_min batem', async () => {
+    const result = mapTruckCraneKinematics(await loadModel(), FRONTEND_DEFAULT_CONFIG)
     const expectedDeviation = Math.abs(
       TRUCK_CRANE_MODEL_MEASUREMENTS.boomPivotOffsetM - PROVISIONAL_CRANE_GEOMETRY.boomPivotOffsetM,
     )
 
-    // Aviso esperado e documentado em handoffs/TASK-043.md: a proporção do FBX não permite a, h e
-    // L_min ao mesmo tempo; a conversão priorizou h e L_min.
+    // Documentado em handoffs/TASK-043.md: o padrão FICTÍCIO do frontend ainda é −1,2 m (a
+    // integração alinha); a divergência é só visual.
     expect(result.report.warnings.map((warning) => warning.kind)).toEqual(['position', 'position'])
     for (const warning of result.report.warnings) {
       if (warning.kind !== 'position') continue

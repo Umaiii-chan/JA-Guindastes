@@ -26,12 +26,13 @@
 //  6. junta as peças por papel e por material, põe cada grupo sob o nó do seu papel, na hierarquia
 //     que o mapeamento cinemático espera (assets/example-models/README.md), e exporta o GLB.
 //
-// Proporção (registrada em handoffs/TASK-043.md): a ficha FICTÍCIA de demo tem a = −1,2 m,
+// Proporção (registrada em handoffs/TASK-043.md): a ficha FICTÍCIA de demo tinha a = −1,2 m,
 // h = 3,3 m e lança recolhida L_min = 12 m. Com uma escala única, o modelo não chega às três: a
 // escala que dá h = 3,3 m (caminhão de cerca de 9 m) deixa a lança toda recolhida com cerca de 6 m.
 // Prioridade combinada: h e L_min. Por isso a escala sai de h e os tubos da lança são esticados ao
-// longo do próprio eixo (só os tubos; colares, cabeça e polias não se deformam). O `a` que resulta
-// do modelo fica diferente da ficha, e o mapeamento avisa (erro só visual, ADR-013 C-4, regra 3).
+// longo do próprio eixo (só os tubos; colares, cabeça e polias não se deformam). O `a` resulta do
+// modelo (−1,559 m); a pessoa responsável passou a ficha de demo para a = −1,56 m, para bater com ele
+// (backend/app/demo_seed.py).
 //
 // Cabo: no FBX o cabo é uma malha fixa que vai do guincho da torre até a polia da ponta. Ela é
 // descartada; no lugar, o nó `crane-cable-line` é uma linha de altura 1 com o topo na origem,
@@ -79,8 +80,8 @@ const EXPECTED_INPUT_SHA256 = '81f0b6b4da654a83aa0575216e6a42b39eca3b6e148bdc496
 const TARGET_PIVOT_HEIGHT_M = 3.3
 /** L_min: lança toda recolhida, de P até T (m). Alcançado esticando os tubos da lança. */
 const TARGET_RETRACTED_LENGTH_M = 12
-/** a da ficha de demo (m). Só para o relatório: o `a` do modelo sai da geometria. */
-const DEMO_PIVOT_OFFSET_M = -1.2
+/** a da ficha de demo (m; era −1,2 até a TASK-043). Só para o relatório: o `a` sai do modelo. */
+const DEMO_PIVOT_OFFSET_M = -1.56
 /** L_max da ficha de demo (m). Só para o relatório de sobreposição das seções. */
 const DEMO_EXTENDED_LENGTH_M = 22
 /** Onde começa a 2ª seção, recolhida, medido de P ao longo da lança (m): fica escondida na base. */
@@ -787,7 +788,8 @@ function buildScene(pieces, frame, layout, inputSha256) {
       arquivo: 'cgtrader_optimized_prop_crane.fbx',
       fonte: 'CGTrader, fornecido pela pessoa responsável',
       sha256: inputSha256,
-      licenca: 'a conferir pela pessoa responsável (handoffs/TASK-043.md)',
+      licenca:
+        'permite versionar o GLB derivado e distribuí-lo embutido na aplicação (confirmado pela pessoa responsável em 2026-09-26; handoffs/TASK-043.md)',
     },
     conversao: {
       script: 'frontend/scripts/convert-crane-model.mjs',
