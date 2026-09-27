@@ -388,6 +388,7 @@ export function CatalogPage({
                   // Sem a lista carregada, não se sabe se há tabela ativa (o Drawer confirma).
                   ...(versions.state.status === 'loaded' && {
                     activeChartVersion: active?.version ?? null,
+                    chartVersionCount: versions.state.versions.length,
                   }),
                 })
               }

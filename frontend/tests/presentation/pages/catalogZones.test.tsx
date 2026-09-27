@@ -269,6 +269,54 @@ describe('página Catálogo — zonas de giro e gancho (TASK-046)', () => {
     expect(writes()).toHaveLength(1)
   })
 
+  it('sem zonas e com tabelas importadas: o atalho e a adição ficam desabilitados, com aviso', async () => {
+    const zoneless: ChartRow = { ...chartRow('T1', 'v1', 'X', 'DRAFT'), rotation_zone_code: null }
+    const { writes } = stubBackend(catalogFicticio(), [zoneless])
+    await renderCatalog()
+    const detail = await openConfiguration()
+    await within(detail).findByText(/1 versão importada/)
+    fireEvent.click(within(detail).getByRole('button', { name: 'Editar' }))
+    const drawer = screen.getByRole('dialog', { name: 'Editar configuração' })
+
+    expect(
+      within(drawer).getByText(
+        'Esta configuração já tem tabelas importadas sem zona. Crie outra configuração para usar zonas de giro.',
+      ),
+    ).toBeTruthy()
+    const preset = within(drawer).getByRole('button', {
+      name: 'Frontal 110° + lateral e traseira 250°',
+    }) as HTMLButtonElement
+    const add = within(drawer).getByRole('button', { name: 'Adicionar zona' }) as HTMLButtonElement
+    expect(preset.disabled).toBe(true)
+    expect(add.disabled).toBe(true)
+    // O resto da configuração continua editável.
+    fireEvent.change(within(drawer).getByLabelText(/Peso do gancho/), { target: { value: '90' } })
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Salvar alterações' }))
+    expect(await screen.findByText('Configuração alterada')).toBeTruthy()
+    expect(writes()[0].body).toEqual({ hook_block_weight_kg: 90 })
+  })
+
+  it('409 ZONELESS_LOAD_CHARTS_EXIST: explica no editor e no resumo, sem fechar o Drawer', async () => {
+    // A lista lida está vazia (ex.: outra aba importou depois), então o editor não bloqueia antes.
+    const { writes } = stubBackend(catalogFicticio(), [], { zonelessChartsIn: ['CFG-A1-FICHA'] })
+    await renderCatalog()
+    const drawer = await openEditDrawer()
+    fireEvent.click(
+      within(drawer).getByRole('button', { name: 'Frontal 110° + lateral e traseira 250°' }),
+    )
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Salvar alterações' }))
+
+    const notices = await within(drawer).findAllByRole('alert')
+    const text = notices.map((notice) => notice.textContent).join(' ')
+    expect(text).toContain('ZONELESS_LOAD_CHARTS_EXIST')
+    expect(text).toContain('Crie outra configuração para usar zonas de giro.')
+    expect(notices.some((notice) => notice.textContent?.includes('Zonas de giro inválidas'))).toBe(
+      true,
+    )
+    expect(screen.getByRole('dialog', { name: 'Editar configuração' })).toBeTruthy()
+    expect(writes()).toHaveLength(1)
+  })
+
   it('422 INVALID_ROTATION_ZONES do backend vai para o editor de zonas', async () => {
     stubBackend(catalogFicticio(), [], {}, (method) =>
       method === 'PATCH'
