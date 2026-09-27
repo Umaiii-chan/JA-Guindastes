@@ -38,9 +38,21 @@ async function post(request: APIRequestContext, path: string, data: unknown) {
   return (await response.json()) as { id: string }
 }
 
+/** Campos da configuração da TASK-046 (zonas de giro e peso do gancho), no formato do backend. */
+export interface ConfigurationZoneFields {
+  readonly rotation_zones?: readonly {
+    code: string
+    name: string
+    start_deg: number
+    end_deg: number
+  }[]
+  readonly hook_block_weight_kg?: number
+}
+
 export async function createFicticioCatalog(
   request: APIRequestContext,
   geometry: typeof GEOMETRY_FICTICIA | null = null,
+  zoneFields: ConfigurationZoneFields = {},
 ): Promise<FicticioCatalog> {
   const suffix = `${Date.now()}`
   const manufacturerName = `Fabricante FICTÍCIO E2E ${suffix}`
@@ -54,6 +66,7 @@ export async function createFicticioCatalog(
   const configuration = await post(request, `/api/v1/cranes/${crane.id}/configurations`, {
     name: configurationName,
     geometry,
+    ...zoneFields,
   })
   return {
     manufacturerId: manufacturer.id,

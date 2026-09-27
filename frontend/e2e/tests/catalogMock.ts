@@ -23,7 +23,23 @@ const SHEET_FICTICIA = {
   turret_rotation_max_deg: 90,
 }
 
-export async function mockCatalog(page: Page): Promise<void> {
+/**
+ * Zonas FICTÍCIAS no formato "frontal 110° / lateral e traseira 250°" (TASK-046; ADR-018), no
+ * formato do backend. Não vêm de nenhuma tabela real.
+ */
+export const ZONAS_FICTICIAS = [
+  { code: 'FRONTAL', name: 'Frontal FICTÍCIA', start_deg: 305, end_deg: 55 },
+  { code: 'LATERAL_TRASEIRA', name: 'Lateral e traseira FICTÍCIA', start_deg: 55, end_deg: 305 },
+]
+
+export interface MockCatalogOptions {
+  /** Zonas de giro da configuração (TASK-046); sem elas, a configuração não tem zonas. */
+  readonly rotationZones?: typeof ZONAS_FICTICIAS | null
+  /** Peso do gancho FICTÍCIO (kg). */
+  readonly hookBlockWeightKg?: number | null
+}
+
+export async function mockCatalog(page: Page, options: MockCatalogOptions = {}): Promise<void> {
   await page.route('**/api/v1/manufacturers', (route) =>
     route.fulfill({ json: [{ id: FICTICIO.manufacturerId, name: 'Fabricante FICTÍCIO E2E' }] }),
   )
@@ -46,6 +62,8 @@ export async function mockCatalog(page: Page): Promise<void> {
           crane_id: FICTICIO.craneId,
           name: 'Config FICTÍCIA E2E',
           geometry: SHEET_FICTICIA,
+          rotation_zones: options.rotationZones ?? null,
+          hook_block_weight_kg: options.hookBlockWeightKg ?? null,
         },
       ],
     }),
