@@ -19,14 +19,15 @@ Projeto acadêmico do curso de Engenharia de Software (2º semestre de 2026), co
 
 Concluídas as tarefas TASK-001..043. A leva D (TASK-038..043, PR #39) trouxe login com perfis, o
 design system escuro com páginas e simulador guiado, a cena 3D enriquecida e o modelo GLB do guindaste
-sobre caminhão. Esta documentação é a TASK-045. Em paralelo, a TASK-044 cria as rotas de listagem de
-tabelas e de edição de cadastros.
+sobre caminhão. A TASK-044 acrescentou a listagem das tabelas de uma configuração, com a ativa, e a
+edição de fabricante, guindaste e configuração, usadas pelas páginas Tabelas e Catálogo. Esta
+documentação é a TASK-045.
 
 | Parte | Situação |
 |-------|----------|
 | Documentação e decisões | contexto do produto, regras de negócio (RN-001..008), requisitos (RF/RNF), ADR-002..013 e ADR-016/017 aceitos, ADR-014 (ORM) proposto, ADR-015 (consulta conservadora) aceito como provisório |
 | Backend | Clean Architecture: domínio (tabela de carga, geometria do ADR-013, carga, consulta conservadora provisória do ADR-015, usuário), casos de uso (avaliação, cadastro, importação com gravação, ativação, login, gestão de usuários), PostgreSQL com SQLAlchemy + Alembic, storage local do arquivo-fonte, importação CSV/XLSX, API REST e WebSocket. Com banco, o **login é obrigatório**, com perfis `ADMIN`/`OPERATOR` (ADR-016): sessão em cookie `HttpOnly`, cabeçalho anti-CSRF, WebSocket com a mesma sessão, gestão de usuários pelo admin e primeiro admin por `python -m app.create_admin` |
-| Frontend | casca com trilho de navegação e barra superior, tema escuro próprio (ADR-017); páginas Login, Início, Simulador guiado (passos Guindaste → Carga → Posição sobre a cena, resultado do backend com medidor), Catálogo, Tabelas (validação prévia, matriz, versões e ativação) e Usuários (só admin); guardas de rota por perfil; cena Three.js com céu, grade, sombras, anel de raio, carga no gancho, cores de situação e quatro câmeras, desenhada sob demanda; modelo GLB do guindaste sobre caminhão carregado em segundo plano, com o guindaste provisório como reserva |
+| Frontend | casca com trilho de navegação e barra superior, tema escuro próprio (ADR-017); páginas Login, Início, Simulador guiado (passos Guindaste → Carga → Posição sobre a cena, resultado do backend com medidor), Catálogo (com edição e tabela ativa), Tabelas (validação prévia, matriz, linha do tempo de versões e ativação) e Usuários (só admin); guardas de rota por perfil; cena Three.js com céu, grade, sombras, anel de raio, carga no gancho, cores de situação e quatro câmeras, desenhada sob demanda; modelo GLB do guindaste sobre caminhão carregado em segundo plano, com o guindaste provisório como reserva |
 | Infra | Docker Compose com `postgres`, `backend` (com volume para o arquivo-fonte) e `frontend` (nginx); seed de demonstração FICTÍCIO (`python -m app.demo_seed`, ficha com a = −1,56 m, igual ao modelo); CI com estrutura, backend (com PostgreSQL de serviço), frontend, imagens Docker e E2E (Playwright contra a stack, entrando com um admin só de CI) |
 
 A capacidade mostrada vem da consulta **conservadora provisória** (ADR-015: entre dois pontos da
@@ -173,6 +174,8 @@ Contrato completo em `/docs` (OpenAPI) com a API no ar.
 | `WS /ws/evaluation` | a mesma avaliação por WebSocket (`simulation.state.changed` → `simulation.evaluated`, com `sequence`) | sempre |
 | `POST /load-charts/validate` | valida uma tabela CSV sem gravar | sempre |
 | `POST /manufacturers`, `/cranes`, `/cranes/{id}/configurations` e os `GET` correspondentes | cadastro e leitura de fabricantes, guindastes e configurações (com a ficha técnica geométrica) | com `DATABASE_URL` |
+| `PATCH /manufacturers/{id}`, `/cranes/{id}`, `/configurations/{id}` | edita o nome do fabricante, o modelo do guindaste e o nome e/ou a ficha técnica inteira da configuração (vale para as próximas avaliações; as tabelas não mudam); só `ADMIN` | com `DATABASE_URL` |
+| `GET /configurations/{id}/load-charts` | lista as tabelas de uma configuração, sem os pontos, com `active_chart_id`; da maior versão para a menor (não há data de importação gravada) | com `DATABASE_URL` |
 | `POST /load-charts/import`, `GET /load-charts/{id}`, `POST /load-charts/{id}/activate` | importa CSV/XLSX gravando a tabela e o arquivo-fonte, consulta e ativa a tabela | com `DATABASE_URL` e `FILE_STORAGE_DIR` |
 | `GET /auth/session`, `POST /auth/login`, `POST /auth/logout` | sessão atual (`authEnabled: false` sem banco), login com cookie e logout | `GET /auth/session` sempre; login e logout com `DATABASE_URL` |
 | `GET /users`, `POST /users`, `PATCH /users/{id}` | listar, criar e editar usuários (nome, perfil, ativo, senha); só `ADMIN` | com `DATABASE_URL` |
