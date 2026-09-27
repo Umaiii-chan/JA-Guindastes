@@ -275,7 +275,7 @@ def test_second_active_chart_is_translated_to_conflict() -> None:
         build_load_chart_ficticio(status=LoadChartStatus.VALIDATED), SOURCE_FICTICIA
     )
     repository = SqlAlchemyLoadChartRepository(
-        _factory("uq_load_charts_one_active_per_configuration", stored=stored)
+        _factory("uq_load_charts_one_active_per_configuration_zone", stored=stored)
     )
 
     with pytest.raises(ActiveLoadChartConflictError) as info:

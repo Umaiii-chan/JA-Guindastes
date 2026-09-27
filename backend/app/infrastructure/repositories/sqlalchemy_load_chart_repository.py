@@ -26,7 +26,7 @@ from app.domain.value_objects.length import Length
 from app.domain.value_objects.mass import Mass
 from app.infrastructure.database.models.load_chart import (
     CONFIGURATION_VERSION_CONSTRAINT,
-    ONE_ACTIVE_PER_CONFIGURATION_INDEX,
+    ONE_ACTIVE_PER_CONFIGURATION_ZONE_INDEX,
     LoadChartModel,
     LoadChartPointModel,
 )
@@ -46,6 +46,7 @@ def load_chart_to_model(chart: LoadChart, source: LoadChartSource) -> LoadChartM
         source_file_type=source.file_type,
         source_sha256=source.sha256,
         source_uri=source.uri,
+        rotation_zone_code=chart.rotation_zone_code,
         points=[
             LoadChartPointModel(
                 position=position,
@@ -73,6 +74,7 @@ def load_chart_from_model(model: LoadChartModel) -> LoadChart:
             )
             for point in sorted(model.points, key=lambda point: point.position)
         ),
+        rotation_zone_code=model.rotation_zone_code,
     )
 
 
@@ -112,17 +114,22 @@ class SqlAlchemyLoadChartRepository:
     def change_status(self, load_chart_id: str, new_status: LoadChartStatus) -> None:
         status = LoadChartStatus(new_status)
         configuration_id: str | None = None
+        rotation_zone_code: str | None = None
         try:
             with self._session_factory.begin() as session:
                 model = session.get(LoadChartModel, load_chart_id)
                 if model is None:
                     raise LoadChartNotFoundError(load_chart_id)
                 configuration_id = model.configuration_id
+                rotation_zone_code = model.rotation_zone_code
                 model.status = status.value
         except IntegrityError as error:
             constraint = violated_constraint(error)
-            if constraint == ONE_ACTIVE_PER_CONFIGURATION_INDEX and configuration_id is not None:
-                raise ActiveLoadChartConflictError(configuration_id) from error
+            if (
+                constraint == ONE_ACTIVE_PER_CONFIGURATION_ZONE_INDEX
+                and configuration_id is not None
+            ):
+                raise ActiveLoadChartConflictError(configuration_id, rotation_zone_code) from error
             raise
 
     def get_by_id(self, load_chart_id: str) -> StoredLoadChart | None:
@@ -134,12 +141,18 @@ class SqlAlchemyLoadChartRepository:
                 chart=load_chart_from_model(model), source=source_from_model(model)
             )
 
-    def get_active_load_chart(self, configuration_id: str) -> LoadChart | None:
-        """`ActiveLoadChartProvider`: a tabela `ACTIVE` da configuração, ou `None`."""
+    def get_active_load_chart(
+        self, configuration_id: str, rotation_zone_code: str | None = None
+    ) -> LoadChart | None:
+        """`ActiveLoadChartProvider`: a tabela `ACTIVE` da configuração na zona, ou `None`.
+
+        Zona `None` pede a tabela sem zona (`IS NULL`), a da configuração sem zonas (TASK-046).
+        """
         with self._session_factory() as session:
             model = session.scalars(
                 select(LoadChartModel).where(
                     LoadChartModel.configuration_id == configuration_id,
+                    LoadChartModel.rotation_zone_code.is_not_distinct_from(rotation_zone_code),
                     LoadChartModel.status == LoadChartStatus.ACTIVE.value,
                 )
             ).one_or_none()
@@ -163,6 +176,7 @@ class SqlAlchemyLoadChartRepository:
                 LoadChartModel.source_file_type,
                 LoadChartModel.source_sha256,
                 LoadChartModel.source_uri,
+                LoadChartModel.rotation_zone_code,
                 point_count,
             )
             .outerjoin(LoadChartPointModel, LoadChartPointModel.load_chart_id == LoadChartModel.id)
@@ -184,6 +198,7 @@ class SqlAlchemyLoadChartRepository:
                         sha256=row.source_sha256,
                         uri=row.source_uri,
                     ),
+                    rotation_zone_code=row.rotation_zone_code,
                 )
                 for row in session.execute(statement)
             ]

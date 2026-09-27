@@ -1,15 +1,18 @@
 """Catálogo de guindastes no PostgreSQL via SQLAlchemy (TASK-022).
 
 Implementa `CraneCatalogRepository`, `CraneCatalogListing` (TASK-030), `CraneCatalogEditing`
-(TASK-044) e `CraneGeometryProvider`.
+(TASK-044), `CraneGeometryProvider` e `ConfigurationLoadRulesProvider` (TASK-046).
 Cada método abre a própria sessão e a própria transação (a aplicação ainda não tem porta de unidade
 de trabalho).
 """
+
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.application.ports.configuration_load_rules_provider import ConfigurationLoadRules
 from app.application.ports.crane_catalog_repository import (
     CatalogEntryAlreadyExistsError,
     CatalogReferenceNotFoundError,
@@ -20,6 +23,8 @@ from app.application.ports.crane_catalog_repository import (
 from app.domain.value_objects.angle import Angle
 from app.domain.value_objects.crane_geometry import CraneGeometry
 from app.domain.value_objects.length import Length
+from app.domain.value_objects.mass import Mass
+from app.domain.value_objects.rotation_zone import RotationZone, RotationZones
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.models.catalog import (
     CraneConfigurationModel,
@@ -66,11 +71,51 @@ def crane_from_model(model: CraneModel) -> Crane:
 
 def configuration_to_model(configuration: CraneConfiguration) -> CraneConfigurationModel:
     model = CraneConfigurationModel(
-        id=configuration.id, crane_id=configuration.crane_id, name=configuration.name
+        id=configuration.id,
+        crane_id=configuration.crane_id,
+        name=configuration.name,
+        rotation_zones=rotation_zones_to_json(configuration.rotation_zones),
+        hook_block_weight_kg=_kilograms_or_none(configuration.hook_block_weight),
     )
     if configuration.geometry is not None:
         write_geometry_columns(model, configuration.geometry)
     return model
+
+
+def rotation_zones_to_json(zones: RotationZones | None) -> list[dict[str, Any]] | None:
+    """Zonas de giro como lista JSON, na ordem declarada (TASK-046); `None` sem zonas."""
+    if zones is None:
+        return None
+    return [
+        {
+            "code": zone.code,
+            "name": zone.name,
+            "start_deg": zone.start_deg,
+            "end_deg": zone.end_deg,
+        }
+        for zone in zones.zones
+    ]
+
+
+def rotation_zones_from_json(value: list[dict[str, Any]] | None) -> RotationZones | None:
+    """Monta as `RotationZones` da coluna JSON; o domínio revalida a cobertura de 360°.
+
+    Um valor incoerente gravado direto no banco levanta `InvalidRotationZonesError` (ou
+    `KeyError`/`TypeError` se faltar campo) em vez de virar zonas inválidas em silêncio.
+    """
+    if value is None:
+        return None
+    return RotationZones(
+        zones=tuple(
+            RotationZone(
+                code=item["code"],
+                name=item["name"],
+                start_deg=item["start_deg"],
+                end_deg=item["end_deg"],
+            )
+            for item in value
+        )
+    )
 
 
 def write_geometry_columns(model: CraneConfigurationModel, geometry: CraneGeometry | None) -> None:
@@ -101,6 +146,10 @@ def configuration_from_model(model: CraneConfigurationModel) -> CraneConfigurati
         crane_id=model.crane_id,
         name=model.name,
         geometry=geometry_from_model(model),
+        rotation_zones=rotation_zones_from_json(model.rotation_zones),
+        hook_block_weight=(
+            None if model.hook_block_weight_kg is None else Mass(model.hook_block_weight_kg)
+        ),
     )
 
 
@@ -132,6 +181,10 @@ def geometry_from_model(model: CraneConfigurationModel) -> CraneGeometry | None:
         turret_rotation_min=_angle_or_none(model.turret_rotation_min_deg),
         turret_rotation_max=_angle_or_none(model.turret_rotation_max_deg),
     )
+
+
+def _kilograms_or_none(value: Mass | None) -> float | None:
+    return None if value is None else value.kilograms
 
 
 def _meters_or_none(value: Length | None) -> float | None:
@@ -197,6 +250,20 @@ class SqlAlchemyCraneCatalogRepository:
             model = session.get(CraneConfigurationModel, configuration_id)
             return None if model is None else geometry_from_model(model)
 
+    def get_load_rules(self, configuration_id: str) -> ConfigurationLoadRules | None:
+        """`ConfigurationLoadRulesProvider` (TASK-046): zonas de giro e peso do gancho, ou `None`
+        se a configuração não existe."""
+        with self._session_factory() as session:
+            model = session.get(CraneConfigurationModel, configuration_id)
+            if model is None:
+                return None
+            return ConfigurationLoadRules(
+                rotation_zones=rotation_zones_from_json(model.rotation_zones),
+                hook_block_weight=(
+                    None if model.hook_block_weight_kg is None else Mass(model.hook_block_weight_kg)
+                ),
+            )
+
     def list_manufacturers(self) -> list[Manufacturer]:
         """`CraneCatalogListing` (TASK-030): todos, por nome e id."""
         statement = select(ManufacturerModel).order_by(ManufacturerModel.name, ManufacturerModel.id)
@@ -251,6 +318,8 @@ class SqlAlchemyCraneCatalogRepository:
                 return False
             model.name = configuration.name
             write_geometry_columns(model, configuration.geometry)
+            model.rotation_zones = rotation_zones_to_json(configuration.rotation_zones)
+            model.hook_block_weight_kg = _kilograms_or_none(configuration.hook_block_weight)
             return True
 
     def _add(

@@ -50,6 +50,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.ports.active_load_chart_provider import ActiveLoadChartProvider
+from app.application.ports.configuration_load_rules_provider import (
+    ConfigurationLoadRulesProvider,
+)
 from app.application.ports.crane_geometry_provider import CraneGeometryProvider
 from app.application.use_cases.evaluate_operation import EvaluateOperation
 from app.auth_composition import build_auth
@@ -96,27 +99,35 @@ class UnconfiguredActiveLoadChartProvider:
     Cumpre a porta `ActiveLoadChartProvider`: "sem tabela ativa" é `None`, sem exceção.
     """
 
-    def get_active_load_chart(self, configuration_id: str) -> LoadChart | None:
+    def get_active_load_chart(
+        self, configuration_id: str, rotation_zone_code: str | None = None
+    ) -> LoadChart | None:
         return None
 
 
 def build_evaluate_operation(
     crane_geometry_provider: CraneGeometryProvider,
     active_load_chart_provider: ActiveLoadChartProvider,
+    configuration_load_rules_provider: ConfigurationLoadRulesProvider | None = None,
 ) -> EvaluateOperation:
-    """Monta o caso de uso com a estratégia da composição (a mesma para REST e WebSocket)."""
+    """Monta o caso de uso com a estratégia da composição (a mesma para REST e WebSocket).
+
+    `configuration_load_rules_provider` (TASK-046): zonas de giro e peso do gancho; sem ele, a
+    configuração é avaliada sem zonas e sem gancho (composição sem banco).
+    """
     return EvaluateOperation(
         crane_geometry_provider=crane_geometry_provider,
         active_load_chart_provider=active_load_chart_provider,
         load_chart_interpolator=load_chart_interpolator,
+        configuration_load_rules_provider=configuration_load_rules_provider,
     )
 
 
 def build_database_evaluate_operation(session_factory: sessionmaker[Session]) -> EvaluateOperation:
     """Caso de uso ligado aos repositórios da TASK-022 sobre `session_factory`."""
+    catalog = SqlAlchemyCraneCatalogRepository(session_factory)
     return build_evaluate_operation(
-        SqlAlchemyCraneCatalogRepository(session_factory),
-        SqlAlchemyLoadChartRepository(session_factory),
+        catalog, SqlAlchemyLoadChartRepository(session_factory), catalog
     )
 
 

@@ -3,10 +3,11 @@
 Implementa `LoadChartActivationRepository`. Numa única transação:
 
 1. lê a tabela com `SELECT ... FOR UPDATE` e confere o status esperado;
-2. marca como `SUPERSEDED` a `ACTIVE` da mesma configuração (um `UPDATE ... WHERE status =
-   'ACTIVE'`, que o PostgreSQL reavalia se outra transação mudou a linha no meio do caminho);
+2. marca como `SUPERSEDED` a `ACTIVE` da mesma configuração e da mesma zona de giro (TASK-046;
+   `IS NOT DISTINCT FROM`, para a zona nula casar com a zona nula), num `UPDATE ... WHERE status =
+   'ACTIVE'`, que o PostgreSQL reavalia se outra transação mudou a linha no meio do caminho;
 3. grava a tabela como `ACTIVE` (depois do passo 2, por causa do índice único parcial de uma
-   `ACTIVE` por configuração, que não é adiável).
+   `ACTIVE` por configuração e zona, que não é adiável).
 
 Se outra ativação concorrente da mesma configuração vencer, o índice único recusa a segunda
 `ACTIVE` e o erro vira `ActiveLoadChartConflictError`; a transação inteira é desfeita.
@@ -23,7 +24,7 @@ from app.application.ports.load_chart_repository import (
 )
 from app.domain.entities.load_chart import LoadChartStatus
 from app.infrastructure.database.models.load_chart import (
-    ONE_ACTIVE_PER_CONFIGURATION_INDEX,
+    ONE_ACTIVE_PER_CONFIGURATION_ZONE_INDEX,
     LoadChartModel,
 )
 from app.infrastructure.repositories._integrity import violated_constraint
@@ -40,6 +41,7 @@ class SqlAlchemyLoadChartActivationRepository:
     ) -> str | None:
         expected = LoadChartStatus(expected_status)
         configuration_id: str | None = None
+        rotation_zone_code: str | None = None
         try:
             with self._session_factory.begin() as session:
                 model = session.get(LoadChartModel, load_chart_id, with_for_update=True)
@@ -49,11 +51,14 @@ class SqlAlchemyLoadChartActivationRepository:
                 if actual is not expected:
                     raise LoadChartStatusChangedError(load_chart_id, expected, actual)
                 configuration_id = model.configuration_id
+                rotation_zone_code = model.rotation_zone_code
 
+                # Só a ACTIVE da mesma zona (zona nula com zona nula) é substituída (TASK-046).
                 superseded_ids = session.scalars(
                     update(LoadChartModel)
                     .where(
                         LoadChartModel.configuration_id == configuration_id,
+                        LoadChartModel.rotation_zone_code.is_not_distinct_from(rotation_zone_code),
                         LoadChartModel.status == LoadChartStatus.ACTIVE.value,
                         LoadChartModel.id != load_chart_id,
                     )
@@ -67,8 +72,11 @@ class SqlAlchemyLoadChartActivationRepository:
                 session.flush()
         except IntegrityError as error:
             constraint = violated_constraint(error)
-            if constraint == ONE_ACTIVE_PER_CONFIGURATION_INDEX and configuration_id is not None:
-                raise ActiveLoadChartConflictError(configuration_id) from error
+            if (
+                constraint == ONE_ACTIVE_PER_CONFIGURATION_ZONE_INDEX
+                and configuration_id is not None
+            ):
+                raise ActiveLoadChartConflictError(configuration_id, rotation_zone_code) from error
             raise
         # O índice único garante no máximo uma `ACTIVE` anterior.
         return superseded_ids[0] if superseded_ids else None
