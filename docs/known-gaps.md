@@ -127,7 +127,7 @@ Lista explícita. Se está aqui, o agente deve **verificar** antes de depender.
 - que o modelo 3D do caminhão é o guindaste da empresa: é ilustrativo (L-002)
 - que a linha do tempo de versões está na ordem de importação: está na ordem da versão (P-020)
 - que o catálogo exclui cadastros ou que um nome repetido dá erro: não exclui, e nomes não são únicos (L-006)
-- que o E2E cobre o cadastro do catálogo pela tela: não cobre; cobre as páginas, a cena, o login e perfis, a importação pela página Tabelas e a avaliação com os dados semeados ([`testing-strategy.md`](testing-strategy.md) § 2)
+- que o E2E cobre a criação de cadastros do catálogo pela tela: não cobre; cobre as páginas, a cena, o login e perfis, a importação pela página Tabelas, a edição de cadastro e a avaliação com os dados semeados ([`testing-strategy.md`](testing-strategy.md) § 2)
 - que a API tem persistência sem `DATABASE_URL`: sem ela, a avaliação volta `NOT_EVALUABLE` e as rotas de catálogo e de tabelas gravadas não existem; as de importação com gravação exigem também `FILE_STORAGE_DIR`
 - que a capacidade mostrada é a oficial: vem da consulta conservadora provisória (ADR-015) sobre dados FICTÍCIOS
 - que os números dos exemplos da doc-fonte (§§ 14.2, 14.3 e 15.4: raio 13,5 m, capacidade 5200 kg etc.) são capacidades reais ou casos de teste: são ilustrativos
@@ -145,7 +145,7 @@ Lista explícita. Se está aqui, o agente deve **verificar** antes de depender.
 
 Cópia de [`testing-strategy.md`](testing-strategy.md) § 7 para ficar visível aqui.
 
-- E2E: não cobre cadastro do catálogo pela tela nem o WebSocket de forma explícita (o teste semeado aceita o resultado por qualquer transporte); os specs com backend (avaliação, login e perfis, importação pela tela) e o job `e2e` não foram executados localmente (Docker indisponível; TASK-036, 038, 040 e 042 § 7).
+- E2E: não cobre a **criação** de cadastros do catálogo pela tela (o spec de edição cria os dados pela API) nem o WebSocket de forma explícita (o teste semeado aceita o resultado por qualquer transporte); os specs com backend (avaliação, login e perfis, importação e linha do tempo pela página Tabelas, edição de cadastro) e o job `e2e` não foram executados localmente (Docker indisponível; TASK-036, 038, 040, 042 e 044 § 7).
 - A cena 3D não tem teste de imagem: anel, carga, cores, câmeras e o modelo do caminhão são conferidos por testes sem renderer e por capturas manuais (TASK-041, 043).
 - Desempenho da cena: os 60 fps num notebook comum não foram medidos em hardware real (só SwiftShader; TASK-041 CA-6; D-013).
 - Integração com banco na máquina de desenvolvimento: só no CI (L-005); inclui os testes de login, `create_admin` e a corrida do último admin (TASK-038).
