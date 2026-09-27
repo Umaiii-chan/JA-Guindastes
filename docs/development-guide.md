@@ -162,14 +162,14 @@ Estrutura **real** com a leva D integrada (doc-fonte § 9, adaptada à raiz dest
 frontend/
 ├── Dockerfile, nginx.conf.template, .dockerignore   ← imagem (build do Vite + nginx sem root, porta 8080)
 ├── vite.config.ts       ← proxy /api (com WebSocket) para localhost:8000; divisão do pacote; config do Vitest (node; jsdom por arquivo)
-├── e2e/                 ← Playwright: playwright.config.ts, tests/ (scene, evaluation, auth, loadChartImport; fixture de login auth.ts; catalogMock.ts), tsconfig.json
+├── e2e/                 ← Playwright: playwright.config.ts, tests/ (scene, evaluation, auth, loadChartImport, catalogEdit; fixture de login auth.ts; catalogMock.ts; backendCatalog.ts), tsconfig.json
 ├── public/models/       ← guindaste-caminhao.glb (modelo ilustrativo do caminhão, TASK-043)
 ├── scripts/             ← convert-crane-model.mjs (FBX → GLB, TASK-043)
 ├── src/
 │   ├── app/             ← App.tsx, AppProviders, AppRoutes, routes/ (uma composição por página), auth/ (AuthProvider, RouteGuards, usePermissions), catalog/ e simulator/ (estado compartilhado), useEvaluationSession, evaluationInput, craneSetup
 │   ├── domain/          ← geometry/ (pré-visualização do ADR-013), evaluation/, catalog/, auth/ (tipos)
 │   ├── application/     ← evaluation/ (EvaluationSession, evaluationStatus), catalog/ (CatalogBrowser, formulários, árvore, resumo), loadChart/ (matriz, comparação, versões), load/, simulator/ (passos), auth/ (permissões, formulário de usuário)
-│   ├── infrastructure/  ← api/ (apiFetch; REST: avaliação, catálogo, tabelas, auth, usuários), storage/ (contorno knownChartsStorage), websocket/, shared/
+│   ├── infrastructure/  ← api/ (apiFetch; REST: avaliação, catálogo com edição, tabelas com a listagem por configuração, auth, usuários), websocket/, shared/
 │   ├── presentation/    ← theme/ (tokens, fontes, global), ui/ (design system), layout/ (casca, menu do usuário), pages/, simulator/, catalog/, tables/, users/, panels/, components/ (viewport, error boundary)
 │   └── three/           ← scene/ (ambiente, anel de raio, carga, paleta, troca do modelo), camera/ (predefinições e transição), controls/, loaders/ (GLB/glTF, modelo do caminhão), crane/ (CraneController, SwitchableCrane, guindaste provisório, provisionalCraneSpec, mapeamento cinemático)
 └── tests/               ← espelha src/ (app, application, domain, infrastructure, presentation, three) + fixtures/, helpers/ (inclui fakeAuthBackend), setup.ts
