@@ -16,8 +16,15 @@
 //   `{items: [LoadChartResponse sem points], active_chart_id: str | null}`, por versão da maior para a
 //   menor (números comparados como números; empate por chart_id decrescente); 404 `{detail}` se a
 //   configuração não existe.
+// Contrato da TASK-046 (zonas de giro; ADR-018):
+// - o `/import` ganha o campo `rotation_zone_code`, que só vai quando há zona; 422
+//   `ROTATION_ZONE_REQUIRED`, `UNKNOWN_ROTATION_ZONE` e `ROTATION_ZONE_NOT_ALLOWED` viram erros com
+//   esses códigos (em qualquer formato de erro, ver `findApiErrorCode`);
+// - `LoadChartResponse` e o item da listagem ganham `rotation_zone_code` (ausente = `null`);
+// - a listagem ganha `active_charts: [{rotation_zone_code, chart_id}]` (uma ativa por zona).
 
 import type {
+  ActiveChartRef,
   ConfigurationLoadCharts,
   LoadChartActivation,
   LoadChartFailure,
@@ -30,6 +37,7 @@ import type {
   LoadChartValidation,
   StoredLoadChart,
 } from '../../application/loadChart/ports'
+import { detailText, findApiErrorCode } from '../shared/apiErrorCode'
 import {
   ContractViolationError,
   isRecord,
@@ -108,12 +116,16 @@ export function createLoadChartRestClient(
     }
   }
 
-  function multipart(request: LoadChartImportRequest): RequestInit {
+  function multipart(request: LoadChartImportRequest, withZone = false): RequestInit {
     const form = new FormData()
     form.append('file', request.file, request.fileName)
     form.append('configuration_id', request.configurationId)
     form.append('chart_id', request.chartId)
     form.append('version', request.version)
+    // A zona só vai na importação, e só quando há (TASK-046): numa configuração sem zonas, o campo
+    // precisa estar ausente.
+    const zone = request.rotationZoneCode?.trim()
+    if (withZone && zone) form.append('rotation_zone_code', zone)
     // Sem `Content-Type`: o navegador põe o `multipart/form-data` com o boundary.
     return { method: 'POST', headers: { Accept: 'application/json' }, body: form }
   }
@@ -127,12 +139,15 @@ export function createLoadChartRestClient(
     },
 
     async importChart(request) {
-      const response = await send(`${base}/import`, multipart(request))
+      const response = await send(`${base}/import`, multipart(request, true))
       const body = await readBody(response)
 
       if (response.status === 201) {
         return { kind: 'IMPORTED', chart: guard(() => mapLoadChart(body, 'response')) }
       }
+      // Problema da zona, não do arquivo (TASK-046), em qualquer formato de erro.
+      const zoneCode = response.status === 422 ? findApiErrorCode(body, ZONE_IMPORT_CODES) : null
+      if (zoneCode !== null) throw zoneImportError(zoneCode, body)
       if (response.status === 422 && isRecord(body) && body.status === 'INVALID') {
         return { kind: 'INVALID', issues: guard(() => mapIssues(body)) }
       }
@@ -249,6 +264,33 @@ function importError(status: number, body: unknown): LoadChartClientError {
   }
 }
 
+/** Códigos de erro da zona na importação (TASK-046 § 3), todos com HTTP 422. */
+export const ZONE_IMPORT_ERROR_CODES = {
+  required: 'ROTATION_ZONE_REQUIRED',
+  unknown: 'UNKNOWN_ROTATION_ZONE',
+  notAllowed: 'ROTATION_ZONE_NOT_ALLOWED',
+} as const
+
+const ZONE_IMPORT_CODES: readonly string[] = Object.values(ZONE_IMPORT_ERROR_CODES)
+
+const ZONE_IMPORT_MESSAGES: Readonly<Record<string, string>> = {
+  [ZONE_IMPORT_ERROR_CODES.required]:
+    'Esta configuração tem zonas de giro: escolha a zona desta tabela (HTTP 422 ROTATION_ZONE_REQUIRED).',
+  [ZONE_IMPORT_ERROR_CODES.unknown]:
+    'A zona escolhida não existe nesta configuração (HTTP 422 UNKNOWN_ROTATION_ZONE): ela pode ter mudado no Catálogo. Recarregue a página e escolha outra.',
+  [ZONE_IMPORT_ERROR_CODES.notAllowed]:
+    'Esta configuração não tem zonas de giro no backend (HTTP 422 ROTATION_ZONE_NOT_ALLOWED): ela pode ter mudado no Catálogo. Recarregue a página e importe sem zona.',
+}
+
+function zoneImportError(code: string, body: unknown): LoadChartClientError {
+  const detail = detailText(body)
+  return new LoadChartClientError(
+    code,
+    422,
+    `${ZONE_IMPORT_MESSAGES[code] ?? `O backend recusou a zona (HTTP 422 ${code}).`}${detail ? ` Detalhe do backend: ${detail}` : ''}`,
+  )
+}
+
 function activationError(status: number, body: unknown): LoadChartClientError {
   const codes = LOAD_CHART_CLIENT_ERROR_CODES
   const detail = backendDetail(body)
@@ -314,6 +356,7 @@ export function mapLoadChart(json: unknown, path: string): StoredLoadChart {
     status: readStatus(body, path),
     points,
     sourceFileName: readString(source, 'file_name', `${path}.source`),
+    rotationZoneCode: readNullableString(body, 'rotation_zone_code', path),
   }
 }
 
@@ -328,17 +371,45 @@ function mapSummary(json: unknown, path: string): LoadChartSummary {
     status: readStatus(body, path),
     pointCount: readNumber(body, 'point_count', path),
     sourceFileName: readString(source, 'file_name', `${path}.source`),
+    rotationZoneCode: readNullableString(body, 'rotation_zone_code', path),
   }
 }
 
 function mapConfigurationCharts(json: unknown): ConfigurationLoadCharts {
   const body = readRecord(json, 'response')
-  return {
-    items: readArray(body, 'items', 'response').map((item, index) =>
-      mapSummary(item, `response.items[${index}]`),
-    ),
-    activeChartId: readNullableString(body, 'active_chart_id', 'response'),
+  const items = readArray(body, 'items', 'response').map((item, index) =>
+    mapSummary(item, `response.items[${index}]`),
+  )
+  const activeChartId = readNullableString(body, 'active_chart_id', 'response')
+  return { items, activeChartId, activeCharts: mapActiveCharts(body, items, activeChartId) }
+}
+
+/**
+ * `active_charts` (TASK-046). Sem o campo (backend anterior), as ativas vêm das tabelas `ACTIVE`
+ * da lista, cada uma na sua zona, mais a `active_chart_id` na zona `null`.
+ */
+function mapActiveCharts(
+  body: Readonly<Record<string, unknown>>,
+  items: readonly LoadChartSummary[],
+  activeChartId: string | null,
+): ActiveChartRef[] {
+  if (body.active_charts !== undefined && body.active_charts !== null) {
+    return readArray(body, 'active_charts', 'response').map((item, index) => {
+      const path = `response.active_charts[${index}]`
+      const record = readRecord(item, path)
+      return {
+        rotationZoneCode: readNullableString(record, 'rotation_zone_code', path),
+        chartId: readString(record, 'chart_id', path),
+      }
+    })
   }
+  const derived: ActiveChartRef[] = items
+    .filter((item) => item.status === 'ACTIVE')
+    .map((item) => ({ rotationZoneCode: item.rotationZoneCode, chartId: item.chartId }))
+  if (activeChartId !== null && !derived.some((item) => item.chartId === activeChartId)) {
+    derived.push({ rotationZoneCode: null, chartId: activeChartId })
+  }
+  return derived
 }
 
 function mapIssues(body: Readonly<Record<string, unknown>>): LoadChartImportIssue[] {

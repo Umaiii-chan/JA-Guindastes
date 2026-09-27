@@ -83,6 +83,7 @@ describe('createLoadChartRestClient — importação', () => {
         configurationId: 'CFG-FICTICIA',
         status: 'DRAFT',
         sourceFileName: 'tabela-ficticia.csv',
+        rotationZoneCode: null,
         points: [
           { boomLengthM: 20, workingRadiusM: 10, maxCapacityKg: 5000 },
           { boomLengthM: 20, workingRadiusM: 15.5, maxCapacityKg: 3200 },
@@ -324,8 +325,52 @@ describe('createLoadChartRestClient — listagem por configuração (TASK-044)',
         status: 'DRAFT',
         pointCount: 2,
         sourceFileName: 'tabela-ficticia.csv',
+        rotationZoneCode: null,
       },
       expect.objectContaining({ chartId: 'TAB-FICTICIA-1', status: 'ACTIVE' }),
+    ])
+    // Sem `active_charts` (backend anterior à TASK-046), a ativa vem do status, na zona null.
+    expect(result.activeCharts).toEqual([{ rotationZoneCode: null, chartId: 'TAB-FICTICIA-1' }])
+  })
+
+  it('TASK-046: lê rotation_zone_code dos itens e active_charts (uma ativa por zona)', async () => {
+    const { client } = clientAnswering(
+      jsonResponse(
+        {
+          items: [
+            {
+              ...summary,
+              chart_id: 'F1',
+              version: 'v1',
+              status: 'ACTIVE',
+              rotation_zone_code: 'FRONTAL',
+            },
+            {
+              ...summary,
+              chart_id: 'L1',
+              version: 'v2',
+              status: 'ACTIVE',
+              rotation_zone_code: 'LATERAL_TRASEIRA',
+            },
+          ],
+          active_chart_id: null,
+          active_charts: [
+            { rotation_zone_code: 'FRONTAL', chart_id: 'F1' },
+            { rotation_zone_code: 'LATERAL_TRASEIRA', chart_id: 'L1' },
+          ],
+        },
+        200,
+      ),
+    )
+    const result = await client.listConfigurationCharts('CFG-FICTICIA')
+    expect(result.items.map((item) => item.rotationZoneCode)).toEqual([
+      'FRONTAL',
+      'LATERAL_TRASEIRA',
+    ])
+    expect(result.activeChartId).toBeNull()
+    expect(result.activeCharts).toEqual([
+      { rotationZoneCode: 'FRONTAL', chartId: 'F1' },
+      { rotationZoneCode: 'LATERAL_TRASEIRA', chartId: 'L1' },
     ])
   })
 
@@ -334,6 +379,7 @@ describe('createLoadChartRestClient — listagem por configuração (TASK-044)',
     expect(await client.listConfigurationCharts('CFG-FICTICIA')).toEqual({
       items: [],
       activeChartId: null,
+      activeCharts: [],
     })
   })
 

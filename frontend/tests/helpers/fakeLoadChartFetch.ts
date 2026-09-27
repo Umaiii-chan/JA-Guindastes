@@ -27,6 +27,8 @@ export interface ChartRow {
   status: 'DRAFT' | 'VALIDATED' | 'ACTIVE' | 'SUPERSEDED' | 'INVALID'
   points: PointRow[]
   source: { file_name: string; file_type: string; sha256: string; uri: string }
+  /** Zona de giro (TASK-046); ausente = `null`. */
+  rotation_zone_code?: string | null
 }
 
 const COLUMNS = ['boom_length_m', 'working_radius_m', 'max_capacity_kg'] as const
@@ -88,12 +90,23 @@ export interface FakeLoadChartOptions {
    * existe.
    */
   readonly configurationIds?: readonly string[]
+  /**
+   * Códigos das zonas de giro de cada configuração (TASK-046). A importação confere o
+   * `rotation_zone_code` contra eles (422 `ROTATION_ZONE_REQUIRED`, `UNKNOWN_ROTATION_ZONE` ou
+   * `ROTATION_ZONE_NOT_ALLOWED`); configuração fora do mapa não tem zonas.
+   */
+  readonly zonesByConfiguration?: Readonly<Record<string, readonly string[]>>
+}
+
+/** Corpo 422 de um erro de zona na importação, no formato `{detail, code}`. */
+export function zoneImportErrorBody(code: string, detail: string): unknown {
+  return { detail, code }
 }
 
 /** Item da listagem por configuração: o `LoadChartResponse` sem `points` (TASK-044). */
 function summaryOf(chart: ChartRow) {
   const { points, ...rest } = chart
-  return { ...rest, point_count: points.length }
+  return { rotation_zone_code: null, ...rest, point_count: points.length }
 }
 
 /** Números da versão (`v2.1` → `[2, 1]`), para ordenar como o backend. */
@@ -136,9 +149,15 @@ export function createFakeLoadChartFetch(
       const items = charts
         .filter((chart) => chart.configuration_id === configurationId)
         .sort(byVersionDesc)
+      const active = items.filter((chart) => chart.status === 'ACTIVE')
       return jsonResponse({
         items: items.map(summaryOf),
-        active_chart_id: items.find((chart) => chart.status === 'ACTIVE')?.chart_id ?? null,
+        active_chart_id:
+          active.find((chart) => (chart.rotation_zone_code ?? null) === null)?.chart_id ?? null,
+        active_charts: active.map((chart) => ({
+          rotation_zone_code: chart.rotation_zone_code ?? null,
+          chart_id: chart.chart_id,
+        })),
       })
     }
 
@@ -163,6 +182,27 @@ export function createFakeLoadChartFetch(
           200,
         )
       }
+      const zone = form.get('rotation_zone_code')
+      const zoneCode = typeof zone === 'string' && zone !== '' ? zone : null
+      const zones = options.zonesByConfiguration?.[base.configuration_id] ?? []
+      if (zones.length > 0 && zoneCode === null) {
+        return jsonResponse(
+          zoneImportErrorBody('ROTATION_ZONE_REQUIRED', 'a configuração tem zonas de giro'),
+          422,
+        )
+      }
+      if (zones.length > 0 && zoneCode !== null && !zones.includes(zoneCode)) {
+        return jsonResponse(
+          zoneImportErrorBody('UNKNOWN_ROTATION_ZONE', `a zona ${zoneCode} não existe`),
+          422,
+        )
+      }
+      if (zones.length === 0 && zoneCode !== null) {
+        return jsonResponse(
+          zoneImportErrorBody('ROTATION_ZONE_NOT_ALLOWED', 'a configuração não tem zonas'),
+          422,
+        )
+      }
       if (
         charts.some(
           (chart) =>
@@ -174,6 +214,7 @@ export function createFakeLoadChartFetch(
       }
       const row: ChartRow = {
         ...base,
+        rotation_zone_code: zoneCode,
         status: 'DRAFT',
         points,
         source: {
@@ -194,8 +235,12 @@ export function createFakeLoadChartFetch(
       if (chart.status !== 'DRAFT' && chart.status !== 'VALIDATED') {
         return jsonResponse({ detail: `Status ${chart.status} não permite ativar.` }, 409)
       }
+      // Uma ativa por (configuração, zona) (ADR-018): as outras zonas não mudam.
       const previous = charts.find(
-        (item) => item.configuration_id === chart.configuration_id && item.status === 'ACTIVE',
+        (item) =>
+          item.configuration_id === chart.configuration_id &&
+          (item.rotation_zone_code ?? null) === (chart.rotation_zone_code ?? null) &&
+          item.status === 'ACTIVE',
       )
       if (previous) previous.status = 'SUPERSEDED'
       chart.status = 'ACTIVE'

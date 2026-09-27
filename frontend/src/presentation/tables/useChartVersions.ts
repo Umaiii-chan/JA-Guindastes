@@ -4,24 +4,36 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { toLoadChartFailure } from '../../application/loadChart/chartVersions'
-import type { LoadChartGateway, LoadChartSummary } from '../../application/loadChart/ports'
+import type {
+  ActiveChartRef,
+  LoadChartGateway,
+  LoadChartSummary,
+} from '../../application/loadChart/ports'
 
 export type ChartVersionsState =
-  | { readonly status: 'idle'; readonly versions: readonly []; readonly activeChartId: null }
+  | {
+      readonly status: 'idle'
+      readonly versions: readonly []
+      readonly activeChartId: null
+      readonly activeCharts: readonly []
+    }
   | {
       readonly status: 'loading'
       readonly versions: readonly LoadChartSummary[]
       readonly activeChartId: string | null
+      readonly activeCharts: readonly ActiveChartRef[]
     }
   | {
       readonly status: 'loaded'
       readonly versions: readonly LoadChartSummary[]
       readonly activeChartId: string | null
+      readonly activeCharts: readonly ActiveChartRef[]
     }
   | {
       readonly status: 'error'
       readonly versions: readonly LoadChartSummary[]
       readonly activeChartId: string | null
+      readonly activeCharts: readonly ActiveChartRef[]
       readonly error: string
     }
 
@@ -29,6 +41,7 @@ export const IDLE_CHART_VERSIONS: ChartVersionsState = {
   status: 'idle',
   versions: [],
   activeChartId: null,
+  activeCharts: [],
 }
 
 interface Result {
@@ -55,12 +68,12 @@ export function useChartVersions(
     if (configurationId === null) return
     let cancelled = false
     gateway.listConfigurationCharts(configurationId).then(
-      ({ items, activeChartId }) => {
+      ({ items, activeChartId, activeCharts }) => {
         if (cancelled) return
         setResult({
           key,
           configurationId,
-          state: { status: 'loaded', versions: items, activeChartId },
+          state: { status: 'loaded', versions: items, activeChartId, activeCharts },
         })
       },
       (error: unknown) => {
@@ -72,6 +85,7 @@ export function useChartVersions(
             status: 'error',
             versions: [],
             activeChartId: null,
+            activeCharts: [],
             error: toLoadChartFailure(error).message,
           },
         })
@@ -94,6 +108,7 @@ export function useChartVersions(
       status: 'loading',
       versions: previous?.versions ?? [],
       activeChartId: previous?.activeChartId ?? null,
+      activeCharts: previous?.activeCharts ?? [],
     }
   }
 
