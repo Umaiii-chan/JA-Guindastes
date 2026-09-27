@@ -122,7 +122,13 @@ export function RotationZonesEditor({
                 {COLUMNS.map(({ field, label, unit }) => (
                   <Field
                     key={field}
-                    label={`${label} (zona ${index + 1})`}
+                    label={
+                      <>
+                        {label}
+                        {/* A zona só no nome acessível: na tela, o número está à esquerda. */}
+                        <span className="visually-hidden"> (zona {index + 1})</span>
+                      </>
+                    }
                     error={errors[zoneFieldPath(index, field)]}
                     className={styles[`zoneField_${field}`]}
                   >
