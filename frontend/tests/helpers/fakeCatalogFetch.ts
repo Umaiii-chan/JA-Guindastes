@@ -3,7 +3,10 @@
 
 import { vi } from 'vitest'
 
-import type { CraneGeometryDto } from '../../src/infrastructure/api/catalogContract'
+import type {
+  CraneGeometryDto,
+  RotationZoneDto,
+} from '../../src/infrastructure/api/catalogContract'
 
 interface ManufacturerRow {
   id: string
@@ -19,6 +22,39 @@ interface ConfigurationRow {
   crane_id: string
   name: string
   geometry: CraneGeometryDto | null
+  /** TASK-046: ausente conta como `null` (sem zonas). */
+  rotation_zones?: RotationZoneDto[] | null
+  hook_block_weight_kg?: number | null
+}
+
+export interface FakeCatalogOptions {
+  /**
+   * Códigos de zona que já têm tabelas, por configuração (TASK-046): remover ou renomear um deles no
+   * PATCH responde 409 `ROTATION_ZONE_IN_USE`.
+   */
+  readonly zonesInUse?: Readonly<Record<string, readonly string[]>>
+}
+
+/**
+ * Conferência simplificada das zonas (TASK-046 § 3), como o backend: pelo menos 2, códigos únicos e
+ * a soma das aberturas igual a 360° com fronteiras encadeadas. Devolve o problema ou `null`.
+ */
+function zonesProblem(zones: readonly RotationZoneDto[]): string | null {
+  if (zones.length < 2) return 'as zonas de giro precisam ser pelo menos 2'
+  if (new Set(zones.map((zone) => zone.code)).size !== zones.length) {
+    return 'o código de cada zona deve ser único'
+  }
+  const span = (zone: RotationZoneDto) => (((zone.end_deg - zone.start_deg) % 360) + 360) % 360
+  const total = zones.reduce((sum, zone) => sum + span(zone), 0)
+  const chained = zones.every((zone) => zones.some((other) => other.start_deg === zone.end_deg))
+  return Math.abs(total - 360) < 1e-9 && chained
+    ? null
+    : 'as zonas de giro devem cobrir 360° sem sobreposição'
+}
+
+/** Corpo do 422 `INVALID_ROTATION_ZONES` do backend falso. */
+export function invalidZonesError(message: string): unknown {
+  return { detail: message, code: 'INVALID_ROTATION_ZONES' }
 }
 
 export interface FakeCatalogData {
@@ -50,6 +86,7 @@ export function createFakeCatalogFetch(
     path: string,
     body: unknown,
   ) => Response | Promise<Response> | undefined,
+  options: FakeCatalogOptions = {},
 ) {
   let nextId = 1
   const newId = (prefix: string) => `${prefix}-FICTICIO-${nextId++}`
@@ -74,7 +111,7 @@ export function createFakeCatalogFetch(
     const allowed = {
       manufacturers: ['name'],
       cranes: ['model_name'],
-      configurations: ['name', 'geometry'],
+      configurations: ['name', 'geometry', 'rotation_zones', 'hook_block_weight_kg'],
     }
     if (kind === null) return jsonResponse({ detail: 'Method Not Allowed' }, 405)
 
@@ -105,8 +142,13 @@ export function createFakeCatalogFetch(
       row.model_name = String(request.model_name)
       return jsonResponse(row)
     }
-    if (!('name' in request) && !('geometry' in request)) {
+    if (Object.keys(request).length === 0) {
       return jsonResponse(validationError([], 'Informe ao menos um campo.'), 422)
+    }
+    const zones = request.rotation_zones as RotationZoneDto[] | null | undefined
+    if (zones !== undefined && zones !== null && zones.length > 0) {
+      const problem = zonesProblem(zones)
+      if (problem) return jsonResponse(invalidZonesError(problem), 422)
     }
     if ('name' in request && blank(request.name)) {
       return jsonResponse(validationError(['name'], 'String should match pattern'), 422)
@@ -116,8 +158,25 @@ export function createFakeCatalogFetch(
     }
     const row = data.configurations.find((item) => item.id === id)
     if (!row) return notFound('configuração')
+    if (zones !== undefined) {
+      const kept = new Set((zones ?? []).map((zone) => zone.code))
+      const lost = (options.zonesInUse?.[id] ?? []).filter((code) => !kept.has(code))
+      if (lost.length > 0) {
+        return jsonResponse(
+          {
+            detail: `a zona ${lost.join(', ')} já tem tabelas de carga`,
+            code: 'ROTATION_ZONE_IN_USE',
+          },
+          409,
+        )
+      }
+      row.rotation_zones = zones && zones.length > 0 ? zones : null
+    }
     if ('name' in request) row.name = String(request.name)
     if ('geometry' in request) row.geometry = request.geometry as CraneGeometryDto
+    if ('hook_block_weight_kg' in request) {
+      row.hook_block_weight_kg = request.hook_block_weight_kg as number | null
+    }
     return jsonResponse(row)
   }
 
@@ -177,8 +236,18 @@ export function createFakeCatalogFetch(
             .sort(byName((row) => row.name)),
         )
       }
-      const request = body as { name: string; geometry: CraneGeometryDto | null }
-      const row = { id: newId('CFG'), crane_id: craneId, ...request }
+      const request = body as Omit<ConfigurationRow, 'id' | 'crane_id'>
+      if (request.rotation_zones) {
+        const problem = zonesProblem(request.rotation_zones)
+        if (problem) return jsonResponse(invalidZonesError(problem), 422)
+      }
+      const row: ConfigurationRow = {
+        id: newId('CFG'),
+        crane_id: craneId,
+        rotation_zones: null,
+        hook_block_weight_kg: null,
+        ...request,
+      }
       data.configurations.push(row)
       return jsonResponse(row, 201)
     }

@@ -6,6 +6,7 @@ import type {
   CraneConfiguration,
   CraneTechnicalSheet,
   Manufacturer,
+  RotationZone,
 } from '../../domain/catalog/catalog'
 
 export interface NewCrane {
@@ -17,6 +18,10 @@ export interface NewConfiguration {
   readonly name: string
   /** `null` cadastra a configuração sem ficha técnica (o backend aceita). */
   readonly geometry: CraneTechnicalSheet | null
+  /** Zonas de giro (ADR-018); ausente ou vazia = sem zonas. */
+  readonly rotationZones?: readonly RotationZone[]
+  /** Peso do gancho (kg); ausente ou `null` = não informado. */
+  readonly hookBlockWeightKg?: number | null
 }
 
 /**
@@ -26,6 +31,10 @@ export interface NewConfiguration {
 export interface ConfigurationChanges {
   readonly name?: string
   readonly geometry?: CraneTechnicalSheet
+  /** Substitui a lista de zonas (TASK-046); vazia remove as zonas (vai como `null`). */
+  readonly rotationZones?: readonly RotationZone[]
+  /** Peso do gancho (kg); `null` apaga o valor (conta como 0). */
+  readonly hookBlockWeightKg?: number | null
 }
 
 /** Todas as operações rejeitam com um `CatalogRequestError`. */

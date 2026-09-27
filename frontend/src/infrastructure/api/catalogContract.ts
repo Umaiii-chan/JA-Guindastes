@@ -2,7 +2,7 @@
 // `backend/app/presentation/api/catalog_schemas.py`. Nomes de campo do backend (snake_case, com a
 // unidade no sufixo; RN-006) de um lado e do frontend do outro.
 
-import type { CraneTechnicalSheet } from '../../domain/catalog/catalog'
+import type { CraneTechnicalSheet, RotationZone } from '../../domain/catalog/catalog'
 
 export const MANUFACTURERS_PATH = '/api/v1/manufacturers'
 export const CRANES_PATH = '/api/v1/cranes'
@@ -51,11 +51,28 @@ export interface CraneCreateDto {
   readonly model_name: string
 }
 
-/** `ConfigurationCreateRequest`; o guindaste vai na rota. */
+/** Uma zona de giro (ADR-018; TASK-046 § 3), com os ângulos na convenção de ψ do ADR-013. */
+export interface RotationZoneDto {
+  readonly code: string
+  readonly name: string
+  readonly start_deg: number
+  readonly end_deg: number
+}
+
+/**
+ * `ConfigurationCreateRequest`; o guindaste vai na rota. `rotation_zones` e `hook_block_weight_kg`
+ * (TASK-046) são opcionais: só vão quando informados, e ausentes valem "sem zonas" e "sem gancho".
+ */
 export interface ConfigurationCreateDto {
   readonly name: string
   readonly geometry: CraneGeometryDto | null
+  readonly rotation_zones?: readonly RotationZoneDto[] | null
+  readonly hook_block_weight_kg?: number | null
 }
+
+/** Códigos de erro do backend para as zonas na configuração (TASK-046 § 3). */
+export const ROTATION_ZONE_IN_USE = 'ROTATION_ZONE_IN_USE'
+export const INVALID_ROTATION_ZONES = 'INVALID_ROTATION_ZONES'
 
 /** `ManufacturerUpdateRequest` (TASK-044). */
 export interface ManufacturerUpdateDto {
@@ -74,6 +91,9 @@ export interface CraneUpdateDto {
 export interface ConfigurationUpdateDto {
   readonly name?: string
   readonly geometry?: CraneGeometryDto
+  /** Presente substitui a lista; `null` remove as zonas (TASK-046). */
+  readonly rotation_zones?: readonly RotationZoneDto[] | null
+  readonly hook_block_weight_kg?: number | null
 }
 
 /** Campo da ficha no backend → campo no frontend (na mesma ordem do ADR-013 C-4). */
@@ -98,6 +118,14 @@ export const REQUEST_FIELD_FROM_DTO: Readonly<Record<string, string>> = {
   model_name: 'modelName',
   manufacturer_id: 'manufacturerId',
   geometry: 'geometry',
+  rotation_zones: 'rotationZones',
+  hook_block_weight_kg: 'hookBlockWeightKg',
+  start_deg: 'startDeg',
+  end_deg: 'endDeg',
+}
+
+export function toRotationZoneDto(zone: RotationZone): RotationZoneDto {
+  return { code: zone.code, name: zone.name, start_deg: zone.startDeg, end_deg: zone.endDeg }
 }
 
 export function toCraneGeometryDto(sheet: CraneTechnicalSheet): CraneGeometryDto {

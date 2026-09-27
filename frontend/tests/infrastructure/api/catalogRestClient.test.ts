@@ -149,6 +149,8 @@ describe('cliente REST do catálogo — cadastros', () => {
       craneId: crane.id,
       name: 'Config FICTÍCIA C1',
       geometry: SHEET_MINIMA_FICTICIA,
+      rotationZones: [],
+      hookBlockWeightKg: null,
     })
   })
 
@@ -266,6 +268,8 @@ describe('cliente REST do catálogo — cadastros', () => {
       craneId: 'GUI-A1',
       name: 'Config renomeada',
       geometry: SHEET_FICTICIA,
+      rotationZones: [],
+      hookBlockWeightKg: null,
     })
     expect(missing.code).toBe('NOT_FOUND')
   })

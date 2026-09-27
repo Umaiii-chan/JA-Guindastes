@@ -8,8 +8,10 @@ import type {
   CatalogRequestError,
   CraneConfiguration,
   CraneTechnicalSheet,
+  RotationZone,
 } from '../../domain/catalog/catalog'
 import type { ConfigurationChanges } from './ports'
+import { sameRotationZones, ZONES_FIELD } from './rotationZones'
 
 export type SheetFieldKey = keyof CraneTechnicalSheet
 
@@ -161,12 +163,34 @@ export function configurationChanges(
   original: CraneConfiguration,
   name: string,
   sheet: CraneTechnicalSheet | null,
+  extras: ZoneAndHookValues = {},
 ): ConfigurationChanges {
   const trimmed = name.trim()
+  const { rotationZones, hookBlockWeightKg } = extras
   return {
     ...(trimmed !== original.name && { name: trimmed }),
     ...(sheet !== null && !sameTechnicalSheet(sheet, original.geometry) && { geometry: sheet }),
+    ...(rotationZones !== undefined &&
+      !sameRotationZones(rotationZones, original.rotationZones ?? []) && { rotationZones }),
+    ...(hookBlockWeightKg !== undefined &&
+      hookBlockWeightKg !== (original.hookBlockWeightKg ?? null) && { hookBlockWeightKg }),
   }
+}
+
+/** Zonas de giro e peso do gancho do formulário (TASK-046); ausentes = não mexer. */
+export interface ZoneAndHookValues {
+  readonly rotationZones?: readonly RotationZone[]
+  readonly hookBlockWeightKg?: number | null
+}
+
+/** A alteração não tem nada. */
+export function isEmptyConfigurationChanges(changes: ConfigurationChanges): boolean {
+  return (
+    changes.name === undefined &&
+    changes.geometry === undefined &&
+    changes.rotationZones === undefined &&
+    changes.hookBlockWeightKg === undefined
+  )
 }
 
 /**
@@ -187,6 +211,16 @@ export function isConfigurationFormField(field: string): boolean {
   return (
     field === 'name' ||
     field === 'geometry' ||
-    SHEET_FIELD_KEYS.some((key) => field === sheetFieldPath(key))
+    SHEET_FIELD_KEYS.some((key) => field === sheetFieldPath(key)) ||
+    isZoneOrHookField(field)
+  )
+}
+
+/** Campos do editor de zonas e do peso do gancho (TASK-046). */
+export function isZoneOrHookField(field: string): boolean {
+  return (
+    field === ZONES_FIELD ||
+    field === 'hookBlockWeightKg' ||
+    /^rotationZones\.\d+\.(code|name|startDeg|endDeg)$/.test(field)
   )
 }
