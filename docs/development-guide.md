@@ -1,9 +1,11 @@
 # Guia de desenvolvimento
 
-> **Status deste documento:** consolidado com a leva C integrada (2026-09-26, TASK-037). Os
+> **Status deste documento:** consolidado com a leva C integrada (2026-09-26, TASK-037) e
+> atualizado com a leva D (TASK-045). Os
 > comandos do **backend** (TASK-004, ADR-012), do **frontend** (TASK-007), do **banco local e do
 > Alembic** (TASK-011, TASK-022), do **Docker Compose** (TASK-027, TASK-035), do **seed da demo**
-> (TASK-035) e do **E2E** (TASK-036) são reais. Os comandos listados
+> (TASK-035), do **E2E** (TASK-036, com login na TASK-040), do **primeiro admin** (TASK-038) e da
+> **conversão do modelo 3D** (TASK-043) são reais. Os comandos listados
 > aqui são os **únicos** que os agentes devem executar. Se um comando não está aqui, ou está
 > "A VALIDAR", o agente pergunta antes de rodar.
 > Mantenha este documento sincronizado com o CI (`.github/workflows/ci.yml`): os dois devem rodar
@@ -11,8 +13,8 @@
 
 | Campo | Valor |
 |-------|-------|
-| Última revisão | 2026-09-26 (TASK-037) |
-| Stack | Python 3.14 + FastAPI, uv (backend; `python-multipart` para upload, `openpyxl` para XLSX) / Node 24 + TypeScript + React + Three.js, npm + Vite (frontend) / PostgreSQL 18 no Docker Compose, SQLAlchemy 2 + psycopg 3 + Alembic (persistência) / Docker Compose com postgres, backend e frontend (nginx) — ADR-007, ADR-012, ADR-014 (proposto) |
+| Última revisão | 2026-09-26 (TASK-045) |
+| Stack | Python 3.14 + FastAPI, uv (backend; `python-multipart` para upload, `openpyxl` para XLSX, `argon2-cffi` para senhas) / Node 24 + TypeScript + React + Three.js, npm + Vite (frontend; `react-router`, `lucide-react` e fontes `@fontsource-variable/*` no runtime; `jsdom` e Testing Library só nos testes) / PostgreSQL 18 no Docker Compose, SQLAlchemy 2 + psycopg 3 + Alembic (persistência) / Docker Compose com postgres, backend e frontend (nginx) — ADR-007, ADR-012, ADR-014 (proposto) |
 
 ---
 
@@ -39,14 +41,20 @@ Duas formas. Roteiro de demonstração com dados FICTÍCIOS, passo a passo:
 git clone https://github.com/Umaiii-chan/JA-Guindastes.git
 cd JA-Guindastes
 cp .env.example .env
-# edite .env (nunca commitar): POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB (ver § 6)
+# edite .env (nunca commitar): POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB e
+# SESSION_COOKIE_SECURE=false, porque a stack local é servida em HTTP (ver § 6)
 
 docker compose up -d --build                           # postgres + backend + frontend
 docker compose ps                                      # esperar os três "healthy"
 docker compose run --rm backend sh -c "alembic upgrade head && python -m app.demo_seed"
                                                        # migrations + demonstração FICTÍCIA (idempotente)
+docker compose run --rm backend python -m app.create_admin --username admin
+                                                       # primeiro admin (senha pedida duas vezes, sem eco)
 # frontend: http://127.0.0.1:8080/    API/OpenAPI: http://127.0.0.1:8000/docs
 ```
+
+Com banco, a tela e a API exigem login (ADR-016). Entre com o admin criado acima; os demais
+usuários são criados por ele na página Usuários.
 
 No container, `FILE_STORAGE_DIR` é fixo em `/data/load-charts`, montado no volume nomeado
 `ja-guindastes_load-chart-files` (TASK-035); o `FILE_STORAGE_DIR` do `.env` não é lido pelo
@@ -61,7 +69,8 @@ cd frontend && npm ci && cd ..
 
 # configurar ambiente
 cp .env.example .env
-# edite .env com valores locais (nunca commitar): POSTGRES_*, DATABASE_URL e FILE_STORAGE_DIR (ver § 6)
+# edite .env com valores locais (nunca commitar): POSTGRES_*, DATABASE_URL, FILE_STORAGE_DIR e
+# SESSION_COOKIE_SECURE=false (uvicorn e Vite em HTTP; ver § 6)
 
 # subir só o banco e aplicar as migrations (precisa do Docker rodando)
 docker compose up -d postgres
@@ -69,6 +78,9 @@ cd backend && set -a && source ../.env && set +a && uv run alembic upgrade head 
 
 # opcional: demonstração FICTÍCIA (exige DATABASE_URL e FILE_STORAGE_DIR exportadas)
 cd backend && set -a && source ../.env && set +a && uv run python -m app.demo_seed && cd ..
+
+# primeiro admin (exige DATABASE_URL exportada e o banco em head)
+cd backend && set -a && source ../.env && set +a && uv run python -m app.create_admin --username admin && cd ..
 
 # rodar (dois terminais)
 cd backend && set -a && source ../.env && set +a && uv run uvicorn app.main:app --reload   # porta 8000
@@ -83,7 +95,7 @@ cd frontend && npm run dev                                                      
 
 | Ação | Comando | Observações |
 |------|---------|-------------|
-| Rodar o backend em desenvolvimento | `uv run uvicorn app.main:app --reload` | em `backend/`; OpenAPI em `/docs`. `app.main:app` é a raiz de composição (API completa). Sem `DATABASE_URL`: modo "persistência não configurada" (avaliação `NOT_EVALUABLE`, sem rotas de catálogo nem de tabelas gravadas). Com `DATABASE_URL`: precisa do banco em `head`. Rotas de importação com gravação: também `FILE_STORAGE_DIR`. **Não use** `app.presentation.api.main:app` (sobe sem as rotas que dependem de adapters) |
+| Rodar o backend em desenvolvimento | `uv run uvicorn app.main:app --reload` | em `backend/`; OpenAPI em `/docs`. `app.main:app` é a raiz de composição (API completa). Sem `DATABASE_URL`: modo "persistência não configurada" (avaliação `NOT_EVALUABLE`, sem rotas de catálogo nem de tabelas gravadas). Com `DATABASE_URL`: precisa do banco em `head`, e toda rota menos `/health` e `/auth/session` exige login (ADR-016). Rotas de importação com gravação: também `FILE_STORAGE_DIR`. **Não use** `app.presentation.api.main:app` (sobe sem as rotas que dependem de adapters) |
 | Conferir a saúde da API | `curl http://localhost:8000/api/v1/health` | `{"status": "UP", "database": "NOT_CONFIGURED" \| "UP" \| "DOWN"}`; responde 200 mesmo com o banco `DOWN`; é a rota usada pelo healthcheck do container do backend (TASK-035) |
 | Rodar testes (backend) | `uv run pytest` | em `backend/`; ver [`testing-strategy.md`](testing-strategy.md) e doc-fonte § 20 |
 | Rodar um teste específico (backend) | `uv run pytest tests/<arquivo>.py::<teste>` | em `backend/` |
@@ -94,9 +106,10 @@ cd frontend && npm run dev                                                      
 | Regras de camadas (backend) | `uv run lint-imports` | em `backend/`; contratos em `backend/pyproject.toml` (ADR-004, RNF-002) |
 | Testes do WebSocket (backend) | `uv run pytest tests/presentation/websocket` | em `backend/`; `TestClient.websocket_connect`, sem servidor real |
 | Rodar o frontend em desenvolvimento | `npm run dev` | em `frontend/` (Vite, porta 5173); `/api` e o WebSocket vão para `http://localhost:8000` (proxy em `vite.config.ts`); sem backend na 8000 o painel mostra erro de rede e "reconectando…" |
-| Rodar testes (frontend) | `npm test` | em `frontend/`; Vitest, testes em `frontend/tests/` |
-| Rodar um teste específico (frontend) | `npx vitest run tests/<caminho>.test.ts` | em `frontend/` |
+| Rodar testes (frontend) | `npm test` | em `frontend/`; Vitest, testes em `frontend/tests/`; ambiente `node` por padrão, e os `.test.tsx` que declaram `// @vitest-environment jsdom` rodam em jsdom com Testing Library (TASK-039) |
+| Rodar um teste específico (frontend) | `npx vitest run tests/<caminho>.test.ts` | em `frontend/` (ou `.test.tsx`) |
 | Regenerar o GLB de exemplo FICTÍCIO | `UPDATE_EXAMPLE_GLB=1 npx vitest run tests/three/loaders/exampleModel.test.ts` | em `frontend/`, no Bash (PowerShell: `$env:UPDATE_EXAMPLE_GLB='1'; npx vitest run ...`); só quando o guindaste provisório mudar; sem a variável, o teste confere que `assets/example-models/guindaste-provisorio.ficticio.glb` está em dia |
+| Regenerar o GLB do guindaste sobre caminhão | `node scripts/convert-crane-model.mjs` | em `frontend/`; lê `../assets/source/cgtrader_optimized_prop_crane.fbx` (fora do Git; copie o FBX para lá) e grava `public/models/guindaste-caminhao.glb`; recusa um FBX com SHA-256 diferente daquele para o qual as regras foram calibradas; saída determinística (imprime o SHA-256); `--listar` imprime a classificação peça a peça; aceita `[entrada.fbx] [saida.glb]`. Depois: `npx vitest run tests/three/loaders/truckCraneModel.test.ts`, que confere o SHA-256 do GLB (TASK-043) |
 | Lint (frontend) | `npm run lint` | em `frontend/`; ESLint, inclui a regra "Three.js só em `src/three/`" (ADR-005) |
 | Formatação — verificar (frontend) | `npm run format:check` | em `frontend/`; Prettier |
 | Formatação — corrigir (frontend) | `npm run format` | em `frontend/` |
@@ -111,12 +124,14 @@ cd frontend && npm run dev                                                      
 | Migrations na stack Docker | `docker compose run --rm backend alembic upgrade head` | na raiz, com o `postgres` no ar; não é automático na subida (TASK-027 § 8 item 5) |
 | Migrations + seed da demo na stack Docker | `docker compose run --rm backend sh -c "alembic upgrade head && python -m app.demo_seed"` | na raiz; cadastra os dados FICTÍCIOS de [`demo.md`](demo.md) § 1 e ativa a tabela v1; idempotente |
 | Seed da demo sem Docker | `uv run python -m app.demo_seed` | em `backend/`, com `DATABASE_URL` e `FILE_STORAGE_DIR` exportadas e o banco em `head` |
+| Criar o primeiro admin na stack Docker | `docker compose run --rm backend python -m app.create_admin --username <nome> [--display-name <nome>]` | na raiz, com as migrations aplicadas; a senha (10 a 128 caracteres) é pedida duas vezes, sem eco, ou vem de `ADMIN_PASSWORD` (`-e ADMIN_PASSWORD`, como no job `e2e`); nunca por argumento; idempotente (usuário existente: nada muda, exit 0); exit 1 falha no banco, 2 configuração ou entrada inválida (TASK-038) |
+| Criar o primeiro admin sem Docker | `uv run python -m app.create_admin --username <nome> [--display-name <nome>]` | em `backend/`, com `DATABASE_URL` exportada e o banco em `head`; mesmas regras da linha acima |
 | Ver o estado dos serviços | `docker compose ps` | na raiz |
 | Ver os logs de um serviço | `docker compose logs -f <serviço>` | na raiz; `postgres`, `backend` ou `frontend` |
 | Parar a stack (mantém os dados) | `docker compose down` | na raiz; **não** use `down -v` sem querer: o `-v` apaga os volumes `ja-guindastes_postgres-data` (banco) e `ja-guindastes_load-chart-files` (arquivos importados) |
 | Recomeçar a demonstração do zero | `docker compose down --volumes` | na raiz; apaga os dois volumes locais; depois, subir de novo e rodar migrations + seed ([`demo.md`](demo.md) § 8) |
 | Exportar as variáveis do `.env` no shell | `set -a && source ../.env && set +a` | em `backend/`, no Bash/Git Bash; o backend, o Alembic e o pytest **não** leem o `.env` sozinhos (§ 6) |
-| Migrations (aplicar) | `uv run alembic upgrade head` | em `backend/`, com `DATABASE_URL` exportada e o banco no ar (o CI roda contra um PostgreSQL de serviço, TASK-018); uma revisão: `1f4cfaff16e8` (catálogo e tabelas de carga, TASK-022) |
+| Migrations (aplicar) | `uv run alembic upgrade head` | em `backend/`, com `DATABASE_URL` exportada e o banco no ar (o CI roda contra um PostgreSQL de serviço, TASK-018); duas revisões: `1f4cfaff16e8` (catálogo e tabelas de carga, TASK-022) e `7c2e9a4d1b36` (usuários e sessões, TASK-038) |
 | Migrations (criar) | `uv run alembic revision --autogenerate -m "<descrição>"` | em `backend/`, com o banco no ar; compara o banco com `Base.metadata` (os modelos precisam estar importados em `backend/alembic/env.py`); o arquivo sai em `backend/alembic/versions/` já passado pelo `ruff format` e `ruff check --fix`; **revise-o** antes de commitar |
 | Migrations (gerar o SQL sem conectar) | `uv run alembic upgrade head --sql` | em `backend/`; só precisa de `DATABASE_URL` definida |
 | Testes de integração com banco | `uv run pytest -m integration` | em `backend/`, com o banco no ar **em `head`** e `DATABASE_URL` exportada; sem banco, são pulados; com `REQUIRE_INTEGRATION_DB=1` (como no CI), falham em vez de pular. O teste da migration só desce (`downgrade base`) com as tabelas vazias |
@@ -141,41 +156,44 @@ bash scripts/check-structure.sh && (cd backend && uv run ruff check . && uv run 
 
 ## 4. Estrutura de pastas do código
 
-Estrutura **real** com a leva C integrada (doc-fonte § 9, adaptada à raiz deste repositório).
+Estrutura **real** com a leva D integrada (doc-fonte § 9, adaptada à raiz deste repositório).
 
 ```text
 frontend/
 ├── Dockerfile, nginx.conf.template, .dockerignore   ← imagem (build do Vite + nginx sem root, porta 8080)
-├── vite.config.ts       ← proxy /api (com WebSocket) para localhost:8000; divisão do pacote; config do Vitest
-├── e2e/                 ← Playwright: playwright.config.ts, tests/ (scene, evaluation), tsconfig.json
+├── vite.config.ts       ← proxy /api (com WebSocket) para localhost:8000; divisão do pacote; config do Vitest (node; jsdom por arquivo)
+├── e2e/                 ← Playwright: playwright.config.ts, tests/ (scene, evaluation, auth, loadChartImport, catalogEdit; fixture de login auth.ts; catalogMock.ts; backendCatalog.ts), tsconfig.json
+├── public/models/       ← guindaste-caminhao.glb (modelo ilustrativo do caminhão, TASK-043)
+├── scripts/             ← convert-crane-model.mjs (FBX → GLB, TASK-043)
 ├── src/
-│   ├── app/             ← App.tsx e composição (useEvaluationSession, useCatalogBrowser, evaluationInput, craneSetup)
-│   ├── domain/          ← geometry/ (pré-visualização do ADR-013), evaluation/, catalog/ (tipos)
-│   ├── application/     ← evaluation/ (EvaluationSession), catalog/ (CatalogBrowser, formulários), loadChart/, load/
-│   ├── infrastructure/  ← api/ (REST: avaliação, catálogo, tabelas), websocket/, shared/
-│   ├── presentation/    ← components/ (viewport, error boundary), panels/ (seleção, cadastro, controles, geometria, importação, carga, avaliação)
-│   └── three/           ← scene/, camera/, controls/, loaders/ (GLB/glTF), crane/ (CraneController, guindaste provisório, provisionalCraneSpec, mapeamento cinemático)
-└── tests/               ← espelha src/ (app, application, domain, infrastructure, presentation, three) + fixtures/, helpers/
+│   ├── app/             ← App.tsx, AppProviders, AppRoutes, routes/ (uma composição por página), auth/ (AuthProvider, RouteGuards, usePermissions), catalog/ e simulator/ (estado compartilhado), useEvaluationSession, evaluationInput, craneSetup
+│   ├── domain/          ← geometry/ (pré-visualização do ADR-013), evaluation/, catalog/, auth/ (tipos)
+│   ├── application/     ← evaluation/ (EvaluationSession, evaluationStatus), catalog/ (CatalogBrowser, formulários, árvore, resumo), loadChart/ (matriz, comparação, versões), load/, simulator/ (passos), auth/ (permissões, formulário de usuário)
+│   ├── infrastructure/  ← api/ (apiFetch; REST: avaliação, catálogo com edição, tabelas com a listagem por configuração, auth, usuários), websocket/, shared/
+│   ├── presentation/    ← theme/ (tokens, fontes, global), ui/ (design system), layout/ (casca, menu do usuário), pages/, simulator/, catalog/, tables/, users/, panels/, components/ (viewport, error boundary)
+│   └── three/           ← scene/ (ambiente, anel de raio, carga, paleta, troca do modelo), camera/ (predefinições e transição), controls/, loaders/ (GLB/glTF, modelo do caminhão), crane/ (CraneController, SwitchableCrane, guindaste provisório, provisionalCraneSpec, mapeamento cinemático)
+└── tests/               ← espelha src/ (app, application, domain, infrastructure, presentation, three) + fixtures/, helpers/ (inclui fakeAuthBackend), setup.ts
 backend/
 ├── Dockerfile, .dockerignore                        ← imagem (Python 3.14, sem o uv, usuário 10001, porta 8000)
 ├── alembic.ini, alembic/ ← migrations (env.py, script.py.mako, versions/)
 ├── app/
 │   ├── main.py          ← raiz de composição (app.main:app), fora das camadas
 │   ├── load_chart_persistence_composition.py  ← composição da importação com gravação (parte da raiz)
+│   ├── auth_composition.py, create_admin.py    ← composição do login e comando do primeiro admin (TASK-038; parte da raiz)
 │   ├── demo_seed.py, demo_data/                ← seed da demonstração FICTÍCIA e CSVs FICTÍCIOS (TASK-035)
 │   ├── domain/          ← entities/, value_objects/, services/, exceptions/
 │   ├── application/     ← ports/, use_cases/
-│   ├── infrastructure/  ← database/ (config, engine, Base, models/), repositories/, storage/, importers/
-│   └── presentation/    ← api/ (routers e schemas), websocket/
-└── tests/               ← domain/, application/, infrastructure/ (database/, repositories/), presentation/ (websocket/), fixtures/ (FICTÍCIOS), test_composition*.py, test_demo_seed*.py, test_openapi.py
+│   ├── infrastructure/  ← database/ (config, engine, Base, models/), repositories/, storage/, importers/, security/ (Argon2id, limite de tentativas)
+│   └── presentation/    ← api/ (routers, schemas, autorização), websocket/
+└── tests/               ← domain/, application/, infrastructure/ (database/, repositories/), presentation/ (websocket/, matriz de autorização), fixtures/ (FICTÍCIOS), test_composition*.py, test_auth_integration.py, test_create_admin*.py, test_demo_seed*.py, test_openapi.py
 assets/example-models/   ← GLB de exemplo FICTÍCIO (guindaste-provisorio.ficticio.glb) e README com os requisitos de um GLB real
+assets/source/           ← FBX de origem do modelo do caminhão, só local (no .gitignore; TASK-043)
 docker-compose.yml       ← stack local: postgres, backend e frontend, volumes do banco e dos arquivos importados (TASK-011, 027, 035)
-docs/                    ← documentação do projeto (este diretório); doc-fonte em docs/produto/
+docs/                    ← documentação do projeto (este diretório); doc-fonte em docs/produto/; capturas em docs/assets/screenshots/
 ```
 
 A pasta `docker/` prevista na doc-fonte não foi usada: cada Dockerfile fica junto do seu serviço
-(TASK-027). As pastas `three/animation/`, `three/collision/` e `presentation/pages/` da doc-fonte
-não existem.
+(TASK-027). As pastas `three/animation/` e `three/collision/` da doc-fonte não existem.
 
 Regras de dependência entre pastas estão em [`architecture.md`](architecture.md) § 3.
 
@@ -206,7 +224,7 @@ Documentadas em [`.env.example`](../.env.example) na raiz. Regras:
   mesmo nome da branch (`development`, `homologation`, `production`) — o mesmo nome de variável nos
   três, com valores diferentes. Ver [`guides/git-github.md`](guides/git-github.md) § 8.3.
 
-Variáveis em uso (TASK-011, 018, 027, 031, 035, 036):
+Variáveis em uso (TASK-011, 018, 027, 031, 035, 036, 038, 040):
 
 | Variável | Quem lê | Obrigatória? | Observação |
 |----------|---------|--------------|------------|
@@ -214,6 +232,8 @@ Variáveis em uso (TASK-011, 018, 027, 031, 035, 036):
 | `POSTGRES_PORT` | `docker-compose.yml` | não (padrão `5432`) | porta do host, publicada só em `127.0.0.1` |
 | `DATABASE_URL` | backend (`app/infrastructure/database/config.py`, `app/main.py`), Alembic (`backend/alembic/env.py`), testes de integração | sim, para o Alembic e para a API com persistência; sem ela a API sobe em modo "persistência não configurada" | formato `postgresql+psycopg://<usuario>:<senha>@localhost:<porta>/<banco>`, com os mesmos valores de `POSTGRES_*`; outro esquema (`postgresql://`, `sqlite://`...) é recusado com erro claro, e a API não sobe; `?connect_timeout=5` no fim faz falhar mais rápido sem banco |
 | `FILE_STORAGE_DIR` | backend (`app/infrastructure/storage/local_file_storage.py`, via `app/load_chart_persistence_composition.py`) | não; sem ela (ou sem `DATABASE_URL`) a API sobe sem `POST /load-charts/import`, `GET /load-charts/{id}` e `POST /load-charts/{id}/activate` | diretório do arquivo-fonte das tabelas importadas, nomeado pelo SHA-256, nunca sobrescrito; criado na primeira gravação; use um caminho **fora** do repositório (não há entrada no `.gitignore`); também obrigatória para o seed fora do Docker; no container do Compose é fixa (`/data/load-charts`, volume `ja-guindastes_load-chart-files`) e o valor do `.env` não é lido |
+| `SESSION_COOKIE_SECURE` | backend (`app/auth_composition.py`); repassada ao container pelo `docker-compose.yml` (padrão `true`) | não (padrão `true`, também quando vazia); só vale com `DATABASE_URL` | `true` ou `false`, sem diferenciar maiúsculas (outro valor: `AuthConfigurationError` ao montar a API com banco). Com `true`, o navegador só devolve o cookie de sessão em HTTPS. Use `false` **só** em HTTP local (stack em `http://127.0.0.1:8080`, uvicorn + Vite); **nunca** em produção. Depois de mudar o `.env`, recrie o backend (`docker compose up -d backend`). No CI, `false` só no `.env` efêmero do job `e2e` (TASK-038) |
+| `ADMIN_PASSWORD` | `app/create_admin.py` | não | senha do primeiro admin para `python -m app.create_admin`; sem ela, o comando pede a senha sem eco (preferível). Se usar, defina só no shell do comando e apague depois; nunca commitar. No CI, valor descartável só no job `e2e` (TASK-038) |
 | `BACKEND_PORT`, `FRONTEND_PORT` | `docker-compose.yml` | não (padrões `8000` e `8080`) | portas do host para a API e o frontend dos containers, só em `127.0.0.1` |
 | `BACKEND_DATABASE_URL` | `docker-compose.yml` | não | `DATABASE_URL` usada dentro do container do backend; vazia = montada com `POSTGRES_*` e o host `postgres`; preencha só se a senha tiver caracteres especiais de URL (já codificada) |
 | `API_UPSTREAM` | nginx do frontend (`frontend/nginx.conf.template`) | fixa no `docker-compose.yml` (`http://backend:8000`) | destino do proxy de `/api/`; não vai no `.env` |
@@ -285,5 +305,12 @@ Agentes **não alteram** estes arquivos sem autorização explícita registrada 
 | `docker compose up` falha porque a porta 8000, 8080 ou 5432 já está em uso | outro processo (por exemplo, um uvicorn ou Vite local) usa a porta no host | parar o outro processo ou definir `BACKEND_PORT`, `FRONTEND_PORT` ou `POSTGRES_PORT` no `.env` |
 | O teste de integração da migration falha no `downgrade base` | ficaram dados nas tabelas (por exemplo, um teste de integração da composição que grava e apaga falhou no `finally`) | limpar as tabelas do banco de teste e rodar de novo (TASK-029 § 10) |
 | No `npm run dev`, o painel fica em "reconectando…" e mostra erro de rede | o backend não está rodando na porta 8000 | subir o backend (`uv run uvicorn app.main:app --reload`, em `backend/`) |
+| O login responde 200, mas o pedido seguinte volta `401 NOT_AUTHENTICATED` e a tela volta ao login | a stack roda em HTTP e o cookie saiu com `Secure` (`SESSION_COOKIE_SECURE` vazia ou `true`), então o navegador não o devolve | `SESSION_COOKIE_SECURE=false` no `.env` (só local) e recriar o backend (`docker compose up -d backend`, ou reiniciar o uvicorn com a variável exportada) |
+| `curl` com `POST`/`PUT`/`PATCH`/`DELETE` responde `403` com `"code":"CSRF_HEADER_MISSING"` | falta o cabeçalho anti-CSRF (ADR-016) | enviar `-H 'X-Requested-With: crane-simulator'` ([`demo.md`](demo.md) § 3.1) |
+| Login responde `429` com `"code":"TOO_MANY_ATTEMPTS"` | 5 senhas erradas em 15 min para o mesmo usuário | esperar a janela passar ou reiniciar o backend (o limite é em memória, por processo) |
+| `create_admin`: `ERRO: falha no banco (ProgrammingError)` | migrations não aplicadas (tabela `app_user` ausente) | `alembic upgrade head` antes |
+| `create_admin`: "sem terminal para pedir a senha" | o comando rodou sem terminal interativo (ex.: `docker compose run -T`) e sem `ADMIN_PASSWORD` | rodar com terminal ou passar `ADMIN_PASSWORD` só no shell do comando (`-e ADMIN_PASSWORD` no Compose) |
+| A tela entra direto, sem login, e o menu mostra "Modo sem autenticação" | o backend está sem `DATABASE_URL` (ADR-016 § 5) ou não responde (a conferência da sessão caiu no modo sem backend) | subir o backend com `DATABASE_URL` e o banco em `head` |
+| `node scripts/convert-crane-model.mjs` recusa o FBX pelo SHA-256 | o arquivo não é o FBX para o qual as regras de classificação foram calibradas | usar o FBX original em `assets/source/`; outro modelo exige revisar as regras R1–R9 do script (TASK-043) |
 
 Agentes: ao resolver um problema de ambiente que tomou tempo, adicione uma linha aqui.

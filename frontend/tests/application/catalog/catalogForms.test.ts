@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  configurationChanges,
   EMPTY_SHEET_FORM,
   formErrorsFromRequest,
   isConfigurationFormField,
   parseTechnicalSheet,
+  sameTechnicalSheet,
   type SheetFormValues,
   unshownFieldErrors,
   validateRequiredName,
@@ -155,5 +157,33 @@ describe('erros do backend no formulário', () => {
       'manufacturerId: Field required',
       'sem campo',
     ])
+  })
+})
+
+describe('alteração de configuração (TASK-044)', () => {
+  const ORIGINAL = { id: 'CFG-1', craneId: 'GUI-1', name: 'Config', geometry: SHEET_FICTICIA }
+
+  it('só manda o que mudou: nome aparado e ficha diferente', () => {
+    expect(configurationChanges(ORIGINAL, ' Config ', SHEET_FICTICIA)).toEqual({})
+    expect(configurationChanges(ORIGINAL, 'Outra', { ...SHEET_FICTICIA })).toEqual({
+      name: 'Outra',
+    })
+    expect(configurationChanges(ORIGINAL, 'Config', SHEET_MINIMA_FICTICIA)).toEqual({
+      geometry: SHEET_MINIMA_FICTICIA,
+    })
+  })
+
+  it('nunca remove a ficha; sem ficha, a primeira ficha entra como mudança', () => {
+    expect(configurationChanges(ORIGINAL, 'Config', null)).toEqual({})
+    expect(configurationChanges({ ...ORIGINAL, geometry: null }, 'Config', SHEET_FICTICIA)).toEqual(
+      { geometry: SHEET_FICTICIA },
+    )
+  })
+
+  it('compara as fichas campo a campo', () => {
+    expect(sameTechnicalSheet(SHEET_FICTICIA, { ...SHEET_FICTICIA })).toBe(true)
+    expect(sameTechnicalSheet(SHEET_FICTICIA, SHEET_MINIMA_FICTICIA)).toBe(false)
+    expect(sameTechnicalSheet(null, null)).toBe(true)
+    expect(sameTechnicalSheet(SHEET_FICTICIA, null)).toBe(false)
   })
 })

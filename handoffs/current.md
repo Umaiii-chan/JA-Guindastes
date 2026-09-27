@@ -19,22 +19,16 @@
 - Contexto mínimo preenchido (TASK-002); ADR-003..012 aceitos; toolchain no ADR-012.
 - Backend: esqueleto com gates, núcleo de domínio da tabela de carga (sem interpolação), importação CSV provisória (TASK-010) e geometria operacional do ADR-013 (TASK-014). Frontend: esqueleto e PoC Three.js com guindaste provisório (TASK-013).
 - ADR-003..013 aceitos.
-- Concluídas: TASK-001..037. A leva C (PRs #34 e #35) trouxe as telas de catálogo, importação/ativação e carga, a demo reproduzível (`docs/demo.md`), os testes ponta a ponta e a documentação final. Não há leva planejada depois dela.
+- Concluídas: TASK-001..043. Leva D (TASK-038..043, PR #39): login com perfis, design system escuro, páginas, simulador guiado e modelo 3D do caminhão.
+- Até a leva C: TASK-001..037. A leva C (PRs #34 e #35) trouxe as telas de catálogo, importação/ativação e carga, a demo reproduzível (`docs/demo.md`), os testes ponta a ponta e a documentação final. Não há leva planejada depois dela.
 
 ## 2. Tarefas em andamento e seus handoffs
 
-Leva D (design, login e fluxo), pedida em chat em 2026-09-26. ADR-016 e ADR-017 aceitos pela pessoa responsável em 2026-09-26.
+Leva D concluída (PR #39: login, design system escuro, páginas, simulador guiado e modelo 3D; TASK-038..043 em `completed/`).
 
 | Tarefa | Handoff | O que é |
 |--------|---------|---------|
-| TASK-038 | `handoffs/TASK-038.md` | backend: autenticação, usuários, sessões e perfis (ADR-016) |
-| TASK-039 | `handoffs/TASK-039.md` | frontend: design system escuro, casca, páginas e simulador guiado (ADR-017) |
-| TASK-041 | `handoffs/TASK-041.md` | frontend: cena 3D enriquecida (ambiente, anel de raio, carga, câmera) e o GLB do caminhão na cena |
-| TASK-040 | `handoffs/TASK-040.md` | frontend: login, guardas por perfil, menu do usuário e página Usuários |
-| TASK-042 | `handoffs/TASK-042.md` | frontend: páginas completas de Catálogo e Tabelas |
-| TASK-043 | `handoffs/TASK-043.md` | modelo 3D do guindaste sobre caminhão (FBX do CGTrader → GLB, licença confirmada) e ficha de demo com a = −1,56 m |
-
-Todas integradas na branch `task/TASK-039-leva-d-integrada` (PR combinado da leva D).
+| TASK-044 | `handoffs/TASK-044.md` | rotas de listagem de tabelas por configuração, tabela ativa e edição de cadastros, e a troca dos contornos da TASK-042 |
 
 ## 3. Autorizações permanentes da pessoa responsável
 

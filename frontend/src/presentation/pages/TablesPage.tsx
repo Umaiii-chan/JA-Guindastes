@@ -3,12 +3,15 @@ import { useState } from 'react'
 
 import {
   activeVersion,
-  failureCode,
-  type KnownChartsStore,
-  type LoadChartVersion,
+  summaryOf,
   toLoadChartFailure,
 } from '../../application/loadChart/chartVersions'
-import type { LoadChartGateway, StoredLoadChart } from '../../application/loadChart/ports'
+import { createLoadChartCache } from '../../application/loadChart/loadChartCache'
+import type {
+  LoadChartGateway,
+  LoadChartSummary,
+  StoredLoadChart,
+} from '../../application/loadChart/ports'
 import type { CraneConfiguration } from '../../domain/catalog/catalog'
 import { Page } from '../layout/Page'
 import {
@@ -18,9 +21,11 @@ import {
 import { ActivationDialog } from '../tables/ActivationDialog'
 import { ChartImportPanel } from '../tables/ChartImportPanel'
 import { LoadChartMatrix } from '../tables/LoadChartMatrix'
+import { StoredChartMatrix } from '../tables/StoredChartMatrix'
 import styles from '../tables/tables.module.css'
 import { useChartFileCheck } from '../tables/useChartFileCheck'
-import { useChartVersions } from '../tables/useChartVersions'
+import { IDLE_CHART_VERSIONS, useChartVersions } from '../tables/useChartVersions'
+import { pointsOf, useStoredChart } from '../tables/useStoredChart'
 import { VersionTimeline } from '../tables/VersionTimeline'
 import { Badge, EmptyState, Notice, Panel, useToast } from '../ui'
 
@@ -29,18 +34,16 @@ export interface TablesPageProps {
   /** Configuração escolhida na seleção compartilhada (Catálogo, Simulador, Tabelas). */
   readonly configuration: CraneConfiguration | null
   readonly gateway: LoadChartGateway
-  /** Tabelas acompanhadas neste navegador (o backend ainda não lista por configuração). */
-  readonly store: KnownChartsStore
-  /** Importar e ativar (ADR-017 § 1: ADMIN edita; Operador só vê). Ligado ao perfil pela TASK-040. */
+  /** Importar e ativar (ADR-017 § 1: ADMIN edita; Operador só vê). */
   readonly canEdit: boolean
 }
 
 /**
- * Tabelas de carga (ADR-017 § 1; CA-2 e CA-3 da TASK-042): escolha da configuração, importação por
+ * Tabelas de carga (ADR-017 § 1; TASK-042 e TASK-044): escolha da configuração, importação por
  * arrastar e soltar com validação prévia, prévia da matriz colorida por capacidade, linha do tempo das
- * versões e ativação confirmada.
+ * versões (lida do backend) e ativação confirmada.
  */
-export function TablesPage({ selection, configuration, gateway, store, canEdit }: TablesPageProps) {
+export function TablesPage({ selection, configuration, gateway, canEdit }: TablesPageProps) {
   return (
     <Page
       width="wide"
@@ -70,13 +73,12 @@ export function TablesPage({ selection, configuration, gateway, store, canEdit }
             </div>
             <div className={styles.timelineColumn}>
               <VersionTimeline
-                state={{ status: 'idle', versions: [] }}
+                state={IDLE_CHART_VERSIONS}
                 canEdit={false}
                 previewChartId={null}
                 onPreview={() => undefined}
                 onActivate={() => undefined}
                 onRetry={() => undefined}
-                onTrack={() => Promise.resolve(null)}
               />
             </div>
           </>
@@ -85,7 +87,6 @@ export function TablesPage({ selection, configuration, gateway, store, canEdit }
             key={configuration.id}
             configuration={configuration}
             gateway={gateway}
-            store={store}
             canEdit={canEdit}
           />
         )}
@@ -99,40 +100,46 @@ type Preview = { readonly kind: 'file' } | { readonly kind: 'version'; readonly 
 function ChartWorkspace({
   configuration,
   gateway,
-  store,
   canEdit,
 }: {
   readonly configuration: CraneConfiguration
   readonly gateway: LoadChartGateway
-  readonly store: KnownChartsStore
   readonly canEdit: boolean
 }) {
   const toast = useToast()
-  const versionsApi = useChartVersions(gateway, store, configuration.id)
+  const versionsApi = useChartVersions(gateway, configuration.id)
+  const [cache] = useState(() => createLoadChartCache(gateway))
   const fileCheck = useChartFileCheck(gateway)
   const [preview, setPreview] = useState<Preview | null>(null)
-  const [target, setTarget] = useState<LoadChartVersion | null>(null)
+  const [target, setTarget] = useState<LoadChartSummary | null>(null)
   const [activating, setActivating] = useState(false)
 
-  const versions = versionsApi.state.versions
-  const active = activeVersion(versions)
+  const { versions, activeChartId } = versionsApi.state
+  const active = activeVersion(versions, activeChartId)
+  const current = active && active.chartId !== target?.chartId ? active : null
   const fileState = fileCheck.state
   const filePoints = fileState.status === 'valid' ? fileState.points : null
 
-  // Prévia: o arquivo válido recém-solto, a versão escolhida, a ativa ou a mais recente.
+  // Prévia: o arquivo válido recém-solto, a versão escolhida, a ativa ou a de maior versão.
   const chosenVersion =
     preview?.kind === 'version' ? versions.find((item) => item.chartId === preview.chartId) : null
   const showFile = filePoints !== null && preview?.kind === 'file'
   const shownVersion = showFile ? null : (chosenVersion ?? active ?? versions[0] ?? null)
 
+  // A listagem não traz os pontos: cada tabela mostrada ou comparada é lida uma vez (cache).
+  const shownChart = useStoredChart(cache, shownVersion?.chartId ?? null)
+  const targetChart = useStoredChart(cache, target?.chartId ?? null)
+  const currentChart = useStoredChart(cache, target ? (current?.chartId ?? null) : null)
+
   const onImported = (chart: StoredLoadChart) => {
-    versionsApi.track(chart.chartId)
+    cache.remember(chart)
+    versionsApi.reload()
     setPreview({ kind: 'version', chartId: chart.chartId })
   }
 
   const openActivation = (chart: StoredLoadChart) => {
-    const known = versions.find((item) => item.chartId === chart.chartId)
-    setTarget(known ?? { ...chart, trackedAt: new Date().toISOString() })
+    cache.remember(chart)
+    setTarget(versions.find((item) => item.chartId === chart.chartId) ?? summaryOf(chart))
   }
 
   const confirmActivation = async () => {
@@ -140,8 +147,7 @@ function ChartWorkspace({
     setActivating(true)
     try {
       const result = await gateway.activateChart(target.chartId)
-      if (result.supersededChartId) versionsApi.track(result.supersededChartId)
-      versionsApi.track(result.chart.chartId)
+      cache.remember(result.chart)
       const superseded = versions.find((item) => item.chartId === result.supersededChartId)
       toast.show({
         tone: 'ok',
@@ -157,26 +163,11 @@ function ChartWorkspace({
         title: `Não foi possível ativar a ${target.version}`,
         description: toLoadChartFailure(error).message,
       })
-      versionsApi.reload()
     } finally {
+      // Deu certo ou não, a lista do backend é a verdade: relê.
+      versionsApi.reload()
       setActivating(false)
       setTarget(null)
-    }
-  }
-
-  const trackById = async (chartId: string): Promise<string | null> => {
-    try {
-      const chart = await gateway.getChart(chartId)
-      if (chart.configurationId !== configuration.id) {
-        return `A tabela ${chartId} é da configuração ${chart.configurationId}, não desta.`
-      }
-      versionsApi.track(chart.chartId)
-      toast.show({ tone: 'info', title: `Tabela ${chart.version} acompanhada` })
-      return null
-    } catch (error) {
-      if (failureCode(error) === 'LOAD_CHART_NOT_FOUND')
-        return `Não existe tabela com o id ${chartId}.`
-      return toLoadChartFailure(error).message
     }
   }
 
@@ -220,7 +211,7 @@ function ChartWorkspace({
               <Badge tone="info" variant="outline">
                 Prévia
               </Badge>
-            ) : shownVersion?.status === 'ACTIVE' ? (
+            ) : shownVersion && shownVersion.chartId === active?.chartId ? (
               <Badge tone="ok">Ativa</Badge>
             ) : undefined
           }
@@ -231,10 +222,7 @@ function ChartWorkspace({
               caption={`Prévia de ${fileState.status === 'valid' ? fileState.file.name : 'arquivo'}`}
             />
           ) : shownVersion ? (
-            <LoadChartMatrix
-              points={shownVersion.points}
-              caption={`Versão ${shownVersion.version}`}
-            />
+            <StoredChartMatrix state={shownChart} caption={`Versão ${shownVersion.version}`} />
           ) : (
             <EmptyState
               compact
@@ -259,13 +247,14 @@ function ChartWorkspace({
           onPreview={(chartId) => setPreview({ kind: 'version', chartId })}
           onActivate={setTarget}
           onRetry={versionsApi.reload}
-          onTrack={trackById}
         />
       </div>
 
       <ActivationDialog
         target={target}
-        current={active && active.chartId !== target?.chartId ? active : null}
+        current={current}
+        targetPoints={pointsOf(targetChart)}
+        currentPoints={pointsOf(currentChart)}
         busy={activating}
         onConfirm={() => void confirmActivation()}
         onCancel={() => setTarget(null)}

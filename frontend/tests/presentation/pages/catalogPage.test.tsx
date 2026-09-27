@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-// Página Catálogo (TASK-042; CA-1 e CA-4): mestre-detalhe com busca e contagens, detalhe da
-// configuração com a ficha técnica e a tabela ativa, e cadastros em Drawer com validação no campo.
-// Backends falsos com dados FICTÍCIOS.
+// Página Catálogo (TASK-042; CA-1 e CA-4; TASK-044 CA-5): mestre-detalhe com busca e contagens,
+// detalhe da configuração com a ficha técnica e a tabela ativa (rota de listagem), cadastros e
+// alterações (PATCH) em Drawer com validação no campo. Backends falsos com dados FICTÍCIOS.
 
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
@@ -11,11 +11,14 @@ import { AppProviders } from '../../../src/app/AppProviders'
 import { AppRoutes } from '../../../src/app/AppRoutes'
 import { createCatalogRestClient } from '../../../src/infrastructure/api/catalogRestClient'
 import { createLoadChartRestClient } from '../../../src/infrastructure/api/loadChartRestClient'
-import { createKnownChartsStorage } from '../../../src/infrastructure/storage/knownChartsStorage'
 import { CatalogPage } from '../../../src/presentation/pages/CatalogPage'
 import { ToastProvider } from '../../../src/presentation/ui'
-import { catalogFicticio } from '../../fixtures/catalogFicticio'
-import { createFakeCatalogFetch, jsonResponse } from '../../helpers/fakeCatalogFetch'
+import { catalogFicticio, GEOMETRY_DTO_FICTICIA } from '../../fixtures/catalogFicticio'
+import {
+  createFakeCatalogFetch,
+  jsonResponse,
+  validationError,
+} from '../../helpers/fakeCatalogFetch'
 import { combineFetch, createFakeLoadChartFetch } from '../../helpers/fakeLoadChartFetch'
 
 async function renderCatalog() {
@@ -43,7 +46,6 @@ async function openConfiguration() {
 }
 
 beforeEach(() => {
-  window.localStorage.clear()
   vi.stubGlobal(
     'fetch',
     combineFetch(createFakeCatalogFetch(catalogFicticio()), createFakeLoadChartFetch()),
@@ -91,7 +93,7 @@ describe('página Catálogo', () => {
     expect(within(limits).getByRole('row', { name: /Giro da torre/ }).textContent).toContain(
       '-90°90°',
     )
-    expect(await within(detail).findByText('Nenhuma tabela ativa conhecida')).toBeTruthy()
+    expect(await within(detail).findByText('Nenhuma tabela ativa')).toBeTruthy()
     expect(
       within(detail)
         .getByRole('link', { name: 'Importar e gerenciar versões' })
@@ -99,40 +101,70 @@ describe('página Catálogo', () => {
     ).toBe('/tabelas')
   })
 
-  it('mostra a tabela ativa conhecida da configuração, com a matriz', async () => {
-    window.localStorage.setItem(
-      'ja-guindastes.known-load-charts.v1',
-      JSON.stringify({
-        'CFG-A1-FICHA': [
-          { chartId: 'TAB-ATIVA', configurationId: 'CFG-A1-FICHA', trackedAt: '2026-09-01T00:00Z' },
+  it('mostra a tabela ativa da configuração pela rota nova, com a matriz', async () => {
+    const source = { file_type: 'text/csv', sha256: 'a', uri: 'local://a' }
+    const loadChartFetch = createFakeLoadChartFetch([
+      {
+        chart_id: 'TAB-ATIVA',
+        version: 'v3',
+        configuration_id: 'CFG-A1-FICHA',
+        status: 'ACTIVE',
+        points: [
+          { boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 9000 },
+          { boom_length_m: 12, working_radius_m: 6, max_capacity_kg: 7000 },
         ],
-      }),
-    )
+        source: { ...source, file_name: 'v3.csv' },
+      },
+      {
+        // Versão maior, mas rascunho: não é a ativa.
+        chart_id: 'TAB-RASCUNHO',
+        version: 'v4',
+        configuration_id: 'CFG-A1-FICHA',
+        status: 'DRAFT',
+        points: [{ boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 1 }],
+        source: { ...source, file_name: 'v4.csv' },
+      },
+    ])
+    vi.stubGlobal('fetch', combineFetch(createFakeCatalogFetch(catalogFicticio()), loadChartFetch))
+    await renderCatalog()
+    await openConfiguration()
+
+    const detail = await screen.findByRole('region', { name: 'Config FICTÍCIA com ficha' })
+    expect(await within(detail).findByText('v3')).toBeTruthy()
+    const matrix = await within(detail).findByRole('table', { name: /Tabela ativa v3/ })
+    expect(
+      within(matrix)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual(['9.000', '7.000'])
+    const urls = loadChartFetch.mock.calls.map(([url]) => String(url))
+    expect(urls).toContain('/api/v1/configurations/CFG-A1-FICHA/load-charts')
+    expect(urls).toContain('/api/v1/load-charts/TAB-ATIVA')
+    expect(urls).not.toContain('/api/v1/load-charts/TAB-RASCUNHO')
+  })
+
+  it('versões importadas, nenhuma ativa: o detalhe diz isso', async () => {
     vi.stubGlobal(
       'fetch',
       combineFetch(
         createFakeCatalogFetch(catalogFicticio()),
         createFakeLoadChartFetch([
           {
-            chart_id: 'TAB-ATIVA',
-            version: 'v3',
+            chart_id: 'TAB-RASCUNHO',
+            version: 'v1',
             configuration_id: 'CFG-A1-FICHA',
-            status: 'ACTIVE',
-            points: [
-              { boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 9000 },
-              { boom_length_m: 12, working_radius_m: 6, max_capacity_kg: 7000 },
-            ],
-            source: { file_name: 'v3.csv', file_type: 'text/csv', sha256: 'a', uri: 'local://a' },
+            status: 'DRAFT',
+            points: [{ boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 1 }],
+            source: { file_name: 'v1.csv', file_type: 'text/csv', sha256: 'a', uri: 'local://a' },
           },
         ]),
       ),
     )
     await renderCatalog()
     await openConfiguration()
-
     const detail = await screen.findByRole('region', { name: 'Config FICTÍCIA com ficha' })
-    expect(await within(detail).findByText('v3')).toBeTruthy()
-    expect(within(detail).getByRole('table', { name: /Tabela ativa v3/ })).toBeTruthy()
+    expect(await within(detail).findByText('Nenhuma tabela ativa')).toBeTruthy()
+    expect(within(detail).getByText(/Há 1 versão importada, nenhuma ativa/)).toBeTruthy()
   })
 
   it('busca filtra os três níveis e destaca o termo; sem resultado, orienta', async () => {
@@ -217,21 +249,21 @@ describe('página Catálogo', () => {
     expect(within(drawer).getByText('O máximo não pode ser menor que o mínimo.')).toBeTruthy()
   })
 
-  it('editar configuração: formulário preenchido e aviso de que grava uma cópia', async () => {
+  it('editar configuração: formulário preenchido, sem aviso de cópia; Esc fecha sem gravar', async () => {
     await renderCatalog()
     await openConfiguration()
     const detail = await screen.findByRole('region', { name: 'Config FICTÍCIA com ficha' })
     fireEvent.click(within(detail).getByRole('button', { name: 'Editar' }))
 
     const drawer = screen.getByRole('dialog', { name: 'Editar configuração' })
-    expect(within(drawer).getByText('A edição grava uma cópia')).toBeTruthy()
+    expect(within(drawer).queryByText('A edição grava uma cópia')).toBeNull()
     expect((within(drawer).getByLabelText(/Nome da configuração/) as HTMLInputElement).value).toBe(
       'Config FICTÍCIA com ficha',
     )
     expect((within(drawer).getByLabelText(/^a —/) as HTMLInputElement).value).toBe('0.8')
-    expect(
-      within(drawer).getByRole('button', { name: 'Salvar como nova configuração' }),
-    ).toBeTruthy()
+    // A ficha pode ser alterada, não removida (o PATCH não aceita geometry: null).
+    expect(within(drawer).queryByRole('checkbox')).toBeNull()
+    expect(within(drawer).getByRole('button', { name: 'Salvar alterações' })).toBeTruthy()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('dialog')).toBeNull()
   })
@@ -273,6 +305,216 @@ describe('página Catálogo', () => {
   })
 })
 
+describe('página Catálogo — edição com PATCH (TASK-044)', () => {
+  const ACTIVE_CHART = {
+    chart_id: 'TAB-ATIVA',
+    version: 'v3',
+    configuration_id: 'CFG-A1-FICHA',
+    status: 'ACTIVE' as const,
+    points: [{ boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 9000 }],
+    source: { file_name: 'v3.csv', file_type: 'text/csv', sha256: 'a', uri: 'local://a' },
+  }
+
+  function stubBackend(charts: Parameters<typeof createFakeLoadChartFetch>[0] = []) {
+    const data = catalogFicticio()
+    const catalogFetch = createFakeCatalogFetch(data)
+    vi.stubGlobal('fetch', combineFetch(catalogFetch, createFakeLoadChartFetch(charts)))
+    const patches = () =>
+      catalogFetch.mock.calls
+        .filter(([, init]) => init?.method === 'PATCH')
+        .map(([url, init]) => ({
+          url: String(url),
+          body: JSON.parse(String(init?.body)) as unknown,
+        }))
+    return { data, patches }
+  }
+
+  async function openEditor() {
+    await renderCatalog()
+    await openConfiguration()
+    const detail = await screen.findByRole('region', { name: 'Config FICTÍCIA com ficha' })
+    return { detail }
+  }
+
+  it('renomear a configuração grava no próprio item, sem criar outro', async () => {
+    const { data, patches } = stubBackend()
+    const { detail } = await openEditor()
+    fireEvent.click(within(detail).getByRole('button', { name: 'Editar' }))
+    const drawer = screen.getByRole('dialog', { name: 'Editar configuração' })
+    fireEvent.change(within(drawer).getByLabelText(/Nome da configuração/), {
+      target: { value: 'Config FICTÍCIA renomeada' },
+    })
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Salvar alterações' }))
+
+    expect(await screen.findByText('Configuração alterada')).toBeTruthy()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(patches()).toEqual([
+      { url: '/api/v1/configurations/CFG-A1-FICHA', body: { name: 'Config FICTÍCIA renomeada' } },
+    ])
+    expect(data.configurations).toHaveLength(3)
+    expect(await screen.findByRole('region', { name: 'Config FICTÍCIA renomeada' })).toBeTruthy()
+  })
+
+  it('mudar a ficha de uma configuração com tabela ativa pede confirmação; voltar mantém o formulário', async () => {
+    const { patches } = stubBackend([ACTIVE_CHART])
+    const { detail } = await openEditor()
+    await within(detail).findByRole('table', { name: /Tabela ativa v3/ })
+    fireEvent.click(within(detail).getByRole('button', { name: 'Editar' }))
+    let drawer = screen.getByRole('dialog', { name: 'Editar configuração' })
+    fireEvent.change(within(drawer).getByLabelText(/^h — altura/), { target: { value: '3.1' } })
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Salvar alterações' }))
+
+    let confirm = screen.getByRole('dialog', {
+      name: 'Mudar a ficha técnica de Config FICTÍCIA com ficha?',
+    })
+    expect(confirm.textContent).toContain('As avaliações seguintes desta configuração mudam')
+    expect(confirm.textContent).toContain('A tabela ativa (v3) continua a mesma')
+    expect(patches()).toEqual([])
+
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Voltar ao formulário' }))
+    drawer = screen.getByRole('dialog', { name: 'Editar configuração' })
+    expect((within(drawer).getByLabelText(/^h — altura/) as HTMLInputElement).value).toBe('3.1')
+
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Salvar alterações' }))
+    confirm = screen.getByRole('dialog', { name: /Mudar a ficha técnica/ })
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Salvar a ficha nova' }))
+
+    expect(await screen.findByText('Configuração alterada')).toBeTruthy()
+    expect(
+      screen.getByText(
+        'A ficha nova vale para as próximas avaliações; as tabelas de carga não mudaram.',
+      ),
+    ).toBeTruthy()
+    const [patch] = patches()
+    expect(patch.url).toBe('/api/v1/configurations/CFG-A1-FICHA')
+    expect(patch.body).toEqual({ geometry: { ...GEOMETRY_DTO_FICTICIA, boom_pivot_height_m: 3.1 } })
+    const updated = await screen.findByRole('region', { name: 'Config FICTÍCIA com ficha' })
+    expect(await within(updated).findByText('3,1 m')).toBeTruthy()
+  })
+
+  it('sem tabela ativa, mudar a ficha grava direto', async () => {
+    const { patches } = stubBackend()
+    const { detail } = await openEditor()
+    await within(detail).findByText('Nenhuma tabela ativa')
+    fireEvent.click(within(detail).getByRole('button', { name: 'Editar' }))
+    const drawer = screen.getByRole('dialog', { name: 'Editar configuração' })
+    fireEvent.change(within(drawer).getByLabelText(/^h — altura/), { target: { value: '3.1' } })
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Salvar alterações' }))
+
+    expect(await screen.findByText('Configuração alterada')).toBeTruthy()
+    expect(screen.queryByRole('dialog', { name: /Mudar a ficha técnica/ })).toBeNull()
+    expect(patches()).toHaveLength(1)
+  })
+
+  it('nada mudou: avisa no Drawer e não chama o backend', async () => {
+    const { patches } = stubBackend()
+    const { detail } = await openEditor()
+    fireEvent.click(within(detail).getByRole('button', { name: 'Editar' }))
+    const drawer = screen.getByRole('dialog', { name: 'Editar configuração' })
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Salvar alterações' }))
+    expect(within(drawer).getByText('Nada mudou: não há o que salvar.')).toBeTruthy()
+    expect(patches()).toEqual([])
+  })
+
+  it('nome igual ao de outra configuração é aceito (sem 409)', async () => {
+    const { patches } = stubBackend()
+    const { detail } = await openEditor()
+    fireEvent.click(within(detail).getByRole('button', { name: 'Editar' }))
+    const drawer = screen.getByRole('dialog', { name: 'Editar configuração' })
+    const nameInput = within(drawer).getByLabelText(/Nome da configuração/)
+
+    // Nomes não são únicos no backend (sem 409): o nome de outra configuração é aceito.
+    fireEvent.change(nameInput, { target: { value: 'Config FICTÍCIA sem ficha' } })
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Salvar alterações' }))
+    expect(await screen.findByText('Configuração alterada')).toBeTruthy()
+    expect(patches()).toEqual([
+      { url: '/api/v1/configurations/CFG-A1-FICHA', body: { name: 'Config FICTÍCIA sem ficha' } },
+    ])
+  })
+
+  it('422 do backend num campo da ficha vai para o campo', async () => {
+    const data = catalogFicticio()
+    vi.stubGlobal(
+      'fetch',
+      combineFetch(
+        createFakeCatalogFetch(data, (method) =>
+          method === 'PATCH'
+            ? jsonResponse(
+                validationError(['geometry', 'boom_angle_max_deg'], 'Value error, θ fora da faixa'),
+                422,
+              )
+            : undefined,
+        ),
+        createFakeLoadChartFetch(),
+      ),
+    )
+    const { detail } = await openEditor()
+    await within(detail).findByText('Nenhuma tabela ativa')
+    fireEvent.click(within(detail).getByRole('button', { name: 'Editar' }))
+    const drawer = screen.getByRole('dialog', { name: 'Editar configuração' })
+    fireEvent.change(within(drawer).getByLabelText(/^θ máx/), { target: { value: '80' } })
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Salvar alterações' }))
+    expect(await within(drawer).findByText('Value error, θ fora da faixa')).toBeTruthy()
+    expect(
+      within(drawer)
+        .getByLabelText(/^θ máx/)
+        .getAttribute('aria-invalid'),
+    ).toBe('true')
+  })
+
+  it('404: o item sumiu — toast, Drawer fechado e catálogo relido', async () => {
+    const { data } = stubBackend()
+    await renderCatalog()
+    fireEvent.click(
+      await within(column('Fabricantes')).findByRole('button', { name: /FICTÍCIO B/ }),
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Editar o fabricante Fabricante FICTÍCIO B' }),
+    )
+    const drawer = screen.getByRole('dialog', { name: 'Editar fabricante' })
+    data.manufacturers = data.manufacturers.filter((row) => row.id !== 'FAB-B')
+    fireEvent.change(within(drawer).getByLabelText(/Nome do fabricante/), {
+      target: { value: 'Fabricante FICTÍCIO B+' },
+    })
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Salvar alterações' }))
+
+    expect(await screen.findByText('O fabricante não existe mais')).toBeTruthy()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() =>
+      expect(
+        within(column('Fabricantes')).queryByRole('button', { name: /FICTÍCIO B/ }),
+      ).toBeNull(),
+    )
+  })
+
+  it('renomear o guindaste atualiza a coluna', async () => {
+    const { patches } = stubBackend()
+    await renderCatalog()
+    fireEvent.click(
+      await within(column('Fabricantes')).findByRole('button', { name: /FICTÍCIO A/ }),
+    )
+    fireEvent.click(await within(column('Guindastes')).findByRole('button', { name: /A1/ }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar o guindaste Modelo FICTÍCIO A1' }),
+    )
+    const drawer = screen.getByRole('dialog', { name: 'Editar guindaste' })
+    fireEvent.change(within(drawer).getByLabelText(/Modelo do guindaste/), {
+      target: { value: 'Modelo FICTÍCIO A1 revisto' },
+    })
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Salvar alterações' }))
+
+    expect(
+      await screen.findByText('Guindaste renomeado para "Modelo FICTÍCIO A1 revisto"'),
+    ).toBeTruthy()
+    expect(patches()).toEqual([
+      { url: '/api/v1/cranes/GUI-A1', body: { model_name: 'Modelo FICTÍCIO A1 revisto' } },
+    ])
+    expect(
+      await within(column('Guindastes')).findByRole('button', { name: /A1 revisto/ }),
+    ).toBeTruthy()
+  })
+})
+
 describe('CatalogPage somente leitura', () => {
   it('sem permissão de edição: navega, mas sem botões de cadastro nem edição', async () => {
     const catalogGateway = createCatalogRestClient({
@@ -294,11 +536,13 @@ describe('CatalogPage somente leitura', () => {
             }}
             catalogGateway={catalogGateway}
             loadChartGateway={createLoadChartRestClient({ fetchFn: createFakeLoadChartFetch() })}
-            store={createKnownChartsStorage(null)}
             canEdit={false}
             onCreateManufacturer={reject}
             onCreateCrane={reject}
             onCreateConfiguration={reject}
+            onUpdateManufacturer={reject}
+            onUpdateCrane={reject}
+            onUpdateConfiguration={reject}
           />
         </ToastProvider>
       </MemoryRouter>,

@@ -1,4 +1,7 @@
-"""Casos de uso do catálogo com repositório em memória (TASK-030; CA-1..CA-4). Dados FICTÍCIOS."""
+"""Casos de uso do catálogo com repositório em memória (TASK-030; CA-1..CA-4) e edição (TASK-044).
+
+Dados FICTÍCIOS.
+"""
 
 from uuid import UUID
 
@@ -8,6 +11,7 @@ from app.application.ports.crane_catalog_listing import CraneCatalogStore
 from app.application.ports.crane_catalog_repository import (
     CatalogEntryAlreadyExistsError,
     Crane,
+    CraneConfiguration,
     Manufacturer,
 )
 from app.application.use_cases.crane_catalog import (
@@ -178,3 +182,128 @@ def test_repeated_id_from_the_repository_propagates_as_conflict(
 
     with pytest.raises(CatalogEntryAlreadyExistsError):
         catalog.create_manufacturer("Outro fabricante FICTÍCIO")
+
+
+# --- Edição (TASK-044, CA-2) --------------------------------------------------------------------
+
+
+def test_rename_manufacturer_updates_the_stored_record(
+    catalog: ManageCraneCatalog, repository: InMemoryCraneCatalog
+) -> None:
+    manufacturer = catalog.create_manufacturer(FABRICANTE_FICTICIO_NOME)
+
+    renamed = catalog.rename_manufacturer(manufacturer.id, "Fabricante FICTÍCIO renomeado")
+
+    assert renamed == Manufacturer(id=manufacturer.id, name="Fabricante FICTÍCIO renomeado")
+    assert repository.get_manufacturer(manufacturer.id) == renamed
+
+
+def test_rename_crane_keeps_the_manufacturer(
+    catalog: ManageCraneCatalog, repository: InMemoryCraneCatalog
+) -> None:
+    manufacturer = catalog.create_manufacturer(FABRICANTE_FICTICIO_NOME)
+    crane = catalog.create_crane(manufacturer.id, MODELO_FICTICIO_NOME)
+
+    renamed = catalog.rename_crane(crane.id, "Modelo FICTÍCIO renomeado")
+
+    assert renamed == Crane(
+        id=crane.id, manufacturer_id=manufacturer.id, model_name="Modelo FICTÍCIO renomeado"
+    )
+    assert repository.get_crane(crane.id) == renamed
+
+
+def _configuration_with_geometry(catalog: ManageCraneCatalog) -> CraneConfiguration:
+    manufacturer = catalog.create_manufacturer(FABRICANTE_FICTICIO_NOME)
+    crane = catalog.create_crane(manufacturer.id, MODELO_FICTICIO_NOME)
+    return catalog.create_configuration(
+        crane.id, CONFIGURACAO_FICTICIA_NOME, build_crane_geometry_ficticia()
+    )
+
+
+def test_update_configuration_name_only_keeps_the_geometry(
+    catalog: ManageCraneCatalog, repository: InMemoryCraneCatalog
+) -> None:
+    configuration = _configuration_with_geometry(catalog)
+
+    updated = catalog.update_configuration(configuration.id, name="Configuração FICTÍCIA B")
+
+    assert updated.name == "Configuração FICTÍCIA B"
+    assert updated.geometry == configuration.geometry
+    assert updated.crane_id == configuration.crane_id
+    assert repository.get_configuration(configuration.id) == updated
+
+
+def test_update_configuration_geometry_replaces_the_whole_sheet(
+    catalog: ManageCraneCatalog, repository: InMemoryCraneCatalog
+) -> None:
+    configuration = _configuration_with_geometry(catalog)
+    new_geometry = build_crane_geometry_ficticia(
+        boom_pivot_offset_m=-1.56,
+        cable_length_max_m=None,
+        turret_rotation_min_deg=-45.0,
+        turret_rotation_max_deg=45.0,
+    )
+
+    updated = catalog.update_configuration(configuration.id, geometry=new_geometry)
+
+    assert updated.name == configuration.name
+    assert updated.geometry == new_geometry
+    assert repository.get_configuration(configuration.id) == updated
+
+
+def test_update_configuration_can_add_a_sheet_to_a_configuration_without_one(
+    catalog: ManageCraneCatalog,
+) -> None:
+    manufacturer = catalog.create_manufacturer(FABRICANTE_FICTICIO_NOME)
+    crane = catalog.create_crane(manufacturer.id, MODELO_FICTICIO_NOME)
+    configuration = catalog.create_configuration(crane.id, CONFIGURACAO_FICTICIA_NOME)
+
+    updated = catalog.update_configuration(
+        configuration.id, name="Com ficha", geometry=build_crane_geometry_ficticia()
+    )
+
+    assert updated.name == "Com ficha"
+    assert updated.geometry == build_crane_geometry_ficticia()
+
+
+def test_update_configuration_requires_at_least_one_field(catalog: ManageCraneCatalog) -> None:
+    configuration = _configuration_with_geometry(catalog)
+
+    with pytest.raises(ValueError, match="informe"):
+        catalog.update_configuration(configuration.id)
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+def test_edits_reject_blank_names(catalog: ManageCraneCatalog, blank: str) -> None:
+    configuration = _configuration_with_geometry(catalog)
+    crane_id = configuration.crane_id
+    manufacturer_id = catalog.get_crane(crane_id).manufacturer_id
+
+    with pytest.raises(ValueError):
+        catalog.rename_manufacturer(manufacturer_id, blank)
+    with pytest.raises(ValueError):
+        catalog.rename_crane(crane_id, blank)
+    with pytest.raises(ValueError):
+        catalog.update_configuration(configuration.id, name=blank)
+
+
+def test_editing_missing_records_raises_not_found(catalog: ManageCraneCatalog) -> None:
+    with pytest.raises(CatalogEntryNotFoundError) as manufacturer:
+        catalog.rename_manufacturer("NAO-EXISTE", "Nome")
+    with pytest.raises(CatalogEntryNotFoundError) as crane:
+        catalog.rename_crane("NAO-EXISTE", "Modelo")
+    with pytest.raises(CatalogEntryNotFoundError) as configuration:
+        catalog.update_configuration("NAO-EXISTE", name="Configuração")
+
+    assert manufacturer.value.entity == "fabricante"
+    assert crane.value.entity == "guindaste"
+    assert configuration.value.entity == "configuração"
+
+
+def test_repeated_names_are_accepted_on_edit(catalog: ManageCraneCatalog) -> None:
+    first = catalog.create_manufacturer("Fabricante FICTÍCIO A")
+    catalog.create_manufacturer("Fabricante FICTÍCIO B")
+
+    renamed = catalog.rename_manufacturer(first.id, "Fabricante FICTÍCIO B")
+
+    assert renamed.name == "Fabricante FICTÍCIO B"

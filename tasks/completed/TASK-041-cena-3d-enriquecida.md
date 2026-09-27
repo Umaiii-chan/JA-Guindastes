@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | média |
 | **Criada em** | 2026-09-26 por pessoa responsável (leva D, via orquestrador) |
 | **Iniciada em** | 2026-09-26 |
@@ -91,3 +91,5 @@ e os testes correspondentes em `frontend/tests/three/**`.
 1. Rodar `npm run dev`.
 2. Mover os controles e conferir o anel e as cores.
 3. Trocar as predefinições de câmera.
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).

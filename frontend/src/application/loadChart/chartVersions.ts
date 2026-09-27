@@ -1,82 +1,33 @@
-// Versões das tabelas de carga de uma configuração (TASK-042; RN-005).
+// Versões das tabelas de carga de uma configuração (TASK-042, TASK-044; RN-005).
 //
-// O backend ainda NÃO tem rota para listar as tabelas de uma configuração (só `GET /load-charts/{id}`;
-// ver handoffs/TASK-042.md § 8). Até ela existir, a tela lembra, neste navegador, os ids das tabelas
-// que importou, ativou ou acompanhou (`KnownChartsStore`) e consulta cada uma no backend para ter o
-// status atual. Uma tabela importada em outro lugar só aparece depois de acompanhada pelo id.
+// A lista vem do backend (`GET /configurations/{id}/load-charts`, TASK-044), já ordenada da versão
+// importada mais recentemente para a mais antiga e com a ativa indicada. Aqui ficam só as regras da
+// tela sobre ela: qual é a ativa, o que pode ser ativado e as sugestões de versão e id.
 
-import type { LoadChartFailure, LoadChartGateway, LoadChartStatus, StoredLoadChart } from './ports'
-
-/** Tabela lembrada neste navegador. */
-export interface KnownChart {
-  readonly chartId: string
-  readonly configurationId: string
-  /** Quando a tela passou a acompanhar a tabela (ISO 8601): ordena a linha do tempo. */
-  readonly trackedAt: string
-}
-
-/** Onde os ids ficam guardados (implementação em `src/infrastructure/storage/`). */
-export interface KnownChartsStore {
-  list(configurationId: string): readonly KnownChart[]
-  add(chart: KnownChart): void
-  remove(configurationId: string, chartId: string): void
-}
-
-export interface LoadChartVersion extends StoredLoadChart {
-  readonly trackedAt: string
-}
-
-export interface LoadChartVersionList {
-  /** Da mais recente para a mais antiga. */
-  readonly versions: readonly LoadChartVersion[]
-  /** Ids lembrados que o backend não conhece mais (404) ou que são de outra configuração. */
-  readonly forgotten: readonly string[]
-}
-
-const NOT_FOUND = 'LOAD_CHART_NOT_FOUND'
+import type { LoadChartFailure, LoadChartStatus, LoadChartSummary, StoredLoadChart } from './ports'
 
 /**
- * Consulta no backend cada tabela lembrada da configuração. As que sumiram (404) ou mudaram de
- * configuração são esquecidas. Qualquer outra falha rejeita com a primeira delas (a lista não
- * mostra meia verdade).
+ * A versão ativa da lista: a indicada pelo backend (`active_chart_id`) ou, sem ela, a de status
+ * `ACTIVE` (o backend garante no máximo uma por configuração; ADR-009).
  */
-export async function loadChartVersions(
-  gateway: Pick<LoadChartGateway, 'getChart'>,
-  store: KnownChartsStore,
-  configurationId: string,
-): Promise<LoadChartVersionList> {
-  const known = store.list(configurationId)
-  const results = await Promise.allSettled(known.map((entry) => gateway.getChart(entry.chartId)))
-  const versions: LoadChartVersion[] = []
-  const forgotten: string[] = []
-  let failure: unknown = null
-
-  results.forEach((result, index) => {
-    const entry = known[index]
-    if (result.status === 'fulfilled') {
-      if (result.value.configurationId === configurationId) {
-        versions.push({ ...result.value, trackedAt: entry.trackedAt })
-      } else {
-        forgotten.push(entry.chartId)
-      }
-    } else if (failureCode(result.reason) === NOT_FOUND) {
-      forgotten.push(entry.chartId)
-    } else {
-      failure ??= result.reason
-    }
-  })
-
-  if (failure !== null) throw failure
-  for (const chartId of forgotten) store.remove(configurationId, chartId)
-  versions.sort((a, b) => b.trackedAt.localeCompare(a.trackedAt))
-  return { versions, forgotten }
+export function activeVersion<
+  T extends { readonly chartId: string; readonly status: LoadChartStatus },
+>(versions: readonly T[], activeChartId: string | null = null): T | null {
+  const indicated =
+    activeChartId === null ? undefined : versions.find((item) => item.chartId === activeChartId)
+  return indicated ?? versions.find((version) => version.status === 'ACTIVE') ?? null
 }
 
-/** A versão ativa da lista, se houver (o backend garante no máximo uma por configuração). */
-export function activeVersion<T extends { readonly status: LoadChartStatus }>(
-  versions: readonly T[],
-): T | null {
-  return versions.find((version) => version.status === 'ACTIVE') ?? null
+/** A tabela gravada vista como item da listagem (sem os pontos). */
+export function summaryOf(chart: StoredLoadChart): LoadChartSummary {
+  return {
+    chartId: chart.chartId,
+    version: chart.version,
+    configurationId: chart.configurationId,
+    status: chart.status,
+    pointCount: chart.points.length,
+    sourceFileName: chart.sourceFileName,
+  }
 }
 
 /** Só `DRAFT` e `VALIDATED` podem ser ativadas (doc-fonte § 13.2; 409 nos demais). */

@@ -1,4 +1,5 @@
-"""Schemas Pydantic da importação com gravação e da ativação de tabelas de carga (TASK-031).
+"""Schemas Pydantic da importação com gravação, da ativação (TASK-031) e da listagem por
+configuração (TASK-044) de tabelas de carga.
 
 Ficam na apresentação (ADR-006). Os pontos reusam `LoadChartPointResponse` (TASK-019), com o sufixo
 da unidade interna nos nomes (RN-006).
@@ -6,8 +7,10 @@ da unidade interna nos nomes (RN-006).
 
 from pydantic import BaseModel, Field
 
+from app.application.ports.load_chart_listing import LoadChartSummary
 from app.application.ports.load_chart_repository import LoadChartSource, StoredLoadChart
 from app.application.use_cases.activate_load_chart import LoadChartActivation
+from app.application.use_cases.list_configuration_load_charts import ConfigurationLoadCharts
 from app.domain.entities.load_chart import LoadChartStatus
 from app.presentation.api.load_chart_schemas import LoadChartPointResponse
 
@@ -60,6 +63,49 @@ class LoadChartResponse(BaseModel):
             point_count=len(points),
             points=points,
             source=LoadChartSourceResponse.from_source(stored.source),
+        )
+
+
+class LoadChartSummaryResponse(BaseModel):
+    """Tabela na listagem da configuração (TASK-044): o `LoadChartResponse` sem `points`."""
+
+    chart_id: str = Field(description="Id da tabela de carga.")
+    version: str = Field(description="Versão da tabela de carga (RN-005).")
+    configuration_id: str = Field(description="Configuração do guindaste (RN-001).")
+    status: LoadChartStatus = Field(description="Status da tabela (doc-fonte § 13.2).")
+    point_count: int = Field(description="Quantidade de pontos da tabela.")
+    source: LoadChartSourceResponse = Field(description="Arquivo-fonte da tabela.")
+
+    @classmethod
+    def from_summary(cls, summary: LoadChartSummary) -> LoadChartSummaryResponse:
+        return cls(
+            chart_id=summary.load_chart_id,
+            version=summary.version,
+            configuration_id=summary.configuration_id,
+            status=summary.status,
+            point_count=summary.point_count,
+            source=LoadChartSourceResponse.from_source(summary.source),
+        )
+
+
+class ConfigurationLoadChartsResponse(BaseModel):
+    """Tabelas de carga de uma configuração, com a ativa (TASK-044)."""
+
+    items: list[LoadChartSummaryResponse] = Field(
+        description="Todas as tabelas da configuração, em qualquer status. Ordem: pela versão, da "
+        "maior para a menor, em ordem natural (trechos numéricos comparados como números; `v10` "
+        "antes de `v9`), e, na mesma versão, pelo `chart_id` decrescente. Não há data de "
+        "importação gravada, então a ordem não é a da importação."
+    )
+    active_chart_id: str | None = Field(
+        description="Id da tabela `ACTIVE` da configuração, ou `null` se nenhuma está ativa."
+    )
+
+    @classmethod
+    def from_result(cls, result: ConfigurationLoadCharts) -> ConfigurationLoadChartsResponse:
+        return cls(
+            items=[LoadChartSummaryResponse.from_summary(item) for item in result.items],
+            active_chart_id=result.active_load_chart_id,
         )
 
 

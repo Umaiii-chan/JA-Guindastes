@@ -1,13 +1,13 @@
 # Estratégia de testes
 
 > **Status deste documento:** preenchido na TASK-037 (2026-09-26) com o que existe com a leva C
-> (TASK-033..036) integrada. Define o que é "testado" neste projeto. Um agente que disser "testei" sem seguir o que
+> (TASK-033..036) integrada e atualizado na TASK-045 com a leva D (TASK-038..043). Define o que é "testado" neste projeto. Um agente que disser "testei" sem seguir o que
 > está aqui está alucinando.
 
 | Campo | Valor |
 |-------|-------|
-| Última revisão | 2026-09-26 (TASK-037) |
-| Framework de testes | backend: pytest; frontend: Vitest (ADR-012); ponta a ponta: Playwright com Chromium (TASK-036) |
+| Última revisão | 2026-09-26 (TASK-045) |
+| Framework de testes | backend: pytest; frontend: Vitest (ADR-012), com jsdom e Testing Library nos testes de componente (TASK-039); ponta a ponta: Playwright com Chromium (TASK-036) |
 | Comando principal | backend: `uv run pytest` (em `backend/`); frontend: `npm test` (em `frontend/`); E2E: `npm run e2e` (em `frontend/`) — iguais aos de [`development-guide.md`](development-guide.md) § 3 |
 
 ---
@@ -32,16 +32,16 @@
 
 | Tipo | O que cobre | Onde ficam | Ferramenta | Comando | Roda no CI? |
 |------|-------------|------------|------------|---------|-------------|
-| Unitário (backend) | domínio (tabela de carga, geometria, consulta conservadora, carga), casos de uso com fakes das portas, parsers CSV/XLSX, storage local, mapeamento dos repositórios, config do banco | `backend/tests/domain/`, `application/`, `infrastructure/` | pytest | `uv run pytest` | sim (job `backend`) |
-| API e WebSocket (backend) | routers com `TestClient` e fakes: códigos HTTP, schemas, limites de upload, 422 com números não finitos, mensagens do WebSocket (`TestClient.websocket_connect`), raiz de composição | `backend/tests/presentation/`, `backend/tests/test_composition.py` | pytest + `fastapi.testclient` | `uv run pytest tests/presentation` | sim |
-| Integração com banco (backend) | migration (sobe, desce, sobe e `compare_metadata`), repositórios, importação e ativação, catálogo pelas rotas, composição com banco (REST e WS) | arquivos com marcador `integration` (ex.: `backend/tests/infrastructure/database/`, `infrastructure/repositories/*_integration.py`, `presentation/test_catalog_integration.py`, `test_composition_integration.py`) | pytest + PostgreSQL real | `uv run pytest -m integration` | sim, com PostgreSQL 18 de serviço e `REQUIRE_INTEGRATION_DB=1` (falham em vez de pular) |
-| Unitário (frontend) | geometria de pré-visualização, `CraneController`, cena sem renderer, loader GLB e mapeamento cinemático sobre o GLB de exemplo FICTÍCIO, cliente REST, mensagens e reconexão do WebSocket (`fetch`/`WebSocket` falsos, timers falsos), `EvaluationSession`, debounce | `frontend/tests/` (espelha `src/`) | Vitest (ambiente `node`) | `npm test` | sim (job `quality`) |
-| Componente React (frontend) | só render estático com `react-dom/server` (ex.: `BackendEvaluationPanel`); sem jsdom nem Testing Library | `frontend/tests/presentation/` | Vitest | `npm test` | sim |
+| Unitário (backend) | domínio (tabela de carga, geometria, consulta conservadora, carga, usuário), casos de uso com fakes das portas (inclusive login, logout, sessão atual e gestão de usuários), parsers CSV/XLSX, storage local, hash Argon2id e limite de tentativas, mapeamento dos repositórios, config do banco, comando `create_admin` sem banco | `backend/tests/domain/`, `application/`, `infrastructure/` | pytest | `uv run pytest` | sim (job `backend`) |
+| API e WebSocket (backend) | routers com `TestClient` e fakes: códigos HTTP, schemas, limites de upload, 422 com números não finitos, mensagens do WebSocket (`TestClient.websocket_connect`), raiz de composição; login, logout e usuários (401, 403, 409, 422 sem repetir a senha); **matriz de autorização** de todas as rotas e do WebSocket (sem sessão, Operador, Admin, CSRF, 4401/4403) | `backend/tests/presentation/` (`test_auth.py`, `test_users.py`, `test_route_authorization.py`), `backend/tests/test_composition.py` | pytest + `fastapi.testclient` | `uv run pytest tests/presentation` | sim |
+| Integração com banco (backend) | migrations (sobem, descem, sobem e `compare_metadata`), repositórios (inclusive usuários e sessões), importação e ativação, catálogo pelas rotas, composição com banco e login (REST e WS), fluxo de autenticação, `create_admin`, e a corrida de dois admins rebaixando um ao outro (sobra um admin ativo) | arquivos com marcador `integration` (ex.: `backend/tests/infrastructure/database/`, `infrastructure/repositories/*_integration.py`, `presentation/test_catalog_integration.py`, `test_composition_integration.py`, `test_auth_integration.py`, `test_create_admin_integration.py`) | pytest + PostgreSQL real | `uv run pytest -m integration` | sim, com PostgreSQL 18 de serviço e `REQUIRE_INTEGRATION_DB=1` (falham em vez de pular) |
+| Unitário (frontend) | geometria de pré-visualização, `CraneController`, cena sem renderer (ambiente, anel de raio, carga, paleta, predefinições e transição de câmera, limites da câmera), loader GLB e mapeamento cinemático sobre o GLB de exemplo FICTÍCIO e sobre o modelo do caminhão (hierarquia, calibração com a ficha de demo, P/T/G e gancho em 5 estados, cilindro, SHA-256 do GLB), clientes REST (inclusive `apiFetch`, sessão e usuários), mensagens e reconexão do WebSocket (`fetch`/`WebSocket` falsos, timers falsos), `EvaluationSession`, debounce, passos do simulador, situação da avaliação, permissões por perfil, matriz e versões de tabela, árvore do catálogo | `frontend/tests/` (espelha `src/`) | Vitest (ambiente `node`) | `npm test` | sim (job `quality`) |
+| Componente React (frontend) | interação real em jsdom com Testing Library (TASK-039): componentes do design system (foco preso em Dialog/Drawer, Esc, setas em Tabs, medidor), casca e rotas com `fetch` falso, login, guardas e sessão expirada (`authFlow.test.tsx`), páginas Usuários, Catálogo e Tabelas (inclusive somente leitura), painéis do simulador. Cada arquivo `.test.tsx` declara `// @vitest-environment jsdom`; o backend de login falso é `tests/helpers/fakeAuthBackend.ts` (contas FICTÍCIAS). Alguns testes antigos seguem com render estático (`react-dom/server`) | `frontend/tests/presentation/`, `frontend/tests/app/` | Vitest + jsdom + Testing Library | `npm test` | sim |
 | Paridade de geometria | os mesmos casos calculados à mão no backend e no frontend (ADR-013 C-7) | backend `tests/domain/test_geometry_service.py`; frontend `tests/fixtures/geometryParityCases.ts` (transcrição) | pytest e Vitest | os dois acima | sim |
 | Contrato | OpenAPI gerado pelo FastAPI (rotas e schemas presentes) | `backend/tests/test_openapi.py`, `presentation/test_openapi_*.py` | pytest | `uv run pytest` | sim |
-| Fumaça da stack Docker | build das imagens, `docker compose up --wait`, migrations no container, `/openapi.json`, `index.html` e proxy `/api/` pelo nginx | `.github/workflows/ci.yml` (job `docker`) | Docker Compose + curl | — (só no CI) | sim |
-| Ponta a ponta (E2E) — sem backend | a página carrega com os painéis; a cena 3D aparece num `canvas` (WebGL no SwiftShader, sem GPU) e libera os sliders; inclinação e cabo mudam raio e alturas da pré-visualização; sem configuração, o painel de avaliação pede a configuração | `frontend/e2e/tests/scene.spec.ts` | Playwright (Chromium, 1 worker) | `npm run e2e` (sobe `vite preview`) | sim (job `e2e`) |
-| Ponta a ponta (E2E) — com backend | o catálogo carrega do backend e, sem configuração escolhida, a avaliação não é enviada; com os dados semeados, seleção fabricante → guindaste → configuração + carga válida levam a "Avaliado" ou "Não avaliável", **nunca** por falta de ficha ou tabela ativa | `frontend/e2e/tests/evaluation.spec.ts` | Playwright | `E2E_BASE_URL=... E2E_BACKEND=1 npm run e2e` (+ `E2E_SEED_*` para o fluxo semeado) | sim: o job `e2e` sobe a stack Docker, migra, roda o seed da demo (`python -m app.demo_seed`) e passa `E2E_SEED_*` com os ids fixos `demo-ficticio-*`; sem essas variáveis, os testes são pulados |
+| Fumaça da stack Docker | build das imagens, `docker compose up --wait`, migrations no container, `/openapi.json`, `index.html` e proxy `/api/` pelo nginx (um `POST` com o cabeçalho CSRF e sem sessão tem de dar 401 do backend) | `.github/workflows/ci.yml` (job `docker`) | Docker Compose + curl | — (só no CI) | sim |
+| Ponta a ponta (E2E) — sem backend | com o catálogo FICTÍCIO respondido no navegador (`catalogMock.ts`) e a aplicação no modo sem autenticação: o Início carrega com a casca, atalhos, resumo e avisos; o trilho navega pelas páginas e a rota desconhecida mostra "não encontrada"; a cena 3D aparece num `canvas` que ocupa o simulador (WebGL no SwiftShader, sem GPU); os passos liberam em sequência; inclinação e cabo mudam raio e alturas da pré-visualização; sem configuração, o resultado pede a configuração. Importação pela página Tabelas com as rotas respondidas no navegador (arrastar e soltar, matriz, importar, linha do tempo, Dialog de ativação) | `frontend/e2e/tests/scene.spec.ts`, `frontend/e2e/tests/loadChartImport.spec.ts` (bloco "no navegador") | Playwright (Chromium, 1 worker) | `npm run e2e` (sobe `vite preview`) | sim (job `e2e`) |
+| Ponta a ponta (E2E) — com backend | entrando antes como o admin de E2E: o catálogo carrega do backend e, sem configuração escolhida, a avaliação não é enviada; com os dados semeados, os passos do simulador (configuração + carga válida) levam a "Avaliado" ou "Não avaliável", **nunca** por falta de ficha ou tabela ativa; importação pela página Tabelas contra a stack, com login e o cabeçalho CSRF (validação, relatório de erros com linha e coluna, gravação e ativação do CSV FICTÍCIO v1, e a linha do tempo vinda da `GET /configurations/{id}/load-charts`, TASK-044); edição de cadastro pela página Catálogo (renomear a configuração e trocar a ficha com a confirmação de tabela ativa, sem criar item novo; renomear o fabricante), com fabricante, guindaste e configuração FICTÍCIOS novos criados pela API a cada execução (`backendCatalog.ts`, TASK-044) | `frontend/e2e/tests/evaluation.spec.ts`, `frontend/e2e/tests/loadChartImport.spec.ts` (bloco "com backend"), `frontend/e2e/tests/catalogEdit.spec.ts` (só com backend) | Playwright | `E2E_BASE_URL=... E2E_BACKEND=1 E2E_ADMIN_USERNAME=... E2E_ADMIN_PASSWORD=... npm run e2e` (+ `E2E_SEED_*` para o fluxo semeado) | sim: o job `e2e` sobe a stack Docker, migra, roda o seed da demo (`python -m app.demo_seed`) e passa `E2E_SEED_*` com os ids fixos `demo-ficticio-*`; sem essas variáveis, os testes são pulados |
 | Ponta a ponta (E2E) — login e perfis (TASK-040) | com backend e banco: rota guardada leva ao login e volta ao destino; senha errada; "Sair" encerra a sessão; o admin cria um Operador pela página Usuários e o Operador não vê nem abre `/usuarios` (403 na API). Sempre: modo sem autenticação (sessão respondida no navegador) leva `/login` ao Início com o aviso | `frontend/e2e/tests/auth.spec.ts` (+ fixture de login em `auth.ts`, usado pelos demais specs) | Playwright | `E2E_BASE_URL=... E2E_BACKEND=1 E2E_ADMIN_USERNAME=... E2E_ADMIN_PASSWORD=... npm run e2e` | sim: o job `e2e` cria o admin `e2e-admin` e exporta `E2E_ADMIN_*`; sem backend ou sem essas variáveis, os testes de login são pulados |
 | Seed da demonstração | idempotência, tabela `SUPERSEDED` não reativada, ficha existente não sobrescrita, ficha FICTÍCIA espelhando o guindaste provisório do frontend, valores esperados do roteiro de [`demo.md`](demo.md), mensagens de erro da linha de comando | `backend/tests/test_demo_seed.py` (sem banco), `backend/tests/test_demo_seed_integration.py` (marcador `integration`) | pytest | `uv run pytest` | sim (job `backend`) |
 | Manual | cena 3D no navegador, interação com os painéis (cliques e digitação), stack Docker local, roteiro de [`demo.md`](demo.md) | descrito em cada tarefa (§ 7) | pessoa ou agente com navegador | — | não |
@@ -69,7 +69,9 @@ código, ver os testes falharem, restaurar) e registraram o resultado no handoff
 
 ## 4. Convenções
 
-- Nome do arquivo de teste: backend `test_<modulo>.py`; frontend `<modulo>.test.ts`.
+- Nome do arquivo de teste: backend `test_<modulo>.py`; frontend `<modulo>.test.ts`, ou
+  `<modulo>.test.tsx` com `// @vitest-environment jsdom` na primeira linha quando renderiza e
+  interage com React (o padrão do Vitest é `node`; `tests/setup.ts` desmonta o que a Testing Library montou depois de cada teste).
 - Nome do teste descreve comportamento: backend em inglês (`test_<comportamento>`, com `ficticio`
   quando usa dado FICTÍCIO); frontend em português (`it('descarta resposta com sequence antiga ...')`).
 - Estrutura interna: *Arrange → Act → Assert* (ou *Given → When → Then*).
@@ -88,7 +90,17 @@ código, ver os testes falharem, restaurar) e registraram o resultado no handoff
     único e apagam no `finally`; se a limpeza falhar, o teste da migration (que só desce com tabelas
     vazias) quebra.
 - `app.main` monta a app na importação: com `DATABASE_URL` definida (como no CI), os testes que o
-  importam usam a composição com banco, sem conectar até a primeira requisição.
+  importam usam a composição com banco, sem conectar até a primeira requisição. Por isso os testes
+  que precisam da composição sem banco usam `compose_app({})` (TASK-038).
+- Login nos testes do backend: dublês em memória em `backend/tests/fixtures/auth_ficticia.py` e
+  `auth_api_ficticia.py`; com PostgreSQL, `auth_postgres_ficticia.py` cria usuários FICTÍCIOS e faz o
+  login dos testes que passaram a exigir sessão. Os testes conferem que senha e token não aparecem em
+  log, resposta nem mensagem de erro.
+- Login no E2E: o fixture `page` de `frontend/e2e/tests/auth.ts` entra como o admin de E2E pela API
+  (`page.request`, que divide os cookies com o navegador) quando `E2E_BACKEND=1` e há
+  `E2E_ADMIN_*`; sem elas, os testes com backend são pulados. Só os specs do próprio login usam o
+  formulário. O spec de senha errada usa um usuário inexistente, para não gastar o limite de
+  tentativas do admin.
 
 ---
 
@@ -114,8 +126,9 @@ código, ver os testes falharem, restaurar) e registraram o resultado no handoff
 | Fixtures | `backend/tests/fixtures/` (tabelas, fichas técnicas, catálogo, CSVs em `load_chart_csv/`) e `frontend/tests/fixtures/` | sintéticos, rotulados FICTÍCIO, versionados; planilhas XLSX geradas em memória pelo openpyxl (nenhum binário) |
 | Modelo 3D | `assets/example-models/guindaste-provisorio.ficticio.glb` | exportado do guindaste provisório; o teste confere que está em dia (regeneração em `development-guide.md` § 3) |
 | Banco de teste | PostgreSQL 18: local via `docker compose up -d postgres`; no CI, serviço do job `backend` | migrations em `head` antes dos testes; transação desfeita ou limpeza no `finally` |
-| Dados do E2E | seed da demonstração (`backend/app/demo_seed.py`, CSVs em `backend/app/demo_data/`), rodado na stack Docker do job `e2e` | FICTÍCIOS; ids fixos `demo-ficticio-*`; a stack é derrubada com `--volumes` no fim |
-| Segredos de teste | variáveis do próprio workflow do CI (credenciais descartáveis do container, não são segredo) | nunca credencial real no repositório |
+| Dados do E2E | seed da demonstração (`backend/app/demo_seed.py`, CSVs em `backend/app/demo_data/`), rodado na stack Docker do job `e2e`; cadastros FICTÍCIOS criados pela API nos specs de edição e importação (`frontend/e2e/tests/backendCatalog.ts`), com nomes e versões novos a cada execução | FICTÍCIOS; ids fixos `demo-ficticio-*`; a stack é derrubada com `--volumes` no fim |
+| Contas de teste | backend: usuários FICTÍCIOS dos fixtures `auth_*`; frontend: contas FICTÍCIAS em memória (`fakeAuthBackend.ts`); E2E: admin `e2e-admin` criado no job `e2e`, e a senha do Operador criado no spec é gerada na hora | nenhuma senha real |
+| Segredos de teste | variáveis do próprio workflow do CI (credenciais descartáveis do container e senha do admin de E2E `ci_only_admin_password_not_secret`, que não são segredo) | nunca credencial real no repositório |
 
 ---
 
@@ -123,9 +136,10 @@ código, ver os testes falharem, restaurar) e registraram o resultado no handoff
 
 Também em [`known-gaps.md`](known-gaps.md) § 6.
 
-- E2E: não cobre cadastro pela tela, importação/ativação de tabela pela tela nem o WebSocket de forma explícita (o teste semeado aceita o resultado por qualquer transporte); o job `e2e` não foi executado localmente (Docker indisponível; TASK-036 § 7).
-- Componentes React com interação no Vitest (exigiriam jsdom/Testing Library, dependências não autorizadas): a interação só é coberta pelos poucos fluxos do E2E e por verificação manual.
-- Integração com banco na máquina de desenvolvimento: só no CI (L-005).
+- E2E: não cobre a **criação** de cadastros do catálogo pela tela (o spec de edição cria os dados pela API) nem o WebSocket de forma explícita (o teste semeado aceita o resultado por qualquer transporte); os specs com backend (avaliação, login e perfis, importação e linha do tempo pela página Tabelas, edição de cadastro) e o job `e2e` não foram executados localmente (Docker indisponível; TASK-036, 038, 040, 042 e 044 § 7).
+- A cena 3D não tem teste de imagem: anel, carga, cores, câmeras e o modelo do caminhão são conferidos por testes sem renderer e por capturas manuais (TASK-041, 043).
+- Desempenho da cena: os 60 fps num notebook comum não foram medidos em hardware real (só SwiftShader; TASK-041 CA-6).
+- Integração com banco na máquina de desenvolvimento: só no CI (L-005); inclui os testes de login, `create_admin` e a corrida do último admin (TASK-038).
 - WebSocket contra um servidor uvicorn real e pelo proxy do nginx (o job `docker` testa o proxy só com REST).
 - Casos de paridade backend × frontend num arquivo único (hoje transcritos; known-gaps D-004).
 - Conferência automática dos tipos do frontend contra os schemas REST/WebSocket do backend.

@@ -1,10 +1,9 @@
-import { Eye, History, Power, RefreshCw, Search, TriangleAlert } from 'lucide-react'
-import { type FormEvent, useState } from 'react'
+import { Eye, History, Power, RefreshCw, TriangleAlert } from 'lucide-react'
 
-import { isActivatable, type LoadChartVersion } from '../../application/loadChart/chartVersions'
-import { Badge, Button, cx, EmptyState, Field, Input, Panel, Skeleton } from '../ui'
+import { isActivatable } from '../../application/loadChart/chartVersions'
+import type { LoadChartSummary } from '../../application/loadChart/ports'
+import { Badge, Button, cx, EmptyState, Panel, Skeleton } from '../ui'
 import { CHART_STATUS_LABEL, CHART_STATUS_TONE } from './chartStatus'
-import { formatDateTime } from './format'
 import styles from './tables.module.css'
 import type { ChartVersionsState } from './useChartVersions'
 
@@ -14,16 +13,14 @@ export interface VersionTimelineProps {
   /** Tabela cuja matriz está na prévia (destaca o botão "Ver matriz"). */
   readonly previewChartId: string | null
   onPreview(chartId: string): void
-  onActivate(version: LoadChartVersion): void
+  onActivate(version: LoadChartSummary): void
   onRetry(): void
-  /** Acompanha uma tabela gravada pelo id; devolve a mensagem de erro, ou `null` se deu certo. */
-  onTrack(chartId: string): Promise<string | null>
 }
 
 /**
- * Linha do tempo das versões da configuração (RN-005), da mais recente para a mais antiga, com a ativa
- * em destaque. O backend ainda não lista as tabelas de uma configuração: a lista mostra as que este
- * navegador importou, ativou ou acompanhou pelo id (handoffs/TASK-042.md § 8).
+ * Linha do tempo das versões da configuração (RN-005), na ordem do backend (versão da maior para a
+ * menor; não há data de importação), com a ativa (`active_chart_id`) em destaque. A lista vem de
+ * `GET /configurations/{id}/load-charts` (TASK-044).
  */
 export function VersionTimeline({
   state,
@@ -32,13 +29,12 @@ export function VersionTimeline({
   onPreview,
   onActivate,
   onRetry,
-  onTrack,
 }: VersionTimelineProps) {
   const count = state.versions.length
   return (
     <Panel
       title="Versões"
-      subtitle="Da mais recente para a mais antiga"
+      subtitle="Da maior versão para a menor"
       icon={<History size={16} />}
       actions={
         <>
@@ -53,7 +49,6 @@ export function VersionTimeline({
           />
         </>
       }
-      footer={state.status !== 'idle' ? <TrackChartForm onTrack={onTrack} /> : undefined}
     >
       <TimelineBody
         state={state}
@@ -74,7 +69,7 @@ function TimelineBody({
   onPreview,
   onActivate,
   onRetry,
-}: Omit<VersionTimelineProps, 'onTrack'>) {
+}: VersionTimelineProps) {
   if (state.status === 'idle') {
     return (
       <EmptyState
@@ -122,8 +117,12 @@ function TimelineBody({
         compact
         tone="neutral"
         icon={<History size={22} />}
-        title="Nenhuma versão conhecida"
-        description="Importe a primeira tabela desta configuração ao lado. Uma tabela importada em outro lugar aparece aqui depois de acompanhada pelo id (o backend ainda não lista as tabelas de uma configuração)."
+        title="Nenhuma versão importada"
+        description={
+          canEdit
+            ? 'Esta configuração ainda não tem tabela de carga. Importe a primeira ao lado.'
+            : 'Esta configuração ainda não tem tabela de carga.'
+        }
       />
     )
   }
@@ -135,7 +134,10 @@ function TimelineBody({
       aria-busy={state.status === 'loading' || undefined}
     >
       {state.versions.map((version) => {
-        const active = version.status === 'ACTIVE'
+        const active =
+          state.activeChartId !== null
+            ? version.chartId === state.activeChartId
+            : version.status === 'ACTIVE'
         const previewing = version.chartId === previewChartId
         return (
           <li
@@ -166,11 +168,7 @@ function TimelineBody({
                 </div>
                 <div>
                   <dt>Pontos</dt>
-                  <dd className={styles.mono}>{version.points.length}</dd>
-                </div>
-                <div>
-                  <dt>Acompanhada em</dt>
-                  <dd className={styles.mono}>{formatDateTime(version.trackedAt)}</dd>
+                  <dd className={styles.mono}>{version.pointCount}</dd>
                 </div>
               </dl>
               <div className={styles.timelineActions}>
@@ -199,49 +197,5 @@ function TimelineBody({
         )
       })}
     </ol>
-  )
-}
-
-function TrackChartForm({ onTrack }: { onTrack(chartId: string): Promise<string | null> }) {
-  const [chartId, setChartId] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const id = chartId.trim()
-    if (id === '') {
-      setError('Informe o id da tabela.')
-      return
-    }
-    setBusy(true)
-    const problem = await onTrack(id)
-    setBusy(false)
-    setError(problem)
-    if (problem === null) setChartId('')
-  }
-
-  return (
-    <form className={styles.trackForm} onSubmit={(event) => void submit(event)} noValidate>
-      <Field
-        label="Acompanhar uma tabela pelo id"
-        hint="Para tabelas importadas em outro navegador ou pela API."
-        error={error ?? undefined}
-      >
-        <Input
-          type="text"
-          autoComplete="off"
-          placeholder="ex.: CFG-DEMO-v1"
-          value={chartId}
-          onChange={(event) => {
-            setChartId(event.currentTarget.value)
-            if (error) setError(null)
-          }}
-        />
-      </Field>
-      <Button type="submit" size="sm" icon={<Search size={14} />} loading={busy}>
-        Acompanhar
-      </Button>
-    </form>
   )
 }

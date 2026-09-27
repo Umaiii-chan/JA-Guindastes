@@ -1,7 +1,8 @@
 # Segurança — contexto do projeto
 
 > **Status deste documento:** preenchido na TASK-037 (2026-09-26) com o estado da leva C
-> (TASK-033..036) integrada; §§ 1–4 atualizadas na TASK-038 (login e perfis, ADR-016). O sistema roda
+> (TASK-033..036) integrada; §§ 1–4 atualizadas na TASK-038 (login e perfis, ADR-016); frontend,
+> modelo 3D servido e dependências da leva D acrescentados na TASK-045. O sistema roda
 > **só em ambiente local**, com limites de
 > upload **provisórios** (P-008): não deve ser exposto fora da máquina. Este arquivo descreve a
 > situação de segurança **deste projeto**. As regras universais que todo agente segue estão em
@@ -9,7 +10,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Última revisão | 2026-09-26 (TASK-037; §§ 1–4 atualizadas na TASK-038) |
+| Última revisão | 2026-09-26 (TASK-037; §§ 1–4 atualizadas na TASK-038; complementos da leva D na TASK-045) |
 | Responsável por segurança | PENDENTE: não designado (equipe e papéis em aberto, [`known-gaps.md`](known-gaps.md) P-012); até lá, a pessoa responsável pelo projeto ([`project-overview.md`](project-overview.md)) |
 
 ---
@@ -44,10 +45,22 @@ mensagens de erro, fixtures de teste ou documentação.
 | Senhas | hash **Argon2id** (`argon2-cffi`, parâmetros padrão da biblioteca); 10 a 128 caracteres; nunca em log, resposta ou mensagem de erro (o 422 das rotas `/auth` e `/users` não repete a entrada) | `backend/app/infrastructure/security/argon2_password_hasher.py`, `backend/app/presentation/api/validation_errors.py` |
 | Sem banco | sem `DATABASE_URL` **não há login** (ADR-016 § 5): `GET /api/v1/auth/session` responde `authEnabled: false`, as rotas de usuário não existem e as demais ficam abertas, como antes. Só para desenvolvimento | `backend/app/main.py` |
 | CORS | nenhum middleware CORS configurado; o frontend usa a mesma origem (proxy do Vite ou do nginx) | `frontend/vite.config.ts`, `frontend/nginx.conf.template` |
+| Frontend (TASK-040) | o JavaScript não lê nem guarda o token (cookie `HttpOnly`). Todo pedido passa por `apiFetch`: `credentials: 'same-origin'` e, nos métodos inseguros, o cabeçalho `X-Requested-With: crane-simulator`; um 401 `NOT_AUTHENTICATED` leva ao login e um 403 `FORBIDDEN` vira o aviso "Sem permissão". As guardas de rota (`RequireAuth`, `RequireRole`) e a ocultação das ações de escrita para o Operador são **só apresentação**: quem autoriza é o backend. A conferência da sessão só cai no "modo sem autenticação" quando o backend está ausente (erro de rede ou 404/502/503/504 do proxy); qualquer outra falha leva ao login. Mesmo nesse modo, um backend com banco continua recusando com 401 | `frontend/src/infrastructure/api/apiFetch.ts`, `frontend/src/app/auth/` |
 
 Mitigação adicional: todas as portas do Docker Compose são publicadas só em `127.0.0.1`
 (`docker-compose.yml`), e os containers do backend e do frontend rodam sem root. O limite de taxa de
 mensagens do WebSocket continua ausente.
+
+Limitações conhecidas da autenticação (detalhes em [`known-gaps.md`](known-gaps.md) § 2 e § 4):
+- o limite de tentativas de login é em memória e por processo: com mais de uma réplica, cada uma
+  conta à parte, e reiniciar zera;
+- o `PATCH /api/v1/users/{id}` monta o estado novo a partir de uma leitura feita antes da trava: um
+  campo não enviado pode sobrescrever uma mudança simultânea desse campo (a regra do último admin
+  não é afetada);
+- trocar a senha não revoga as outras sessões do usuário (o ADR-016 não pede; pergunta aberta,
+  TASK-038 § 8 item 5);
+- a sessão do WebSocket só é conferida na abertura; revalidar durante a conexão ficou fora do
+  ADR-016 (TASK-038 § 7).
 
 ---
 
@@ -78,10 +91,11 @@ Todos os limites abaixo são **PROVISÓRIOS — A VALIDAR (P-008)**, escolhidos 
 | Upload de tabela CSV para validação (`POST /api/v1/load-charts/validate`) | arquivo ≤ 1 MiB e corpo ≤ 1 MiB + 16 KiB, recusados com 413 antes de ler o formulário; UTF-8 obrigatório; nada é gravado | tamanho; conteúdo malformado vira relatório de inconsistências, sem exceção |
 | Upload de tabela CSV/XLSX com gravação (`POST /api/v1/load-charts/import`) | mesmos limites de tamanho; formato escolhido pelo nome/tipo do arquivo (415 se não reconhecido); XLSX: ≤ 10 MiB descompactado e ≤ 10 000 linhas, conferidos antes do openpyxl; openpyxl com `read_only`, `data_only`, `keep_vba=False`, `keep_links=False`; fórmulas nunca avaliadas; tabela inválida não é gravada | zip bomb, macros, links externos; `defusedxml` **não** está instalado (TASK-023 § 8 item 4); CSV sem limite de linhas além do tamanho |
 | Arquivo-fonte gravado no disco | nome derivado só do SHA-256 calculado (nunca do nome enviado); URI `local://<sha256>` validada por regex e caminho resolvido dentro de `FILE_STORAGE_DIR`; escrita em temporário + `os.link` (nunca sobrescreve) | path traversal, sobrescrita, arquivo trocado (erro de integridade) |
+| Login (`POST /api/v1/auth/login`) | username acima de 64 ou senha acima de 128 caracteres falham como credencial inválida sem chegar ao banco nem ao Argon2 (e contam no limite); resposta sempre `401 INVALID_CREDENTIALS`; senha conferida contra um hash descartável quando o usuário não existe; 5 falhas por username em 15 min → `429` | força bruta distribuída entre usuários ou réplicas (o limite é por username e por processo); custo do Argon2 com entradas enormes |
 | JSON da avaliação e do catálogo (REST) | schemas Pydantic estritos, sem campos extras, sem `NaN`/infinito; handler do 422 que não quebra com números não finitos | payload malformado; nomes sem limite de tamanho nem normalização (TASK-030 § 8) |
 | WebSocket de avaliação | mensagem ≤ 8 KiB (bytes UTF-8); JSON recusando `NaN`/`Infinity`; validação estrita; qualquer recusa vira `simulation.error` sem fechar a conexão | com banco: cookie de sessão e `Origin` conferidos na abertura (4401/4403); sem limite de taxa; `--ws-max-size` do uvicorn não configurado (TASK-025 § 8) |
 | nginx do frontend (container) | `client_max_body_size 10m`, `server_tokens off`, `X-Content-Type-Options: nosniff` | — |
-| Modelo 3D (GLB/glTF) | carregado só no navegador a partir de arquivo do repositório; **sem upload** para o backend | limites de tamanho/polígonos para upload futuro **PENDENTES** (P-008) |
+| Modelo 3D (GLB/glTF) | carregado só no navegador a partir de arquivo do repositório; **sem upload** para o backend. O modelo do caminhão (`frontend/public/models/guindaste-caminhao.glb`, 1,81 MiB) é servido publicamente pelo frontend em `/models/guindaste-caminhao.glb`; é derivado de um FBX comercial do CGTrader cuja licença, confirmada pela pessoa responsável em 2026-09-26, permite versionar o GLB e distribuí-lo embutido na aplicação (registrado nos `extras` do GLB). O FBX de origem não vai ao repositório (`assets/source/` no `.gitignore`), e o script de conversão recusa outro FBX pelo SHA-256 | limites de tamanho/polígonos para upload futuro **PENDENTES** (P-008); o teste confere o SHA-256 do GLB versionado |
 
 ---
 
@@ -93,6 +107,16 @@ Todos os limites abaixo são **PROVISÓRIOS — A VALIDAR (P-008)**, escolhidos 
 - Dependabot habilitado? não (não há `.github/dependabot.yml`).
 - Dependências novas e licenças são registradas nos handoffs (ex.: psycopg 3 é LGPL-3.0, aceitação
   **PENDENTE** em `handoffs/current.md` § 7; `openpyxl` MIT, TASK-023).
+- Leva D:
+  - backend: `argon2-cffi` 25.1.0 (MIT, PyPI), com `argon2-cffi-bindings`, `cffi` e `pycparser`
+    (TASK-038);
+  - frontend, no runtime: `react-router`, `lucide-react`, `@fontsource-variable/inter` e
+    `@fontsource-variable/jetbrains-mono` (MIT/OFL). As fontes e os ícones são locais, sem CDN
+    (ADR-017; TASK-039);
+  - frontend, só nos testes: `jsdom`, `@testing-library/react` e `@testing-library/dom` (MIT;
+    TASK-039);
+  - asset de terceiro: o modelo 3D do CGTrader (ver § 4). A TASK-043 não acrescentou dependência:
+    o conversor usa o `three` já instalado.
 
 ---
 

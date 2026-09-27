@@ -3,7 +3,6 @@ import { useState } from 'react'
 import type { CatalogMutationResult } from '../../application/catalog/CatalogBrowser'
 import { createCatalogRestClient } from '../../infrastructure/api/catalogRestClient'
 import { createLoadChartRestClient } from '../../infrastructure/api/loadChartRestClient'
-import { createKnownChartsStorage } from '../../infrastructure/storage/knownChartsStorage'
 import { CatalogPage } from '../../presentation/pages/CatalogPage'
 import { useToast } from '../../presentation/ui'
 import { useCatalog } from '../catalog/catalogContext'
@@ -15,15 +14,15 @@ export function CatalogRoute() {
   const toast = useToast()
   const [catalogGateway] = useState(() => createCatalogRestClient())
   const [loadChartGateway] = useState(() => createLoadChartRestClient())
-  const [store] = useState(() => createKnownChartsStorage())
 
   /** Avisa o cadastro gravado numa notificação; o erro fica no próprio formulário do Drawer. */
   const notify = async <T,>(
     promise: Promise<CatalogMutationResult<T>>,
     title: string,
+    description = 'Já está escolhido na seleção.',
   ): Promise<CatalogMutationResult<T>> => {
     const result = await promise
-    if (result.ok) toast.show({ tone: 'ok', title, description: 'Já está escolhido na seleção.' })
+    if (result.ok) toast.show({ tone: 'ok', title, description })
     return result
   }
 
@@ -39,7 +38,6 @@ export function CatalogRoute() {
       }}
       catalogGateway={catalogGateway}
       loadChartGateway={loadChartGateway}
-      store={store}
       canEdit={canEdit}
       onCreateManufacturer={(name) =>
         notify(catalog.createManufacturer(name), `Fabricante "${name}" cadastrado`)
@@ -54,6 +52,29 @@ export function CatalogRoute() {
         notify(
           catalog.createConfiguration(craneId, name, geometry),
           `Configuração "${name}" cadastrada`,
+        )
+      }
+      onUpdateManufacturer={(id, name) =>
+        notify(
+          catalog.updateManufacturer(id, name),
+          `Fabricante renomeado para "${name}"`,
+          'O nome novo já vale em todas as telas.',
+        )
+      }
+      onUpdateCrane={(id, modelName) =>
+        notify(
+          catalog.updateCrane(id, modelName),
+          `Guindaste renomeado para "${modelName}"`,
+          'O nome novo já vale em todas as telas.',
+        )
+      }
+      onUpdateConfiguration={(id, changes) =>
+        notify(
+          catalog.updateConfiguration(id, changes),
+          'Configuração alterada',
+          changes.geometry
+            ? 'A ficha nova vale para as próximas avaliações; as tabelas de carga não mudaram.'
+            : 'O nome novo já vale em todas as telas.',
         )
       }
     />

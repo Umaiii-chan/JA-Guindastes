@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por pessoa responsável (leva D, via orquestrador) |
 | **Iniciada em** | 2026-09-26 |
@@ -119,3 +119,5 @@ refazer as capturas (handoff § 7 e § 10).
 1. Rodar `npm run dev` em `frontend/`.
 2. Navegar por Início → Simulador → Catálogo → Tabelas.
 3. Completar os três passos do simulador. Sem backend, o catálogo mostra o erro no próprio passo.
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).

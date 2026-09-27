@@ -20,7 +20,8 @@ import {
   filterCatalogTree,
 } from '../../application/catalog/catalogTree'
 import type { CatalogGateway } from '../../application/catalog/ports'
-import type { KnownChartsStore } from '../../application/loadChart/chartVersions'
+import { activeVersion } from '../../application/loadChart/chartVersions'
+import { createLoadChartCache } from '../../application/loadChart/loadChartCache'
 import type { LoadChartGateway } from '../../application/loadChart/ports'
 import { CatalogColumn, ColumnEmpty } from '../catalog/CatalogColumn'
 import {
@@ -33,6 +34,7 @@ import { ConfigurationDetail } from '../catalog/ConfigurationDetail'
 import { useCatalogTree } from '../catalog/useCatalogTree'
 import { Page } from '../layout/Page'
 import { useChartVersions } from '../tables/useChartVersions'
+import { useStoredChart } from '../tables/useStoredChart'
 import { Badge, Button, EmptyState, IconButton, Input, Panel } from '../ui'
 
 export interface CatalogSelection {
@@ -52,9 +54,8 @@ export interface CatalogPageProps extends CatalogMutations {
     CatalogGateway,
     'listManufacturers' | 'listCranes' | 'listConfigurations'
   >
-  /** Leitura da tabela ativa da configuração. */
-  readonly loadChartGateway: Pick<LoadChartGateway, 'getChart'>
-  readonly store: KnownChartsStore
+  /** Tabelas da configuração e pontos da ativa (TASK-044). */
+  readonly loadChartGateway: Pick<LoadChartGateway, 'listConfigurationCharts' | 'getChart'>
   /** Cadastrar e editar (ADR-017 § 1: ADMIN edita; Operador só vê). Ligado ao perfil pela TASK-040. */
   readonly canEdit: boolean
 }
@@ -78,14 +79,16 @@ export function CatalogPage({
   selection,
   catalogGateway,
   loadChartGateway,
-  store,
   canEdit,
   ...mutations
 }: CatalogPageProps) {
   const { state, reload } = useCatalogTree(catalogGateway)
   const [query, setQuery] = useState('')
   const [drawer, setDrawer] = useState<CatalogDrawerRequest | null>(null)
-  const versions = useChartVersions(loadChartGateway, store, selection.selectedConfigurationId)
+  const versions = useChartVersions(loadChartGateway, selection.selectedConfigurationId)
+  const [chartCache] = useState(() => createLoadChartCache(loadChartGateway))
+  const active = activeVersion(versions.state.versions, versions.state.activeChartId)
+  const activeChart = useStoredChart(chartCache, active?.chartId ?? null)
 
   const tree = state.tree
   const fullTree = tree ?? EMPTY_TREE
@@ -367,9 +370,19 @@ export function CatalogPage({
               crane={crane}
               configuration={configuration}
               versions={versions.state}
+              activeChart={activeChart}
               canEdit={canEdit}
               onEdit={() =>
-                crane && setDrawer({ entity: 'configuration', crane, editing: configuration })
+                crane &&
+                setDrawer({
+                  entity: 'configuration',
+                  crane,
+                  editing: configuration,
+                  // Sem a lista carregada, não se sabe se há tabela ativa (o Drawer confirma).
+                  ...(versions.state.status === 'loaded' && {
+                    activeChartVersion: active?.version ?? null,
+                  }),
+                })
               }
             />
           ) : (

@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por pessoa responsável (leva D2, via orquestrador) |
 | **Iniciada em** | 2026-09-26 |
@@ -59,3 +59,5 @@ integração das duas. Paralela à TASK-042.
 ### Fora do escopo (explicitamente — o agente NÃO faz)
 
 `backend/**`, as páginas de catálogo e tabelas (TASK-042), ADRs e `handoffs/current.md`.
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).

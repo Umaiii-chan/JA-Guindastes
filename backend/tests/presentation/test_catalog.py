@@ -381,6 +381,229 @@ def test_incoherent_geometry_error_explains_the_domain_rule(client: TestClient) 
     assert "boom_length_min maior que boom_length_max" in messages
 
 
+# --- Edição (TASK-044, CA-2) --------------------------------------------------------------------
+
+
+def create_configuration(
+    client: TestClient, crane_id: str, geometry: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    body: dict[str, Any] = {"name": CONFIGURACAO_FICTICIA_NOME}
+    if geometry is not None:
+        body["geometry"] = geometry
+    response = client.post(configurations_path(crane_id), json=body)
+    assert response.status_code == 201, response.text
+    configuration: dict[str, Any] = response.json()
+    return configuration
+
+
+def test_patch_manufacturer_renames_and_returns_the_create_schema(client: TestClient) -> None:
+    manufacturer_id = create_manufacturer(client)
+
+    response = client.patch(
+        f"{MANUFACTURERS}/{manufacturer_id}", json={"name": "Fabricante FICTÍCIO renomeado"}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"id": manufacturer_id, "name": "Fabricante FICTÍCIO renomeado"}
+    assert client.get(f"{MANUFACTURERS}/{manufacturer_id}").json() == response.json()
+
+
+def test_patch_crane_renames_the_model_and_keeps_the_manufacturer(client: TestClient) -> None:
+    manufacturer_id = create_manufacturer(client)
+    crane_id = create_crane(client, manufacturer_id)
+
+    response = client.patch(f"{CRANES}/{crane_id}", json={"model_name": "Modelo FICTÍCIO B"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": crane_id,
+        "manufacturer_id": manufacturer_id,
+        "model_name": "Modelo FICTÍCIO B",
+    }
+    assert client.get(f"{CRANES}/{crane_id}").json() == response.json()
+
+
+def test_patch_configuration_name_only_keeps_the_geometry(client: TestClient) -> None:
+    crane_id = create_crane(client, create_manufacturer(client))
+    configuration = create_configuration(client, crane_id, geometry_payload_ficticio())
+
+    response = client.patch(
+        f"{CONFIGURATIONS}/{configuration['id']}", json={"name": "Configuração FICTÍCIA B"}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {**configuration, "name": "Configuração FICTÍCIA B"}
+
+
+def test_patch_configuration_geometry_replaces_the_whole_sheet(client: TestClient) -> None:
+    crane_id = create_crane(client, create_manufacturer(client))
+    configuration = create_configuration(
+        client,
+        crane_id,
+        geometry_payload_ficticio(turret_rotation_min_deg=-30.0, turret_rotation_max_deg=30.0),
+    )
+    new_geometry = {
+        "boom_pivot_offset_m": -1.56,
+        "boom_pivot_height_m": 2.0,
+        "boom_length_min_m": 9.0,
+        "boom_length_max_m": 12.0,
+        "boom_angle_min_deg": 0.0,
+        "boom_angle_max_deg": 80.0,
+        "cable_length_min_m": 0.0,
+    }
+
+    response = client.patch(
+        f"{CONFIGURATIONS}/{configuration['id']}", json={"geometry": new_geometry}
+    )
+
+    assert response.status_code == 200, response.text
+    returned = response.json()
+    assert returned["name"] == CONFIGURACAO_FICTICIA_NOME
+    # A ficha inteira é trocada: os opcionais ausentes voltam como `null`, sem sobrar os antigos.
+    assert returned["geometry"] == {
+        **new_geometry,
+        "cable_length_max_m": None,
+        "turret_rotation_min_deg": None,
+        "turret_rotation_max_deg": None,
+    }
+    assert client.get(f"{CONFIGURATIONS}/{configuration['id']}").json() == returned
+
+
+def test_patch_configuration_adds_a_sheet_and_renames_together(client: TestClient) -> None:
+    crane_id = create_crane(client, create_manufacturer(client))
+    configuration = create_configuration(client, crane_id)
+
+    response = client.patch(
+        f"{CONFIGURATIONS}/{configuration['id']}",
+        json={"name": "Com ficha", "geometry": geometry_payload_ficticio()},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": configuration["id"],
+        "crane_id": crane_id,
+        "name": "Com ficha",
+        "geometry": geometry_payload_ficticio(),
+    }
+
+
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        (f"{MANUFACTURERS}/NAO-EXISTE", {"name": "Nome"}),
+        (f"{CRANES}/NAO-EXISTE", {"model_name": "Modelo"}),
+        (f"{CONFIGURATIONS}/NAO-EXISTE", {"name": "Configuração"}),
+    ],
+    ids=["fabricante", "guindaste", "configuracao"],
+)
+def test_patch_missing_record_returns_404(
+    client: TestClient, path: str, body: dict[str, Any]
+) -> None:
+    response = client.patch(path, json=body)
+
+    assert response.status_code == 404
+    assert "não existe" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        {"name": ""},
+        {"name": "   "},
+        {"name": 123},
+        {"name": None},
+        {"name": "Nome", "id": "OUTRO-ID"},
+    ],
+    ids=["ausente", "vazio", "so-espacos", "numero", "nulo", "id-no-corpo"],
+)
+def test_malformed_manufacturer_patch_returns_422(
+    client: TestClient, repository: InMemoryCraneCatalog, body: dict[str, Any]
+) -> None:
+    manufacturer_id = create_manufacturer(client)
+
+    response = client.patch(f"{MANUFACTURERS}/{manufacturer_id}", json=body)
+
+    assert response.status_code == 422
+    assert repository.manufacturers[manufacturer_id].name == FABRICANTE_FICTICIO_NOME
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        {"model_name": " "},
+        {"model_name": None},
+        {"model_name": "Modelo", "manufacturer_id": "OUTRO-FABRICANTE"},
+    ],
+    ids=["ausente", "so-espacos", "nulo", "troca-de-fabricante"],
+)
+def test_malformed_crane_patch_returns_422(client: TestClient, body: dict[str, Any]) -> None:
+    crane_id = create_crane(client, create_manufacturer(client))
+
+    assert client.patch(f"{CRANES}/{crane_id}", json=body).status_code == 422
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        {"name": None},
+        {"geometry": None},
+        {"name": " "},
+        {"crane_id": "OUTRO-GUINDASTE"},
+        {"geometry": geometry_payload_ficticio(boom_length_min_m=31.0)},
+        {"geometry": geometry_payload_ficticio(turret_rotation_min_deg=-30.0)},
+        {"geometry": geometry_payload_ficticio(boom_length_max_m="30")},
+    ],
+    ids=[
+        "nenhum-campo",
+        "nome-nulo",
+        "ficha-nula",
+        "nome-so-espacos",
+        "troca-de-guindaste",
+        "ficha-incoerente",
+        "giro-com-um-so-limite",
+        "numero-em-texto",
+    ],
+)
+def test_malformed_configuration_patch_returns_422_and_changes_nothing(
+    client: TestClient, repository: InMemoryCraneCatalog, body: dict[str, Any]
+) -> None:
+    crane_id = create_crane(client, create_manufacturer(client))
+    configuration = create_configuration(client, crane_id, geometry_payload_ficticio())
+
+    response = client.patch(f"{CONFIGURATIONS}/{configuration['id']}", json=body)
+
+    assert response.status_code == 422, response.text
+    assert client.get(f"{CONFIGURATIONS}/{configuration['id']}").json() == configuration
+
+
+def test_configuration_patch_without_fields_explains_the_rule(client: TestClient) -> None:
+    crane_id = create_crane(client, create_manufacturer(client))
+    configuration = create_configuration(client, crane_id)
+
+    response = client.patch(f"{CONFIGURATIONS}/{configuration['id']}", json={})
+
+    messages = " ".join(error["msg"] for error in response.json()["detail"])
+    assert "informe ao menos um campo" in messages
+
+
+def test_patch_validates_the_body_before_looking_up_the_record(client: TestClient) -> None:
+    response = client.patch(f"{CONFIGURATIONS}/NAO-EXISTE", json={"geometry": None})
+
+    assert response.status_code == 422
+
+
+def test_patch_accepts_a_repeated_name(client: TestClient) -> None:
+    first = create_manufacturer(client, "Fabricante FICTÍCIO A")
+    create_manufacturer(client, "Fabricante FICTÍCIO B")
+
+    response = client.patch(f"{MANUFACTURERS}/{first}", json={"name": "Fabricante FICTÍCIO B"})
+
+    assert response.status_code == 200
+
+
 # --- Registro e composição ----------------------------------------------------------------------
 
 
@@ -397,13 +620,15 @@ def test_openapi_documents_the_catalog_routes(client: TestClient) -> None:
     paths = client.get("/openapi.json").json()["paths"]
 
     assert set(paths[MANUFACTURERS]) == {"get", "post"}
-    assert set(paths[f"{MANUFACTURERS}/{{manufacturer_id}}"]) == {"get"}
+    assert set(paths[f"{MANUFACTURERS}/{{manufacturer_id}}"]) == {"get", "patch"}
     assert set(paths[CRANES]) == {"get", "post"}
-    assert set(paths[f"{CRANES}/{{crane_id}}"]) == {"get"}
+    assert set(paths[f"{CRANES}/{{crane_id}}"]) == {"get", "patch"}
     assert set(paths[f"{CRANES}/{{crane_id}}/configurations"]) == {"get", "post"}
-    assert set(paths[f"{CONFIGURATIONS}/{{configuration_id}}"]) == {"get"}
+    assert set(paths[f"{CONFIGURATIONS}/{{configuration_id}}"]) == {"get", "patch"}
     post_crane = paths[CRANES]["post"]["responses"]
     assert {"201", "404", "409", "422"} <= set(post_crane)
+    patch_configuration = paths[f"{CONFIGURATIONS}/{{configuration_id}}"]["patch"]["responses"]
+    assert {"200", "404", "422"} <= set(patch_configuration)
 
 
 def test_composition_without_database_url_registers_no_catalog() -> None:

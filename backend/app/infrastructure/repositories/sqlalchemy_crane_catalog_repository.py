@@ -1,6 +1,7 @@
 """Catálogo de guindastes no PostgreSQL via SQLAlchemy (TASK-022).
 
-Implementa `CraneCatalogRepository`, `CraneCatalogListing` (TASK-030) e `CraneGeometryProvider`.
+Implementa `CraneCatalogRepository`, `CraneCatalogListing` (TASK-030), `CraneCatalogEditing`
+(TASK-044) e `CraneGeometryProvider`.
 Cada método abre a própria sessão e a própria transação (a aplicação ainda não tem porta de unidade
 de trabalho).
 """
@@ -30,6 +31,20 @@ from app.infrastructure.repositories._integrity import violated_constraint
 _CRANE_MANUFACTURER_FK = "fk_cranes_manufacturer_id_manufacturers"
 _CONFIGURATION_CRANE_FK = "fk_crane_configurations_crane_id_cranes"
 
+GEOMETRY_COLUMNS = (
+    "boom_pivot_offset_m",
+    "boom_pivot_height_m",
+    "boom_length_min_m",
+    "boom_length_max_m",
+    "boom_angle_min_deg",
+    "boom_angle_max_deg",
+    "cable_length_min_m",
+    "cable_length_max_m",
+    "turret_rotation_min_deg",
+    "turret_rotation_max_deg",
+)
+"""Colunas da ficha técnica em `crane_configurations` (ADR-013 C-4)."""
+
 
 def manufacturer_to_model(manufacturer: Manufacturer) -> ManufacturerModel:
     return ManufacturerModel(id=manufacturer.id, name=manufacturer.name)
@@ -53,19 +68,31 @@ def configuration_to_model(configuration: CraneConfiguration) -> CraneConfigurat
     model = CraneConfigurationModel(
         id=configuration.id, crane_id=configuration.crane_id, name=configuration.name
     )
-    geometry = configuration.geometry
-    if geometry is not None:
-        model.boom_pivot_offset_m = geometry.boom_pivot_offset_m
-        model.boom_pivot_height_m = geometry.boom_pivot_height.meters
-        model.boom_length_min_m = geometry.boom_length_min.meters
-        model.boom_length_max_m = geometry.boom_length_max.meters
-        model.boom_angle_min_deg = geometry.boom_angle_min.degrees
-        model.boom_angle_max_deg = geometry.boom_angle_max.degrees
-        model.cable_length_min_m = geometry.cable_length_min.meters
-        model.cable_length_max_m = _meters_or_none(geometry.cable_length_max)
-        model.turret_rotation_min_deg = _degrees_or_none(geometry.turret_rotation_min)
-        model.turret_rotation_max_deg = _degrees_or_none(geometry.turret_rotation_max)
+    if configuration.geometry is not None:
+        write_geometry_columns(model, configuration.geometry)
     return model
+
+
+def write_geometry_columns(model: CraneConfigurationModel, geometry: CraneGeometry | None) -> None:
+    """Grava as colunas da ficha técnica; com `None`, todas ficam nulas (sem ficha).
+
+    Escreve todas as colunas, inclusive as opcionais: substituir a ficha (TASK-044) não deixa
+    sobrar um limite de giro ou um cabo máximo da ficha anterior.
+    """
+    if geometry is None:
+        for column in GEOMETRY_COLUMNS:
+            setattr(model, column, None)
+        return
+    model.boom_pivot_offset_m = geometry.boom_pivot_offset_m
+    model.boom_pivot_height_m = geometry.boom_pivot_height.meters
+    model.boom_length_min_m = geometry.boom_length_min.meters
+    model.boom_length_max_m = geometry.boom_length_max.meters
+    model.boom_angle_min_deg = geometry.boom_angle_min.degrees
+    model.boom_angle_max_deg = geometry.boom_angle_max.degrees
+    model.cable_length_min_m = geometry.cable_length_min.meters
+    model.cable_length_max_m = _meters_or_none(geometry.cable_length_max)
+    model.turret_rotation_min_deg = _degrees_or_none(geometry.turret_rotation_min)
+    model.turret_rotation_max_deg = _degrees_or_none(geometry.turret_rotation_max)
 
 
 def configuration_from_model(model: CraneConfigurationModel) -> CraneConfiguration:
@@ -124,7 +151,8 @@ def _angle_or_none(value: float | None) -> Angle | None:
 
 
 class SqlAlchemyCraneCatalogRepository:
-    """Implementa `CraneCatalogRepository`, `CraneCatalogListing` e `CraneGeometryProvider`."""
+    """Implementa `CraneCatalogStore` (gravação, leitura, listagem e edição) e
+    `CraneGeometryProvider`."""
 
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
@@ -192,6 +220,38 @@ class SqlAlchemyCraneCatalogRepository:
         )
         with self._session_factory() as session:
             return [configuration_from_model(model) for model in session.scalars(statement)]
+
+    def update_manufacturer(self, manufacturer: Manufacturer) -> bool:
+        """`CraneCatalogEditing` (TASK-044): troca o nome; `False` se o id não existe."""
+        with self._session_factory.begin() as session:
+            model = session.get(ManufacturerModel, manufacturer.id, with_for_update=True)
+            if model is None:
+                return False
+            model.name = manufacturer.name
+            return True
+
+    def update_crane(self, crane: Crane) -> bool:
+        """`CraneCatalogEditing` (TASK-044): troca o modelo; o fabricante não muda."""
+        with self._session_factory.begin() as session:
+            model = session.get(CraneModel, crane.id, with_for_update=True)
+            if model is None:
+                return False
+            model.model_name = crane.model_name
+            return True
+
+    def update_configuration(self, configuration: CraneConfiguration) -> bool:
+        """`CraneCatalogEditing` (TASK-044): troca o nome e a ficha inteira; o guindaste não muda.
+
+        Todas as colunas da ficha vão num único `UPDATE`, então as restrições `CHECK` ("todos ou
+        nenhum", limites de giro juntos) valem para a ficha nova inteira, nunca pela metade.
+        """
+        with self._session_factory.begin() as session:
+            model = session.get(CraneConfigurationModel, configuration.id, with_for_update=True)
+            if model is None:
+                return False
+            model.name = configuration.name
+            write_geometry_columns(model, configuration.geometry)
+            return True
 
     def _add(
         self,

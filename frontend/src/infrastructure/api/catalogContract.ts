@@ -7,8 +7,23 @@ import type { CraneTechnicalSheet } from '../../domain/catalog/catalog'
 export const MANUFACTURERS_PATH = '/api/v1/manufacturers'
 export const CRANES_PATH = '/api/v1/cranes'
 
+export const CONFIGURATIONS_PATH = '/api/v1/configurations'
+
 export function craneConfigurationsPath(craneId: string): string {
   return `${CRANES_PATH}/${encodeURIComponent(craneId)}/configurations`
+}
+
+/** `PATCH` de um fabricante, guindaste ou configuração (TASK-044). */
+export function manufacturerPath(manufacturerId: string): string {
+  return `${MANUFACTURERS_PATH}/${encodeURIComponent(manufacturerId)}`
+}
+
+export function cranePath(craneId: string): string {
+  return `${CRANES_PATH}/${encodeURIComponent(craneId)}`
+}
+
+export function configurationPath(configurationId: string): string {
+  return `${CONFIGURATIONS_PATH}/${encodeURIComponent(configurationId)}`
 }
 
 /** `CraneGeometryPayload` (ADR-013 C-4). Opcionais ausentes vão como `null`. */
@@ -42,6 +57,25 @@ export interface ConfigurationCreateDto {
   readonly geometry: CraneGeometryDto | null
 }
 
+/** `ManufacturerUpdateRequest` (TASK-044). */
+export interface ManufacturerUpdateDto {
+  readonly name: string
+}
+
+/** `CraneUpdateRequest` (TASK-044). */
+export interface CraneUpdateDto {
+  readonly model_name: string
+}
+
+/**
+ * `ConfigurationUpdateRequest` (TASK-044): só os campos que mudam; ao menos um. `geometry`, quando
+ * presente, substitui a ficha inteira e nunca é `null`.
+ */
+export interface ConfigurationUpdateDto {
+  readonly name?: string
+  readonly geometry?: CraneGeometryDto
+}
+
 /** Campo da ficha no backend → campo no frontend (na mesma ordem do ADR-013 C-4). */
 export const SHEET_FIELD_FROM_DTO: Readonly<
   Record<keyof CraneGeometryDto, keyof CraneTechnicalSheet>
@@ -58,7 +92,7 @@ export const SHEET_FIELD_FROM_DTO: Readonly<
   turret_rotation_max_deg: 'turretRotationMaxDeg',
 }
 
-/** Campos fora da ficha, nos pedidos de criação. */
+/** Campos fora da ficha, nos pedidos de criação e de alteração. */
 export const REQUEST_FIELD_FROM_DTO: Readonly<Record<string, string>> = {
   name: 'name',
   model_name: 'modelName',
