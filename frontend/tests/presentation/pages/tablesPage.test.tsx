@@ -12,7 +12,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppProviders } from '../../../src/app/AppProviders'
 import { AppRoutes } from '../../../src/app/AppRoutes'
 import { createLoadChartRestClient } from '../../../src/infrastructure/api/loadChartRestClient'
-import { createKnownChartsStorage } from '../../../src/infrastructure/storage/knownChartsStorage'
 import { TablesPage } from '../../../src/presentation/pages/TablesPage'
 import { ToastProvider } from '../../../src/presentation/ui'
 import { catalogFicticio } from '../../fixtures/catalogFicticio'
@@ -60,7 +59,6 @@ function drop(file: File) {
 let loadChartFetch: ReturnType<typeof createFakeLoadChartFetch>
 
 beforeEach(() => {
-  window.localStorage.clear()
   loadChartFetch = createFakeLoadChartFetch()
   vi.stubGlobal('fetch', combineFetch(createFakeCatalogFetch(catalogFicticio()), loadChartFetch))
 })
@@ -80,7 +78,7 @@ describe('página Tabelas', () => {
   it('arquivo com erros: relatório em tabela com linha e coluna, sem liberar a importação', async () => {
     await renderTables()
     await chooseConfiguration()
-    expect(await screen.findByText('Nenhuma versão conhecida')).toBeTruthy()
+    expect(await screen.findByText('Nenhuma versão importada')).toBeTruthy()
 
     drop(demoCsv('tabela_carga_ficticia_demo_com_erros.csv'))
 
@@ -114,7 +112,7 @@ describe('página Tabelas', () => {
   it('arquivo válido: prévia da matriz colorida; importar; ativar com confirmação e toast', async () => {
     await renderTables()
     await chooseConfiguration()
-    await screen.findByText('Nenhuma versão conhecida')
+    await screen.findByText('Nenhuma versão importada')
 
     drop(demoCsv('tabela_carga_ficticia_demo_v1.csv'))
 
@@ -139,28 +137,35 @@ describe('página Tabelas', () => {
       'CFG-A1-FICHA-v1',
     )
 
+    const listings = () =>
+      loadChartFetch.mock.calls.filter(([url]) => String(url).endsWith('/load-charts')).length
+    const beforeImport = listings()
     fireEvent.click(screen.getByRole('button', { name: 'Importar como rascunho' }))
     expect(await screen.findByText('Versão v1 importada')).toBeTruthy()
 
+    // Depois de importar, a lista é relida da rota nova.
     const timeline = await screen.findByRole('list', { name: 'Linha do tempo das versões' })
     await within(timeline).findByText('Rascunho')
+    expect(listings()).toBe(beforeImport + 1)
 
     fireEvent.click(within(timeline).getByRole('button', { name: 'Ativar v1' }))
     const dialog = screen.getByRole('dialog', { name: 'Ativar a versão v1?' })
     expect(dialog.textContent).toContain('A capacidade calculada muda')
-    expect(dialog.textContent).toContain('Nenhuma versão ativa é conhecida')
+    expect(dialog.textContent).toContain('não tem versão ativa hoje')
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Ativar v1' }))
     expect(await screen.findByText('Versão v1 ativada')).toBeTruthy()
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     const active = await within(timeline).findByText('Ativa')
     expect(active.closest('li')?.getAttribute('aria-current')).toBe('true')
+    // Depois de ativar, também.
+    expect(listings()).toBe(beforeImport + 2)
   })
 
   it('segunda versão: o Dialog compara com a ativa; a antiga vira Substituída', async () => {
     await renderTables()
     await chooseConfiguration()
-    await screen.findByText('Nenhuma versão conhecida')
+    await screen.findByText('Nenhuma versão importada')
 
     for (const version of ['v1', 'v2']) {
       const name = `tabela_carga_ficticia_demo_${version}.csv`
@@ -196,7 +201,7 @@ describe('página Tabelas', () => {
   it('falha na ativação: toast de erro e a lista é relida', async () => {
     await renderTables()
     await chooseConfiguration()
-    await screen.findByText('Nenhuma versão conhecida')
+    await screen.findByText('Nenhuma versão importada')
     drop(demoCsv('tabela_carga_ficticia_demo_v1.csv'))
     await screen.findByRole('table', { name: /Prévia de/ })
     fireEvent.click(screen.getByRole('button', { name: 'Importar como rascunho' }))
@@ -213,39 +218,95 @@ describe('página Tabelas', () => {
     expect(alert.closest('[role="alert"]')?.textContent).toContain('mudou ao mesmo tempo')
   })
 
-  it('acompanha pelo id uma tabela gravada em outro lugar; id inexistente mostra erro no campo', async () => {
+  it('linha do tempo pela rota nova: tabelas gravadas em outro lugar, a mais recente primeiro e a ativa na matriz', async () => {
+    const source = { file_type: 'text/csv', sha256: 'a', uri: 'local://a' }
     loadChartFetch = createFakeLoadChartFetch([
       {
-        chart_id: 'TAB-OUTRO-LUGAR',
+        chart_id: 'TAB-V6',
+        version: 'v6',
+        configuration_id: 'CFG-A1-FICHA',
+        status: 'SUPERSEDED',
+        points: [{ boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 8000 }],
+        source: { ...source, file_name: 'v6.csv' },
+      },
+      {
+        chart_id: 'TAB-V7',
         version: 'v7',
         configuration_id: 'CFG-A1-FICHA',
         status: 'ACTIVE',
-        points: [{ boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 9000 }],
-        source: { file_name: 'outra.csv', file_type: 'text/csv', sha256: 'a', uri: 'local://a' },
+        points: [
+          { boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 9000 },
+          { boom_length_m: 12, working_radius_m: 6, max_capacity_kg: 7000 },
+        ],
+        source: { ...source, file_name: 'v7.csv' },
+      },
+      {
+        chart_id: 'TAB-V8',
+        version: 'v8',
+        configuration_id: 'CFG-A1-FICHA',
+        status: 'DRAFT',
+        points: [{ boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 9500 }],
+        source: { ...source, file_name: 'v8.csv' },
+      },
+      {
+        chart_id: 'TAB-OUTRA',
+        version: 'v1',
+        configuration_id: 'CFG-A1-SEM',
+        status: 'ACTIVE',
+        points: [{ boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 1 }],
+        source: { ...source, file_name: 'outra.csv' },
       },
     ])
     vi.stubGlobal('fetch', combineFetch(createFakeCatalogFetch(catalogFicticio()), loadChartFetch))
     await renderTables()
     await chooseConfiguration()
-    await screen.findByText('Nenhuma versão conhecida')
 
-    const field = screen.getByLabelText('Acompanhar uma tabela pelo id')
-    fireEvent.change(field, { target: { value: 'NAO-EXISTE' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Acompanhar' }))
-    expect(await screen.findByText('Não existe tabela com o id NAO-EXISTE.')).toBeTruthy()
-
-    fireEvent.change(field, { target: { value: 'TAB-OUTRO-LUGAR' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Acompanhar' }))
     const timeline = await screen.findByRole('list', { name: 'Linha do tempo das versões' })
-    expect(within(timeline).getByText('v7')).toBeTruthy()
-    // A ativa aparece na matriz.
-    expect(await screen.findByRole('table', { name: /Versão v7/ })).toBeTruthy()
+    const items = within(timeline).getAllByRole('listitem')
+    expect(items.map((item) => item.getAttribute('data-status'))).toEqual([
+      'DRAFT',
+      'ACTIVE',
+      'SUPERSEDED',
+    ])
+    expect(items[1].getAttribute('aria-current')).toBe('true')
+    expect(items[1].textContent).toContain('v7')
+    expect(items[1].textContent).toContain('Pontos2')
+    expect(loadChartFetch.mock.calls.map(([url]) => String(url))).toContain(
+      '/api/v1/configurations/CFG-A1-FICHA/load-charts',
+    )
+    // O contorno da TASK-042 saiu: nada de acompanhar pelo id nem de localStorage.
+    expect(screen.queryByLabelText(/Acompanhar uma tabela pelo id/)).toBeNull()
+    expect(window.localStorage.getItem('ja-guindastes.known-load-charts.v1')).toBeNull()
+
+    // A matriz da ativa vem do GET /load-charts/{id} (a listagem não traz os pontos).
+    const matrix = await screen.findByRole('table', { name: /Versão v7/ })
+    expect(
+      within(matrix)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual(['9.000', '7.000'])
+    fireEvent.click(within(items[2]).getByRole('button', { name: 'Ver matriz' }))
+    expect(await screen.findByRole('table', { name: /Versão v6/ })).toBeTruthy()
+    // Sugere a versão seguinte à maior da configuração.
+    expect((screen.getByRole('textbox', { name: /^Versão/ }) as HTMLInputElement).value).toBe(
+      'v9',
+    )
+  })
+
+  it('configuração que sumiu (404 na listagem): alerta com a mensagem', async () => {
+    loadChartFetch = createFakeLoadChartFetch([], { configurationIds: [] })
+    vi.stubGlobal('fetch', combineFetch(createFakeCatalogFetch(catalogFicticio()), loadChartFetch))
+    await renderTables()
+    await chooseConfiguration()
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Não foi possível ler as versões')
+    expect(alert.textContent).toContain('A configuração não existe mais (HTTP 404)')
   })
 
   it('XLSX passa pela conferência local e fica para a importação; outro formato é recusado', async () => {
     await renderTables()
     await chooseConfiguration()
-    await screen.findByText('Nenhuma versão conhecida')
+    await screen.findByText('Nenhuma versão importada')
 
     drop(new File(['PK'], 'tabela.xlsx'))
     expect(await screen.findByText(/O conteúdo é validado na importação/)).toBeTruthy()
@@ -259,30 +320,25 @@ describe('página Tabelas', () => {
     expect(loadChartFetch.mock.calls.some(([url]) => String(url).endsWith('/validate'))).toBe(false)
   })
 
-  it('erro ao ler as versões: alerta com "Tentar de novo"', async () => {
-    window.localStorage.setItem(
-      'ja-guindastes.known-load-charts.v1',
-      JSON.stringify({
-        'CFG-A1-FICHA': [
-          { chartId: 'TAB-1', configurationId: 'CFG-A1-FICHA', trackedAt: '2026-09-01T00:00:00Z' },
-        ],
-      }),
-    )
-    loadChartFetch.mockImplementation(async () => {
-      throw new TypeError('rede')
+  it('erro ao ler as versões: alerta com "Tentar de novo", que relê a lista', async () => {
+    let failing = true
+    const working = createFakeLoadChartFetch()
+    loadChartFetch.mockImplementation(async (input, init) => {
+      if (failing) throw new TypeError('rede')
+      return working(input, init)
     })
     await renderTables()
     await chooseConfiguration()
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('Não foi possível ler as versões')
-    expect(within(alert).getByRole('button', { name: 'Tentar de novo' })).toBeTruthy()
+    failing = false
+    fireEvent.click(within(alert).getByRole('button', { name: 'Tentar de novo' }))
+    expect(await screen.findByText('Nenhuma versão importada')).toBeTruthy()
   })
 })
 
 describe('TablesPage somente leitura', () => {
   it('sem permissão de edição: sem área de importação nem botão Ativar', async () => {
-    const store = createKnownChartsStorage(null)
-    store.add({ chartId: 'TAB-D', configurationId: 'CFG-X', trackedAt: '2026-09-01T00:00:00Z' })
     const gateway = createLoadChartRestClient({
       fetchFn: createFakeLoadChartFetch([
         {
@@ -312,7 +368,6 @@ describe('TablesPage somente leitura', () => {
             }}
             configuration={{ id: 'CFG-X', craneId: 'GUI-X', name: 'Config X', geometry: null }}
             gateway={gateway}
-            store={store}
             canEdit={false}
           />
         </ToastProvider>

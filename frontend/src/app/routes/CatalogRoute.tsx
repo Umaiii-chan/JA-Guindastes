@@ -3,7 +3,6 @@ import { useState } from 'react'
 import type { CatalogMutationResult } from '../../application/catalog/CatalogBrowser'
 import { createCatalogRestClient } from '../../infrastructure/api/catalogRestClient'
 import { createLoadChartRestClient } from '../../infrastructure/api/loadChartRestClient'
-import { createKnownChartsStorage } from '../../infrastructure/storage/knownChartsStorage'
 import { CatalogPage } from '../../presentation/pages/CatalogPage'
 import { useToast } from '../../presentation/ui'
 import { useCatalog } from '../catalog/catalogContext'
@@ -15,7 +14,6 @@ export function CatalogRoute() {
   const toast = useToast()
   const [catalogGateway] = useState(() => createCatalogRestClient())
   const [loadChartGateway] = useState(() => createLoadChartRestClient())
-  const [store] = useState(() => createKnownChartsStorage())
 
   /** Avisa o cadastro gravado numa notificação; o erro fica no próprio formulário do Drawer. */
   const notify = async <T,>(
@@ -39,7 +37,6 @@ export function CatalogRoute() {
       }}
       catalogGateway={catalogGateway}
       loadChartGateway={loadChartGateway}
-      store={store}
       canEdit={canEdit}
       onCreateManufacturer={(name) =>
         notify(catalog.createManufacturer(name), `Fabricante "${name}" cadastrado`)

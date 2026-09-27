@@ -6,11 +6,11 @@ import {
   suggestChartId,
   suggestNextVersion,
   toLoadChartFailure,
-  type LoadChartVersion,
 } from '../../application/loadChart/chartVersions'
 import type {
   LoadChartFailure,
   LoadChartGateway,
+  LoadChartSummary,
   StoredLoadChart,
 } from '../../application/loadChart/ports'
 import { Button, Field, Input, Notice, Panel, useToast } from '../ui'
@@ -23,8 +23,8 @@ export interface ChartImportPanelProps {
   readonly configurationId: string
   readonly gateway: Pick<LoadChartGateway, 'importChart'>
   readonly fileCheck: ChartFileCheckApi
-  /** Versões conhecidas (sugestão da próxima e conferência de repetidas). */
-  readonly versions: readonly LoadChartVersion[]
+  /** Versões da configuração (sugestão da próxima e conferência de repetidas). */
+  readonly versions: readonly LoadChartSummary[]
   onImported(chart: StoredLoadChart): void
   /** Abre a confirmação de ativação da versão recém-importada. */
   onActivateImported(chart: StoredLoadChart): void
@@ -206,7 +206,7 @@ export function ChartImportPanel({
               label="Versão"
               required
               error={touched || versionText !== null ? versionError : undefined}
-              hint="Sugerida a partir das versões conhecidas."
+              hint="Sugerida a partir das versões desta configuração."
             >
               <Input
                 type="text"

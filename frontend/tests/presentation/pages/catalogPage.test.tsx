@@ -11,7 +11,6 @@ import { AppProviders } from '../../../src/app/AppProviders'
 import { AppRoutes } from '../../../src/app/AppRoutes'
 import { createCatalogRestClient } from '../../../src/infrastructure/api/catalogRestClient'
 import { createLoadChartRestClient } from '../../../src/infrastructure/api/loadChartRestClient'
-import { createKnownChartsStorage } from '../../../src/infrastructure/storage/knownChartsStorage'
 import { CatalogPage } from '../../../src/presentation/pages/CatalogPage'
 import { ToastProvider } from '../../../src/presentation/ui'
 import { catalogFicticio } from '../../fixtures/catalogFicticio'
@@ -43,7 +42,6 @@ async function openConfiguration() {
 }
 
 beforeEach(() => {
-  window.localStorage.clear()
   vi.stubGlobal(
     'fetch',
     combineFetch(createFakeCatalogFetch(catalogFicticio()), createFakeLoadChartFetch()),
@@ -91,7 +89,7 @@ describe('página Catálogo', () => {
     expect(within(limits).getByRole('row', { name: /Giro da torre/ }).textContent).toContain(
       '-90°90°',
     )
-    expect(await within(detail).findByText('Nenhuma tabela ativa conhecida')).toBeTruthy()
+    expect(await within(detail).findByText('Nenhuma tabela ativa')).toBeTruthy()
     expect(
       within(detail)
         .getByRole('link', { name: 'Importar e gerenciar versões' })
@@ -99,40 +97,70 @@ describe('página Catálogo', () => {
     ).toBe('/tabelas')
   })
 
-  it('mostra a tabela ativa conhecida da configuração, com a matriz', async () => {
-    window.localStorage.setItem(
-      'ja-guindastes.known-load-charts.v1',
-      JSON.stringify({
-        'CFG-A1-FICHA': [
-          { chartId: 'TAB-ATIVA', configurationId: 'CFG-A1-FICHA', trackedAt: '2026-09-01T00:00Z' },
+  it('mostra a tabela ativa da configuração pela rota nova, com a matriz', async () => {
+    const source = { file_type: 'text/csv', sha256: 'a', uri: 'local://a' }
+    const loadChartFetch = createFakeLoadChartFetch([
+      {
+        chart_id: 'TAB-ATIVA',
+        version: 'v3',
+        configuration_id: 'CFG-A1-FICHA',
+        status: 'ACTIVE',
+        points: [
+          { boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 9000 },
+          { boom_length_m: 12, working_radius_m: 6, max_capacity_kg: 7000 },
         ],
-      }),
-    )
+        source: { ...source, file_name: 'v3.csv' },
+      },
+      {
+        // Mais recente, mas rascunho: não é a ativa.
+        chart_id: 'TAB-RASCUNHO',
+        version: 'v4',
+        configuration_id: 'CFG-A1-FICHA',
+        status: 'DRAFT',
+        points: [{ boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 1 }],
+        source: { ...source, file_name: 'v4.csv' },
+      },
+    ])
+    vi.stubGlobal('fetch', combineFetch(createFakeCatalogFetch(catalogFicticio()), loadChartFetch))
+    await renderCatalog()
+    await openConfiguration()
+
+    const detail = await screen.findByRole('region', { name: 'Config FICTÍCIA com ficha' })
+    expect(await within(detail).findByText('v3')).toBeTruthy()
+    const matrix = await within(detail).findByRole('table', { name: /Tabela ativa v3/ })
+    expect(
+      within(matrix)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual(['9.000', '7.000'])
+    const urls = loadChartFetch.mock.calls.map(([url]) => String(url))
+    expect(urls).toContain('/api/v1/configurations/CFG-A1-FICHA/load-charts')
+    expect(urls).toContain('/api/v1/load-charts/TAB-ATIVA')
+    expect(urls).not.toContain('/api/v1/load-charts/TAB-RASCUNHO')
+  })
+
+  it('versões importadas, nenhuma ativa: o detalhe diz isso', async () => {
     vi.stubGlobal(
       'fetch',
       combineFetch(
         createFakeCatalogFetch(catalogFicticio()),
         createFakeLoadChartFetch([
           {
-            chart_id: 'TAB-ATIVA',
-            version: 'v3',
+            chart_id: 'TAB-RASCUNHO',
+            version: 'v1',
             configuration_id: 'CFG-A1-FICHA',
-            status: 'ACTIVE',
-            points: [
-              { boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 9000 },
-              { boom_length_m: 12, working_radius_m: 6, max_capacity_kg: 7000 },
-            ],
-            source: { file_name: 'v3.csv', file_type: 'text/csv', sha256: 'a', uri: 'local://a' },
+            status: 'DRAFT',
+            points: [{ boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 1 }],
+            source: { file_name: 'v1.csv', file_type: 'text/csv', sha256: 'a', uri: 'local://a' },
           },
         ]),
       ),
     )
     await renderCatalog()
     await openConfiguration()
-
     const detail = await screen.findByRole('region', { name: 'Config FICTÍCIA com ficha' })
-    expect(await within(detail).findByText('v3')).toBeTruthy()
-    expect(within(detail).getByRole('table', { name: /Tabela ativa v3/ })).toBeTruthy()
+    expect(await within(detail).findByText('Nenhuma tabela ativa')).toBeTruthy()
+    expect(within(detail).getByText(/Há 1 versão importada, nenhuma ativa/)).toBeTruthy()
   })
 
   it('busca filtra os três níveis e destaca o termo; sem resultado, orienta', async () => {
@@ -294,7 +322,6 @@ describe('CatalogPage somente leitura', () => {
             }}
             catalogGateway={catalogGateway}
             loadChartGateway={createLoadChartRestClient({ fetchFn: createFakeLoadChartFetch() })}
-            store={createKnownChartsStorage(null)}
             canEdit={false}
             onCreateManufacturer={reject}
             onCreateCrane={reject}

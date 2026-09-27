@@ -9,9 +9,10 @@ import type {
   Manufacturer,
 } from '../../domain/catalog/catalog'
 import { ROUTES } from '../layout/navigation'
-import { LoadChartMatrix } from '../tables/LoadChartMatrix'
 import { formatDegrees, formatMeters } from '../tables/format'
+import { StoredChartMatrix } from '../tables/StoredChartMatrix'
 import type { ChartVersionsState } from '../tables/useChartVersions'
+import type { StoredChartState } from '../tables/useStoredChart'
 import { Badge, Button, buttonClassName, EmptyState, Notice, Panel, SkeletonText } from '../ui'
 import styles from './catalog.module.css'
 
@@ -19,7 +20,10 @@ export interface ConfigurationDetailProps {
   readonly manufacturer: Manufacturer | null
   readonly crane: Crane | null
   readonly configuration: CraneConfiguration
+  /** Tabelas da configuração (`GET /configurations/{id}/load-charts`; TASK-044). */
   readonly versions: ChartVersionsState
+  /** A tabela ativa com os pontos (`GET /load-charts/{id}`), para a matriz. */
+  readonly activeChart: StoredChartState
   readonly canEdit: boolean
   onEdit(): void
 }
@@ -67,15 +71,15 @@ function limitRows(sheet: CraneTechnicalSheet): readonly LimitRow[] {
 }
 
 /**
- * Detalhe da configuração (CA-1): a ficha técnica (a, h e os limites; ADR-013 C-4) e a tabela de
- * carga ativa. A tabela ativa vem das versões acompanhadas neste navegador (o backend ainda não
- * informa a ativa de uma configuração; handoffs/TASK-042.md § 8).
+ * Detalhe da configuração (CA-1 da TASK-042): a ficha técnica (a, h e os limites; ADR-013 C-4) e a
+ * tabela de carga ativa, informada pelo backend (TASK-044).
  */
 export function ConfigurationDetail({
   manufacturer,
   crane,
   configuration,
   versions,
+  activeChart,
   canEdit,
   onEdit,
 }: ConfigurationDetailProps) {
@@ -164,7 +168,7 @@ export function ConfigurationDetail({
           <h3 id="tabela-ativa" className={styles.sectionTitle}>
             Tabela de carga ativa
           </h3>
-          <ActiveChart versions={versions} />
+          <ActiveChart versions={versions} activeChart={activeChart} />
           <Link
             to={ROUTES.tables}
             className={buttonClassName('secondary', 'sm', styles.tablesLink)}
@@ -178,7 +182,13 @@ export function ConfigurationDetail({
   )
 }
 
-function ActiveChart({ versions }: { readonly versions: ChartVersionsState }) {
+function ActiveChart({
+  versions,
+  activeChart,
+}: {
+  readonly versions: ChartVersionsState
+  readonly activeChart: StoredChartState
+}) {
   if (versions.status === 'loading' && versions.versions.length === 0) {
     return (
       <div aria-busy="true">
@@ -194,15 +204,19 @@ function ActiveChart({ versions }: { readonly versions: ChartVersionsState }) {
       </Notice>
     )
   }
-  const active = activeVersion(versions.versions)
+  const active = activeVersion(versions.versions, versions.activeChartId)
   if (!active) {
     return (
       <EmptyState
         compact
         tone="neutral"
         icon={<Grid3x3 size={22} />}
-        title="Nenhuma tabela ativa conhecida"
-        description="Importe e ative uma tabela na página Tabelas. O backend ainda não informa a tabela ativa de uma configuração: aparece aqui a que este navegador importou, ativou ou acompanhou."
+        title="Nenhuma tabela ativa"
+        description={
+          versions.versions.length === 0
+            ? 'Esta configuração ainda não tem tabela de carga. Importe e ative uma na página Tabelas.'
+            : `Há ${versions.versions.length === 1 ? '1 versão importada' : `${versions.versions.length} versões importadas`}, nenhuma ativa. Ative uma na página Tabelas para valer na avaliação.`
+        }
       />
     )
   }
@@ -215,7 +229,7 @@ function ActiveChart({ versions }: { readonly versions: ChartVersionsState }) {
         </Badge>
         <span className={styles.activeFile}>{active.sourceFileName}</span>
       </p>
-      <LoadChartMatrix points={active.points} caption={`Tabela ativa ${active.version}`} compact />
+      <StoredChartMatrix state={activeChart} caption={`Tabela ativa ${active.version}`} compact />
     </div>
   )
 }
