@@ -4,7 +4,12 @@
 // sem ida ao servidor: nome obrigatório, número finito, comprimentos e altura ≥ 0, mínimo ≤ máximo e
 // os dois limites de giro juntos (ADR-013 C-4). O resto (ex.: faixa de θ) chega como erro 422.
 
-import type { CatalogRequestError, CraneTechnicalSheet } from '../../domain/catalog/catalog'
+import type {
+  CatalogRequestError,
+  CraneConfiguration,
+  CraneTechnicalSheet,
+} from '../../domain/catalog/catalog'
+import type { ConfigurationChanges } from './ports'
 
 export type SheetFieldKey = keyof CraneTechnicalSheet
 
@@ -136,6 +141,32 @@ export function formErrorsFromRequest(error: CatalogRequestError): {
     if (!(field in fieldErrors)) fieldErrors[field] = message
   }
   return { fieldErrors, message: error.message }
+}
+
+/** As duas fichas têm os mesmos valores (`null` = sem ficha). */
+export function sameTechnicalSheet(
+  a: CraneTechnicalSheet | null,
+  b: CraneTechnicalSheet | null,
+): boolean {
+  if (a === null || b === null) return a === b
+  return SHEET_FIELD_KEYS.every((key) => a[key] === b[key])
+}
+
+/**
+ * O que mudou na configuração editada (TASK-044): o nome, se diferente, e a ficha, se preenchida e
+ * diferente da atual. Vazio quando nada mudou. A ficha nunca é removida (o backend não aceita
+ * `geometry: null` na alteração).
+ */
+export function configurationChanges(
+  original: CraneConfiguration,
+  name: string,
+  sheet: CraneTechnicalSheet | null,
+): ConfigurationChanges {
+  const trimmed = name.trim()
+  return {
+    ...(trimmed !== original.name && { name: trimmed }),
+    ...(sheet !== null && !sameTechnicalSheet(sheet, original.geometry) && { geometry: sheet }),
+  }
 }
 
 /**

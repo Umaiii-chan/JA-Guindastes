@@ -1,4 +1,6 @@
-// Cliente REST dos cadastros do catálogo (TASK-030): fabricantes, guindastes e configurações.
+// Cliente REST dos cadastros do catálogo (TASK-030): fabricantes, guindastes e configurações. Alterar
+// (TASK-044): `PATCH /api/v1/manufacturers/{id}` `{name}`, `PATCH /api/v1/cranes/{id}` `{model_name}`
+// e `PATCH /api/v1/configurations/{id}` `{name?, geometry?}`, com as respostas da criação.
 //
 // Erros: 404 → `NOT_FOUND` e 409 → `CONFLICT`, com o `detail` do backend como mensagem; 422 →
 // `VALIDATION`, com cada item do `detail` do FastAPI virando um erro de campo; outro HTTP →
@@ -24,9 +26,15 @@ import {
   readString,
 } from '../shared/readJson'
 import {
+  type ConfigurationUpdateDto,
+  configurationPath,
   type CraneGeometryDto,
+  cranePath,
+  type CraneUpdateDto,
   craneConfigurationsPath,
   CRANES_PATH,
+  manufacturerPath,
+  type ManufacturerUpdateDto,
   MANUFACTURERS_PATH,
   REQUEST_FIELD_FROM_DTO,
   SHEET_FIELD_FROM_DTO,
@@ -45,12 +53,17 @@ export function createCatalogRestClient(options: CatalogRestClientOptions = {}):
   const fetchFn = createApiFetch(options.fetchFn)
   const baseUrl = options.baseUrl ?? ''
 
-  async function request<T>(path: string, body: unknown, map: (json: unknown) => T): Promise<T> {
+  async function request<T>(
+    path: string,
+    body: unknown,
+    map: (json: unknown) => T,
+    method: 'POST' | 'PATCH' = 'POST',
+  ): Promise<T> {
     const init: RequestInit =
       body === undefined
         ? { method: 'GET', headers: { Accept: 'application/json' } }
         : {
-            method: 'POST',
+            method,
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             body: JSON.stringify(body),
           }
@@ -97,6 +110,27 @@ export function createCatalogRestClient(options: CatalogRestClientOptions = {}):
         { name, geometry: geometry && toCraneGeometryDto(geometry) },
         mapConfiguration,
       ),
+    updateManufacturer: (manufacturerId, name) =>
+      request(
+        manufacturerPath(manufacturerId),
+        { name } satisfies ManufacturerUpdateDto,
+        mapManufacturer,
+        'PATCH',
+      ),
+    updateCrane: (craneId, modelName) =>
+      request(
+        cranePath(craneId),
+        { model_name: modelName } satisfies CraneUpdateDto,
+        mapCrane,
+        'PATCH',
+      ),
+    updateConfiguration: (configurationId, { name, geometry }) => {
+      const body: ConfigurationUpdateDto = {
+        ...(name !== undefined && { name }),
+        ...(geometry !== undefined && { geometry: toCraneGeometryDto(geometry) }),
+      }
+      return request(configurationPath(configurationId), body, mapConfiguration, 'PATCH')
+    },
   }
 }
 

@@ -1,4 +1,5 @@
-// Cliente REST da validação, importação, consulta e ativação de tabelas de carga (TASK-034, TASK-042).
+// Cliente REST da validação, importação, consulta, listagem e ativação de tabelas de carga (TASK-034,
+// TASK-042, TASK-044).
 // - `POST /api/v1/load-charts/validate` (TASK-019; multipart igual ao do import) → 200 com
 //   `status: DRAFT` e os pontos, ou `status: INVALID` e o relatório; 413; 422 do FastAPI. Nada é
 //   gravado. Só CSV (parser da composição).
@@ -10,8 +11,14 @@
 // - `POST /api/v1/load-charts/{id}/activate` → 200 `LoadChartActivationResponse`
 //   (+ `superseded_chart_id`); 404; 409.
 // Erros 404/409/413/415 chegam como `{"detail": str}`.
+// Contrato da TASK-044:
+// - `GET /api/v1/configurations/{configuration_id}/load-charts` → 200
+//   `{items: [LoadChartResponse sem points], active_chart_id: str | null}`, por versão da maior para a
+//   menor (números comparados como números; empate por chart_id decrescente); 404 `{detail}` se a
+//   configuração não existe.
 
 import type {
+  ConfigurationLoadCharts,
   LoadChartActivation,
   LoadChartFailure,
   LoadChartGateway,
@@ -19,6 +26,7 @@ import type {
   LoadChartImportRequest,
   LoadChartPoint,
   LoadChartStatus,
+  LoadChartSummary,
   LoadChartValidation,
   StoredLoadChart,
 } from '../../application/loadChart/ports'
@@ -35,6 +43,11 @@ import {
 import { createApiFetch } from './apiFetch'
 
 export const LOAD_CHARTS_PATH = '/api/v1/load-charts'
+
+/** Tabelas de uma configuração (TASK-044). */
+export function configurationLoadChartsPath(configurationId: string): string {
+  return `/api/v1/configurations/${encodeURIComponent(configurationId)}/load-charts`
+}
 
 export const LOAD_CHART_CLIENT_ERROR_CODES = {
   network: 'NETWORK_ERROR',
@@ -80,7 +93,8 @@ export function createLoadChartRestClient(
   options: LoadChartRestClientOptions = {},
 ): LoadChartGateway {
   const fetchFn = createApiFetch(options.fetchFn)
-  const base = `${options.baseUrl ?? ''}${LOAD_CHARTS_PATH}`
+  const origin = options.baseUrl ?? ''
+  const base = `${origin}${LOAD_CHARTS_PATH}`
 
   async function send(url: string, init: RequestInit): Promise<Response> {
     try {
@@ -133,6 +147,16 @@ export function createLoadChartRestClient(
       const body = await readBody(response)
       if (response.status === 200) return guard(() => mapLoadChart(body, 'response'))
       throw activationError(response.status, body)
+    },
+
+    async listConfigurationCharts(configurationId) {
+      const response = await send(`${origin}${configurationLoadChartsPath(configurationId)}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      })
+      const body = await readBody(response)
+      if (response.status === 200) return guard(() => mapConfigurationCharts(body))
+      throw listError(response.status, body)
     },
 
     async activateChart(chartId) {
@@ -247,6 +271,18 @@ function activationError(status: number, body: unknown): LoadChartClientError {
   }
 }
 
+function listError(status: number, body: unknown): LoadChartClientError {
+  const codes = LOAD_CHART_CLIENT_ERROR_CODES
+  if (status === 404) {
+    return new LoadChartClientError(
+      codes.configurationNotFound,
+      status,
+      `A configuração não existe mais (HTTP 404): escolha outra ou recarregue o catálogo.${backendDetail(body)}`,
+    )
+  }
+  return new LoadChartClientError(codes.http, status, `O backend respondeu HTTP ${status}.`)
+}
+
 function readStatus(record: Readonly<Record<string, unknown>>, path: string): LoadChartStatus {
   const status = readString(record, 'status', path)
   const known = STATUSES.find((candidate) => candidate === status)
@@ -278,6 +314,30 @@ export function mapLoadChart(json: unknown, path: string): StoredLoadChart {
     status: readStatus(body, path),
     points,
     sourceFileName: readString(source, 'file_name', `${path}.source`),
+  }
+}
+
+/** Um item da listagem: o `LoadChartResponse` sem `points`, com `point_count`. */
+function mapSummary(json: unknown, path: string): LoadChartSummary {
+  const body = readRecord(json, path)
+  const source = readRecord(body.source, `${path}.source`)
+  return {
+    chartId: readString(body, 'chart_id', path),
+    version: readString(body, 'version', path),
+    configurationId: readString(body, 'configuration_id', path),
+    status: readStatus(body, path),
+    pointCount: readNumber(body, 'point_count', path),
+    sourceFileName: readString(source, 'file_name', `${path}.source`),
+  }
+}
+
+function mapConfigurationCharts(json: unknown): ConfigurationLoadCharts {
+  const body = readRecord(json, 'response')
+  return {
+    items: readArray(body, 'items', 'response').map((item, index) =>
+      mapSummary(item, `response.items[${index}]`),
+    ),
+    activeChartId: readNullableString(body, 'active_chart_id', 'response'),
   }
 }
 

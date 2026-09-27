@@ -204,6 +204,54 @@ describe('CatalogBrowser — cadastros', () => {
     expect(ids(browser.getState().configurations.items)).toEqual(['CFG-A1-FICHA', 'CFG-A1-SEM'])
   })
 
+  it('alterar (TASK-044): recarrega a lista do nível e mantém a seleção', async () => {
+    const { browser } = browserWith()
+    await browser.loadManufacturers()
+    await browser.selectManufacturer('FAB-A')
+    await browser.selectCrane('GUI-A1')
+    browser.selectConfiguration('CFG-A1-FICHA')
+
+    expect((await browser.updateManufacturer('FAB-A', 'Fabricante FICTÍCIO Z')).ok).toBe(true)
+    expect((await browser.updateCrane('GUI-A1', 'Modelo FICTÍCIO A1 revisto')).ok).toBe(true)
+    const sheet = { ...SHEET_FICTICIA, boomPivotHeightM: 3.1 }
+    const updated = await browser.updateConfiguration('CFG-A1-FICHA', { geometry: sheet })
+
+    expect(updated.ok).toBe(true)
+    const state = browser.getState()
+    expect(state.manufacturers.items.find((item) => item.id === 'FAB-A')?.name).toBe(
+      'Fabricante FICTÍCIO Z',
+    )
+    expect(state.cranes.items.find((item) => item.id === 'GUI-A1')?.modelName).toBe(
+      'Modelo FICTÍCIO A1 revisto',
+    )
+    expect(selectedConfiguration(state)?.geometry).toEqual(sheet)
+    expect([
+      state.selectedManufacturerId,
+      state.selectedCraneId,
+      state.selectedConfigurationId,
+    ]).toEqual(['FAB-A', 'GUI-A1', 'CFG-A1-FICHA'])
+  })
+
+  it('alterar: 404 e 422 voltam como erro, sem mudar a lista', async () => {
+    const { browser } = browserWith()
+    await browser.selectManufacturer('FAB-A')
+
+    const missing = await browser.updateCrane('GUI-INEXISTENTE', 'Qualquer')
+    const invalid = await browser.updateCrane('GUI-A1', ' ')
+
+    expect(missing.ok || missing.error.code).toBe('NOT_FOUND')
+    expect(missing.ok || missing.error.message).toBe(
+      "guindaste com id 'GUI-INEXISTENTE' não existe",
+    )
+    expect(invalid.ok || invalid.error.fieldErrors).toEqual([
+      { field: 'modelName', message: 'String should match pattern' },
+    ])
+    expect(browser.getState().cranes.items.map((item) => item.modelName)).toEqual([
+      'Modelo FICTÍCIO A1',
+      'Modelo FICTÍCIO A2',
+    ])
+  })
+
   it('404 do guindaste inexistente volta como erro sem campo', async () => {
     const { browser } = browserWith()
 

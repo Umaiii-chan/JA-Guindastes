@@ -19,12 +19,27 @@ export interface NewConfiguration {
   readonly geometry: CraneTechnicalSheet | null
 }
 
+/**
+ * Alteração de uma configuração (TASK-044): só os campos presentes mudam, e ao menos um é
+ * obrigatório. A ficha, quando presente, substitui a inteira e não pode ser removida (`null`).
+ */
+export interface ConfigurationChanges {
+  readonly name?: string
+  readonly geometry?: CraneTechnicalSheet
+}
+
 /** Todas as operações rejeitam com um `CatalogRequestError`. */
 export interface CatalogGateway {
   listManufacturers(): Promise<readonly Manufacturer[]>
   createManufacturer(name: string): Promise<Manufacturer>
+  updateManufacturer(manufacturerId: string, name: string): Promise<Manufacturer>
   listCranes(manufacturerId: string): Promise<readonly Crane[]>
   createCrane(crane: NewCrane): Promise<Crane>
+  updateCrane(craneId: string, modelName: string): Promise<Crane>
   listConfigurations(craneId: string): Promise<readonly CraneConfiguration[]>
   createConfiguration(craneId: string, configuration: NewConfiguration): Promise<CraneConfiguration>
+  updateConfiguration(
+    configurationId: string,
+    changes: ConfigurationChanges,
+  ): Promise<CraneConfiguration>
 }

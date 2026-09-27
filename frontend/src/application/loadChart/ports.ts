@@ -1,7 +1,8 @@
 // Porta da importação e da ativação de tabelas de carga (TASK-034), sem saber que é `fetch`
 // (implementação em `src/infrastructure/api/loadChartRestClient.ts`). Contrato do backend: TASK-019
 // (`POST /api/v1/load-charts/validate`) e TASK-031 (`POST /api/v1/load-charts/import`,
-// `GET /api/v1/load-charts/{id}`, `POST /api/v1/load-charts/{id}/activate`).
+// `GET /api/v1/load-charts/{id}`, `POST /api/v1/load-charts/{id}/activate`) e TASK-044
+// (`GET /api/v1/configurations/{id}/load-charts`).
 
 /** Status da tabela de carga (doc-fonte § 13.2), como o backend envia. */
 export type LoadChartStatus = 'DRAFT' | 'VALIDATED' | 'ACTIVE' | 'SUPERSEDED' | 'INVALID'
@@ -21,6 +22,27 @@ export interface StoredLoadChart {
   readonly status: LoadChartStatus
   readonly points: readonly LoadChartPoint[]
   readonly sourceFileName: string
+}
+
+/** Versão de tabela na listagem de uma configuração: a `StoredLoadChart` sem os pontos. */
+export interface LoadChartSummary {
+  readonly chartId: string
+  readonly version: string
+  readonly configurationId: string
+  readonly status: LoadChartStatus
+  readonly pointCount: number
+  readonly sourceFileName: string
+}
+
+/** Tabelas de uma configuração (`GET /configurations/{id}/load-charts`). */
+export interface ConfigurationLoadCharts {
+  /**
+   * Ordem do backend: versão da maior para a menor, com os números comparados como números (`v10`,
+   * `v9`, `v2.1`, `v2`, `v1`); empate por `chartId` decrescente. Não é a ordem de importação.
+   */
+  readonly items: readonly LoadChartSummary[]
+  /** A tabela ativa da configuração, se houver (no máximo uma; ADR-009). */
+  readonly activeChartId: string | null
 }
 
 /** Uma inconsistência do relatório de importação (RNF-006; doc-fonte § 13.1). */
@@ -75,5 +97,7 @@ export interface LoadChartGateway {
   importChart(request: LoadChartImportRequest): Promise<LoadChartImportOutcome>
   /** Consulta uma tabela gravada pelo id (404 → `code` `LOAD_CHART_NOT_FOUND`). */
   getChart(chartId: string): Promise<StoredLoadChart>
+  /** Lista as tabelas da configuração, sem os pontos (404 → `code` `CONFIGURATION_NOT_FOUND`). */
+  listConfigurationCharts(configurationId: string): Promise<ConfigurationLoadCharts>
   activateChart(chartId: string): Promise<LoadChartActivation>
 }

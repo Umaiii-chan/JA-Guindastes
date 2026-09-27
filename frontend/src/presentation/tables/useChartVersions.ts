@@ -1,24 +1,35 @@
-// Versões das tabelas de uma configuração, lidas a cada troca de configuração ou recarga (TASK-042).
+// Versões das tabelas de uma configuração pela rota de listagem (TASK-044), lidas a cada troca de
+// configuração e relidas depois de importar ou ativar (`reload`).
 
 import { useCallback, useEffect, useState } from 'react'
 
-import {
-  type KnownChartsStore,
-  loadChartVersions,
-  type LoadChartVersion,
-  toLoadChartFailure,
-} from '../../application/loadChart/chartVersions'
-import type { LoadChartGateway } from '../../application/loadChart/ports'
+import { toLoadChartFailure } from '../../application/loadChart/chartVersions'
+import type { LoadChartGateway, LoadChartSummary } from '../../application/loadChart/ports'
 
 export type ChartVersionsState =
-  | { readonly status: 'idle'; readonly versions: readonly [] }
-  | { readonly status: 'loading'; readonly versions: readonly LoadChartVersion[] }
-  | { readonly status: 'loaded'; readonly versions: readonly LoadChartVersion[] }
+  | { readonly status: 'idle'; readonly versions: readonly []; readonly activeChartId: null }
+  | {
+      readonly status: 'loading'
+      readonly versions: readonly LoadChartSummary[]
+      readonly activeChartId: string | null
+    }
+  | {
+      readonly status: 'loaded'
+      readonly versions: readonly LoadChartSummary[]
+      readonly activeChartId: string | null
+    }
   | {
       readonly status: 'error'
-      readonly versions: readonly LoadChartVersion[]
+      readonly versions: readonly LoadChartSummary[]
+      readonly activeChartId: string | null
       readonly error: string
     }
+
+export const IDLE_CHART_VERSIONS: ChartVersionsState = {
+  status: 'idle',
+  versions: [],
+  activeChartId: null,
+}
 
 interface Result {
   readonly key: string
@@ -28,14 +39,12 @@ interface Result {
 
 export interface ChartVersionsApi {
   readonly state: ChartVersionsState
+  /** Relê a lista (depois de importar, ativar ou de uma falha). */
   reload(): void
-  /** Passa a acompanhar a tabela (id) nesta configuração e recarrega a lista. */
-  track(chartId: string): void
 }
 
 export function useChartVersions(
-  gateway: Pick<LoadChartGateway, 'getChart'>,
-  store: KnownChartsStore,
+  gateway: Pick<LoadChartGateway, 'listConfigurationCharts'>,
   configurationId: string | null,
 ): ChartVersionsApi {
   const [attempt, setAttempt] = useState(0)
@@ -45,43 +54,48 @@ export function useChartVersions(
   useEffect(() => {
     if (configurationId === null) return
     let cancelled = false
-    loadChartVersions(gateway, store, configurationId).then(
-      ({ versions }) => {
-        if (!cancelled) setResult({ key, configurationId, state: { status: 'loaded', versions } })
+    gateway.listConfigurationCharts(configurationId).then(
+      ({ items, activeChartId }) => {
+        if (cancelled) return
+        setResult({
+          key,
+          configurationId,
+          state: { status: 'loaded', versions: items, activeChartId },
+        })
       },
       (error: unknown) => {
         if (cancelled) return
         setResult({
           key,
           configurationId,
-          state: { status: 'error', versions: [], error: toLoadChartFailure(error).message },
+          state: {
+            status: 'error',
+            versions: [],
+            activeChartId: null,
+            error: toLoadChartFailure(error).message,
+          },
         })
       },
     )
     return () => {
       cancelled = true
     }
-  }, [gateway, store, configurationId, key])
+  }, [gateway, configurationId, key])
 
   const reload = useCallback(() => setAttempt((value) => value + 1), [])
 
-  const track = useCallback(
-    (chartId: string) => {
-      if (configurationId === null) return
-      store.add({ chartId, configurationId, trackedAt: new Date().toISOString() })
-      setAttempt((value) => value + 1)
-    },
-    [store, configurationId],
-  )
-
   let state: ChartVersionsState
-  if (configurationId === null) state = { status: 'idle', versions: [] }
+  if (configurationId === null) state = IDLE_CHART_VERSIONS
   else if (result?.key === key) state = result.state
   else {
-    // Recarregando a mesma configuração: a lista atual continua visível até a resposta chegar.
-    const previous = result?.configurationId === configurationId ? result.state.versions : []
-    state = { status: 'loading', versions: previous }
+    // Relendo a mesma configuração: a lista atual continua visível até a resposta chegar.
+    const previous = result?.configurationId === configurationId ? result.state : null
+    state = {
+      status: 'loading',
+      versions: previous?.versions ?? [],
+      activeChartId: previous?.activeChartId ?? null,
+    }
   }
 
-  return { state, reload, track }
+  return { state, reload }
 }

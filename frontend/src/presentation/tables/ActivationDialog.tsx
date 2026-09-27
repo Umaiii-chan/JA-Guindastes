@@ -2,16 +2,19 @@ import { ArrowDownRight, ArrowUpRight, Power } from 'lucide-react'
 import { useMemo } from 'react'
 
 import { compareLoadCharts } from '../../application/loadChart/chartComparison'
-import type { LoadChartVersion } from '../../application/loadChart/chartVersions'
+import type { LoadChartPoint, LoadChartSummary } from '../../application/loadChart/ports'
 import { Button, Dialog, Notice } from '../ui'
 import { formatNumber } from './format'
 import styles from './tables.module.css'
 
 export interface ActivationDialogProps {
   /** Versão a ativar; `null` fecha o Dialog. */
-  readonly target: LoadChartVersion | null
-  /** Versão ativa hoje, se a tela conhece alguma. */
-  readonly current: LoadChartVersion | null
+  readonly target: LoadChartSummary | null
+  /** Versão ativa hoje, se houver. */
+  readonly current: LoadChartSummary | null
+  /** Pontos das duas versões, quando já lidos (a listagem não os traz); sem eles, não compara. */
+  readonly targetPoints: readonly LoadChartPoint[] | null
+  readonly currentPoints: readonly LoadChartPoint[] | null
   readonly busy: boolean
   onConfirm(): void
   onCancel(): void
@@ -19,19 +22,24 @@ export interface ActivationDialogProps {
 
 /**
  * Confirmação da ativação (CA-3). Explica a consequência: a capacidade calculada da configuração
- * passa a vir da versão nova, e a ativa hoje vira SUPERSEDED. Quando conhece as duas, compara os
+ * passa a vir da versão nova, e a ativa hoje vira SUPERSEDED. Com os pontos das duas, compara os
  * pontos comuns (sem interpolar).
  */
 export function ActivationDialog({
   target,
   current,
+  targetPoints,
+  currentPoints,
   busy,
   onConfirm,
   onCancel,
 }: ActivationDialogProps) {
   const comparison = useMemo(
-    () => (target && current ? compareLoadCharts(current.points, target.points) : null),
-    [target, current],
+    () =>
+      target && current && targetPoints && currentPoints
+        ? compareLoadCharts(currentPoints, targetPoints)
+        : null,
+    [target, current, targetPoints, currentPoints],
   )
 
   return (
@@ -56,9 +64,8 @@ export function ActivationDialog({
           <ul className={styles.consequences}>
             <li>
               A capacidade máxima que o simulador compara com a carga passa a vir da{' '}
-              <strong>{target.version}</strong> (<code>{target.chartId}</code>,{' '}
-              {target.points.length} pontos). Avaliações já exibidas não mudam; a próxima já usa a
-              tabela nova.
+              <strong>{target.version}</strong> (<code>{target.chartId}</code>, {target.pointCount}{' '}
+              pontos). Avaliações já exibidas não mudam; a próxima já usa a tabela nova.
             </li>
             <li>
               {current ? (
@@ -67,10 +74,7 @@ export function ActivationDialog({
                   <strong>Substituída</strong> (SUPERSEDED) e deixa de valer.
                 </>
               ) : (
-                <>
-                  Nenhuma versão ativa é conhecida por esta tela. Se a configuração tiver uma ativa
-                  que não aparece aqui, ela também passa a Substituída.
-                </>
+                <>Esta configuração não tem versão ativa hoje: esta passa a ser a primeira.</>
               )}
             </li>
           </ul>

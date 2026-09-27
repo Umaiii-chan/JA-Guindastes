@@ -15,10 +15,3 @@ export function formatDegrees(value: number): string {
 export function formatKg(value: number): string {
   return `${formatNumber(value, 0)} kg`
 }
-
-/** Data e hora locais curtas (ex.: "26/09/2026 14:05"). */
-export function formatDateTime(iso: string): string {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return iso
-  return date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
-}
