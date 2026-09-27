@@ -34,6 +34,8 @@ no mesmo engine). Sem banco não há login e as rotas continuam abertas (ADR-016
 Catálogo (TASK-030): as rotas de cadastro usam o `SqlAlchemyCraneCatalogRepository` (TASK-022) e só
 são registradas quando `DATABASE_URL` está definida (`create_database_app`, no mesmo engine da
 avaliação). `build_catalog_repository` hoje só é usado pelos testes (`docs/known-gaps.md` D-002).
+As edições do catálogo e a listagem das tabelas de uma configuração (TASK-044) também só existem
+com `DATABASE_URL`; a listagem não depende de `FILE_STORAGE_DIR`.
 
 Rodar a API completa, em `backend/`: `uv run uvicorn app.main:app --reload`.
 """
@@ -173,15 +175,18 @@ def create_database_app(engine: Engine, environ: Mapping[str, str] | None = None
 
     `environ` (por padrão, `os.environ`) fornece `SESSION_COOKIE_SECURE`.
     """
+    session_factory = create_session_factory(engine)
     return create_app(
         load_chart_parser=CsvLoadChartParser(),
         # Limite padrão PROVISÓRIO de 1 MiB por arquivo — A VALIDAR (P-008).
         upload_limits=UploadLimits(),
         evaluation=evaluate_operation_per_request(engine),
-        evaluation_websocket=build_database_evaluate_operation(create_session_factory(engine)),
+        evaluation_websocket=build_database_evaluate_operation(session_factory),
         database_health_check=database_health_check(engine),
-        # Catálogo (TASK-030) no mesmo engine da avaliação: um pool só.
-        catalog_repository=SqlAlchemyCraneCatalogRepository(create_session_factory(engine)),
+        # Catálogo (TASK-030) e suas edições (TASK-044) no mesmo engine da avaliação: um pool só.
+        catalog_repository=SqlAlchemyCraneCatalogRepository(session_factory),
+        # Listagem das tabelas de uma configuração (TASK-044): só banco, sem FILE_STORAGE_DIR.
+        load_chart_listing=SqlAlchemyLoadChartRepository(session_factory),
         # Importação com gravação e ativação (TASK-031): mesmo engine; exige FILE_STORAGE_DIR.
         load_chart_persistence=build_load_chart_persistence(engine),
         # Login, sessões e perfis (TASK-038): mesmo engine.

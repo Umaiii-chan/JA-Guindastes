@@ -1,8 +1,8 @@
 """Fakes em memória das portas de tabela de carga e de armazenamento (TASK-031).
 
-Cumprem os contratos de `LoadChartRepository`, `LoadChartActivationRepository` e `FileStoragePort`
-sem banco nem disco, para testar os casos de uso e as rotas. Os dados usados com eles nos testes são
-FICTÍCIOS (ADR-012).
+Cumprem os contratos de `LoadChartRepository`, `LoadChartActivationRepository`, `LoadChartListing`
+(TASK-044) e `FileStoragePort` sem banco nem disco, para testar os casos de uso e as rotas. Os
+dados usados com eles nos testes são FICTÍCIOS (ADR-012).
 """
 
 import dataclasses
@@ -10,6 +10,7 @@ import hashlib
 
 from app.application.ports.file_storage import StoredFile, StoredFileNotFoundError
 from app.application.ports.load_chart_activation import LoadChartStatusChangedError
+from app.application.ports.load_chart_listing import LoadChartSummary
 from app.application.ports.load_chart_repository import (
     ActiveLoadChartConflictError,
     DuplicateLoadChartVersionError,
@@ -34,7 +35,7 @@ def with_status(chart: LoadChart, status: LoadChartStatus) -> LoadChart:
 
 
 class InMemoryLoadChartStore:
-    """`LoadChartRepository` + `LoadChartActivationRepository` em memória."""
+    """`LoadChartRepository` + `LoadChartActivationRepository` + `LoadChartListing` em memória."""
 
     def __init__(self, configuration_ids: set[str]) -> None:
         self.configuration_ids = configuration_ids
@@ -89,6 +90,21 @@ class InMemoryLoadChartStore:
             self._set(previous, LoadChartStatus.SUPERSEDED)
         self._set(load_chart_id, LoadChartStatus.ACTIVE)
         return previous
+
+    def list_by_configuration(self, configuration_id: str) -> list[LoadChartSummary]:
+        """`LoadChartListing` (TASK-044): na ordem de gravação (a ordem é do caso de uso)."""
+        return [
+            LoadChartSummary(
+                load_chart_id=stored.chart.id,
+                version=stored.chart.version,
+                configuration_id=stored.chart.configuration_id,
+                status=stored.chart.status,
+                point_count=len(stored.chart.points),
+                source=stored.source,
+            )
+            for stored in self.charts.values()
+            if stored.chart.configuration_id == configuration_id
+        ]
 
     def status_of(self, load_chart_id: str) -> LoadChartStatus:
         return self.charts[load_chart_id].chart.status
