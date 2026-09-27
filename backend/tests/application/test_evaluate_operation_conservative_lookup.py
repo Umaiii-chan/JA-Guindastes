@@ -52,7 +52,9 @@ class FakeActiveLoadChartProvider:
     def __init__(self, charts: Mapping[str, LoadChart]) -> None:
         self._charts = dict(charts)
 
-    def get_active_load_chart(self, configuration_id: str) -> LoadChart | None:
+    def get_active_load_chart(
+        self, configuration_id: str, rotation_zone_code: str | None = None
+    ) -> LoadChart | None:
         return self._charts.get(configuration_id)
 
 

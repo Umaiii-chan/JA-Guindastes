@@ -17,6 +17,11 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from app.domain.value_objects.crane_geometry import CraneGeometry
+from app.domain.value_objects.mass import Mass
+from app.domain.value_objects.rotation_zone import RotationZones
+
+HOOK_BLOCK_WEIGHT_MAX_KG = 100_000.0
+"""Limite de sanidade do peso do gancho (TASK-046 § 3): 0 a 100 000 kg."""
 
 
 def _require_text(value: object, field_name: str) -> None:
@@ -54,13 +59,19 @@ class Crane:
 class CraneConfiguration:
     """Configuração operacional de um guindaste (RF-005; RN-001, RN-002).
 
-    `geometry` é a ficha técnica do ADR-013 C-4, ou `None` se ainda não foi cadastrada.
+    - `geometry`: a ficha técnica do ADR-013 C-4, ou `None` se ainda não foi cadastrada;
+    - `rotation_zones`: as zonas de giro (ADR-018 § 1; TASK-046), ou `None` sem zonas (uma tabela
+      vale para todo o giro);
+    - `hook_block_weight`: o peso do gancho que a tabela considera (ADR-018 § 2), ou `None`
+      (= 0 kg na comparação). Até `HOOK_BLOCK_WEIGHT_MAX_KG`.
     """
 
     id: str
     crane_id: str
     name: str
     geometry: CraneGeometry | None = None
+    rotation_zones: RotationZones | None = None
+    hook_block_weight: Mass | None = None
 
     def __post_init__(self) -> None:
         _require_text(self.id, "id da configuração")
@@ -68,6 +79,18 @@ class CraneConfiguration:
         _require_text(self.name, "nome da configuração")
         if self.geometry is not None and not isinstance(self.geometry, CraneGeometry):
             raise ValueError(f"geometry deve ser CraneGeometry, recebido {self.geometry!r}")
+        if self.rotation_zones is not None and not isinstance(self.rotation_zones, RotationZones):
+            raise ValueError(
+                f"rotation_zones deve ser RotationZones, recebido {self.rotation_zones!r}"
+            )
+        if self.hook_block_weight is not None and (
+            not isinstance(self.hook_block_weight, Mass)
+            or self.hook_block_weight.kilograms > HOOK_BLOCK_WEIGHT_MAX_KG
+        ):
+            raise ValueError(
+                f"hook_block_weight deve ser Mass de 0 a {HOOK_BLOCK_WEIGHT_MAX_KG} kg, recebido "
+                f"{self.hook_block_weight!r}"
+            )
 
 
 class CatalogError(Exception):

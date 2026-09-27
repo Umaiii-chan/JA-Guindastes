@@ -38,11 +38,13 @@ class LoadChartActivationRepository(Protocol):
     - tudo ou nada, numa única transação;
     - a tabela `load_chart_id` precisa estar em `expected_status`, conferido dentro da transação;
       senão levanta `LoadChartStatusChangedError` e não muda nada;
-    - a tabela `ACTIVE` da mesma configuração (se houver, e se não for a própria) passa a
-      `SUPERSEDED`, e `load_chart_id` passa a `ACTIVE`;
+    - a tabela `ACTIVE` da mesma configuração **e da mesma zona de giro** (ADR-018; zona `None`
+      com `None`), se houver e se não for a própria, passa a `SUPERSEDED`, e `load_chart_id` passa
+      a `ACTIVE`; as tabelas ativas das outras zonas não mudam;
     - devolve o id da tabela que virou `SUPERSEDED`, ou `None` se não havia `ACTIVE`;
     - levanta `LoadChartNotFoundError` se a tabela não existe e `ActiveLoadChartConflictError` se,
-      mesmo assim, a configuração acabaria com duas `ACTIVE` (ex.: outra ativação concorrente).
+      mesmo assim, a configuração acabaria com duas `ACTIVE` na mesma zona (ex.: outra ativação
+      concorrente).
     """
 
     def activate_superseding_current(

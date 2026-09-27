@@ -15,7 +15,8 @@ from app.domain.entities.load_chart import LoadChartStatus
 
 @dataclass(frozen=True)
 class LoadChartSummary:
-    """Tabela de carga gravada, sem os pontos: cabeçalho, quantidade de pontos e origem."""
+    """Tabela de carga gravada, sem os pontos: cabeçalho, zona de giro (ou `None`, ADR-018),
+    quantidade de pontos e origem."""
 
     load_chart_id: str
     version: str
@@ -23,6 +24,7 @@ class LoadChartSummary:
     status: LoadChartStatus
     point_count: int
     source: LoadChartSource
+    rotation_zone_code: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.point_count, int) or self.point_count < 0:

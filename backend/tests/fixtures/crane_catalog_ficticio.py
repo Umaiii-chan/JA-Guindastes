@@ -6,6 +6,7 @@
 import dataclasses
 from typing import Any
 
+from app.application.ports.configuration_load_rules_provider import ConfigurationLoadRules
 from app.application.ports.crane_catalog_repository import (
     CatalogEntryAlreadyExistsError,
     CatalogReferenceNotFoundError,
@@ -13,6 +14,7 @@ from app.application.ports.crane_catalog_repository import (
     CraneConfiguration,
     Manufacturer,
 )
+from app.domain.value_objects.crane_geometry import CraneGeometry
 
 FABRICANTE_FICTICIO_NOME = "Fabricante FICTÍCIO"
 MODELO_FICTICIO_NOME = "Modelo FICTÍCIO"
@@ -73,6 +75,21 @@ class InMemoryCraneCatalog:
     def get_configuration(self, configuration_id: str) -> CraneConfiguration | None:
         return self.configurations.get(configuration_id)
 
+    def get_crane_geometry(self, configuration_id: str) -> CraneGeometry | None:
+        """`CraneGeometryProvider`: a ficha da configuração, ou `None`."""
+        configuration = self.configurations.get(configuration_id)
+        return None if configuration is None else configuration.geometry
+
+    def get_load_rules(self, configuration_id: str) -> ConfigurationLoadRules | None:
+        """`ConfigurationLoadRulesProvider` (TASK-046): zonas de giro e peso do gancho."""
+        configuration = self.configurations.get(configuration_id)
+        if configuration is None:
+            return None
+        return ConfigurationLoadRules(
+            rotation_zones=configuration.rotation_zones,
+            hook_block_weight=configuration.hook_block_weight,
+        )
+
     def list_manufacturers(self) -> list[Manufacturer]:
         return sorted(self.manufacturers.values(), key=lambda item: (item.name, item.id))
 
@@ -108,7 +125,11 @@ class InMemoryCraneCatalog:
         if current is None:
             return False
         self.configurations[configuration.id] = dataclasses.replace(
-            current, name=configuration.name, geometry=configuration.geometry
+            current,
+            name=configuration.name,
+            geometry=configuration.geometry,
+            rotation_zones=configuration.rotation_zones,
+            hook_block_weight=configuration.hook_block_weight,
         )
         return True
 
