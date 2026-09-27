@@ -159,8 +159,8 @@ O aviso é o esperado: TASK-044 e TASK-045 em paralelo. Os arquivos em comum sã
 
 | # | Pergunta | Bloqueia? | Resposta | Respondida em |
 |---|----------|-----------|----------|---------------|
-| 1 | Depois do merge da TASK-044: atualizar README (rotas novas), `known-gaps.md` (L-006, L-007 e L-011 para "Resolvidos"; tirar `knownChartsStorage` da § 2 da arquitetura), `testing-strategy.md` (spec de edição de cadastro) e requisitos (TASK-044 em RF-001/002/005/007)? | não | | |
-| 2 | Atualizar `docs/demo.md` § 5 em diante para o login e as páginas da leva D (§ 7)? | não | | |
+| 1 | Depois do merge da TASK-044: atualizar README (rotas novas), `known-gaps.md` (L-006, L-007 e L-011 para "Resolvidos"; tirar `knownChartsStorage` da § 2 da arquitetura), `testing-strategy.md` (spec de edição de cadastro) e requisitos (TASK-044 em RF-001/002/005/007)? | não | Sim: feito na segunda parte (§ 11) | 2026-09-26 |
+| 2 | Atualizar `docs/demo.md` § 5 em diante para o login e as páginas da leva D (§ 7)? | não | Sim: feito na segunda parte (§ 11) | 2026-09-26 |
 | 3 | P-018 (`409 OWN_ADMIN_ACCESS`) e P-019 (troca de senha revoga sessões?), vindas da TASK-038 | não | | |
 
 ## 9. ⚠️ Segurança
@@ -187,4 +187,46 @@ O aviso é o esperado: TASK-044 e TASK-045 em paralelo. Os arquivos em comum sã
 4. `docs/architecture.md` §§ 2 e 4, `docs/known-gaps.md` §§ 1, 2 e 7
 
 **Cuidado com:**
-- Não mover L-011 para "Resolvidos" antes da TASK-044 estar em `development`.
+- Não mover L-011 para "Resolvidos" antes da TASK-044 estar em `development`. (Feito na segunda
+  parte, § 11, sobre a integração `b44a46e` das duas tarefas, a pedido da sessão principal.)
+
+## 11. Segunda parte: depois da TASK-044 (2026-09-26)
+
+| Campo | Valor |
+|-------|-------|
+| **Pedido** | sessão principal, via orquestrador: fazer a pendência 1 e a 2, preencher a seção "Frontend" de `handoffs/TASK-044.md` e registrar a decisão sobre a ordem da linha do tempo |
+| **Branch** | `task/TASK-045-pos-tarefa-044`, a partir de `b44a46e` (TASK-044 e TASK-045 integradas) |
+| **Papel** | Implementador (só texto) |
+
+- `README.md`: estado com a TASK-044; linhas de `PATCH` de cadastros e de
+  `GET /configurations/{id}/load-charts` na tabela de rotas.
+- `docs/architecture.md` e `docs/development-guide.md`: saiu o `knownChartsStorage` (o arquivo foi
+  removido); entraram `listConfigurationCharts` e `update*` nos clientes, a tabela ativa e a edição
+  nas páginas, e `catalogEdit.spec.ts` e `backendCatalog.ts` na estrutura. O status da arquitetura
+  aponta para a lista de rotas da § 4.
+- `docs/known-gaps.md`:
+  - L-011 foi para "Resolvidos", com a TASK-044;
+  - L-006 e L-007 **continuam** na § 1 com o que segue aberto (exclusão, unicidade de nomes,
+    PEND-005; `INVALID`, relatório gravado, reativação). A parte resolvida pela TASK-044 foi para
+    "Resolvidos" como "L-006 (parte)" e "L-007 (parte)", porque mover as linhas inteiras apagaria
+    limitações que continuam;
+  - o `/validate` com XLSX virou a L-013, sem tarefa;
+  - a ordem da linha do tempo pela versão ficou registrada como **decisão tomada** pela pessoa
+    responsável (P-020 em "Resolvidos"). Não haverá `created_at`;
+  - § 5 e § 6 atualizadas.
+- `docs/testing-strategy.md`: os specs com backend `catalogEdit.spec.ts` e `loadChartImport.spec.ts`
+  (linha do tempo pela rota nova), `backendCatalog.ts` nos dados do E2E e a lacuna "criação de
+  cadastro pela tela".
+- `docs/requirements/functional.md`: TASK-044 em RF-001, 002, 005 e 007, com nota.
+- `handoffs/TASK-044.md`: seção "Frontend" com as notas da sessão de frontend (clientes, Tabelas,
+  Catálogo, E2E, decisões, gates informados e pendências) e a pendência 1 do backend respondida.
+  Esses commits levam `(TASK-044)`.
+- `docs/demo.md`: § 5 com o login pelo admin do `create_admin`, o simulador guiado (passos
+  Guindaste, Carga e Posição, com os rótulos reais da tela) e o modelo do caminhão no lugar do
+  guindaste provisório; os valores com a = −1,56 m já estavam lá e não mudaram. A mais, as §§ 6 e 7
+  deixaram de dizer "se a tela já estiver disponível" e passaram a citar a página Tabelas.
+
+**Comandos:** `bash scripts/check-structure.sh` → `OK: 0 erros, 1 aviso(s)` (aviso: 2 tarefas em
+`in-progress/`), `✓ nenhum link interno quebrado`, `✓ 35 commit(s) desta branch sem co-autoria de IA`.
+Os gates do frontend citados no handoff da TASK-044 são os informados pela sessão de frontend; não os
+rodei de novo.
