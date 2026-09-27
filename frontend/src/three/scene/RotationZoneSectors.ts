@@ -14,8 +14,8 @@ import { SCENE_COLORS } from './palette'
 import { arcPoints, arcSegments, type GroundPoint, pointAtRadius } from './radiusGeometry'
 
 // Setores das zonas de giro no chão, ao redor do eixo de giro (TASK-046; ADR-018), para a conferência
-// visual do cadastro: uma fatia tênue por zona, a atual mais forte, com o arco externo e um rótulo
-// curto. Só desenho: a zona que vale na avaliação é a do backend (RN-008; ADR-013 C-7).
+// visual do cadastro: em traço de tinta (TASK-047; ADR-019), com fronteiras finas, preenchimento quase
+// transparente, a zona atual no acento laranja, o arco externo e um rótulo curto. Só desenho: a zona que vale na avaliação é a do backend (RN-008; ADR-013 C-7).
 //
 // Convenção de ψ do ADR-013 C-2: a direção da lança com giro ψ é u(ψ) = (sen ψ, 0, cos ψ); 0° = +Z
 // (frente), 90° = +X (esquerda), anti-horário visto de cima. O setor vai de `startDeg` a `endDeg` no
@@ -50,9 +50,13 @@ export const ROTATION_ZONE_NAMES = {
   labelAnchor: 'rotation-zone-label-anchor',
 } as const
 
-/** Opacidade da fatia: tênue fora da zona atual. */
-export const ZONE_FILL_OPACITY = { idle: 0.06, active: 0.2 } as const
-const ZONE_ARC_OPACITY = { idle: 0.25, active: 0.9 } as const
+/**
+ * Opacidade da fatia: quase transparente, só um véu de tinta na zona atual (ADR-019). O que marca a
+ * zona é o traço do arco, não o preenchimento.
+ */
+export const ZONE_FILL_OPACITY = { idle: 0.02, active: 0.05 } as const
+const ZONE_ARC_OPACITY = { idle: 0.55, active: 1 } as const
+const ZONE_BOUNDARY_OPACITY = 0.5
 
 /** Um pouco abaixo do anel de raio (0,015 m), para não disputar profundidade com ele. */
 const SECTOR_Y = 0.008
@@ -104,8 +108,9 @@ export class RotationZoneSectors {
   private readonly boundaryMaterial = new LineBasicMaterial({
     color: SCENE_COLORS.zoneBoundary,
     transparent: true,
-    opacity: 0.35,
+    opacity: ZONE_BOUNDARY_OPACITY,
     depthWrite: false,
+    toneMapped: false,
   })
   private key = ''
   private active: string | null = null

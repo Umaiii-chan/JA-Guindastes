@@ -3,12 +3,11 @@ import {
   Color,
   Group,
   Line,
-  LineBasicMaterial,
+  LineDashedMaterial,
   Mesh,
   MeshBasicMaterial,
   Object3D,
   RingGeometry,
-  CircleGeometry,
   Vector3,
 } from 'three'
 
@@ -26,23 +25,27 @@ import {
   type ReachRange,
 } from './radiusGeometry'
 
-// Anel de raio de trabalho, arco de alcance e rótulo no chão (TASK-041). PRÉ-VISUALIZAÇÃO: o raio
-// vem de `CraneController.getOperationalGeometry()` (ADR-013 C-5); o valor oficial é o do backend
-// (ADR-013 C-7; RN-008).
+// Anel de raio de trabalho, arco de alcance e rótulo no chão (TASK-041), em traço de tinta (TASK-047;
+// ADR-019): anel fino na cor da situação, sem brilho; linha radial e arcos de alcance tracejados.
+// PRÉ-VISUALIZAÇÃO: o raio vem de `CraneController.getOperationalGeometry()` (ADR-013 C-5); o valor
+// oficial é o do backend (ADR-013 C-7; RN-008).
 
-/** Largura da faixa do anel (m) e da faixa de brilho ao redor dele. */
-export const RING_WIDTH_M = 0.14
-export const RING_GLOW_WIDTH_M = 0.9
+/** Largura do traço do anel (m): fino, como uma linha de desenho. */
+export const RING_WIDTH_M = 0.1
+/** Marca no pé do gancho: anel pequeno, como marca de centro (raios interno e externo, m). */
+const HOOK_MARK_RADII_M = { inner: 0.2, outer: 0.3 } as const
+/** Traço e falha (m) da linha radial (linha de cota) e dos arcos de alcance (linha fantasma). */
+const RADIAL_DASH_M = { dash: 0.5, gap: 0.3 } as const
+const REACH_DASH_M = { dash: 1.2, gap: 0.6 } as const
 /** Altura das marcas sobre o chão (m), para não disputarem profundidade com a grade. */
 const MARK_Y = 0.015
 /** Mudança de raio (m) abaixo da qual o anel não é refeito. */
 const RADIUS_EPSILON_M = 1e-4
-const RING_SEGMENTS = 128
+const RING_SEGMENTS = 160
 
 export const RADIUS_INDICATOR_NAMES = {
   root: 'radius-indicator',
   ring: 'radius-ring',
-  ringGlow: 'radius-ring-glow',
   radial: 'radius-radial-line',
   hookMark: 'radius-hook-mark',
   reachMin: 'reach-arc-min',
@@ -57,8 +60,8 @@ export interface RadiusIndicatorInput {
   readonly turretRotationDeg: number
 }
 
-function flatRing(inner: number, outer: number): RingGeometry {
-  const geometry = new RingGeometry(Math.max(0, inner), outer, RING_SEGMENTS, 1)
+function flatRing(inner: number, outer: number, segments = RING_SEGMENTS): RingGeometry {
+  const geometry = new RingGeometry(Math.max(0, inner), outer, segments, 1)
   // RingGeometry nasce no plano XY; deitada no chão (XZ), com a face para cima.
   geometry.rotateX(-Math.PI / 2)
   return geometry
@@ -68,6 +71,16 @@ function groundLine(points: readonly { x: number; z: number }[]): BufferGeometry
   return new BufferGeometry().setFromPoints(points.map((p) => new Vector3(p.x, MARK_Y, p.z)))
 }
 
+/** Linha tracejada no chão: o tracejado precisa das distâncias acumuladas ao longo da linha. */
+function dashedGroundLine(
+  points: readonly { x: number; z: number }[],
+  material: LineDashedMaterial,
+): Line<BufferGeometry, LineDashedMaterial> {
+  const line = new Line(groundLine(points), material)
+  line.computeLineDistances()
+  return line
+}
+
 export class RadiusIndicator {
   readonly root = new Group()
   /** Onde a camada HTML pendura o rótulo (CSS2D); acompanha o anel. */
@@ -75,9 +88,8 @@ export class RadiusIndicator {
   readonly reach: ReachRange
 
   private readonly ring: Mesh<RingGeometry, MeshBasicMaterial>
-  private readonly ringGlow: Mesh<RingGeometry, MeshBasicMaterial>
-  private readonly radial: Line<BufferGeometry, LineBasicMaterial>
-  private readonly hookMark: Mesh<CircleGeometry, MeshBasicMaterial>
+  private readonly radial: Line<BufferGeometry, LineDashedMaterial>
+  private readonly hookMark: Mesh<RingGeometry, MeshBasicMaterial>
   private radiusM: number | null = null
   private turretRotationDeg = Number.NaN
   private status: EvaluationStatus = 'unknown'
@@ -94,7 +106,7 @@ export class RadiusIndicator {
       new MeshBasicMaterial({
         color,
         transparent: true,
-        opacity: 0.95,
+        opacity: 1,
         depthWrite: false,
         toneMapped: false,
         fog: false,
@@ -104,30 +116,18 @@ export class RadiusIndicator {
     this.ring.position.y = MARK_Y
     this.ring.renderOrder = 2
 
-    this.ringGlow = new Mesh(
-      flatRing(0, RING_GLOW_WIDTH_M),
-      new MeshBasicMaterial({
-        color: color.clone(),
-        transparent: true,
-        opacity: 0.1,
-        depthWrite: false,
-        toneMapped: false,
-        fog: false,
-      }),
-    )
-    this.ringGlow.name = RADIUS_INDICATOR_NAMES.ringGlow
-    this.ringGlow.position.y = MARK_Y * 0.5
-    this.ringGlow.renderOrder = 1
-
-    this.radial = new Line(
-      groundLine([
+    // Linha de cota do eixo de giro até o gancho, em tinta: a cor da situação fica só no anel.
+    this.radial = dashedGroundLine(
+      [
         { x: 0, z: 0 },
         { x: 0, z: 1 },
-      ]),
-      new LineBasicMaterial({
-        color: color.clone(),
+      ],
+      new LineDashedMaterial({
+        color: SCENE_COLORS.radial,
+        dashSize: RADIAL_DASH_M.dash,
+        gapSize: RADIAL_DASH_M.gap,
         transparent: true,
-        opacity: 0.45,
+        opacity: 0.9,
         depthWrite: false,
         toneMapped: false,
       }),
@@ -135,14 +135,12 @@ export class RadiusIndicator {
     this.radial.name = RADIUS_INDICATOR_NAMES.radial
     this.radial.renderOrder = 2
 
-    const hookMarkGeometry = new CircleGeometry(0.28, 24)
-    hookMarkGeometry.rotateX(-Math.PI / 2)
     this.hookMark = new Mesh(
-      hookMarkGeometry,
+      flatRing(HOOK_MARK_RADII_M.inner, HOOK_MARK_RADII_M.outer, 32),
       new MeshBasicMaterial({
         color: color.clone(),
         transparent: true,
-        opacity: 0.85,
+        opacity: 1,
         depthWrite: false,
         toneMapped: false,
       }),
@@ -151,7 +149,7 @@ export class RadiusIndicator {
     this.hookMark.position.y = MARK_Y * 1.5
     this.hookMark.renderOrder = 3
 
-    this.root.add(this.ringGlow, this.ring, this.radial, this.hookMark, this.labelAnchor)
+    this.root.add(this.ring, this.radial, this.hookMark, this.labelAnchor)
     this.addReachArcs(limits)
     this.setVisible(false)
   }
@@ -198,10 +196,6 @@ export class RadiusIndicator {
         this.ring,
         flatRing(radius - RING_WIDTH_M / 2, radius + RING_WIDTH_M / 2),
       )
-      this.replaceGeometry(
-        this.ringGlow,
-        flatRing(radius - RING_GLOW_WIDTH_M / 2, radius + RING_GLOW_WIDTH_M / 2),
-      )
     }
 
     const end = pointAtRadius(radius, input.turretRotationDeg)
@@ -209,6 +203,7 @@ export class RadiusIndicator {
     position.setXYZ(1, end.x, MARK_Y, end.z)
     position.needsUpdate = true
     this.radial.geometry.computeBoundingSphere()
+    this.radial.computeLineDistances()
     this.hookMark.position.set(end.x, MARK_Y * 1.5, end.z)
     const labelAt = radiusLabelPosition(radius, input.turretRotationDeg)
     this.labelAnchor.position.set(labelAt.x, 0.05, labelAt.z)
@@ -216,18 +211,17 @@ export class RadiusIndicator {
     return true
   }
 
-  /** Pinta o anel, a linha radial e a marca do gancho com a cor da situação. */
+  /** Pinta o anel e a marca do gancho com a cor da situação; a linha radial fica em tinta. */
   setStatus(status: EvaluationStatus): void {
     this.status = status
     const color = statusColor(status)
-    for (const mesh of [this.ring, this.ringGlow, this.radial, this.hookMark]) {
+    for (const mesh of [this.ring, this.hookMark]) {
       mesh.material.color.setHex(color)
     }
   }
 
   private setVisible(visible: boolean): void {
     this.ring.visible = visible
-    this.ringGlow.visible = visible
     this.radial.visible = visible
     this.hookMark.visible = visible
     this.labelAnchor.visible = visible
@@ -241,15 +235,21 @@ export class RadiusIndicator {
     mesh.geometry = geometry
   }
 
-  /** Arcos tênues do raio mínimo e máximo, na faixa de giro da torre, fixos para a configuração. */
+  /**
+   * Arcos tracejados (linha fantasma) do raio mínimo e máximo, na faixa de giro da torre, fixos para a
+   * configuração.
+   */
   private addReachArcs(limits: CraneLimits): void {
     const sweep = computeTurretSweep(limits.turretRotationDeg)
     const segments = arcSegments(sweep.startDeg, sweep.endDeg)
-    const material = new LineBasicMaterial({
+    const material = new LineDashedMaterial({
       color: SCENE_COLORS.reachArc,
+      dashSize: REACH_DASH_M.dash,
+      gapSize: REACH_DASH_M.gap,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.6,
       depthWrite: false,
+      toneMapped: false,
     })
 
     const arcs: [string, number][] = [
@@ -258,8 +258,8 @@ export class RadiusIndicator {
     ]
     for (const [name, radius] of arcs) {
       if (!(radius > 0)) continue
-      const line = new Line(
-        groundLine(arcPoints(radius, sweep.startDeg, sweep.endDeg, segments)),
+      const line = dashedGroundLine(
+        arcPoints(radius, sweep.startDeg, sweep.endDeg, segments),
         material,
       )
       line.name = name
@@ -268,19 +268,19 @@ export class RadiusIndicator {
 
     // Com giro limitado, fecha o setor com os dois raios das pontas.
     if (!sweep.full && this.reach.maxM > this.reach.minM) {
-      const edges = new Line(
-        groundLine([
+      const edges = dashedGroundLine(
+        [
           pointAtRadius(this.reach.minM, sweep.startDeg),
           pointAtRadius(this.reach.maxM, sweep.startDeg),
-        ]),
+        ],
         material,
       )
       edges.name = RADIUS_INDICATOR_NAMES.reachEdges
-      const otherEdge = new Line(
-        groundLine([
+      const otherEdge = dashedGroundLine(
+        [
           pointAtRadius(this.reach.minM, sweep.endDeg),
           pointAtRadius(this.reach.maxM, sweep.endDeg),
-        ]),
+        ],
         material,
       )
       otherEdge.name = RADIUS_INDICATOR_NAMES.reachEdges

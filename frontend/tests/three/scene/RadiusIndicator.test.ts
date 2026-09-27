@@ -1,11 +1,19 @@
-import { Color, Line, Mesh, type MeshBasicMaterial, RingGeometry, Vector3 } from 'three'
+import {
+  Color,
+  Line,
+  LineDashedMaterial,
+  type Mesh,
+  type MeshBasicMaterial,
+  RingGeometry,
+  Vector3,
+} from 'three'
 import { describe, expect, it } from 'vitest'
 
 import {
   PROVISIONAL_CRANE_GEOMETRY,
   PROVISIONAL_CRANE_LIMITS,
 } from '../../../src/three/crane/provisionalCraneSpec'
-import { STATUS_COLORS } from '../../../src/three/scene/palette'
+import { SCENE_COLORS, STATUS_COLORS } from '../../../src/three/scene/palette'
 import {
   RADIUS_INDICATOR_NAMES,
   RadiusIndicator,
@@ -108,6 +116,30 @@ describe('RadiusIndicator', () => {
     expect(target.currentStatus).toBe('over')
     target.setStatus('ok')
     expect(ring(target).material.color.equals(colorOf('ok'))).toBe(true)
+  })
+
+  it('traço de tinta: anel sem brilho, linha radial e arcos de alcance tracejados (ADR-019)', () => {
+    const target = indicator()
+    target.update({ workingRadiusM: 8, turretRotationDeg: 30 })
+    target.setStatus('over')
+
+    expect(target.root.getObjectByName('radius-ring-glow')).toBeUndefined()
+    const radial = target.root.getObjectByName(RADIUS_INDICATOR_NAMES.radial) as Line
+    const radialMaterial = radial.material as LineDashedMaterial
+    expect(radialMaterial).toBeInstanceOf(LineDashedMaterial)
+    // A linha radial fica em tinta; a cor da situação vai só no anel e na marca do gancho.
+    expect(radialMaterial.color.getHex()).toBe(SCENE_COLORS.radial)
+    // O tracejado precisa das distâncias ao longo da linha, refeitas a cada giro.
+    const distances = radial.geometry.getAttribute('lineDistance')
+    expectClose(distances.getX(1), 8, 1e-6)
+    const reach = target.root.getObjectByName(RADIUS_INDICATOR_NAMES.reachMax) as Line
+    expect(reach.material).toBeInstanceOf(LineDashedMaterial)
+    expect(reach.geometry.getAttribute('lineDistance')).toBeDefined()
+    const mark = target.root.getObjectByName(RADIUS_INDICATOR_NAMES.hookMark) as Mesh<
+      RingGeometry,
+      MeshBasicMaterial
+    >
+    expect(mark.material.color.equals(new Color(STATUS_COLORS.over))).toBe(true)
   })
 
   it('desenha os arcos de alcance mínimo e máximo; com giro limitado, fecha o setor', () => {

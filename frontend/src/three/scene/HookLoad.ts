@@ -1,5 +1,4 @@
 import {
-  AdditiveBlending,
   BoxGeometry,
   BufferGeometry,
   Color,
@@ -46,12 +45,13 @@ const HOOK_HALO_SCALE = 1.3
 const HOOK_HALO_MARGIN_M = 0.15
 /** Quanto o halo passa das bordas da carga, em proporção das meias-medidas. */
 const LOAD_HALO_SCALE = 1.25
-/** Intensidade do brilho na borda: sutil, sem neon. */
+/** Opacidade máxima do contorno na silhueta: sutil, sem neon. */
 export const HALO_INTENSITY = 0.35
 /** Sem situação (`unknown`), o halo cinza fica ainda mais discreto: não há nada a destacar. */
 export const HALO_INTENSITY_UNKNOWN = 0.15
 
-// Brilho de borda (fresnel): quase transparente de frente, mais forte no contorno.
+// Contorno de situação (fresnel), em mistura normal sobre o papel: transparente de frente e só um traço
+// translúcido na silhueta, sem brilho aditivo nem neon (ADR-019).
 const HALO_VERTEX = /* glsl */ `
 varying vec3 vNormal;
 varying vec3 vViewDirection;
@@ -82,15 +82,19 @@ export class HookLoad {
   private readonly halo: Mesh<SphereGeometry, ShaderMaterial>
   private readonly boxMaterial = new MeshStandardMaterial({
     color: SCENE_COLORS.load,
-    roughness: 0.7,
-    metalness: 0.2,
+    roughness: 0.9,
+    metalness: 0,
   })
   private readonly edgesMaterial = new LineBasicMaterial({
     color: SCENE_COLORS.loadEdges,
     transparent: true,
-    opacity: 0.6,
+    opacity: 0.85,
+    toneMapped: false,
   })
-  private readonly slingMaterial = new LineBasicMaterial({ color: SCENE_COLORS.sling })
+  private readonly slingMaterial = new LineBasicMaterial({
+    color: SCENE_COLORS.sling,
+    toneMapped: false,
+  })
   private loadParts: Object3D[] = []
   private load: LoadDimensions | null = null
   private layout: LoadBoxLayout | null = null
@@ -114,7 +118,6 @@ export class HookLoad {
         fragmentShader: HALO_FRAGMENT,
         transparent: true,
         depthWrite: false,
-        blending: AdditiveBlending,
       }),
     )
     this.halo.name = HOOK_LOAD_NAMES.halo
@@ -138,7 +141,7 @@ export class HookLoad {
     return this.halo.material.uniforms.color.value as Color
   }
 
-  /** Intensidade atual do brilho do halo. */
+  /** Intensidade atual do contorno do halo. */
   get haloIntensity(): number {
     return this.halo.material.uniforms.intensity.value as number
   }
