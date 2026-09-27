@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | Proposto |
+| **Status** | Aceito (pela pessoa responsável em chat, 2026-09-27) |
 | **Data** | 2026-09-27 |
 | **Autor** | agente Claude Code 2.1.280 (modelo Opus 5.5), registrando as escolhas da pessoa responsável |
 | **Decisores** | Anderson Sehnem (em chat, 2026-09-27: "Zona pelo giro da torre", "Carga + gancho ≤ capacidade", "TM 130 para depois", dados oficiais "fora do git, só importar") |
