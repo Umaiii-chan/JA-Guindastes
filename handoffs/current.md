@@ -25,7 +25,11 @@
 
 ## 2. Tarefas em andamento e seus handoffs
 
-Nenhuma. TASK-044 (rotas de listagem de tabelas e edição de cadastros) e TASK-045 (documentação da leva D) concluídas no PR #40. As lacunas e perguntas abertas estão em `docs/known-gaps.md`.
+As primeiras tabelas oficiais da Guindastes Ribas chegaram em 2026-09-27 (MD 300L e TM 130). Ficam **fora do git**, em `dados-oficiais/`, e agentes não leem essa pasta. ADR-018 (zonas de giro e peso do gancho) está como Proposto.
+
+| Tarefa | Handoff | O que é |
+|--------|---------|---------|
+| TASK-046 | `handoffs/TASK-046.md` | tabelas por zona de giro, peso do gancho na comparação, editor de zonas e setores na cena |
 
 ## 3. Autorizações permanentes da pessoa responsável
 
@@ -64,6 +68,9 @@ Ver o handoff de cada tarefa (seção 2).
 | 10 | Aceitar ou não os ADR-016 (autenticação) e ADR-017 (navegação e design system) | não | aceitos | 2026-09-26 |
 | 8 | Aceitar ou não o ADR-014 (SQLAlchemy 2 + psycopg 3), hoje Proposto | não | | |
 | 9 | Decisões de produto ainda provisórias (known-gaps § 4.1): substituição ao ativar tabela, unicidade de nomes, 503 com o banco fora, cabo máximo sem ficha, regras da carga, limites do XLSX (P-008) | não | | |
+| 11 | Aceitar o ADR-018 e registrar RN-009 (zona de giro) e RN-010 (carga + gancho) em `docs/business-rules.md` | não | | |
+| 12 | Ficha técnica oficial do MD 300L (a = distância horizontal do eixo de giro ao pino da lança; h = altura do pino) e peso real do gancho em uso | sim, para avaliar com a tabela oficial | | |
+| 13 | Tabela do TM 130 (capacidade por raio e zona, sem comprimento de lança): suporte fica para depois | não | | |
 | 3 | Antes de mergear, conferir se todos os checks estão verdes (sem branch protection, o GitHub não impede) e usar **squash** | — | | |
 
 ## 8. ⚠️ Segurança
