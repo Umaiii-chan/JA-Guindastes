@@ -8,7 +8,8 @@
 //
 // Zonas de giro e peso do gancho (TASK-046 § 3): `rotation_zones` e `hook_block_weight_kg` na
 // criação (só quando informados), no PATCH (lista vazia vai como `null` e remove as zonas) e na
-// resposta (ausentes = sem zonas e sem gancho). 409 `ROTATION_ZONE_IN_USE` e 422
+// resposta (ausentes = sem zonas e sem gancho). 409 `ROTATION_ZONE_IN_USE` e
+// `ZONELESS_LOAD_CHARTS_EXIST` e 422
 // `INVALID_ROTATION_ZONES` vêm com `apiCode`; o 422 das zonas vira erro do campo `rotationZones`.
 
 import type { CatalogGateway } from '../../application/catalog/ports'
@@ -20,8 +21,14 @@ import {
   type CraneTechnicalSheet,
   type Manufacturer,
   type RotationZone,
+  ZONELESS_LOAD_CHARTS_EXIST,
+  ZONELESS_LOAD_CHARTS_MESSAGE,
 } from '../../domain/catalog/catalog'
-import { detailText, findApiErrorCode } from '../shared/apiErrorCode'
+import {
+  CONFIGURATION_ZONE_ERROR_CODES,
+  detailText,
+  findApiErrorCode,
+} from '../shared/apiErrorCode'
 import {
   ContractViolationError,
   isRecord,
@@ -167,11 +174,9 @@ async function readBody(response: Response): Promise<unknown> {
   }
 }
 
-const ZONE_ERROR_CODES = [ROTATION_ZONE_IN_USE, INVALID_ROTATION_ZONES] as const
-
 function errorFromResponse(status: number, body: unknown): CatalogRequestError {
   const detail = isRecord(body) ? body.detail : undefined
-  const apiCode = findApiErrorCode(body, ZONE_ERROR_CODES)
+  const apiCode = findApiErrorCode(body, CONFIGURATION_ZONE_ERROR_CODES)
   const message = detailText(body)
   if (status === 422) {
     const fieldErrors = Array.isArray(detail) ? detail.map(toFieldError) : []
@@ -206,6 +211,15 @@ function errorFromResponse(status: number, body: unknown): CatalogRequestError {
       'CONFLICT',
       'Uma zona que já tem tabelas de carga foi removida ou mudou de código (HTTP 409 ' +
         'ROTATION_ZONE_IN_USE). Mantenha o código dessa zona; o nome e os ângulos podem mudar.' +
+        (message ? ` Detalhe do backend: ${message}` : ''),
+      [],
+      apiCode,
+    )
+  }
+  if (status === 409 && apiCode === ZONELESS_LOAD_CHARTS_EXIST) {
+    return new CatalogRequestError(
+      'CONFLICT',
+      `${ZONELESS_LOAD_CHARTS_MESSAGE} (HTTP 409 ZONELESS_LOAD_CHARTS_EXIST)` +
         (message ? ` Detalhe do backend: ${message}` : ''),
       [],
       apiCode,

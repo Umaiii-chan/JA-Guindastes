@@ -5,6 +5,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { CatalogRequestError } from '../../../src/domain/catalog/catalog'
 import { createCatalogRestClient } from '../../../src/infrastructure/api/catalogRestClient'
 import {
+  CONFIGURATION_ZONE_ERROR_CODES,
+  findApiErrorCode,
+} from '../../../src/infrastructure/shared/apiErrorCode'
+import {
   catalogComZonasFicticio,
   catalogFicticio,
   GANCHO_FICTICIO_KG,
@@ -98,6 +102,39 @@ describe('cliente REST do catálogo — zonas de giro e gancho (TASK-046)', () =
     expect(error.apiCode).toBe('ROTATION_ZONE_IN_USE')
     expect(error.message).toMatch(/já tem tabelas de carga/)
     expect(error.message).toMatch(/Mantenha o código/)
+  })
+
+  it('409 ZONELESS_LOAD_CHARTS_EXIST vira CONFLICT com apiCode e a orientação da tela', async () => {
+    const fetchFn = createFakeCatalogFetch(catalogFicticio(), undefined, {
+      zonelessChartsIn: ['CFG-A1-FICHA'],
+    })
+    const client = createCatalogRestClient({ fetchFn })
+    const error = await rejection(
+      client.updateConfiguration('CFG-A1-FICHA', { rotationZones: ZONAS_FICTICIAS }),
+    )
+    expect(error.code).toBe('CONFLICT')
+    expect(error.apiCode).toBe('ZONELESS_LOAD_CHARTS_EXIST')
+    expect(error.message).toContain(
+      'Esta configuração já tem tabelas importadas sem zona. Crie outra configuração para usar zonas de giro.',
+    )
+    expect(error.message).toContain('Detalhe do backend: a configuração já tem tabelas')
+    // Na mesma posição de ROTATION_ZONE_IN_USE: depois do 404 e do 422 das zonas.
+    const missing = await rejection(
+      client.updateConfiguration('CFG-X', { rotationZones: ZONAS_FICTICIAS }),
+    )
+    expect(missing.code).toBe('NOT_FOUND')
+    // Mudar outra coisa (sem zonas) continua valendo.
+    const renamed = await client.updateConfiguration('CFG-A1-FICHA', { name: 'Renomeada' })
+    expect(renamed.name).toBe('Renomeada')
+  })
+
+  it('o código também é reconhecido em {detail: {code, message}}', () => {
+    expect(
+      findApiErrorCode(
+        { detail: { code: 'ZONELESS_LOAD_CHARTS_EXIST', message: 'x' } },
+        CONFIGURATION_ZONE_ERROR_CODES,
+      ),
+    ).toBe('ZONELESS_LOAD_CHARTS_EXIST')
   })
 
   it.each([

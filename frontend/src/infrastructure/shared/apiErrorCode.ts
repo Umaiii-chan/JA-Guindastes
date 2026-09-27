@@ -12,6 +12,17 @@
 
 import { isRecord } from './readJson'
 
+/**
+ * Códigos que o PATCH/POST de configuração pode trazer (TASK-046): 409 `ROTATION_ZONE_IN_USE` e
+ * `ZONELESS_LOAD_CHARTS_EXIST` (zonas numa configuração que já tem tabelas sem zona), 422
+ * `INVALID_ROTATION_ZONES`.
+ */
+export const CONFIGURATION_ZONE_ERROR_CODES = [
+  'ROTATION_ZONE_IN_USE',
+  'ZONELESS_LOAD_CHARTS_EXIST',
+  'INVALID_ROTATION_ZONES',
+] as const
+
 function matchCode(value: unknown, known: readonly string[]): string | null {
   if (typeof value !== 'string') return null
   return known.find((code) => value === code || value.includes(code)) ?? null
