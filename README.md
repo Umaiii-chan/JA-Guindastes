@@ -47,8 +47,8 @@ cena montada à parte, fora das páginas.
 | Início (1440×900) | [`inicio-1440x900.png`](docs/assets/screenshots/inicio-1440x900.png) |
 | Simulador guiado, dentro da capacidade (1440×900) | [`simulador-1440x900.png`](docs/assets/screenshots/simulador-1440x900.png) |
 | Simulador guiado, acima da capacidade | [`simulador-acima-da-capacidade-1440x900.png`](docs/assets/screenshots/simulador-acima-da-capacidade-1440x900.png) |
-| Cena escura com o modelo, carga dentro da capacidade | [`cena-3d/ok-perspectiva.png`](docs/assets/screenshots/cena-3d/ok-perspectiva.png) |
-| Cena escura, acima da capacidade, vista de topo | [`cena-3d/over-topo.png`](docs/assets/screenshots/cena-3d/over-topo.png) |
+| Cena clara (prancha técnica) com o modelo, carga dentro da capacidade | [`cena-3d/dentro-perspectiva.png`](docs/assets/screenshots/cena-3d/dentro-perspectiva.png) |
+| Cena clara com as zonas de giro, acima da capacidade, vista de topo | [`cena-3d/zonas-topo.png`](docs/assets/screenshots/cena-3d/zonas-topo.png) |
 | Modelo do guindaste com a lança estendida | [`modelo-3d/05-lanca-estendida.png`](docs/assets/screenshots/modelo-3d/05-lanca-estendida.png) |
 
 As demais ficam em `docs/assets/screenshots/`: Início e simulador em 1280×720, as cinco
