@@ -36,7 +36,7 @@ export class CraneSceneContents {
   readonly scene: Scene
   /** Comandos do guindaste; o mesmo objeto antes e depois da troca de modelo. */
   readonly crane: SwitchableCrane
-  /** Céu, luzes, chão e grade (TASK-041). */
+  /** Fundo de papel, luzes, chão, sombra e grade (TASK-041; TASK-047). */
   readonly environment: SceneEnvironment
   /** Anel de raio, arco de alcance e âncora do rótulo, no chão (TASK-041). */
   readonly radiusIndicator: RadiusIndicator
@@ -124,7 +124,7 @@ function enableShadows(root: Object3D): void {
 }
 
 /**
- * Monta a cena sem renderer: ambiente (céu, luzes, chão, grade), guindaste provisório com seu
+ * Monta a cena sem renderer: ambiente (papel, luzes, chão, grade), guindaste provisório com seu
  * controller, anel de raio e carga no gancho. Separada de `mountCraneScene` para poder ser testada
  * sem WebGL. O modelo 3D entra depois, por `upgradeCraneModel` (carregamento assíncrono).
  *
