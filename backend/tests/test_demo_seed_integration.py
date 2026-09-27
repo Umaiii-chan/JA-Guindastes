@@ -15,7 +15,15 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.use_cases.evaluate_operation import EvaluateOperation
-from app.demo_seed import DemoSeedIds, SeedAction, build_demo_crane_geometry, seed_demo
+from app.demo_seed import (
+    DEMO_FRONT_ZONE,
+    DEMO_SIDE_REAR_ZONE,
+    DemoSeedIds,
+    SeedAction,
+    build_demo_crane_geometry,
+    build_demo_rotation_zones,
+    seed_demo,
+)
 from app.domain.entities.load_chart import LoadChartStatus
 from app.domain.services.conservative_tabulated_lookup import ConservativeTabulatedLookup
 from app.domain.value_objects.mass import Mass
@@ -37,7 +45,6 @@ from tests.infrastructure.database.postgres_integration_support import (
 from tests.test_demo_seed import (
     CABO_M,
     CARGA_FICTICIA_KG,
-    GIRO_DEG,
     ROTEIRO_FICTICIO,
     CenarioFicticio,
     assert_cenario,
@@ -64,6 +71,7 @@ def ids() -> DemoSeedIds:
         crane_id=f"demo-ficticio-guindaste-{suffix}",
         configuration_id=f"demo-ficticio-configuracao-{suffix}",
         load_chart_id=f"demo-ficticio-tabela-v1-{suffix}",
+        side_rear_load_chart_id=f"demo-ficticio-tabela-lateral-traseira-v1-{suffix}",
     )
 
 
@@ -92,11 +100,15 @@ def test_seed_e_idempotente_no_postgres(
         SeedAction.CREATED,
         SeedAction.CREATED,
         SeedAction.ACTIVATED,
+        SeedAction.CREATED,
+        SeedAction.ACTIVATED,
     ]
     assert second == [
         SeedAction.ALREADY_EXISTS,
         SeedAction.ALREADY_EXISTS,
         SeedAction.ALREADY_EXISTS,
+        SeedAction.ALREADY_EXISTS,
+        SeedAction.ALREADY_ACTIVE,
         SeedAction.ALREADY_EXISTS,
         SeedAction.ALREADY_ACTIVE,
     ]
@@ -105,11 +117,18 @@ def test_seed_e_idempotente_no_postgres(
     configurations = catalog.list_configurations(ids.crane_id)
     assert [configuration.id for configuration in configurations] == [ids.configuration_id]
     assert configurations[0].geometry == build_demo_crane_geometry()
-    stored = SqlAlchemyLoadChartRepository(session_factory).get_by_id(ids.load_chart_id)
-    assert stored is not None
-    assert stored.chart.status is LoadChartStatus.ACTIVE
-    assert stored.source.uri is not None
-    assert len(list(tmp_path.iterdir())) == 1
+    assert configurations[0].rotation_zones == build_demo_rotation_zones()
+    charts = SqlAlchemyLoadChartRepository(session_factory)
+    for chart_id, zone in (
+        (ids.load_chart_id, DEMO_FRONT_ZONE),
+        (ids.side_rear_load_chart_id, DEMO_SIDE_REAR_ZONE),
+    ):
+        stored = charts.get_by_id(chart_id)
+        assert stored is not None
+        assert stored.chart.status is LoadChartStatus.ACTIVE
+        assert stored.chart.rotation_zone_code == zone
+        assert stored.source.uri is not None
+    assert len(list(tmp_path.iterdir())) == 2
 
 
 @pytest.mark.parametrize("cenario", ROTEIRO_FICTICIO, ids=lambda cenario: cenario.nome)
@@ -120,10 +139,12 @@ def test_valores_do_roteiro_com_os_repositorios_reais(
     cenario: CenarioFicticio,
 ) -> None:
     run_seed(session_factory, tmp_path, ids)
+    catalog = SqlAlchemyCraneCatalogRepository(session_factory)
     use_case = EvaluateOperation(
-        crane_geometry_provider=SqlAlchemyCraneCatalogRepository(session_factory),
+        crane_geometry_provider=catalog,
         active_load_chart_provider=SqlAlchemyLoadChartRepository(session_factory),
         load_chart_interpolator=ConservativeTabulatedLookup(),
+        configuration_load_rules_provider=catalog,
     )
 
     result = use_case.execute(
@@ -131,7 +152,7 @@ def test_valores_do_roteiro_com_os_repositorios_reais(
         state=state_ficticio(
             boom_length_m=cenario.boom_length_m,
             boom_angle_deg=cenario.boom_angle_deg,
-            turret_rotation_deg=GIRO_DEG,
+            turret_rotation_deg=cenario.turret_rotation_deg,
             cable_length_m=CABO_M,
         ),
         load_weight=Mass(CARGA_FICTICIA_KG),

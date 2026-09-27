@@ -2,9 +2,11 @@
 
 Confere a idempotência, as mensagens e os valores esperados do roteiro (`docs/demo.md`): cada
 cenário de `ROTEIRO_FICTICIO` roda o `EvaluateOperation` real (consulta conservadora provisória,
-ADR-015) sobre o que o seed gravou. Todos os dados são FICTÍCIOS (ADR-012).
+ADR-015) sobre o que o seed gravou, com as zonas de giro e o gancho FICTÍCIOS (TASK-046). Todos os
+dados são FICTÍCIOS (ADR-012).
 """
 
+import dataclasses
 import io
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,26 +19,36 @@ from app.application.use_cases.evaluate_operation import (
     EvaluateOperation,
     NotEvaluableOperation,
 )
-from app.application.use_cases.import_load_chart import ImportedLoadChart, ImportLoadChart
+from app.application.use_cases.import_load_chart import (
+    ImportedLoadChart,
+    ImportLoadChart,
+    RotationZoneRequiredError,
+)
 from app.application.use_cases.validate_load_chart_import import InvalidLoadChartImport
 from app.demo_seed import (
     DEMO_CONFIGURATION_NAME,
     DEMO_CRANE_MODEL_NAME,
+    DEMO_FRONT_ZONE,
+    DEMO_HOOK_BLOCK_WEIGHT_KG,
     DEMO_LOAD_CHART_FILE,
+    DEMO_LOAD_CHART_SIDE_REAR_FILE,
+    DEMO_LOAD_CHART_SIDE_REAR_VERSION,
     DEMO_LOAD_CHART_V2_FILE,
     DEMO_LOAD_CHART_VERSION,
     DEMO_LOAD_CHART_WITH_ERRORS_FILE,
     DEMO_MANUFACTURER_NAME,
     DEMO_SEED_IDS,
+    DEMO_SIDE_REAR_ZONE,
     EXIT_CONFIGURATION_ERROR,
     DemoSeedError,
     DemoSeedResult,
     SeedAction,
     build_demo_crane_geometry,
+    build_demo_rotation_zones,
     main,
     seed_demo,
 )
-from app.domain.entities.load_chart import LoadChart, LoadChartStatus
+from app.domain.entities.load_chart import LoadChartStatus
 from app.domain.services.conservative_tabulated_lookup import ConservativeTabulatedLookup
 from app.domain.value_objects.crane_geometry import CraneGeometry
 from app.domain.value_objects.mass import Mass
@@ -48,6 +60,8 @@ from tests.fixtures.load_chart_persistence_fakes import InMemoryFileStorage, InM
 # --- Roteiro FICTÍCIO (docs/demo.md § 5): estado dos sliders, carga e resultado esperado ---
 
 CARGA_FICTICIA_KG = 3000.0
+GANCHO_FICTICIO_KG = 200.0
+PESO_COMPARADO_KG = CARGA_FICTICIA_KG + GANCHO_FICTICIO_KG
 GIRO_DEG = 0.0
 CABO_M = 5.0
 
@@ -62,22 +76,49 @@ class CenarioFicticio:
     used_point: tuple[float, float] | None = None
     utilization_percent: float | None = None
     reasons: tuple[str, ...] = ()
+    turret_rotation_deg: float = GIRO_DEG
+    zone: str = DEMO_FRONT_ZONE
 
 
 ROTEIRO_FICTICIO = (
-    CenarioFicticio("A: pose inicial", 12.0, 35.0, 8.27, 4200.0, (12.0, 10.0), 71.43),
-    CenarioFicticio("B: lança mais alta", 12.0, 60.0, 4.44, 7000.0, (12.0, 6.0), 42.86),
-    CenarioFicticio("C: lança estendida", 22.0, 35.0, 16.46, 1500.0, (22.0, 18.0), 200.00),
+    CenarioFicticio("A: pose inicial", 12.0, 35.0, 8.27, 4200.0, (12.0, 10.0), 76.19),
+    CenarioFicticio("B: lança mais alta", 12.0, 60.0, 4.44, 7000.0, (12.0, 6.0), 45.71),
+    CenarioFicticio("C: lança estendida", 22.0, 35.0, 16.46, 1500.0, (22.0, 18.0), 213.33),
     CenarioFicticio(
         "D: lança fora da tabela", 17.5, 35.0, 12.78, reasons=("BOOM_LENGTH_NOT_IN_CHART",)
     ),
     CenarioFicticio(
         "E: raio abaixo da tabela", 12.0, 80.0, 0.52, reasons=("RADIUS_BELOW_CHART_MIN",)
     ),
+    CenarioFicticio(
+        "F: giro para trás",
+        12.0,
+        35.0,
+        8.27,
+        3360.0,
+        (12.0, 10.0),
+        95.24,
+        turret_rotation_deg=180.0,
+        zone=DEMO_SIDE_REAR_ZONE,
+    ),
+    CenarioFicticio(
+        "G: giro na fronteira",
+        12.0,
+        35.0,
+        8.27,
+        3360.0,
+        (12.0, 10.0),
+        95.24,
+        turret_rotation_deg=55.0,
+        zone=DEMO_SIDE_REAR_ZONE,
+    ),
 )
-"""Valores arredondados a 2 casas, como em `docs/demo.md`; a tabela ativa é a v1."""
+"""Valores arredondados a 2 casas, como em `docs/demo.md`: carga FICTÍCIA de 3 000 kg + gancho
+FICTÍCIO de 200 kg = 3 200 kg comparados; ativas a v1 (frontal) e a lateral/traseira v1."""
 
-CENARIO_A_COM_V2 = CenarioFicticio("A com a v2", 12.0, 35.0, 8.27, 3780.0, (12.0, 10.0), 79.37)
+CENARIO_A_COM_V2 = CenarioFicticio("A com a v2", 12.0, 35.0, 8.27, 3780.0, (12.0, 10.0), 84.66)
+CENARIO_F_COM_V2 = ROTEIRO_FICTICIO[5]
+"""Com a v2 ativa na zona frontal, a zona lateral/traseira não muda (troca por zona)."""
 
 ERROS_ESPERADOS = (
     ("CONFLICTING_POINTS", 2, None),
@@ -89,42 +130,21 @@ ERROS_ESPERADOS = (
 """Relatório de `tabela_carga_ficticia_demo_com_erros.csv` (código, linha, coluna), na ordem."""
 
 
-class DemoProviders:
-    """Adapta os fakes às portas da avaliação (ficha técnica e tabela ativa)."""
-
-    def __init__(self, catalog: InMemoryCraneCatalog, charts: InMemoryLoadChartStore) -> None:
-        self._catalog = catalog
-        self._charts = charts
-
-    def get_crane_geometry(self, configuration_id: str) -> CraneGeometry | None:
-        configuration = self._catalog.get_configuration(configuration_id)
-        return None if configuration is None else configuration.geometry
-
-    def get_active_load_chart(self, configuration_id: str) -> LoadChart | None:
-        for stored in self._charts.charts.values():
-            chart = stored.chart
-            if (
-                chart.configuration_id == configuration_id
-                and chart.status is LoadChartStatus.ACTIVE
-            ):
-                return chart
-        return None
-
-
 def evaluate(
-    providers: DemoProviders, cenario: CenarioFicticio
+    catalog: InMemoryCraneCatalog, charts: InMemoryLoadChartStore, cenario: CenarioFicticio
 ) -> EvaluatedOperation | NotEvaluableOperation:
     use_case = EvaluateOperation(
-        crane_geometry_provider=providers,
-        active_load_chart_provider=providers,
+        crane_geometry_provider=catalog,
+        active_load_chart_provider=charts,
         load_chart_interpolator=ConservativeTabulatedLookup(),
+        configuration_load_rules_provider=catalog,
     )
     return use_case.execute(
         configuration_id=DEMO_SEED_IDS.configuration_id,
         state=state_ficticio(
             boom_length_m=cenario.boom_length_m,
             boom_angle_deg=cenario.boom_angle_deg,
-            turret_rotation_deg=GIRO_DEG,
+            turret_rotation_deg=cenario.turret_rotation_deg,
             cable_length_m=CABO_M,
         ),
         load_weight=Mass(CARGA_FICTICIA_KG),
@@ -138,6 +158,9 @@ def assert_cenario(
     assert result.geometry.working_radius.meters == pytest.approx(
         cenario.working_radius_m, abs=0.005
     )
+    assert result.rotation_zone is not None and result.rotation_zone.code == cenario.zone
+    assert result.hook_block_weight == Mass(GANCHO_FICTICIO_KG)
+    assert result.compared_weight == Mass(PESO_COMPARADO_KG)
     if cenario.reasons:
         assert isinstance(result, NotEvaluableOperation)
         assert tuple(str(reason) for reason in result.reasons) == cenario.reasons
@@ -158,9 +181,8 @@ class Demo:
     def seed(self) -> DemoSeedResult:
         return seed_demo(self.catalog, self.charts, self.charts, self.storage)
 
-    @property
-    def providers(self) -> DemoProviders:
-        return DemoProviders(self.catalog, self.charts)
+    def evaluate(self, cenario: CenarioFicticio) -> EvaluatedOperation | NotEvaluableOperation:
+        return evaluate(self.catalog, self.charts, cenario)
 
 
 @pytest.fixture
@@ -171,12 +193,14 @@ def demo() -> Demo:
 def test_primeira_execucao_cria_catalogo_e_ativa_tabela_ficticia(demo: Demo) -> None:
     result = demo.seed()
 
-    assert [(step.entity, step.action) for step in result.steps] == [
-        ("fabricante", SeedAction.CREATED),
-        ("guindaste", SeedAction.CREATED),
-        ("configuração", SeedAction.CREATED),
-        ("tabela de carga", SeedAction.CREATED),
-        ("tabela de carga", SeedAction.ACTIVATED),
+    assert [(step.entity, step.entry_id, step.action) for step in result.steps] == [
+        ("fabricante", DEMO_SEED_IDS.manufacturer_id, SeedAction.CREATED),
+        ("guindaste", DEMO_SEED_IDS.crane_id, SeedAction.CREATED),
+        ("configuração", DEMO_SEED_IDS.configuration_id, SeedAction.CREATED),
+        ("tabela de carga", DEMO_SEED_IDS.load_chart_id, SeedAction.CREATED),
+        ("tabela de carga", DEMO_SEED_IDS.load_chart_id, SeedAction.ACTIVATED),
+        ("tabela de carga", DEMO_SEED_IDS.side_rear_load_chart_id, SeedAction.CREATED),
+        ("tabela de carga", DEMO_SEED_IDS.side_rear_load_chart_id, SeedAction.ACTIVATED),
     ]
     assert result.changed
     assert demo.catalog.manufacturers[DEMO_SEED_IDS.manufacturer_id].name == DEMO_MANUFACTURER_NAME
@@ -184,13 +208,47 @@ def test_primeira_execucao_cria_catalogo_e_ativa_tabela_ficticia(demo: Demo) -> 
     configuration = demo.catalog.configurations[DEMO_SEED_IDS.configuration_id]
     assert configuration.name == DEMO_CONFIGURATION_NAME
     assert configuration.geometry == build_demo_crane_geometry()
+    assert configuration.rotation_zones == build_demo_rotation_zones()
+    assert configuration.hook_block_weight == Mass(DEMO_HOOK_BLOCK_WEIGHT_KG)
     stored = demo.charts.charts[DEMO_SEED_IDS.load_chart_id]
     assert stored.chart.status is LoadChartStatus.ACTIVE
     assert stored.chart.version == DEMO_LOAD_CHART_VERSION
+    assert stored.chart.rotation_zone_code == DEMO_FRONT_ZONE
     assert len(stored.chart.points) == 27
     assert stored.source.file_name == DEMO_LOAD_CHART_FILE.name
     assert stored.source.file_type == "text/csv"
-    assert demo.storage.saves == 1
+    side = demo.charts.charts[DEMO_SEED_IDS.side_rear_load_chart_id]
+    assert side.chart.status is LoadChartStatus.ACTIVE
+    assert side.chart.version == DEMO_LOAD_CHART_SIDE_REAR_VERSION
+    assert side.chart.rotation_zone_code == DEMO_SIDE_REAR_ZONE
+    assert side.source.file_name == DEMO_LOAD_CHART_SIDE_REAR_FILE.name
+    assert demo.storage.saves == 2
+
+
+def test_zonas_e_gancho_ficticios_da_demonstracao() -> None:
+    zones = build_demo_rotation_zones()
+
+    assert [(zone.code, zone.start_deg, zone.end_deg) for zone in zones.zones] == [
+        (DEMO_FRONT_ZONE, 305.0, 55.0),
+        (DEMO_SIDE_REAR_ZONE, 55.0, 305.0),
+    ]
+    assert [zone.span_deg for zone in zones.zones] == pytest.approx([110.0, 250.0])
+    assert all("FICTÍCIA" in zone.name for zone in zones.zones)
+    assert DEMO_HOOK_BLOCK_WEIGHT_KG == GANCHO_FICTICIO_KG
+
+
+def test_tabela_lateral_traseira_e_a_v1_vezes_0_8() -> None:
+    parser = CsvLoadChartParser()
+    front = parser.parse(DEMO_LOAD_CHART_FILE.read_bytes()).points
+    side = parser.parse(DEMO_LOAD_CHART_SIDE_REAR_FILE.read_bytes()).points
+
+    assert [(p.point.boom_length, p.point.working_radius) for p in side] == [
+        (p.point.boom_length, p.point.working_radius) for p in front
+    ]
+    for front_point, side_point in zip(front, side, strict=True):
+        assert side_point.point.max_capacity.kilograms == pytest.approx(
+            front_point.point.max_capacity.kilograms * 0.8
+        )
 
 
 def test_segunda_execucao_nao_duplica_nem_altera(demo: Demo) -> None:
@@ -205,23 +263,25 @@ def test_segunda_execucao_nao_duplica_nem_altera(demo: Demo) -> None:
         SeedAction.ALREADY_EXISTS,
         SeedAction.ALREADY_EXISTS,
         SeedAction.ALREADY_ACTIVE,
+        SeedAction.ALREADY_EXISTS,
+        SeedAction.ALREADY_ACTIVE,
     ]
     assert not result.changed
     assert len(demo.catalog.manufacturers) == 1
     assert len(demo.catalog.cranes) == 1
     assert len(demo.catalog.configurations) == 1
     assert demo.charts.charts == charts_before
-    assert demo.storage.saves == 1
+    assert demo.storage.saves == 2
 
 
 def test_tabela_em_draft_de_execucao_interrompida_e_ativada(demo: Demo) -> None:
     demo.seed()
-    demo.charts._set(DEMO_SEED_IDS.load_chart_id, LoadChartStatus.DRAFT)
+    demo.charts._set(DEMO_SEED_IDS.side_rear_load_chart_id, LoadChartStatus.DRAFT)
 
     result = demo.seed()
 
     assert result.steps[-1].action is SeedAction.ACTIVATED
-    assert demo.charts.status_of(DEMO_SEED_IDS.load_chart_id) is LoadChartStatus.ACTIVE
+    assert demo.charts.status_of(DEMO_SEED_IDS.side_rear_load_chart_id) is LoadChartStatus.ACTIVE
 
 
 def test_tabela_substituida_pela_v2_nao_e_reativada(demo: Demo) -> None:
@@ -230,9 +290,22 @@ def test_tabela_substituida_pela_v2_nao_e_reativada(demo: Demo) -> None:
 
     result = demo.seed()
 
-    assert result.steps[-1].action is SeedAction.SUPERSEDED_KEPT
+    assert result.steps[4].action is SeedAction.SUPERSEDED_KEPT
+    assert result.steps[-1].action is SeedAction.ALREADY_ACTIVE
     assert not result.changed
     assert demo.charts.status_of(DEMO_SEED_IDS.load_chart_id) is LoadChartStatus.SUPERSEDED
+    assert demo.charts.status_of(DEMO_SEED_IDS.side_rear_load_chart_id) is LoadChartStatus.ACTIVE
+
+
+def test_configuracao_semeada_antes_das_zonas_nao_e_sobrescrita(demo: Demo) -> None:
+    demo.seed()
+    configuration = demo.catalog.configurations[DEMO_SEED_IDS.configuration_id]
+    demo.catalog.configurations[configuration.id] = dataclasses.replace(
+        configuration, rotation_zones=None, hook_block_weight=None
+    )
+
+    with pytest.raises(DemoSeedError, match="TASK-046"):
+        demo.seed()
 
 
 def test_configuracao_existente_com_outra_ficha_nao_e_sobrescrita(demo: Demo) -> None:
@@ -247,11 +320,8 @@ def test_configuracao_existente_com_outra_ficha_nao_e_sobrescrita(demo: Demo) ->
         boom_angle_max=configuration.geometry.boom_angle_max,  # type: ignore[union-attr]
         cable_length_min=configuration.geometry.cable_length_min,  # type: ignore[union-attr]
     )
-    demo.catalog.configurations[configuration.id] = type(configuration)(
-        id=configuration.id,
-        crane_id=configuration.crane_id,
-        name=configuration.name,
-        geometry=other,
+    demo.catalog.configurations[configuration.id] = dataclasses.replace(
+        configuration, geometry=other
     )
 
     with pytest.raises(DemoSeedError, match="não sobrescreve"):
@@ -284,11 +354,11 @@ def test_ficha_ficticia_bate_com_o_modelo_3d_ilustrativo() -> None:
 def test_valores_esperados_do_roteiro(demo: Demo, cenario: CenarioFicticio) -> None:
     demo.seed()
 
-    assert_cenario(evaluate(demo.providers, cenario), cenario)
+    assert_cenario(demo.evaluate(cenario), cenario)
 
 
 def importar_e_ativar_v2(demo: Demo) -> None:
-    result = ImportLoadChart(demo.charts, demo.storage).execute(
+    result = ImportLoadChart(demo.charts, demo.storage, demo.catalog).execute(
         DEMO_LOAD_CHART_V2_FILE.read_bytes(),
         parser=CsvLoadChartParser(),
         file_name=DEMO_LOAD_CHART_V2_FILE.name,
@@ -296,23 +366,40 @@ def importar_e_ativar_v2(demo: Demo) -> None:
         load_chart_id="demo-ficticio-tabela-v2",
         version="demo-ficticia-v2",
         configuration_id=DEMO_SEED_IDS.configuration_id,
+        rotation_zone_code=DEMO_FRONT_ZONE,
     )
     assert isinstance(result, ImportedLoadChart)
     activation = ActivateLoadChart(demo.charts, demo.charts).execute("demo-ficticio-tabela-v2")
     assert activation.superseded_load_chart_id == DEMO_SEED_IDS.load_chart_id
 
 
-def test_roteiro_ativar_v2_muda_a_capacidade(demo: Demo) -> None:
+def test_roteiro_ativar_v2_muda_a_capacidade_so_na_zona_frontal(demo: Demo) -> None:
     demo.seed()
     importar_e_ativar_v2(demo)
 
-    assert_cenario(evaluate(demo.providers, CENARIO_A_COM_V2), CENARIO_A_COM_V2)
+    assert_cenario(demo.evaluate(CENARIO_A_COM_V2), CENARIO_A_COM_V2)
+    assert_cenario(demo.evaluate(CENARIO_F_COM_V2), CENARIO_F_COM_V2)
+
+
+def test_roteiro_importar_sem_zona_e_recusado(demo: Demo) -> None:
+    demo.seed()
+
+    with pytest.raises(RotationZoneRequiredError):
+        ImportLoadChart(demo.charts, demo.storage, demo.catalog).execute(
+            DEMO_LOAD_CHART_V2_FILE.read_bytes(),
+            parser=CsvLoadChartParser(),
+            file_name=DEMO_LOAD_CHART_V2_FILE.name,
+            file_type="text/csv",
+            load_chart_id="demo-ficticio-tabela-v2",
+            version="demo-ficticia-v2",
+            configuration_id=DEMO_SEED_IDS.configuration_id,
+        )
 
 
 def test_roteiro_tabela_com_erros_gera_relatorio(demo: Demo) -> None:
     demo.seed()
 
-    result = ImportLoadChart(demo.charts, demo.storage).execute(
+    result = ImportLoadChart(demo.charts, demo.storage, demo.catalog).execute(
         DEMO_LOAD_CHART_WITH_ERRORS_FILE.read_bytes(),
         parser=CsvLoadChartParser(),
         file_name=DEMO_LOAD_CHART_WITH_ERRORS_FILE.name,
@@ -320,6 +407,7 @@ def test_roteiro_tabela_com_erros_gera_relatorio(demo: Demo) -> None:
         load_chart_id="demo-ficticio-tabela-com-erros",
         version="demo-ficticia-com-erros",
         configuration_id=DEMO_SEED_IDS.configuration_id,
+        rotation_zone_code=DEMO_FRONT_ZONE,
     )
 
     assert isinstance(result, InvalidLoadChartImport)
@@ -329,7 +417,12 @@ def test_roteiro_tabela_com_erros_gera_relatorio(demo: Demo) -> None:
 
 
 def test_arquivos_de_demonstracao_sao_rotulados_ficticios() -> None:
-    for path in (DEMO_LOAD_CHART_FILE, DEMO_LOAD_CHART_V2_FILE, DEMO_LOAD_CHART_WITH_ERRORS_FILE):
+    for path in (
+        DEMO_LOAD_CHART_FILE,
+        DEMO_LOAD_CHART_SIDE_REAR_FILE,
+        DEMO_LOAD_CHART_V2_FILE,
+        DEMO_LOAD_CHART_WITH_ERRORS_FILE,
+    ):
         assert "ficticia" in path.name
     readme = (DEMO_LOAD_CHART_FILE.parent / "README.md").read_text(encoding="utf-8")
     assert "FICTÍCIO" in readme
