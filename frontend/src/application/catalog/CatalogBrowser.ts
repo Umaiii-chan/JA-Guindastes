@@ -13,7 +13,7 @@ import {
   type CraneTechnicalSheet,
   type Manufacturer,
 } from '../../domain/catalog/catalog'
-import type { CatalogGateway } from './ports'
+import type { CatalogGateway, ConfigurationChanges } from './ports'
 
 export type CatalogListStatus = 'idle' | 'loading' | 'loaded' | 'error'
 
@@ -146,6 +146,47 @@ export class CatalogBrowser {
         if (this.state.selectedCraneId !== craneId) return
         await this.loadList('configurations', () => this.gateway.listConfigurations(craneId), true)
         if (this.state.selectedCraneId === craneId) this.selectConfiguration(created.id)
+      },
+    )
+  }
+
+  /** Renomeia o fabricante (TASK-044) e recarrega a lista, mantendo a seleção. */
+  updateManufacturer(
+    manufacturerId: string,
+    name: string,
+  ): Promise<CatalogMutationResult<Manufacturer>> {
+    return this.mutate(
+      () => this.gateway.updateManufacturer(manufacturerId, name),
+      () => this.loadManufacturers(),
+    )
+  }
+
+  /** Renomeia o guindaste (TASK-044); recarrega os guindastes se o fabricante dele está escolhido. */
+  updateCrane(craneId: string, modelName: string): Promise<CatalogMutationResult<Crane>> {
+    return this.mutate(
+      () => this.gateway.updateCrane(craneId, modelName),
+      async (updated) => {
+        const manufacturerId = updated.manufacturerId
+        if (this.state.selectedManufacturerId !== manufacturerId) return
+        await this.loadList('cranes', () => this.gateway.listCranes(manufacturerId), true)
+      },
+    )
+  }
+
+  /**
+   * Altera o nome e/ou a ficha da configuração (TASK-044). A ficha nova vale para as próximas
+   * avaliações; recarrega as configurações se o guindaste dela está escolhido.
+   */
+  updateConfiguration(
+    configurationId: string,
+    changes: ConfigurationChanges,
+  ): Promise<CatalogMutationResult<CraneConfiguration>> {
+    return this.mutate(
+      () => this.gateway.updateConfiguration(configurationId, changes),
+      async (updated) => {
+        const craneId = updated.craneId
+        if (this.state.selectedCraneId !== craneId) return
+        await this.loadList('configurations', () => this.gateway.listConfigurations(craneId), true)
       },
     )
   }

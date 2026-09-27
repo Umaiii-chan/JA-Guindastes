@@ -213,6 +213,82 @@ describe('cliente REST do catálogo — cadastros', () => {
     expect(error.fieldErrors).toEqual([])
   })
 
+  it('PATCH (TASK-044): envia só os campos que mudam, com o cabeçalho CSRF', async () => {
+    const fetchFn = createFakeCatalogFetch(catalogFicticio())
+    const client = createCatalogRestClient({ fetchFn })
+
+    const manufacturer = await client.updateManufacturer('FAB-A', 'Fabricante FICTÍCIO A+')
+    const crane = await client.updateCrane('GUI-A1', 'Modelo FICTÍCIO A1+')
+    const renamed = await client.updateConfiguration('CFG-A1-FICHA', { name: 'Config renomeada' })
+    // CFG/1 não existe no falso: confere a URL codificada e o 404 como NOT_FOUND.
+    const missing = await rejection(
+      client.updateConfiguration('CFG/1', { geometry: SHEET_MINIMA_FICTICIA }),
+    )
+
+    const patches = fetchFn.mock.calls.map(([url, init]) => ({
+      url: String(url),
+      method: init?.method,
+      csrf: new Headers(init?.headers).get('X-Requested-With'),
+      body: JSON.parse(String(init?.body)) as unknown,
+    }))
+    expect(patches[0]).toEqual({
+      url: '/api/v1/manufacturers/FAB-A',
+      method: 'PATCH',
+      csrf: 'crane-simulator',
+      body: { name: 'Fabricante FICTÍCIO A+' },
+    })
+    expect(patches[1]).toMatchObject({
+      url: '/api/v1/cranes/GUI-A1',
+      method: 'PATCH',
+      body: { model_name: 'Modelo FICTÍCIO A1+' },
+    })
+    expect(patches[2]).toMatchObject({
+      url: '/api/v1/configurations/CFG-A1-FICHA',
+      body: { name: 'Config renomeada' },
+    })
+    expect(patches[3].url).toBe('/api/v1/configurations/CFG%2F1')
+    expect(patches[3].body).toEqual({
+      geometry: {
+        ...GEOMETRY_DTO_FICTICIA,
+        cable_length_max_m: null,
+        turret_rotation_min_deg: null,
+        turret_rotation_max_deg: null,
+      },
+    })
+    expect(manufacturer).toEqual({ id: 'FAB-A', name: 'Fabricante FICTÍCIO A+' })
+    expect(crane).toEqual({
+      id: 'GUI-A1',
+      manufacturerId: 'FAB-A',
+      modelName: 'Modelo FICTÍCIO A1+',
+    })
+    expect(renamed).toEqual({
+      id: 'CFG-A1-FICHA',
+      craneId: 'GUI-A1',
+      name: 'Config renomeada',
+      geometry: SHEET_FICTICIA,
+    })
+    expect(missing.code).toBe('NOT_FOUND')
+  })
+
+  it.each([
+    [404, 'NOT_FOUND'],
+    [409, 'CONFLICT'],
+  ] as const)('PATCH: %i vira %s com o detail do backend', async (status, code) => {
+    const { client } = clientAnswering(jsonResponse({ detail: 'Detalhe FICTÍCIO' }, status))
+    const error = await rejection(client.updateConfiguration('CFG-X', { name: 'Outro' }))
+    expect(error.code).toBe(code)
+    expect(error.message).toBe('Detalhe FICTÍCIO')
+  })
+
+  it('PATCH: 422 do guindaste vira erro no campo modelName', async () => {
+    const fetchFn = createFakeCatalogFetch(catalogFicticio())
+    const error = await rejection(createCatalogRestClient({ fetchFn }).updateCrane('GUI-A1', ' '))
+    expect(error.code).toBe('VALIDATION')
+    expect(error.fieldErrors).toEqual([
+      { field: 'modelName', message: 'String should match pattern' },
+    ])
+  })
+
   it('outro HTTP vira HTTP_ERROR e falha de rede vira NETWORK_ERROR', async () => {
     const http = await rejection(
       clientAnswering(new Response('erro', { status: 500 })).client.listManufacturers(),
