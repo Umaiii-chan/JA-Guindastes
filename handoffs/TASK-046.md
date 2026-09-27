@@ -103,7 +103,12 @@ depois da limpeza de `_cleanup_index_expr`.
 3. **Nome da zona não pode ser só espaços** (além de 1–80 caracteres), como os outros nomes do
    catálogo.
 4. **Fronteira com uma zona sem tabela ativa ou fora da tabela → "não avaliável"** (lado seguro:
-   sem as duas capacidades não há "menor" confiável).
+   sem as duas capacidades não há "menor" confiável). **Confirmada** pela pessoa responsável em
+   2026-09-27 (§ 8, item 2).
+13. **Zonas em configuração com tabelas sem zona → 409 `ZONELESS_LOAD_CHARTS_EXIST`**, decisão da
+    pessoa responsável em 2026-09-27 (§ 8, item 1). A conferência fica no `ManageCraneCatalog`,
+    logo depois da de `ROTATION_ZONE_IN_USE`, e só vale quando a configuração ainda não tem zonas e
+    o PATCH traz uma lista não vazia.
 5. **Zona informada em `NOT_EVALUABLE`**: sem tabela ativa, a zona sem tabela; consulta fora da
    tabela, a zona da tabela consultada; sem geometria (ou fronteira sem consulta), a zona de ψ (na
    fronteira, a primeira na ordem declarada).
@@ -144,8 +149,8 @@ depois da limpeza de `_cleanup_index_expr`.
 
 | # | Pergunta | Bloqueia? | Resposta | Respondida em |
 |---|----------|-----------|----------|---------------|
-| 1 | Adicionar zonas a uma configuração que já tem tabelas **sem zona** deve ser recusado? Hoje é aceito e essas tabelas deixam de valer na avaliação (L-015 item 2) | não | | |
-| 2 | Na fronteira, se só uma das zonas cobre a consulta, "não avaliável" (hoje) ou usar a que cobre? | não | | |
+| 1 | Adicionar zonas a uma configuração que já tem tabelas **sem zona** deve ser recusado? Era aceito, e essas tabelas deixavam de valer na avaliação (L-015 item 2) | não | **Recusar com 409 `ZONELESS_LOAD_CHARTS_EXIST`**. O `detail` explica que há tabelas importadas sem zona e que é preciso criar outra configuração ou tratar essas tabelas antes. Vale no PATCH quando a configuração passa de "sem zonas" para "com zonas" e existe tabela com `rotation_zone_code` nulo; nada é gravado. Remover todas as zonas de uma configuração com tabelas com zona continua em `ROTATION_ZONE_IN_USE`. Implementado na branch `task/TASK-046-zonas-backend-2` | 2026-09-27 (pessoa responsável, em chat) |
+| 2 | Na fronteira, se só uma das zonas cobre a consulta, "não avaliável" (hoje) ou usar a que cobre? | não | **"Não avaliável"**, como já estava (lado seguro). Nenhuma mudança de código | 2026-09-27 (pessoa responsável, em chat) |
 | 3 | Registrar RN-009 e RN-010 em `docs/business-rules.md` e aceitar o ADR-018 | não | | |
 
 ## 9. ⚠️ Segurança
@@ -170,8 +175,9 @@ texto das rotas de catálogo e importação, mais `code`).
   campo.
 - Ordem das validações no PATCH: 422 padrão (tipos, campo desconhecido, gancho fora de 0–100 000,
   body vazio) → 422 `INVALID_ROTATION_ZONES` → 404 (configuração) → 409 `ROTATION_ZONE_IN_USE`
-  (remover ou renomear código com tabelas; nada é gravado). No POST: 422 padrão → 422
-  `INVALID_ROTATION_ZONES` → 404 (guindaste).
+  (remover ou renomear código com tabelas; nada é gravado) → 409 `ZONELESS_LOAD_CHARTS_EXIST`
+  (configuração sem zonas, com tabela de `rotation_zone_code` nulo, recebendo uma lista não vazia;
+  nada é gravado). No POST: 422 padrão → 422 `INVALID_ROTATION_ZONES` → 404 (guindaste).
 
 ### Importação
 
@@ -242,4 +248,33 @@ subprocesso; ele limpa no `finally`.
 
 ## Frontend
 
-<!-- Seção a preencher pelo agente do frontend (CA-4..CA-7 e a parte de frontend do CA-8). -->
+Resumo das notas do agente do frontend (CA-4..CA-7 e a parte de frontend do CA-8), integradas pela
+sessão principal em `f42f48c`.
+
+### O que foi feito
+
+- **Catálogo:** editor de zonas `RotationZonesEditor` (atalho "Frontal 110° + lateral e traseira
+  250°", edição manual, "Sem zonas", validação local e o diagrama `RotationZoneDiagram`) e campo de
+  peso do gancho. O detalhe da configuração mostra zona, setor e tabela ativa de cada zona. Mudar
+  zonas ou gancho com tabela ativa pede confirmação.
+- **Tabelas:** Select de zona na importação, zona de cada versão na linha do tempo, "Tabela ativa por
+  zona" e o Dialog de ativação comparando com a ativa **da mesma zona**.
+- **Códigos de erro:** lidos por `frontend/src/infrastructure/shared/apiErrorCode.ts`.
+- **HUD do simulador:** zona atual e "Carga + Gancho = Peso comparado".
+- **Cena:** `frontend/src/three/scene/RotationZoneSectors.ts`, com as props `rotationZones` e
+  `activeZoneCode`; a zona destacada vem de `frontend/src/app/sceneRotationZone.ts`.
+- **E2E:** `rotationZones.spec.ts`, com casos sem backend (passam) e com backend (rodam no CI).
+
+### Comandos executados e resultados
+
+| Comando | Resultado | Saída (resumo) |
+|---------|-----------|----------------|
+| testes do frontend | ✅ | 640 passaram, 1 pulado |
+| E2E sem backend | ✅ | 11 passaram, 11 pulados (os que precisam de backend) |
+
+### Pendências
+
+| # | Pergunta | Bloqueia? | Resposta | Respondida em |
+|---|----------|-----------|----------|---------------|
+| F-1 | Confirmar no CI (E2E com backend) que −180° no slider, com o seed, cai em `LATERAL_TRASEIRA` | não | | |
+| F-2 | Código novo `409 ZONELESS_LOAD_CHARTS_EXIST` (backend-2, depois de `f42f48c`). Verifiquei que `catalogRestClient.ts` já mostra o `detail` de qualquer 409 que não seja `ROTATION_ZONE_IN_USE`, então a mensagem do backend aparece. Uma mensagem própria no editor de zonas é opcional | não | | |

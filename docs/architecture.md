@@ -261,7 +261,7 @@ anterior da **mesma configuração e zona** para `SUPERSEDED` na mesma transaç�
 (`SELECT … FOR UPDATE`; interpretação a confirmar, TASK-031 § 8).
 
 Erros das zonas de giro (TASK-046): `{"detail": "<mensagem>", "code": "<CÓDIGO>"}`, com
-`422 INVALID_ROTATION_ZONES` e `409 ROTATION_ZONE_IN_USE` no catálogo e `422
+`422 INVALID_ROTATION_ZONES`, `409 ROTATION_ZONE_IN_USE` e `409 ZONELESS_LOAD_CHARTS_EXIST` no catálogo e `422
 ROTATION_ZONE_REQUIRED`, `UNKNOWN_ROTATION_ZONE` e `ROTATION_ZONE_NOT_ALLOWED` na importação.
 
 Rotas REST (prefixo `/api/v1`; perfis do ADR-016, que só valem com `DATABASE_URL`; "escrita" =
@@ -280,7 +280,7 @@ perfil `ADMIN` e cabeçalho `X-Requested-With: crane-simulator`):
 | `PATCH /cranes/{id}` `{model_name}` | escrita | TASK-044; o fabricante não muda |
 | `GET/POST /cranes/{id}/configurations` | leitura / escrita | TASK-030; TASK-046: `rotation_zones` e `hook_block_weight_kg` opcionais na criação e na resposta |
 | `GET /configurations/{id}` | leitura | TASK-030; com `rotation_zones` e `hook_block_weight_kg` (TASK-046) |
-| `PATCH /configurations/{id}` `{name?, geometry?, rotation_zones?, hook_block_weight_kg?}` | escrita | TASK-044/046; ao menos um campo; `name` e `geometry` sem `null`; a ficha substitui a inteira; `rotation_zones` substitui a lista (`[]`/`null` remove; zona com tabelas → 409 `ROTATION_ZONE_IN_USE`); `hook_block_weight_kg: null` apaga; sem mexer nas tabelas |
+| `PATCH /configurations/{id}` `{name?, geometry?, rotation_zones?, hook_block_weight_kg?}` | escrita | TASK-044/046; ao menos um campo; `name` e `geometry` sem `null`; a ficha substitui a inteira; `rotation_zones` substitui a lista (`[]`/`null` remove; zona com tabelas → 409 `ROTATION_ZONE_IN_USE`; zonas numa configuração com tabelas sem zona → 409 `ZONELESS_LOAD_CHARTS_EXIST`); `hook_block_weight_kg: null` apaga; sem mexer nas tabelas |
 | `GET /configurations/{id}/load-charts` | leitura | TASK-044/046; `{items, active_chart_id, active_charts}`, itens sem `points` e com `rotation_zone_code`, da maior versão para a menor (ordem natural; não há data de importação gravada); `active_charts` = uma ativa por zona; `active_chart_id` = a ativa sem zona; 404 se a configuração não existe |
 | `POST /load-charts/import` | escrita | TASK-031; exige `FILE_STORAGE_DIR`; campo `rotation_zone_code` (TASK-046) |
 | `GET /load-charts/{chart_id}` | leitura | TASK-031; exige `FILE_STORAGE_DIR`; com `rotation_zone_code` |

@@ -18,6 +18,8 @@ class RotationZoneErrorCode(StrEnum):
     sobreposição)."""
     ROTATION_ZONE_IN_USE = "ROTATION_ZONE_IN_USE"
     """409: a edição remove ou renomeia uma zona que já tem tabelas de carga."""
+    ZONELESS_LOAD_CHARTS_EXIST = "ZONELESS_LOAD_CHARTS_EXIST"
+    """409: a edição dá zonas a uma configuração sem zonas que já tem tabelas sem zona."""
     ROTATION_ZONE_REQUIRED = "ROTATION_ZONE_REQUIRED"
     """422: importação sem zona numa configuração com zonas."""
     UNKNOWN_ROTATION_ZONE = "UNKNOWN_ROTATION_ZONE"

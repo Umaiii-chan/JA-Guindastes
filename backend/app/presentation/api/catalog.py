@@ -11,7 +11,9 @@
   `hook_block_weight_kg`), com os mesmos schemas de resposta da criação;
 - zonas de giro e peso do gancho (TASK-046; ADR-018) na criação e na edição da configuração:
   zonas inválidas → 422 `{"detail", "code": "INVALID_ROTATION_ZONES"}`; remover ou renomear uma
-  zona que já tem tabelas → 409 `{"detail", "code": "ROTATION_ZONE_IN_USE"}`.
+  zona que já tem tabelas → 409 `{"detail", "code": "ROTATION_ZONE_IN_USE"}`; dar zonas a uma
+  configuração sem zonas que já tem tabelas sem zona → 409 `{"detail", "code":
+  "ZONELESS_LOAD_CHARTS_EXIST"}`.
 
 Códigos HTTP:
 - **201** ao criar (ids gerados pelo servidor, UUID em texto); **200** ao ler, listar e editar;
@@ -48,6 +50,7 @@ from app.application.use_cases.crane_catalog import (
     ManageCraneCatalog,
     RotationZoneInUseError,
     Unchanged,
+    ZonelessLoadChartsExistError,
     generate_uuid_id,
 )
 from app.domain.exceptions.domain_errors import InvalidRotationZonesError
@@ -107,6 +110,12 @@ _ZONE_IN_USE = rotation_zone_error_responses(
         RotationZoneErrorCode.ROTATION_ZONE_IN_USE,
         "a edição remove ou renomeia uma zona que já tem tabelas de carga.",
     ),
+    (
+        status.HTTP_409_CONFLICT,
+        RotationZoneErrorCode.ZONELESS_LOAD_CHARTS_EXIST,
+        "a edição dá zonas a uma configuração sem zonas que já tem tabelas sem zona; crie outra "
+        "configuração ou trate essas tabelas antes.",
+    ),
 )
 
 
@@ -121,6 +130,10 @@ def _call[T](action: Callable[[], T]) -> T:
     except RotationZoneInUseError as error:
         raise rotation_zone_error(
             status.HTTP_409_CONFLICT, RotationZoneErrorCode.ROTATION_ZONE_IN_USE, str(error)
+        ) from error
+    except ZonelessLoadChartsExistError as error:
+        raise rotation_zone_error(
+            status.HTTP_409_CONFLICT, RotationZoneErrorCode.ZONELESS_LOAD_CHARTS_EXIST, str(error)
         ) from error
 
 
@@ -280,7 +293,9 @@ def create_catalog_router(
             "inteira (RN-003). `rotation_zones` substitui a lista (`[]` ou `null` remove as zonas) "
             "e `hook_block_weight_kg: null` apaga o gancho (TASK-046). Ordem das validações: "
             "corpo (422 padrão) → zonas (422 `INVALID_ROTATION_ZONES`) → configuração (404) → "
-            "zonas em uso (409 `ROTATION_ZONE_IN_USE`). Os valores novos valem para as próximas "
+            "zonas em uso (409 `ROTATION_ZONE_IN_USE`) → tabelas sem zona numa configuração que "
+            "passa a ter zonas (409 `ZONELESS_LOAD_CHARTS_EXIST`). Os valores novos valem para "
+            "as próximas "
             "avaliações; as tabelas de carga não mudam."
         ),
         responses={**_NOT_FOUND, **_INVALID_ZONES, **_ZONE_IN_USE},

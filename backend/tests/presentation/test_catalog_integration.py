@@ -278,3 +278,19 @@ def test_zones_and_hook_block_round_trip_and_zone_in_use_is_protected(
         {"rotation_zone_code": ZONA_FRONTAL_FICTICIA, "chart_id": chart.id}
     ]
     assert listing["items"][0]["rotation_zone_code"] == ZONA_FRONTAL_FICTICIA
+
+
+def test_adding_zones_with_zoneless_charts_is_refused_through_the_database(
+    client: TestClient, charts: SqlAlchemyLoadChartRepository
+) -> None:
+    configuration_id = _configuration(client)["configuration_id"]
+    charts.save_draft(_chart("LC-FICTICIO-TASK046-SEM", "sem", configuration_id), SOURCE_FICTICIA)
+
+    response = client.patch(
+        f"{CONFIGURATIONS}/{configuration_id}", json={"rotation_zones": zonas_payload_ficticio()}
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["code"] == "ZONELESS_LOAD_CHARTS_EXIST"
+    stored = client.get(f"{CONFIGURATIONS}/{configuration_id}").json()
+    assert stored["rotation_zones"] is None

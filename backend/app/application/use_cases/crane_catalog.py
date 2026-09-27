@@ -18,8 +18,9 @@ Zonas de giro e peso do gancho (TASK-046; ADR-018): a configuração pode declar
 (`RotationZones`, validadas no domínio) e o peso do gancho, na criação e na edição. Na edição, as
 zonas informadas substituem a lista (`None` remove as zonas), e remover ou renomear o código de uma
 zona que já tem tabelas de carga é recusado (`RotationZoneInUseError`): as tabelas ficariam sem
-zona válida. Adicionar zonas a uma configuração que já tem tabelas sem zona é aceito; essas tabelas
-deixam de valer na avaliação, que passa a usar as tabelas de cada zona.
+zona válida. Adicionar zonas a uma configuração que já tem tabelas **sem zona** também é recusado
+(`ZonelessLoadChartsExistError`; decisão da pessoa responsável em 2026-09-27): essas tabelas
+deixariam de valer na avaliação sem ninguém perceber.
 
 Fora do escopo: excluir (TASK-030 e TASK-044); unicidade de nomes (não há regra; pendência 2 da
 TASK-022), então editar nunca conflita por nome; paginação.
@@ -85,6 +86,23 @@ class RotationZoneInUseError(Exception):
         )
 
 
+class ZonelessLoadChartsExistError(Exception):
+    """A edição daria zonas de giro a uma configuração que já tem tabelas sem zona (TASK-046).
+
+    Decisão da pessoa responsável (2026-09-27): recusar, em vez de deixar essas tabelas fora da
+    avaliação em silêncio.
+    """
+
+    def __init__(self, configuration_id: str, load_chart_ids: tuple[str, ...]) -> None:
+        self.configuration_id = configuration_id
+        self.load_chart_ids = load_chart_ids
+        super().__init__(
+            f"a configuração {configuration_id!r} tem tabelas de carga importadas sem zona de "
+            f"giro ({', '.join(load_chart_ids)}); para usar zonas, crie outra configuração ou "
+            "trate essas tabelas antes"
+        )
+
+
 class ManageCraneCatalog:
     """Cadastro e consulta do catálogo: fabricante → guindaste → configuração.
 
@@ -93,6 +111,8 @@ class ManageCraneCatalog:
       novo registro depende não existe;
     - `CatalogEntryAlreadyExistsError` (da porta): o repositório recusou um id repetido;
     - `RotationZoneInUseError`: a edição remove ou renomeia uma zona que já tem tabelas;
+    - `ZonelessLoadChartsExistError`: a edição dá zonas a uma configuração sem zonas que já tem
+      tabelas sem zona;
     - `ValueError` (dos registros da porta): nome vazio ou só com espaços; e, na edição da
       configuração, nenhum campo informado.
 
@@ -231,7 +251,7 @@ class ManageCraneCatalog:
             current.rotation_zones if isinstance(rotation_zones, Unchanged) else rotation_zones
         )
         if not isinstance(rotation_zones, Unchanged):
-            self._require_zones_in_use_kept(configuration_id, new_zones)
+            self._require_zones_in_use_kept(configuration_id, current.rotation_zones, new_zones)
         configuration = dataclasses.replace(
             current,
             name=current.name if name is None else name,
@@ -248,16 +268,22 @@ class ManageCraneCatalog:
         return configuration
 
     def _require_zones_in_use_kept(
-        self, configuration_id: str, zones: RotationZones | None
+        self,
+        configuration_id: str,
+        current_zones: RotationZones | None,
+        zones: RotationZones | None,
     ) -> None:
         if self._load_chart_listing is None:
             return
-        in_use = {
-            item.rotation_zone_code
-            for item in self._load_chart_listing.list_by_configuration(configuration_id)
-            if item.rotation_zone_code is not None
-        }
+        charts = self._load_chart_listing.list_by_configuration(configuration_id)
+        in_use = {item.rotation_zone_code for item in charts if item.rotation_zone_code is not None}
         kept = set() if zones is None else set(zones.codes)
         removed = tuple(sorted(in_use - kept))
         if removed:
             raise RotationZoneInUseError(configuration_id, removed)
+        if current_zones is None and zones is not None:
+            zoneless = tuple(
+                sorted(item.load_chart_id for item in charts if item.rotation_zone_code is None)
+            )
+            if zoneless:
+                raise ZonelessLoadChartsExistError(configuration_id, zoneless)
