@@ -82,11 +82,45 @@ export function parseCsvFicticio(text: string): { points: PointRow[]; issues: Is
   return issues.length > 0 ? { points: [], issues } : { points, issues: [] }
 }
 
-/** Cria o `fetch` falso das tabelas. `charts` pode vir preenchido (tabelas já gravadas). */
-export function createFakeLoadChartFetch(charts: ChartRow[] = []) {
+export interface FakeLoadChartOptions {
+  /**
+   * Configurações que existem: a listagem de outra responde 404. Sem a lista, toda configuração
+   * existe.
+   */
+  readonly configurationIds?: readonly string[]
+}
+
+/** Item da listagem por configuração: o `LoadChartResponse` sem `points` (TASK-044). */
+function summaryOf(chart: ChartRow) {
+  const { points, ...rest } = chart
+  return { ...rest, point_count: points.length }
+}
+
+/**
+ * Cria o `fetch` falso das tabelas. `charts` pode vir preenchido (tabelas já gravadas), da mais
+ * antiga para a mais recente: a listagem por configuração devolve na ordem inversa, como o backend
+ * (da importada mais recentemente para a mais antiga).
+ */
+export function createFakeLoadChartFetch(
+  charts: ChartRow[] = [],
+  options: FakeLoadChartOptions = {},
+) {
   return vi.fn<typeof fetch>(async (input, init) => {
     const path = new URL(String(input), 'http://localhost').pathname
     const method = init?.method ?? 'GET'
+
+    const list = /^\/api\/v1\/configurations\/([^/]+)\/load-charts$/.exec(path)
+    if (method === 'GET' && list) {
+      const configurationId = decodeURIComponent(list[1])
+      if (options.configurationIds && !options.configurationIds.includes(configurationId)) {
+        return jsonResponse({ detail: `Configuração ${configurationId} não encontrada.` }, 404)
+      }
+      const items = charts.filter((chart) => chart.configuration_id === configurationId).reverse()
+      return jsonResponse({
+        items: items.map(summaryOf),
+        active_chart_id: items.find((chart) => chart.status === 'ACTIVE')?.chart_id ?? null,
+      })
+    }
 
     if (method === 'POST' && (path.endsWith('/validate') || path.endsWith('/import'))) {
       const form = init?.body as FormData
@@ -169,7 +203,7 @@ export function createFakeLoadChartFetch(charts: ChartRow[] = []) {
 export function combineFetch(catalogFetch: typeof fetch, loadChartFetch: typeof fetch) {
   return vi.fn<typeof fetch>((input, init) => {
     const path = new URL(String(input), 'http://localhost').pathname
-    return path.startsWith('/api/v1/load-charts')
+    return path.startsWith('/api/v1/load-charts') || path.endsWith('/load-charts')
       ? loadChartFetch(input, init)
       : catalogFetch(input, init)
   })

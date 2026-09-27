@@ -291,3 +291,68 @@ describe('createLoadChartRestClient — consulta (TASK-042)', () => {
     expect(error.httpStatus).toBe(404)
   })
 })
+
+describe('createLoadChartRestClient — listagem por configuração (TASK-044)', () => {
+  const summary = {
+    configuration_id: IMPORTED_DRAFT.configuration_id,
+    point_count: IMPORTED_DRAFT.point_count,
+    source: IMPORTED_DRAFT.source,
+  }
+  const LISTING = {
+    items: [
+      { ...summary, chart_id: 'TAB-FICTICIA-2', version: 'v2', status: 'DRAFT' },
+      { ...summary, chart_id: 'TAB-FICTICIA-1', version: 'v1', status: 'ACTIVE' },
+    ],
+    active_chart_id: 'TAB-FICTICIA-1',
+  }
+
+  it('GET /configurations/{id}/load-charts com o id codificado → itens sem pontos e a ativa', async () => {
+    const { fetchFn, client } = clientAnswering(jsonResponse(LISTING, 200))
+
+    const result = await client.listConfigurationCharts('CFG/1')
+
+    expect(fetchFn.mock.calls[0][0]).toBe(
+      'http://backend/api/v1/configurations/CFG%2F1/load-charts',
+    )
+    expect(fetchFn.mock.calls[0][1]?.method).toBe('GET')
+    expect(result.activeChartId).toBe('TAB-FICTICIA-1')
+    expect(result.items).toEqual([
+      {
+        chartId: 'TAB-FICTICIA-2',
+        version: 'v2',
+        configurationId: 'CFG-FICTICIA',
+        status: 'DRAFT',
+        pointCount: 2,
+        sourceFileName: 'tabela-ficticia.csv',
+      },
+      expect.objectContaining({ chartId: 'TAB-FICTICIA-1', status: 'ACTIVE' }),
+    ])
+  })
+
+  it('sem tabelas → lista vazia e nenhuma ativa', async () => {
+    const { client } = clientAnswering(jsonResponse({ items: [], active_chart_id: null }, 200))
+    expect(await client.listConfigurationCharts('CFG-FICTICIA')).toEqual({
+      items: [],
+      activeChartId: null,
+    })
+  })
+
+  it('404 → CONFIGURATION_NOT_FOUND com o detalhe do backend', async () => {
+    const { client } = clientAnswering(jsonResponse({ detail: 'Configuração X não existe' }, 404))
+    const error = await rejection(client.listConfigurationCharts('CFG-X'))
+    expect(error.code).toBe(LOAD_CHART_CLIENT_ERROR_CODES.configurationNotFound)
+    expect(error.httpStatus).toBe(404)
+    expect(error.message).toContain('Configuração X não existe')
+  })
+
+  it('item sem point_count → INVALID_RESPONSE', async () => {
+    const withoutCount: Record<string, unknown> = { ...LISTING.items[0] }
+    delete withoutCount.point_count
+    const { client } = clientAnswering(
+      jsonResponse({ items: [withoutCount], active_chart_id: null }, 200),
+    )
+    const error = await rejection(client.listConfigurationCharts('CFG-FICTICIA'))
+    expect(error.code).toBe(LOAD_CHART_CLIENT_ERROR_CODES.invalidResponse)
+    expect(error.message).toContain('response.items[0]')
+  })
+})
