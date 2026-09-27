@@ -10,7 +10,7 @@
 | Nome do projeto | Simulador Web 3D para Análise de Tabelas de Carga de Guindastes |
 | Pessoa responsável | Anderson Sehnem |
 | Repositório | `Umaiii-chan/JA-Guindastes` (GitHub, privado) |
-| Última revisão deste documento | 2026-09-26 (TASK-037: stack e glossário) |
+| Última revisão deste documento | 2026-09-26 (TASK-045: perfis de acesso, stack e modelo 3D da leva D) |
 
 ---
 
@@ -45,6 +45,13 @@ Fonte: doc-fonte § 3.
 | Equipe técnica da empresa | Guindastes Ribas Ltda. | fornecer e validar dados oficiais, regras de uso e resultados do simulador |
 | Equipe de desenvolvimento | estudantes do curso | implementar, testar, documentar e manter a solução |
 | Professores / banca | avaliadores acadêmicos | avaliar requisitos, modelagem, arquitetura, MVP, testes e apresentação final |
+
+No sistema, os dois primeiros perfis viraram os perfis de acesso do login
+([ADR-016](decisions/ADR-016-autenticacao-e-perfis.md)): `OPERATOR` (consulta o catálogo e as
+tabelas, valida um arquivo sem gravar e avalia) e `ADMIN` (também cadastra, importa e ativa tabelas e
+gerencia usuários). Não há cadastro aberto: o primeiro admin é criado no servidor e os demais usuários
+por ele. O cadastro de modelos 3D pelo administrador ainda não existe (o modelo é um arquivo do
+repositório).
 
 ## 4. Principais funcionalidades *(obrigatório)*
 
@@ -107,7 +114,7 @@ Toolchain no [ADR-012](decisions/ADR-012-toolchain-de-desenvolvimento.md); vers�
 | Camada | Tecnologia | Versão |
 |--------|-----------|--------|
 | Linguagem | TypeScript (frontend); Python (backend) | TypeScript 6.0; Python 3.14 |
-| Framework | React + Three.js + Vite (frontend); FastAPI (backend) | React 19, Three.js 0.186, Vite 8; FastAPI 0.141 |
+| Framework | React + Three.js + Vite (frontend), com React Router, `lucide-react` e design system próprio em tema escuro ([ADR-017](decisions/ADR-017-navegacao-e-design-system-do-frontend.md)); FastAPI (backend), com login por sessão e Argon2id ([ADR-016](decisions/ADR-016-autenticacao-e-perfis.md)) | React 19, Three.js 0.186, Vite 8, React Router 8; FastAPI 0.141, `argon2-cffi` 25.1 |
 | Banco de dados | PostgreSQL, com SQLAlchemy 2 + psycopg 3 e Alembic | PostgreSQL 18 (imagem `postgres:18`, TASK-011) |
 | Infra / deploy | Docker Compose em desenvolvimento com `postgres`, `backend` e `frontend` (doc-fonte § 22; TASK-027); implantação fora do ambiente local: não definida (P-011) | Docker 29 / Compose v2+ ([`development-guide.md`](development-guide.md) § 1); implantação PENDENTE |
 
@@ -119,7 +126,7 @@ entradas externas são arquivos preparados e importados manualmente:
 | Sistema | Para quê | Tipo (API, fila, arquivo...) | Documentação |
 |---------|----------|------------------------------|--------------|
 | Tabelas de carga do fabricante (via Guindastes Ribas) | capacidade admissível por configuração | arquivo CSV/XLSX (original PDF/XLSX/CSV preservado) | doc-fonte § 13; formato real **PENDENTE** (PEND-008) |
-| Modelos 3D / CAD dos guindastes | visualização e cinemática | arquivo GLB/glTF preparado fora do runtime | doc-fonte § 12; disponibilidade **PENDENTE** (doc-fonte § 26, perguntas 2 e 3) |
+| Modelos 3D / CAD dos guindastes | visualização e cinemática | arquivo GLB/glTF preparado fora do runtime | doc-fonte § 12; modelo real da empresa **PENDENTE** (doc-fonte § 26, perguntas 2 e 3). Até lá, um modelo **ilustrativo** de guindaste sobre caminhão, convertido de um FBX comercial do CGTrader pelo script `frontend/scripts/convert-crane-model.mjs` (licença confirmada pela pessoa responsável; TASK-043) |
 
 ## 8. Restrições
 
