@@ -149,7 +149,18 @@ export function createFakeLoadChartFetch(
       const items = charts
         .filter((chart) => chart.configuration_id === configurationId)
         .sort(byVersionDesc)
-      const active = items.filter((chart) => chart.status === 'ACTIVE')
+      // Como o backend: a ativa sem zona primeiro, depois as zonas na ordem cadastrada (as fora do
+      // cadastro, no fim); zona sem ativa não aparece.
+      const zoneOrder = options.zonesByConfiguration?.[configurationId] ?? []
+      const rank = (chart: ChartRow) => {
+        const code = chart.rotation_zone_code ?? null
+        if (code === null) return -1
+        const index = zoneOrder.indexOf(code)
+        return index < 0 ? zoneOrder.length : index
+      }
+      const active = items
+        .filter((chart) => chart.status === 'ACTIVE')
+        .sort((a, b) => rank(a) - rank(b))
       return jsonResponse({
         items: items.map(summaryOf),
         active_chart_id:
@@ -170,6 +181,34 @@ export function createFakeLoadChartFetch(
         version: String(form.get('version')),
         configuration_id: String(form.get('configuration_id')),
       }
+      // Ordem do backend (TASK-046): 404 da configuração → erros da zona → relatório → 409.
+      const zone = form.get('rotation_zone_code')
+      // Vazio conta como ausente.
+      const zoneCode = typeof zone === 'string' && zone.trim() !== '' ? zone.trim() : null
+      if (path.endsWith('/import')) {
+        if (options.configurationIds && !options.configurationIds.includes(base.configuration_id)) {
+          return jsonResponse({ detail: `configuração ${base.configuration_id} não existe` }, 404)
+        }
+        const zones = options.zonesByConfiguration?.[base.configuration_id] ?? []
+        if (zones.length > 0 && zoneCode === null) {
+          return jsonResponse(
+            zoneImportErrorBody('ROTATION_ZONE_REQUIRED', 'a configuração tem zonas de giro'),
+            422,
+          )
+        }
+        if (zones.length > 0 && zoneCode !== null && !zones.includes(zoneCode)) {
+          return jsonResponse(
+            zoneImportErrorBody('UNKNOWN_ROTATION_ZONE', `a zona ${zoneCode} não existe`),
+            422,
+          )
+        }
+        if (zones.length === 0 && zoneCode !== null) {
+          return jsonResponse(
+            zoneImportErrorBody('ROTATION_ZONE_NOT_ALLOWED', 'a configuração não tem zonas'),
+            422,
+          )
+        }
+      }
       if (issues.length > 0) {
         return jsonResponse(
           { ...base, status: 'INVALID', point_count: 0, points: [], issues },
@@ -180,27 +219,6 @@ export function createFakeLoadChartFetch(
         return jsonResponse(
           { ...base, status: 'DRAFT', point_count: points.length, points, issues: [] },
           200,
-        )
-      }
-      const zone = form.get('rotation_zone_code')
-      const zoneCode = typeof zone === 'string' && zone !== '' ? zone : null
-      const zones = options.zonesByConfiguration?.[base.configuration_id] ?? []
-      if (zones.length > 0 && zoneCode === null) {
-        return jsonResponse(
-          zoneImportErrorBody('ROTATION_ZONE_REQUIRED', 'a configuração tem zonas de giro'),
-          422,
-        )
-      }
-      if (zones.length > 0 && zoneCode !== null && !zones.includes(zoneCode)) {
-        return jsonResponse(
-          zoneImportErrorBody('UNKNOWN_ROTATION_ZONE', `a zona ${zoneCode} não existe`),
-          422,
-        )
-      }
-      if (zones.length === 0 && zoneCode !== null) {
-        return jsonResponse(
-          zoneImportErrorBody('ROTATION_ZONE_NOT_ALLOWED', 'a configuração não tem zonas'),
-          422,
         )
       }
       if (

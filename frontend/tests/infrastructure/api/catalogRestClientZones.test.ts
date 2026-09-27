@@ -145,6 +145,36 @@ describe('cliente REST do catálogo — zonas de giro e gancho (TASK-046)', () =
     ])
   })
 
+  it('gancho fora da faixa: 422 padrão do FastAPI vai para o campo hookBlockWeightKg', async () => {
+    const fetchFn = createFakeCatalogFetch(catalogComZonasFicticio())
+    const error = await rejection(
+      createCatalogRestClient({ fetchFn }).updateConfiguration('CFG-A1-FICHA', {
+        hookBlockWeightKg: 200_000,
+      }),
+    )
+    expect(error.code).toBe('VALIDATION')
+    expect(error.apiCode).toBeNull()
+    expect(error.fieldErrors).toEqual([
+      { field: 'hookBlockWeightKg', message: 'Input should be less than or equal to 100000' },
+    ])
+  })
+
+  it('ordem do PATCH: 422 padrão antes de INVALID_ROTATION_ZONES, que vem antes do 404', async () => {
+    const fetchFn = createFakeCatalogFetch(catalogFicticio())
+    const client = createCatalogRestClient({ fetchFn })
+    const badZones = [ZONAS_FICTICIAS[0], { ...ZONAS_FICTICIAS[1], endDeg: 300 }]
+    const standard = await rejection(
+      client.updateConfiguration('CFG-X', { name: ' ', rotationZones: badZones }),
+    )
+    const zones = await rejection(client.updateConfiguration('CFG-X', { rotationZones: badZones }))
+    const missing = await rejection(
+      client.updateConfiguration('CFG-X', { rotationZones: ZONAS_FICTICIAS }),
+    )
+    expect([standard.apiCode, standard.fieldErrors[0]?.field]).toEqual([null, 'name'])
+    expect(zones.apiCode).toBe('INVALID_ROTATION_ZONES')
+    expect(missing.code).toBe('NOT_FOUND')
+  })
+
   it('o backend falso também recusa zonas que não cobrem 360° (422)', async () => {
     const fetchFn = createFakeCatalogFetch(catalogFicticio())
     const error = await rejection(

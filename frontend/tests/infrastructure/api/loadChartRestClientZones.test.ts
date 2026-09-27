@@ -123,6 +123,41 @@ describe('createLoadChartRestClient — zonas de giro (TASK-046)', () => {
     expect(fromFastApi.code).toBe('UNKNOWN_ROTATION_ZONE')
   })
 
+  it('a versão é única na configuração, somando as zonas: 409 entre zonas', async () => {
+    const fetchFn = createFakeLoadChartFetch([], {
+      zonesByConfiguration: { 'CFG-ZONAS': ['FRONTAL', 'LATERAL_TRASEIRA'] },
+    })
+    const client = createLoadChartRestClient({ fetchFn })
+    await client.importChart(request({ rotationZoneCode: 'FRONTAL' }))
+    const error = await rejection(
+      client.importChart(
+        request({ chartId: 'TAB-LATERAL-1', rotationZoneCode: 'LATERAL_TRASEIRA' }),
+      ),
+    )
+    expect(error.httpStatus).toBe(409)
+  })
+
+  it('a listagem traz as ativas na ordem das zonas cadastradas', async () => {
+    const source = { file_name: 'f.csv', file_type: 'text/csv', sha256: 'a', uri: 'local://a' }
+    const points = [{ boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 9000 }]
+    const base = { configuration_id: 'CFG-ZONAS', points, source, status: 'ACTIVE' as const }
+    const fetchFn = createFakeLoadChartFetch(
+      [
+        { ...base, chart_id: 'L1', version: 'v2', rotation_zone_code: 'LATERAL_TRASEIRA' },
+        { ...base, chart_id: 'F1', version: 'v1', rotation_zone_code: 'FRONTAL' },
+      ],
+      { zonesByConfiguration: { 'CFG-ZONAS': ['FRONTAL', 'LATERAL_TRASEIRA'] } },
+    )
+    const listing = await createLoadChartRestClient({ fetchFn }).listConfigurationCharts(
+      'CFG-ZONAS',
+    )
+    expect(listing.activeChartId).toBeNull()
+    expect(listing.activeCharts.map((item) => item.rotationZoneCode)).toEqual([
+      'FRONTAL',
+      'LATERAL_TRASEIRA',
+    ])
+  })
+
   it('a ativação numa zona substitui só a ativa daquela zona (backend falso)', async () => {
     const source = { file_name: 'f.csv', file_type: 'text/csv', sha256: 'a', uri: 'local://a' }
     const points = [{ boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 9000 }]

@@ -41,6 +41,7 @@ export interface FakeCatalogOptions {
  */
 function zonesProblem(zones: readonly RotationZoneDto[]): string | null {
   if (zones.length < 2) return 'as zonas de giro precisam ser pelo menos 2'
+  if (zones.some((zone) => zone.name.trim() === '')) return 'o nome da zona não pode ser vazio'
   if (new Set(zones.map((zone) => zone.code)).size !== zones.length) {
     return 'o código de cada zona deve ser único'
   }
@@ -50,6 +51,29 @@ function zonesProblem(zones: readonly RotationZoneDto[]): string | null {
   return Math.abs(total - 360) < 1e-9 && chained
     ? null
     : 'as zonas de giro devem cobrir 360° sem sobreposição'
+}
+
+/** Como o backend (TASK-046): a resposta sempre traz as zonas e o gancho (`null` sem eles). */
+function withZoneFields(row: ConfigurationRow): ConfigurationRow {
+  return {
+    ...row,
+    rotation_zones: row.rotation_zones && row.rotation_zones.length > 0 ? row.rotation_zones : null,
+    hook_block_weight_kg: row.hook_block_weight_kg ?? null,
+  }
+}
+
+/** Gancho fora de 0..100000 kg: 422 padrão do FastAPI, com `detail` em lista. */
+function hookWeightError(value: unknown): Response | null {
+  if (typeof value !== 'number' || (value >= 0 && value <= 100_000)) return null
+  return jsonResponse(
+    validationError(
+      ['hook_block_weight_kg'],
+      value < 0
+        ? 'Input should be greater than or equal to 0'
+        : 'Input should be less than or equal to 100000',
+    ),
+    422,
+  )
 }
 
 /** Corpo do 422 `INVALID_ROTATION_ZONES` do backend falso. */
@@ -145,16 +169,19 @@ export function createFakeCatalogFetch(
     if (Object.keys(request).length === 0) {
       return jsonResponse(validationError([], 'Informe ao menos um campo.'), 422)
     }
-    const zones = request.rotation_zones as RotationZoneDto[] | null | undefined
-    if (zones !== undefined && zones !== null && zones.length > 0) {
-      const problem = zonesProblem(zones)
-      if (problem) return jsonResponse(invalidZonesError(problem), 422)
-    }
     if ('name' in request && blank(request.name)) {
       return jsonResponse(validationError(['name'], 'String should match pattern'), 422)
     }
     if ('geometry' in request && request.geometry === null) {
       return jsonResponse(validationError(['geometry'], 'Input should be a valid dictionary'), 422)
+    }
+    // Ordem do backend (TASK-046): 422 padrão → 422 INVALID_ROTATION_ZONES → 404 → 409.
+    const hookError = hookWeightError(request.hook_block_weight_kg)
+    if (hookError) return hookError
+    const zones = request.rotation_zones as RotationZoneDto[] | null | undefined
+    if (zones !== undefined && zones !== null && zones.length > 0) {
+      const problem = zonesProblem(zones)
+      if (problem) return jsonResponse(invalidZonesError(problem), 422)
     }
     const row = data.configurations.find((item) => item.id === id)
     if (!row) return notFound('configuração')
@@ -177,7 +204,7 @@ export function createFakeCatalogFetch(
     if ('hook_block_weight_kg' in request) {
       row.hook_block_weight_kg = request.hook_block_weight_kg as number | null
     }
-    return jsonResponse(row)
+    return jsonResponse(withZoneFields(row))
   }
 
   return vi.fn<typeof fetch>(async (input, init) => {
@@ -233,10 +260,13 @@ export function createFakeCatalogFetch(
         return jsonResponse(
           data.configurations
             .filter((row) => row.crane_id === craneId)
-            .sort(byName((row) => row.name)),
+            .sort(byName((row) => row.name))
+            .map(withZoneFields),
         )
       }
       const request = body as Omit<ConfigurationRow, 'id' | 'crane_id'>
+      const hookError = hookWeightError(request.hook_block_weight_kg)
+      if (hookError) return hookError
       if (request.rotation_zones) {
         const problem = zonesProblem(request.rotation_zones)
         if (problem) return jsonResponse(invalidZonesError(problem), 422)
@@ -249,7 +279,7 @@ export function createFakeCatalogFetch(
         ...request,
       }
       data.configurations.push(row)
-      return jsonResponse(row, 201)
+      return jsonResponse(withZoneFields(row), 201)
     }
     return jsonResponse({ detail: 'Not Found' }, 404)
   })

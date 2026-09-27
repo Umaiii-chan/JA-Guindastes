@@ -171,8 +171,45 @@ test.describe('zonas de giro, no navegador', () => {
   })
 })
 
+// Ids do seed FICTÍCIO (backend/app/demo_seed.py), informados pelo ambiente do CI.
+const seed = {
+  manufacturerId: process.env.E2E_SEED_MANUFACTURER_ID?.trim() ?? '',
+  craneId: process.env.E2E_SEED_CRANE_ID?.trim() ?? '',
+  configurationId: process.env.E2E_SEED_CONFIGURATION_ID?.trim() ?? '',
+}
+
 test.describe('zonas de giro, com backend', () => {
   test.skip(!hasBackend, 'precisa da stack com backend atrás de /api (defina E2E_BACKEND=1)')
+
+  test('seed FICTÍCIO: pose inicial na frontal e giro de 180° na lateral e traseira (docs/demo.md)', async ({
+    page,
+  }) => {
+    test.skip(
+      !seed.manufacturerId || !seed.craneId || !seed.configurationId,
+      'fluxo com dados semeados: defina E2E_SEED_MANUFACTURER_ID, E2E_SEED_CRANE_ID e E2E_SEED_CONFIGURATION_ID',
+    )
+    await page.goto('/simulador')
+    await openPositionStep(page, seed)
+    // Cenário A do roteiro: 3 000 kg + gancho 200 kg = 3 200 kg; frontal 4 200 kg → 76,19 %.
+    await expect(hudMetric(page, 'Zona de giro')).toHaveText('Frontal FICTÍCIA', {
+      timeout: 15_000,
+    })
+    await expect(hudMetric(page, 'Capacidade')).toHaveText('4.200 kg')
+    await expect(hudMetric(page, 'Gancho')).toHaveText('200 kg')
+    await expect(hudMetric(page, 'Peso comparado')).toHaveText('3.200 kg')
+    await expect(hudMetric(page, 'Utilização')).toHaveText('76,19 %')
+
+    // Cenário F: −180° é o mesmo giro que 180° (traseira) → lateral e traseira, 3 360 kg → 95,24 %.
+    const turret = page.getByLabel('Giro da torre')
+    await turret.focus()
+    await turret.press('Home')
+    await expect(hudMetric(page, 'Zona de giro')).toHaveText('Lateral e traseira FICTÍCIA', {
+      timeout: 15_000,
+    })
+    await expect(hudMetric(page, 'Capacidade')).toHaveText('3.360 kg')
+    await expect(hudMetric(page, 'Utilização')).toHaveText('95,24 %')
+    await expect(activeZoneLabel(page)).toHaveText('Lateral e traseira FICTÍCIA')
+  })
 
   test('tabelas FICTÍCIAS em duas zonas: girar a torre muda a zona e a capacidade', async ({
     page,
