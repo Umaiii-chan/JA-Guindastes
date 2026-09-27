@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | Proposto |
+| **Status** | Aceito (pela pessoa responsável em chat, 2026-09-27) |
 | **Data** | 2026-09-27 |
 | **Autor** | agente Claude Code 2.1.280 (modelo Opus 5.5), registrando a escolha da pessoa responsável |
 | **Decisores** | Anderson Sehnem (em chat, 2026-09-27: "está com muita cara que foi feita por IA, por conta do degradê"; direção "Manual técnico"; identidade própria, sem a marca da empresa) |
