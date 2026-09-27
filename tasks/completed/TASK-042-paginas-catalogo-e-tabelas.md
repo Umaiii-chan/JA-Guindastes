@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | média |
 | **Criada em** | 2026-09-26 por pessoa responsável (leva D2, via orquestrador) |
 | **Iniciada em** | 2026-09-26 |
@@ -55,3 +55,5 @@ que a TASK-040 liga ao perfil.
 ### Fora do escopo (explicitamente — o agente NÃO faz)
 
 `backend/**` (se faltar uma rota GET, registre no handoff), ADRs e `handoffs/current.md`.
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).

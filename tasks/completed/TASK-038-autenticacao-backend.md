@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por pessoa responsável (leva D, via orquestrador) |
 | **Iniciada em** | 2026-09-26 |
@@ -102,3 +102,5 @@ silêncio.
 ## 7. Teste manual (se houver)
 
 Seguir `docs/demo.md`: criar o admin e fazer login pela API com `curl -c cookies.txt`.
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).

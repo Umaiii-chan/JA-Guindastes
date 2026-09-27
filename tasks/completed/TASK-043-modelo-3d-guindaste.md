@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | média |
 | **Criada em** | 2026-09-26 por pessoa responsável (leva D, via orquestrador) |
 | **Iniciada em** | 2026-09-26 |
@@ -99,3 +99,5 @@ A ligação do modelo no `CraneViewport` fica para a integração (sessão princ
 ## 7. Teste manual (se houver)
 
 Ver as capturas em `docs/assets/screenshots/modelo-3d/`; regenerar conforme o handoff.
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
