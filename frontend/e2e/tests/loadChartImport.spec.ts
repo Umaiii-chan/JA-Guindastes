@@ -1,25 +1,27 @@
 // Importação de tabela de carga pela página Tabelas (TASK-042; CA-5), com os CSVs FICTÍCIOS de
-// demonstração de backend/app/demo_data/.
+// demonstração de backend/app/demo_data/. A linha do tempo das versões vem da rota de listagem
+// `GET /api/v1/configurations/{id}/load-charts` (TASK-044; CA-6).
 //
 // - "no navegador": catálogo e rotas de tabela respondidos pelo próprio navegador (page.route), com
 //   os pontos lidos do CSV de demonstração. Exercita a tela (arrastar e soltar, matriz, importar,
 //   linha do tempo, Dialog de ativação), não o parser do backend.
-// - "com backend": o fluxo de verdade contra a stack (validação, relatório de erros, gravação e
-//   ativação). PULADO, nunca aprovado em falso, sem E2E_BACKEND=1.
+// - "com backend": o fluxo de verdade contra a stack (validação, relatório de erros, gravação,
+//   ativação e a linha do tempo relida do backend depois de recarregar a página). PULADO, nunca
+//   aprovado em falso, sem E2E_BACKEND=1. O fixture `page` de auth.ts entra como o admin de E2E.
 
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-import { expect, type Page, type Route, test } from '@playwright/test'
+import type { Page, Route } from '@playwright/test'
 
+import { expect, hasBackend, test } from './auth.js'
+import { createFicticioCatalog } from './backendCatalog.js'
 import { chooseConfiguration, FICTICIO, mockCatalog } from './catalogMock.js'
 
 const DEMO_DIR = fileURLToPath(new URL('../../../backend/app/demo_data/', import.meta.url))
 const DEMO_V1 = `${DEMO_DIR}tabela_carga_ficticia_demo_v1.csv`
 const DEMO_ERRORS = `${DEMO_DIR}tabela_carga_ficticia_demo_com_erros.csv`
 const FILE_INPUT = 'Arquivo da tabela de carga (CSV ou XLSX)'
-
-const hasBackend = process.env.E2E_BACKEND === '1'
 
 /** Pontos do CSV canônico provisório (sem validação: o arquivo v1 de demonstração é válido). */
 function demoPoints(path: string) {
@@ -33,7 +35,10 @@ function demoPoints(path: string) {
     })
 }
 
-/** Rotas das tabelas no navegador: /validate e /import devolvem os pontos do v1 FICTÍCIO. */
+/**
+ * Rotas das tabelas no navegador: /validate e /import devolvem os pontos do v1 FICTÍCIO, e a
+ * listagem por configuração devolve o que já foi importado (sem os pontos), como o backend.
+ */
 async function mockLoadCharts(page: Page): Promise<void> {
   const points = demoPoints(DEMO_V1)
   const stored = {
@@ -50,19 +55,33 @@ async function mockLoadCharts(page: Page): Promise<void> {
       uri: `local://${'e'.repeat(64)}`,
     },
   }
-  let current = { ...stored }
+  let current: typeof stored | null = null
   const fulfill = (route: Route, body: unknown, status = 200) =>
     route.fulfill({ status, json: body })
 
   await page.route('**/api/v1/load-charts/validate', (route) =>
     fulfill(route, { ...stored, issues: [] }),
   )
-  await page.route('**/api/v1/load-charts/import', (route) => fulfill(route, current, 201))
+  await page.route('**/api/v1/load-charts/import', (route) => {
+    current = { ...stored }
+    return fulfill(route, current, 201)
+  })
   await page.route('**/api/v1/load-charts/*/activate', (route) => {
-    current = { ...current, status: 'ACTIVE' }
+    current = { ...(current ?? stored), status: 'ACTIVE' }
     return fulfill(route, { ...current, superseded_chart_id: null })
   })
-  await page.route(`**/api/v1/load-charts/${stored.chart_id}`, (route) => fulfill(route, current))
+  await page.route(`**/api/v1/load-charts/${stored.chart_id}`, (route) =>
+    current ? fulfill(route, current) : fulfill(route, { detail: 'não existe' }, 404),
+  )
+  await page.route(`**/api/v1/configurations/${FICTICIO.configurationId}/load-charts`, (route) => {
+    if (!current) return fulfill(route, { items: [], active_chart_id: null })
+    const summary: Record<string, unknown> = { ...current }
+    delete summary.points
+    return fulfill(route, {
+      items: [summary],
+      active_chart_id: current.status === 'ACTIVE' ? current.chart_id : null,
+    })
+  })
 }
 
 async function importAndActivate(page: Page, version: string): Promise<void> {
@@ -87,7 +106,7 @@ test.describe('importação de tabela de carga, no navegador', () => {
     await mockLoadCharts(page)
     await page.goto('/tabelas')
     await chooseConfiguration(page)
-    await expect(page.getByText('Nenhuma versão conhecida')).toBeVisible()
+    await expect(page.getByText('Nenhuma versão importada')).toBeVisible()
 
     await page.getByLabel(FILE_INPUT).setInputFiles(DEMO_V1)
 
@@ -104,32 +123,25 @@ test.describe('importação de tabela de carga, no navegador', () => {
 test.describe('importação de tabela de carga, com backend', () => {
   test.skip(!hasBackend, 'precisa da stack com backend atrás de /api (defina E2E_BACKEND=1)')
 
-  test('relatório de erros com linha e coluna; depois importa e ativa o v1', async ({ page }) => {
+  test('relatório de erros com linha e coluna; importa e ativa o v1; a linha do tempo vem da rota nova', async ({
+    page,
+  }) => {
     // Catálogo FICTÍCIO novo a cada execução, para a versão v1 nunca repetir.
-    const suffix = `${Date.now()}`
-    const post = async (path: string, data: unknown) => {
-      const response = await page.request.post(path, { data })
-      expect(response.status(), `POST ${path}`).toBe(201)
-      return (await response.json()) as { id: string }
+    const catalog = await createFicticioCatalog(page.request)
+    const ids = {
+      manufacturerId: catalog.manufacturerId,
+      craneId: catalog.craneId,
+      configurationId: catalog.configurationId,
     }
-    const manufacturer = await post('/api/v1/manufacturers', {
-      name: `Fabricante FICTÍCIO E2E ${suffix}`,
-    })
-    const crane = await post('/api/v1/cranes', {
-      manufacturer_id: manufacturer.id,
-      model_name: `Modelo FICTÍCIO E2E ${suffix}`,
-    })
-    const configuration = await post(`/api/v1/cranes/${crane.id}/configurations`, {
-      name: `Config FICTÍCIA E2E ${suffix}`,
-      geometry: null,
-    })
+    const listingPath = `/api/v1/configurations/${catalog.configurationId}/load-charts`
 
     await page.goto('/tabelas')
-    await chooseConfiguration(page, {
-      manufacturerId: manufacturer.id,
-      craneId: crane.id,
-      configurationId: configuration.id,
-    })
+    const firstListing = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === listingPath,
+    )
+    await chooseConfiguration(page, ids)
+    expect((await firstListing).status()).toBe(200)
+    await expect(page.getByText('Nenhuma versão importada')).toBeVisible()
 
     await page.getByLabel(FILE_INPUT).setInputFiles(DEMO_ERRORS)
     const report = page.getByRole('table', {
@@ -146,5 +158,22 @@ test.describe('importação de tabela de carga, com backend', () => {
       page.getByRole('table', { name: /Prévia de tabela_carga_ficticia_demo_v1/ }),
     ).toBeVisible()
     await importAndActivate(page, 'v1')
+
+    // A rota nova informa a ativa.
+    const listing = await page.request.get(listingPath)
+    expect(listing.status()).toBe(200)
+    const body = (await listing.json()) as {
+      items: { chart_id: string; version: string; status: string }[]
+      active_chart_id: string | null
+    }
+    expect(body.items.map((item) => [item.version, item.status])).toEqual([['v1', 'ACTIVE']])
+    expect(body.active_chart_id).toBe(body.items[0].chart_id)
+
+    // Depois de recarregar a página, a linha do tempo continua lá: vem do backend, não da memória.
+    await page.reload()
+    await chooseConfiguration(page, ids)
+    const timeline = page.getByRole('list', { name: 'Linha do tempo das versões' })
+    await expect(timeline.locator('li[aria-current="true"]')).toContainText('v1')
+    await expect(page.getByLabel(/Acompanhar uma tabela pelo id/)).toHaveCount(0)
   })
 })
