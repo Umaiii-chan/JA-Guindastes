@@ -1,0 +1,202 @@
+.hud {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.headerIcon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-softer);
+  border: 1px solid rgb(34 211 238 / 0.2);
+  color: var(--color-accent);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  font-size: var(--font-size-md);
+}
+
+.pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  color: var(--color-accent);
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.kind {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-3);
+  letter-spacing: 0.02em;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(circle at 25% 50%, rgb(34 211 238 / 0.06), transparent 60%), rgb(8 11 16 / 0.45);
+  border: 1px solid var(--color-border);
+}
+
+.keyMetrics {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.metric {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.metric dt {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+
+.metric dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.waiting {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-3);
+}
+
+.reasons {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-status-neutral-soft);
+  border: 1px solid rgb(139 149 163 / 0.25);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.reasons ul {
+  list-style: none;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.details {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: rgb(8 11 16 / 0.35);
+}
+
+.details summary {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-2);
+  cursor: pointer;
+  list-style-position: inside;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.details summary:hover {
+  color: var(--color-text-1);
+}
+
+.rows {
+  display: grid;
+  padding: 0 var(--space-3) var(--space-2);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 6px 0;
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+}
+
+.row dt {
+  color: var(--color-text-3);
+}
+
+.row dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-1);
+  text-align: right;
+}
+
+.provisional {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-status-warning-soft);
+  border: 1px dashed rgb(245 165 36 / 0.4);
+}
+
+.provisionalIcon {
+  display: grid;
+  flex: none;
+  padding-top: 1px;
+  color: var(--color-status-warning);
+}
+
+.provisional p {
+  font-size: var(--font-size-2xs);
+  line-height: 1.45;
+  color: var(--color-text-2);
+}
+
+.provisional strong {
+  color: var(--color-status-warning);
+  font-weight: var(--font-weight-semibold);
+}
+
+.meta {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-3);
+}
+
+.detailsNote {
+  padding: 0 var(--space-3) var(--space-2);
+}

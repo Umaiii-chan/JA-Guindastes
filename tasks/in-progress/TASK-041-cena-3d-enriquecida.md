@@ -31,24 +31,24 @@ viewport devem ser **aditivas** (props opcionais), para não quebrar a TASK-039.
 
 ## 3. Critérios de aceite
 
-- [ ] **CA-1** — Ambiente escuro:
+- [x] **CA-1** — Ambiente escuro:
   - fundo em gradiente ou céu escuro, grafite ou azulado, coerente com o tema;
   - chão com grade técnica: linhas principais a cada 5 m e secundárias a cada 1 m, esmaecendo com a
     distância;
   - luz hemisférica mais uma direcional, com sombras suaves no chão;
   - tone mapping ACES e cor em sRGB.
-- [ ] **CA-2** — Anel de raio no chão:
+- [x] **CA-2** — Anel de raio no chão:
   - círculo no raio de trabalho da pré-visualização, centrado no eixo de giro;
   - rótulo com o valor em metros;
   - arco de alcance (raio mínimo e máximo) em linha tênue.
-- [ ] **CA-3** — Feedback de situação:
+- [x] **CA-3** — Feedback de situação:
   - prop opcional `evaluationStatus` (`'ok' | 'warning' | 'over' | 'unknown'`);
   - colore o anel e um halo sutil na carga ou no gancho: verde, âmbar, vermelho ou cinza;
   - as cores ficam centralizadas em `src/three/scene/palette.ts`, para a TASK-039 alinhar os tokens
     CSS do ADR-017.
-- [ ] **CA-4** — Carga visível: com a prop opcional `load` (comprimento, largura e altura em metros), a
+- [x] **CA-4** — Carga visível: com a prop opcional `load` (comprimento, largura e altura em metros), a
   cena desenha uma caixa pendurada no gancho pelo cabo; sem carga, fica só o gancho.
-- [ ] **CA-5** — Câmera:
+- [x] **CA-5** — Câmera:
   - predefinições `'perspectiva' | 'lateral' | 'topo' | 'operador'`, acessíveis por API imperativa ou
     por prop;
   - transição suave entre elas, desligada com `prefers-reduced-motion`;
@@ -57,7 +57,7 @@ viewport devem ser **aditivas** (props opcionais), para não quebrar a TASK-039.
   - sombras e antialiasing ajustados para 60 fps num notebook comum;
   - a renderização pausa quando a aba fica oculta;
   - `dispose` correto: os testes de ciclo de vida existentes continuam passando.
-- [ ] **CA-7** — Testes Vitest para a lógica nova: geometria do anel e do arco, cor por situação, caixa
+- [x] **CA-7** — Testes Vitest para a lógica nova: geometria do anel e do arco, cor por situação, caixa
   da carga e predefinições de câmera. Os gates do frontend e os testes E2E da cena passam.
 
 ## 4. Escopo

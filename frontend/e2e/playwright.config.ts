@@ -8,7 +8,9 @@
 // - com E2E_BASE_URL (CI, job "E2E"): usa o frontend já servido (ex.: nginx da stack Docker em
 //   http://127.0.0.1:8080) e não sobe servidor nenhum.
 //
-// E2E_BACKEND=1 liga os testes que precisam do backend atrás de /api (a stack Docker).
+// E2E_BACKEND=1 liga os testes que precisam do backend atrás de /api (a stack Docker). Com ele, toda
+// rota exige login (TASK-040; ADR-016): os testes entram como o admin de E2E, com E2E_ADMIN_USERNAME e
+// E2E_ADMIN_PASSWORD (ver tests/auth.ts); sem essas variáveis, os testes com backend são pulados.
 // E2E_SEED_CONFIGURATION_ID liga o teste do fluxo com dados semeados (seed da TASK-035).
 //
 // Rodar, em frontend/:
@@ -25,7 +27,10 @@ import { defineConfig, devices } from '@playwright/test'
 
 const FRONTEND_DIR = fileURLToPath(new URL('..', import.meta.url))
 const OUTPUT_DIR = fileURLToPath(new URL('../node_modules/.tmp/e2e/', import.meta.url))
-const PREVIEW_URL = 'http://127.0.0.1:4173'
+// Porta do `vite preview` local; E2E_PREVIEW_PORT troca (ex.: 5210, para não colidir com outro preview
+// aberto na máquina; TASK-040).
+const PREVIEW_PORT = process.env.E2E_PREVIEW_PORT?.trim() || '4173'
+const PREVIEW_URL = `http://127.0.0.1:${PREVIEW_PORT}`
 
 const externalBaseUrl = process.env.E2E_BASE_URL
 const isCi = Boolean(process.env.CI)
@@ -60,7 +65,7 @@ export default defineConfig({
   webServer: externalBaseUrl
     ? undefined
     : {
-        command: 'npm run build && npx vite preview --host 127.0.0.1 --port 4173 --strictPort',
+        command: `npm run build && npx vite preview --host 127.0.0.1 --port ${PREVIEW_PORT} --strictPort`,
         cwd: FRONTEND_DIR,
         url: PREVIEW_URL,
         reuseExistingServer: !isCi,

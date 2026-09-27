@@ -29,9 +29,12 @@ Leva D (design, login e fluxo), pedida em chat em 2026-09-26. ADR-016 e ADR-017 
 |--------|---------|---------|
 | TASK-038 | `handoffs/TASK-038.md` | backend: autenticação, usuários, sessões e perfis (ADR-016) |
 | TASK-039 | `handoffs/TASK-039.md` | frontend: design system escuro, casca, páginas e simulador guiado (ADR-017) |
-| TASK-041 | `handoffs/TASK-041.md` | frontend: cena 3D enriquecida (ambiente, anel de raio, carga, câmera) |
+| TASK-041 | `handoffs/TASK-041.md` | frontend: cena 3D enriquecida (ambiente, anel de raio, carga, câmera) e o GLB do caminhão na cena |
+| TASK-040 | `handoffs/TASK-040.md` | frontend: login, guardas por perfil, menu do usuário e página Usuários |
+| TASK-042 | `handoffs/TASK-042.md` | frontend: páginas completas de Catálogo e Tabelas |
+| TASK-043 | `handoffs/TASK-043.md` | modelo 3D do guindaste sobre caminhão (FBX do CGTrader → GLB, licença confirmada) e ficha de demo com a = −1,56 m |
 
-No backlog, para a leva D2, depois das três acima: TASK-040 (login e usuários no frontend) e TASK-042 (páginas completas de catálogo e tabelas).
+Todas integradas na branch `task/TASK-039-leva-d-integrada` (PR combinado da leva D).
 
 ## 3. Autorizações permanentes da pessoa responsável
 

@@ -5,7 +5,8 @@ export const INITIAL_CAMERA_TARGET = new Vector3(0, 7, 3)
 
 /** Câmera perspectiva enquadrando o guindaste provisório. */
 export function createCamera(aspect: number): PerspectiveCamera {
-  const camera = new PerspectiveCamera(50, aspect, 0.1, 1000)
+  // `far` cobre o domo do céu (que acompanha a câmera) com folga.
+  const camera = new PerspectiveCamera(50, aspect, 0.1, 2000)
   camera.position.set(22, 13, 28)
   camera.lookAt(INITIAL_CAMERA_TARGET)
   return camera

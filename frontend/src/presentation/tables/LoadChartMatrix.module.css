@@ -1,0 +1,212 @@
+/*
+ * Escala sequencial de um tom (ciano do acento), do escuro (menor capacidade) ao claro (maior).
+ * Texto claro nas três primeiras faixas e escuro nas duas últimas, para manter o contraste AA
+ * (conferido em handoffs/TASK-042.md § 5).
+ */
+.figure {
+  --band-0: color-mix(in oklab, var(--color-accent) 8%, var(--color-surface-2));
+  --band-1: color-mix(in oklab, var(--color-accent) 20%, var(--color-surface-2));
+  --band-2: color-mix(in oklab, var(--color-accent) 34%, var(--color-surface-2));
+  --band-3: color-mix(in oklab, var(--color-accent) 68%, var(--color-surface-2));
+  --band-4: color-mix(in oklab, var(--color-accent-strong) 88%, var(--color-surface-2));
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  min-width: 0;
+}
+
+.scroll {
+  overflow: auto;
+  max-height: 460px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: rgb(8 11 16 / 0.35);
+}
+
+.compact .scroll {
+  max-height: 300px;
+}
+
+.scroll:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.matrix {
+  border-collapse: separate;
+  border-spacing: 2px;
+  padding: 2px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xs);
+}
+
+.matrix th {
+  position: sticky;
+  z-index: 1;
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.colHead {
+  top: 0;
+  padding: var(--space-2) var(--space-2);
+  text-align: right;
+  border-bottom: 1px solid var(--color-border-strong);
+}
+
+.rowHead {
+  left: 0;
+  padding: 0 var(--space-3) 0 var(--space-2);
+  text-align: right;
+  border-right: 1px solid var(--color-border-strong);
+}
+
+.corner {
+  top: 0;
+  left: 0;
+  z-index: 2 !important;
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-3) !important;
+  border-bottom: 1px solid var(--color-border-strong);
+  border-right: 1px solid var(--color-border-strong);
+}
+
+.cornerRow,
+.cornerCol {
+  display: block;
+}
+
+.cornerCol {
+  text-align: right;
+}
+
+.cell {
+  min-width: 68px;
+  padding: 7px var(--space-2);
+  border-radius: var(--radius-xs);
+  text-align: right;
+  color: var(--color-text-1);
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.compact .cell {
+  min-width: 56px;
+  padding: 5px 6px;
+}
+
+.cell:hover {
+  position: relative;
+  z-index: 1;
+  box-shadow:
+    0 0 0 1px var(--color-accent-strong),
+    0 6px 16px -6px rgb(0 0 0 / 0.7);
+  transform: scale(1.06);
+}
+
+.missing {
+  color: var(--color-text-3);
+  background: repeating-linear-gradient(135deg, transparent 0 5px, rgb(148 178 214 / 0.07) 5px 6px);
+  text-align: center;
+}
+
+.band0 {
+  background: var(--band-0);
+}
+
+.band1 {
+  background: var(--band-1);
+}
+
+.band2 {
+  background: var(--band-2);
+}
+
+.band3 {
+  background: var(--band-3);
+  color: var(--color-text-inverse);
+  font-weight: var(--font-weight-medium);
+}
+
+.band4 {
+  background: var(--band-4);
+  color: var(--color-text-inverse);
+  font-weight: var(--font-weight-semibold);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.legendTitle {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-1);
+}
+
+.legendScale {
+  display: flex;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legendItem {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+}
+
+.swatch {
+  display: block;
+  width: 44px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.compact .swatch {
+  width: 22px;
+}
+
+.legendItem:first-child .swatch {
+  border-radius: 999px 3px 3px 999px;
+}
+
+.legendItem:last-child .swatch {
+  border-radius: 3px 999px 999px 3px;
+}
+
+.legendRange {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-3);
+  white-space: nowrap;
+}
+
+.legendMeta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cell:hover {
+    transform: none;
+  }
+}

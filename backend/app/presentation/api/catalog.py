@@ -14,7 +14,9 @@ Códigos HTTP:
   repetidos são aceitos: não há regra de unicidade (pendência 2 da TASK-022);
 - **422** para o corpo malformado, inclusive nome vazio e ficha técnica incoerente.
 
-Sem editar/excluir (fora do escopo da TASK-030), sem paginação e sem autenticação (P-009).
+Sem editar/excluir (fora do escopo da TASK-030) e sem paginação. Autorização (ADR-016; TASK-038):
+com banco, as leituras exigem sessão (qualquer perfil) e os cadastros (`POST`), o perfil `ADMIN`;
+a composição passa as dependências em `write_dependencies` e na inclusão do router.
 
 O router recebe o repositório pronto porque a apresentação não pode importar a infraestrutura
 (contrato de camadas em `backend/pyproject.toml`): quem o escolhe é a raiz de composição,
@@ -22,10 +24,10 @@ O router recebe o repositório pronto porque a apresentação não pode importar
 o repositório é síncrono, e o FastAPI roda cada rota numa thread à parte.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, params, status
 
 from app.application.ports.crane_catalog_listing import CraneCatalogStore
 from app.application.ports.crane_catalog_repository import CatalogEntryAlreadyExistsError
@@ -75,15 +77,23 @@ def _call[T](action: Callable[[], T]) -> T:
 
 
 def create_catalog_router(
-    repository: CraneCatalogStore, id_generator: IdGenerator = generate_uuid_id
+    repository: CraneCatalogStore,
+    id_generator: IdGenerator = generate_uuid_id,
+    *,
+    write_dependencies: Sequence[params.Depends] = (),
 ) -> APIRouter:
-    """Monta o router do catálogo com o repositório escolhido pela composição."""
+    """Monta o router do catálogo com o repositório escolhido pela composição.
+
+    `write_dependencies` entram só nas rotas de cadastro (`POST`): a exigência do perfil `ADMIN`.
+    """
+    writes = list(write_dependencies)
     catalog = ManageCraneCatalog(repository, id_generator)
     router = APIRouter(tags=["catalog"])
 
     @router.post(
         MANUFACTURERS_PATH,
         status_code=status.HTTP_201_CREATED,
+        dependencies=writes,
         summary="Cadastrar fabricante (RF-001)",
         responses=_CREATE_ERRORS,
     )
@@ -107,6 +117,7 @@ def create_catalog_router(
     @router.post(
         CRANES_PATH,
         status_code=status.HTTP_201_CREATED,
+        dependencies=writes,
         summary="Cadastrar modelo de guindaste de um fabricante (RF-002)",
         responses={**_NOT_FOUND, **_CREATE_ERRORS},
     )
@@ -135,6 +146,7 @@ def create_catalog_router(
     @router.post(
         f"{CRANES_PATH}/{{crane_id}}/configurations",
         status_code=status.HTTP_201_CREATED,
+        dependencies=writes,
         summary="Cadastrar configuração operacional com ficha técnica (RF-005; ADR-013 C-4)",
         description=(
             "A ficha técnica geométrica é opcional e vem só deste cadastro, nunca do modelo 3D "

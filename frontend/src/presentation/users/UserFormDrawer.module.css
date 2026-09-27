@@ -1,0 +1,39 @@
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.passwordRow {
+  position: relative;
+}
+
+.passwordInput input {
+  padding-right: 42px;
+}
+
+.reveal {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-3);
+  cursor: pointer;
+}
+
+.reveal:hover {
+  color: var(--color-text-1);
+  background: var(--color-accent-softer);
+}
+
+.reveal:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  color: var(--color-text-1);
+}

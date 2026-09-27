@@ -1,6 +1,9 @@
-import { useId } from 'react'
+import { Cable, Info, RotateCw, Ruler, TrendingUp } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 import type { CraneLimits, CraneState } from '../../three/crane/types'
+import { Slider } from '../ui'
+import styles from './panels.module.css'
 
 export type CraneControlKey = keyof CraneState
 
@@ -21,13 +24,42 @@ interface ControlDefinition {
   readonly unit: string
   readonly step: number
   readonly fractionDigits: number
+  readonly icon: ReactNode
 }
 
 const CONTROLS: readonly ControlDefinition[] = [
-  { key: 'turretRotationDeg', label: 'Giro da torre', unit: '°', step: 1, fractionDigits: 0 },
-  { key: 'boomAngleDeg', label: 'Inclinação da lança', unit: '°', step: 1, fractionDigits: 0 },
-  { key: 'boomLengthM', label: 'Comprimento da lança', unit: ' m', step: 0.1, fractionDigits: 1 },
-  { key: 'cableLengthM', label: 'Comprimento do cabo', unit: ' m', step: 0.1, fractionDigits: 1 },
+  {
+    key: 'turretRotationDeg',
+    label: 'Giro da torre',
+    unit: '°',
+    step: 1,
+    fractionDigits: 0,
+    icon: <RotateCw size={14} />,
+  },
+  {
+    key: 'boomAngleDeg',
+    label: 'Inclinação da lança',
+    unit: '°',
+    step: 1,
+    fractionDigits: 0,
+    icon: <TrendingUp size={14} />,
+  },
+  {
+    key: 'boomLengthM',
+    label: 'Comprimento da lança',
+    unit: ' m',
+    step: 0.1,
+    fractionDigits: 1,
+    icon: <Ruler size={14} />,
+  },
+  {
+    key: 'cableLengthM',
+    label: 'Comprimento do cabo',
+    unit: ' m',
+    step: 0.1,
+    fractionDigits: 1,
+    icon: <Cable size={14} />,
+  },
 ]
 
 function format(value: number, control: ControlDefinition): string {
@@ -46,43 +78,27 @@ export function CraneControlPanel({
   notes = {},
   onChange,
 }: CraneControlPanelProps) {
-  const idPrefix = useId()
-  const titleId = `${idPrefix}-title`
-
   return (
-    <section className="crane-panel" aria-labelledby={titleId}>
-      <h2 id={titleId}>Controles do guindaste</h2>
-      <p className="crane-panel__notice">{notice}</p>
+    <section className={styles.stack} aria-label="Controles do guindaste">
+      <p className={styles.sourceNote}>
+        <Info size={13} aria-hidden="true" />
+        <span>{notice}</span>
+      </p>
       {CONTROLS.map((control) => {
-        const inputId = `${idPrefix}-${control.key}`
         const range = limits?.[control.key]
-        const value = state?.[control.key]
         return (
-          <div className="crane-panel__control" key={control.key}>
-            <div className="crane-panel__label-row">
-              <label htmlFor={inputId}>{control.label}</label>
-              <output htmlFor={inputId}>
-                {value === undefined ? '—' : format(value, control)}
-              </output>
-            </div>
-            <input
-              id={inputId}
-              type="range"
-              min={range?.min}
-              max={range?.max}
-              step={control.step}
-              value={value ?? 0}
-              disabled={range === undefined || value === undefined}
-              onChange={(event) => onChange(control.key, event.currentTarget.valueAsNumber)}
-            />
-            {range && (
-              <div className="crane-panel__range">
-                <span>{format(range.min, control)}</span>
-                <span>{format(range.max, control)}</span>
-              </div>
-            )}
-            {notes[control.key] && <p className="crane-panel__note">{notes[control.key]}</p>}
-          </div>
+          <Slider
+            key={control.key}
+            label={control.label}
+            icon={control.icon}
+            value={state?.[control.key]}
+            min={range?.min}
+            max={range?.max}
+            step={control.step}
+            format={(value) => format(value, control)}
+            note={notes[control.key]}
+            onChange={(value) => onChange(control.key, value)}
+          />
         )
       })}
     </section>

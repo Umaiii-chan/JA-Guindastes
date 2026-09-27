@@ -1,0 +1,179 @@
+.screen {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: var(--space-6);
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+/* Fundo decorativo: grade técnica, traço de guindaste e brilho ciano. */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(148 178 214 / 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(148 178 214 / 0.06) 1px, transparent 1px),
+    linear-gradient(rgb(148 178 214 / 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(148 178 214 / 0.03) 1px, transparent 1px);
+  background-size:
+    80px 80px,
+    80px 80px,
+    16px 16px,
+    16px 16px;
+  mask-image: radial-gradient(ellipse at 50% 50%, #000 0%, transparent 72%);
+}
+
+.blueprint {
+  position: absolute;
+  left: 50%;
+  bottom: -2%;
+  width: min(1100px, 130vw);
+  height: auto;
+  transform: translateX(-54%);
+  opacity: 0.9;
+  mask-image: linear-gradient(180deg, transparent 0%, #000 30%, #000 80%, transparent 100%);
+}
+
+.blueprintLabel text {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  fill: rgb(103 232 249 / 0.4);
+}
+
+.glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 40%, rgb(34 211 238 / 0.1), transparent 45%),
+    radial-gradient(circle at 80% 90%, rgb(8 145 178 / 0.12), transparent 40%);
+}
+
+.card {
+  position: relative;
+  display: grid;
+  gap: var(--space-5);
+  width: min(420px, 100%);
+  padding: var(--space-8);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-strong);
+  background: var(--glass-highlight), var(--glass-bg-strong);
+  box-shadow: var(--shadow-overlay);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  animation: card-in var(--duration-slow) var(--ease-spring);
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .card {
+    background: var(--glass-bg-solid);
+  }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.brandName {
+  font-weight: var(--font-weight-bold);
+}
+
+.brandTagline {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-3);
+}
+
+.heading {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.title {
+  font-size: var(--font-size-2xl);
+}
+
+.subtitle {
+  color: var(--color-text-2);
+  font-size: var(--font-size-sm);
+}
+
+.checking {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-2);
+  font-size: var(--font-size-sm);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.passwordRow {
+  position: relative;
+}
+
+.passwordInput input {
+  padding-right: 42px;
+}
+
+.reveal {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-3);
+  cursor: pointer;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.reveal:hover {
+  color: var(--color-text-1);
+  background: var(--color-accent-softer);
+}
+
+.reveal:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  color: var(--color-text-1);
+}
+
+.footnote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-3);
+  font-size: var(--font-size-2xs);
+  line-height: var(--line-height-base);
+}
+
+.footnote > span {
+  flex: none;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}

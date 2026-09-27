@@ -36,30 +36,30 @@ de catálogo e tabelas). Deixe pontos de encaixe claros para as duas e documente
 
 ## 3. Critérios de aceite
 
-- [ ] **CA-1** — Dependências do ADR-017 § 4 instaladas: `react-router`, `lucide-react` e as duas
+- [x] **CA-1** — Dependências do ADR-017 § 4 instaladas: `react-router`, `lucide-react` e as duas
   fontes `@fontsource-variable/*`. Nenhuma outra dependência de runtime.
-- [ ] **CA-2** — Tema:
+- [x] **CA-2** — Tema:
   - tokens em `src/presentation/theme/tokens.css`: cores de superfície, texto, acento e situação,
     espaçamento, raios, sombras e movimento;
   - reset global e tema escuro;
   - contraste AA, foco visível e `prefers-reduced-motion`;
   - fundo sólido de reserva onde `backdrop-filter` não existe.
-- [ ] **CA-3** — Componentes em `src/presentation/ui/`, com CSS Modules e testes Vitest de
+- [x] **CA-3** — Componentes em `src/presentation/ui/`, com CSS Modules e testes Vitest de
   comportamento e acessibilidade:
   - Button, IconButton, Panel (vidro), Field + Input + Select, Badge/StatusPill;
   - Tabs, Dialog, Drawer, Toast, Table, EmptyState, Skeleton, Stepper;
   - Gauge: utilização de 0 a 100 %, com faixas de cor.
-- [ ] **CA-4** — Casca (`AppShell`) e roteamento:
+- [x] **CA-4** — Casca (`AppShell`) e roteamento:
   - trilho de navegação recolhível com ícones;
   - barra superior com título e espaço para o menu do usuário;
   - roteamento com as rotas do ADR-017 § 1;
   - Catálogo e Tabelas ainda simples, reutilizando os painéis existentes restilizados;
   - Usuários como espaço reservado.
-- [ ] **CA-5** — Página **Início**:
+- [x] **CA-5** — Página **Início**:
   - boas-vindas e atalhos para Simulador, Catálogo e Tabelas;
   - resumo do catálogo (contagens) com estados de carregando, vazio e erro;
   - avisos permanentes: dados FICTÍCIOS e estratégia PROVISÓRIA.
-- [ ] **CA-6** — Página **Simulador**:
+- [x] **CA-6** — Página **Simulador**:
   - cena full-bleed;
   - painel de passos à esquerda, cada passo com estado pendente, atual ou completo e liberado em
     sequência:
@@ -70,13 +70,21 @@ de catálogo e tabelas). Deixe pontos de encaixe claros para as duas e documente
     PROVISÓRIO;
   - barra de status da conexão;
   - a avaliação continua funcionando como hoje (WS com fallback para REST).
-- [ ] **CA-7** — Sem regressão de comportamento:
+- [x] **CA-7** — Sem regressão de comportamento:
   - todos os testes Vitest existentes passam, ajustados aos componentes novos quando preciso;
   - os specs E2E acompanham as páginas novas (o de avaliação navega até `/simulador`);
   - gates passam: lint, format, typecheck, test, build, E2E contra o vite preview e
     `scripts/check-structure.sh`.
-- [ ] **CA-8** — Capturas de tela das páginas Início e Simulador em 1440×900 e 1280×720, salvas em
+- [x] **CA-8** — Capturas de tela das páginas Início e Simulador em 1440×900 e 1280×720, salvas em
   `docs/assets/screenshots/` e citadas no handoff.
+
+Evidências em `handoffs/TASK-039.md` § 2 e § 4.
+
+**Acréscimo pedido pela sessão principal (2026-09-26): ligar a cena nova da TASK-041** — parcial.
+Feito: cores de situação iguais às de `palette.ts`, situação só `ok`/`over`/`unknown` e botões de
+câmera prontos. Falta: mesclar `task/TASK-041-cena-3d-enriquecida` (recusado pelo controle de
+permissões da sessão), passar `evaluationStatus`, `load` e o `ref` de câmera ao `CraneViewport` e
+refazer as capturas (handoff § 7 e § 10).
 
 ## 4. Escopo
 

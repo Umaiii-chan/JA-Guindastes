@@ -1,0 +1,61 @@
+.bar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 100%;
+  padding: 6px var(--space-3) 6px 6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-strong);
+  background: var(--glass-highlight), var(--glass-bg-strong);
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .bar {
+    background: var(--glass-bg-solid);
+  }
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.item svg {
+  color: var(--color-text-3);
+}
+
+.pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-accent);
+}
+
+.divider {
+  width: 1px;
+  height: 16px;
+  background: var(--color-border-strong);
+}
+
+/* Em espaço estreito (entre os painéis), somem a dica de câmera e depois o transporte. */
+@container status-bar (width < 640px) {
+  .hint,
+  .hintDivider {
+    display: none;
+  }
+}
+
+@container status-bar (width < 420px) {
+  .transport,
+  .transportDivider {
+    display: none;
+  }
+}

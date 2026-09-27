@@ -41,5 +41,9 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
+# Arquivos-fonte de terceiros (ex.: FBX do CGTrader, TASK-043): licença própria, não versionar.
+# O GLB derivado fica em frontend/public/models/ (ver handoffs/TASK-043.md).
+assets/source/
+
 # worktrees dos agentes do Claude Code (tarefas em paralelo)
 .claude/worktrees/

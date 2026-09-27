@@ -1,0 +1,52 @@
+.art {
+  width: 100%;
+  height: auto;
+  max-height: 250px;
+  overflow: visible;
+}
+
+.label,
+.labelWarm {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  fill: #34d399;
+}
+
+.labelWarm {
+  fill: #fbbf24;
+}
+
+.ring {
+  animation: ring-dash 18s linear infinite;
+}
+
+.load {
+  transform-origin: 328px 64px;
+  animation: sway 5s var(--ease-in-out) infinite;
+}
+
+.cable {
+  transform-origin: 328px 64px;
+  animation: sway 5s var(--ease-in-out) infinite;
+}
+
+.boom {
+  filter: drop-shadow(0 0 8px rgb(34 211 238 / 0.45));
+}
+
+@keyframes ring-dash {
+  to {
+    stroke-dashoffset: -240;
+  }
+}
+
+@keyframes sway {
+  0%,
+  100% {
+    transform: rotate(-1.2deg);
+  }
+
+  50% {
+    transform: rotate(1.2deg);
+  }
+}

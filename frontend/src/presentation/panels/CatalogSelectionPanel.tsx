@@ -1,7 +1,10 @@
-import { useId } from 'react'
+import { Building2, Construction, RefreshCw, Settings2, TriangleAlert } from 'lucide-react'
+import { type ReactNode, useId } from 'react'
 
 import type { CatalogList } from '../../application/catalog/CatalogBrowser'
 import type { Crane, CraneConfiguration, Manufacturer } from '../../domain/catalog/catalog'
+import { Badge, Button, Field, Notice, Panel, Select, Spinner } from '../ui'
+import styles from './panels.module.css'
 
 export interface CatalogSelectionPanelProps {
   readonly manufacturers: CatalogList<Manufacturer>
@@ -13,6 +16,12 @@ export interface CatalogSelectionPanelProps {
   onSelectManufacturer(id: string | null): void
   onSelectCrane(id: string | null): void
   onSelectConfiguration(id: string | null): void
+  /** Recarrega a lista de fabricantes (botão "Tentar de novo" quando ela falha). */
+  onRetry?(): void
+  /** Sem painel próprio: para ficar dentro de outro contêiner (ex.: passo do simulador). */
+  readonly embedded?: boolean
+  /** Ação quando não há fabricante cadastrado (ex.: link para a página Catálogo). */
+  readonly emptyAction?: ReactNode
 }
 
 interface SelectOption {
@@ -20,12 +29,17 @@ interface SelectOption {
   readonly label: string
 }
 
+const TITLE = 'Guindaste e configuração'
+
+function formatNumber(value: number): string {
+  return value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+}
+
 /**
  * Seleção encadeada do catálogo (RF-010): fabricante → guindaste → configuração. A configuração
  * escolhida é a que vai para a avaliação no backend e define os limites dos sliders (TASK-033).
  */
 export function CatalogSelectionPanel(props: CatalogSelectionPanelProps) {
-  const titleId = `${useId()}-title`
   const {
     manufacturers,
     cranes,
@@ -33,22 +47,30 @@ export function CatalogSelectionPanel(props: CatalogSelectionPanelProps) {
     selectedManufacturerId,
     selectedCraneId,
     selectedConfigurationId,
+    embedded = false,
   } = props
+  const selected = configurations.items.find((item) => item.id === selectedConfigurationId) ?? null
+  const noManufacturers = manufacturers.status === 'loaded' && manufacturers.items.length === 0
 
-  return (
-    <section className="catalog-panel" aria-labelledby={titleId}>
-      <h2 id={titleId}>Guindaste e configuração</h2>
+  const body = (
+    <>
       <CatalogSelect
         label="Fabricante"
+        icon={<Building2 size={14} />}
         list={manufacturers}
         options={manufacturers.items.map((item) => ({ id: item.id, label: item.name }))}
         selectedId={selectedManufacturerId}
         enabled
         emptyText="Nenhum fabricante cadastrado."
         onSelect={props.onSelectManufacturer}
+        onRetry={props.onRetry}
       />
+      {noManufacturers && props.emptyAction && (
+        <div className={styles.inlineAction}>{props.emptyAction}</div>
+      )}
       <CatalogSelect
         label="Guindaste"
+        icon={<Construction size={14} />}
         list={cranes}
         options={cranes.items.map((item) => ({ id: item.id, label: item.modelName }))}
         selectedId={selectedCraneId}
@@ -58,6 +80,7 @@ export function CatalogSelectionPanel(props: CatalogSelectionPanelProps) {
       />
       <CatalogSelect
         label="Configuração"
+        icon={<Settings2 size={14} />}
         list={configurations}
         options={configurations.items.map((item) => ({
           id: item.id,
@@ -68,42 +91,131 @@ export function CatalogSelectionPanel(props: CatalogSelectionPanelProps) {
         emptyText="Nenhuma configuração cadastrada neste guindaste."
         onSelect={props.onSelectConfiguration}
       />
-    </section>
+      {selected && <ConfigurationSummary configuration={selected} />}
+    </>
+  )
+
+  if (embedded) {
+    return (
+      <section className={styles.stack} aria-label={TITLE}>
+        {body}
+      </section>
+    )
+  }
+  return (
+    <Panel title={TITLE} icon={<Construction size={16} />}>
+      {body}
+    </Panel>
+  )
+}
+
+/** Ficha técnica da configuração escolhida, em chips; aviso quando não há ficha. */
+function ConfigurationSummary({ configuration }: { readonly configuration: CraneConfiguration }) {
+  const sheet = configuration.geometry
+  if (!sheet) {
+    return (
+      <Notice
+        tone="warning"
+        compact
+        title="Configuração sem ficha técnica"
+        icon={<TriangleAlert size={14} />}
+      >
+        Sem a ficha, os controles usam limites FICTÍCIOS e o backend responde “não avaliável”.
+      </Notice>
+    )
+  }
+  const chips = [
+    {
+      label: 'Lança',
+      value: `${formatNumber(sheet.boomLengthMinM)}–${formatNumber(sheet.boomLengthMaxM)} m`,
+    },
+    {
+      label: 'θ',
+      value: `${formatNumber(sheet.boomAngleMinDeg)}–${formatNumber(sheet.boomAngleMaxDeg)}°`,
+    },
+    {
+      label: 'Cabo',
+      value:
+        sheet.cableLengthMaxM === null
+          ? `≥ ${formatNumber(sheet.cableLengthMinM)} m`
+          : `${formatNumber(sheet.cableLengthMinM)}–${formatNumber(sheet.cableLengthMaxM)} m`,
+    },
+    {
+      label: 'Giro',
+      value:
+        sheet.turretRotationMinDeg === null || sheet.turretRotationMaxDeg === null
+          ? 'contínuo'
+          : `${formatNumber(sheet.turretRotationMinDeg)}…${formatNumber(sheet.turretRotationMaxDeg)}°`,
+    },
+    {
+      label: 'a / h',
+      value: `${formatNumber(sheet.boomPivotOffsetM)} / ${formatNumber(sheet.boomPivotHeightM)} m`,
+    },
+  ]
+  return (
+    <div className={styles.sheetSummary}>
+      <div className={styles.sheetSummaryHeader}>
+        <span>Ficha técnica</span>
+        <Badge tone="ok">com ficha</Badge>
+      </div>
+      <dl className={styles.chips}>
+        {chips.map((chip) => (
+          <div key={chip.label} className={styles.chip}>
+            <dt>{chip.label}</dt>
+            <dd>{chip.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   )
 }
 
 function CatalogSelect({
   label,
+  icon,
   list,
   options,
   selectedId,
   enabled,
   emptyText,
   onSelect,
+  onRetry,
 }: {
   readonly label: string
+  readonly icon: ReactNode
   readonly list: CatalogList<unknown>
   readonly options: readonly SelectOption[]
   readonly selectedId: string | null
   readonly enabled: boolean
   readonly emptyText: string
   onSelect(id: string | null): void
+  onRetry?(): void
 }) {
-  const selectId = useId()
-  const statusId = `${selectId}-status`
-  let status: string | null = null
-  if (list.status === 'loading') status = 'Carregando…'
-  else if (list.status === 'error') status = list.error
-  else if (list.status === 'loaded' && options.length === 0) status = emptyText
+  const statusId = `${useId()}-status`
+  const loading = list.status === 'loading'
+  const failed = list.status === 'error'
+  const empty = list.status === 'loaded' && options.length === 0
 
   return (
-    <div className="catalog-panel__field">
-      <label htmlFor={selectId}>{label}</label>
-      <select
-        id={selectId}
+    <Field
+      label={
+        <span className={styles.labelWithIcon}>
+          {icon}
+          {label}
+        </span>
+      }
+      labelAside={
+        loading ? (
+          <span className={styles.loadingHint}>
+            <Spinner size={11} />
+          </span>
+        ) : undefined
+      }
+    >
+      <Select
         value={selectedId ?? ''}
-        disabled={!enabled || list.status === 'loading'}
-        aria-describedby={status ? statusId : undefined}
+        disabled={!enabled || loading}
+        aria-describedby={loading || failed || empty ? statusId : undefined}
         onChange={(event) => onSelect(event.currentTarget.value || null)}
       >
         <option value="">— escolha —</option>
@@ -112,18 +224,27 @@ function CatalogSelect({
             {option.label}
           </option>
         ))}
-      </select>
-      {status && (
-        <span
-          id={statusId}
-          className={
-            list.status === 'error' ? 'catalog-panel__status--error' : 'catalog-panel__status'
-          }
-          role={list.status === 'error' ? 'alert' : undefined}
-        >
-          {status}
+      </Select>
+      {loading && (
+        <span id={statusId} className={styles.fieldStatus}>
+          Carregando…
         </span>
       )}
-    </div>
+      {empty && (
+        <span id={statusId} className={styles.fieldStatus}>
+          {emptyText}
+        </span>
+      )}
+      {failed && (
+        <div id={statusId} className={styles.fieldError} role="alert">
+          <span>{list.error}</span>
+          {onRetry && (
+            <Button size="sm" variant="ghost" icon={<RefreshCw size={13} />} onClick={onRetry}>
+              Tentar de novo
+            </Button>
+          )}
+        </div>
+      )}
+    </Field>
   )
 }

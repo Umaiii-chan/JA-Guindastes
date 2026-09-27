@@ -16,15 +16,16 @@ Doc-fonte § 15.2:
 `POST /{chart_id}/validate` (doc-fonte § 15.2) não existe: a validação acontece na importação, e a
 tabela gravada em `DRAFT` já passou por ela (handoffs/TASK-031.md § 8).
 
-Sem autenticação: P-009 pendente (known-gaps L-003). A apresentação não importa a infraestrutura:
+Autorização (ADR-016; TASK-038): com banco, a consulta exige sessão (qualquer perfil) e a importação
+e a ativação, o perfil `ADMIN` (`write_dependencies`). A apresentação não importa a infraestrutura:
 o seletor de parser, os repositórios e o armazenamento vêm prontos da raiz de composição.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, params, status
 from fastapi.responses import JSONResponse
 
 from app.application.ports.file_storage import FileStoragePort
@@ -83,8 +84,16 @@ def _error(status_code: int, description: str) -> dict[int | str, dict[str, obje
     return {status_code: {"model": ErrorResponse, "description": description}}
 
 
-def create_load_chart_persistence_router(deps: LoadChartPersistenceDependencies) -> APIRouter:
-    """Monta o router com os adapters recebidos da composição."""
+def create_load_chart_persistence_router(
+    deps: LoadChartPersistenceDependencies,
+    *,
+    write_dependencies: Sequence[params.Depends] = (),
+) -> APIRouter:
+    """Monta o router com os adapters recebidos da composição.
+
+    `write_dependencies` entram só na importação e na ativação: a exigência do perfil `ADMIN`.
+    """
+    writes = list(write_dependencies)
     limits = deps.upload_limits
     router = APIRouter(
         prefix=LOAD_CHARTS_PREFIX,
@@ -95,6 +104,7 @@ def create_load_chart_persistence_router(deps: LoadChartPersistenceDependencies)
     @router.post(
         "/import",
         status_code=status.HTTP_201_CREATED,
+        dependencies=writes,
         response_model=LoadChartResponse,
         summary="Importar uma tabela de carga (CSV ou XLSX) e gravá-la em DRAFT",
         description=(
@@ -103,7 +113,7 @@ def create_load_chart_persistence_router(deps: LoadChartPersistenceDependencies)
             "de origem. Não ativa a tabela. Inválida → 422 com o relatório, sem gravar nada. "
             f"Arquivo acima de {limits.max_file_bytes} bytes → 413; XLSX acima dos limites de "
             "tamanho descompactado ou de linhas → 413 (limites provisórios, A VALIDAR P-008). "
-            "Sem autenticação (P-009 pendente)."
+            "Com banco, exige o perfil ADMIN (ADR-016)."
         ),
         responses={
             status.HTTP_422_UNPROCESSABLE_CONTENT: {
@@ -190,6 +200,7 @@ def create_load_chart_persistence_router(deps: LoadChartPersistenceDependencies)
 
     @router.post(
         "/{chart_id}/activate",
+        dependencies=writes,
         summary="Ativar uma tabela de carga (a ACTIVE anterior vira SUPERSEDED)",
         description=(
             "`DRAFT` → `VALIDATED` → `ACTIVE` (doc-fonte § 13.2); `VALIDATED` → `ACTIVE`. A tabela "

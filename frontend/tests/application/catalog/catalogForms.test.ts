@@ -44,8 +44,8 @@ describe('formulário da ficha técnica', () => {
 
   it('aceita a negativo (pino atrás do eixo de giro) e zero', () => {
     expect(
-      parseTechnicalSheet({ ...FILLED, boomPivotOffsetM: '-1.2' }).sheet?.boomPivotOffsetM,
-    ).toBe(-1.2)
+      parseTechnicalSheet({ ...FILLED, boomPivotOffsetM: '-1.56' }).sheet?.boomPivotOffsetM,
+    ).toBe(-1.56)
     expect(parseTechnicalSheet({ ...FILLED, boomPivotOffsetM: '0' }).errors).toBeNull()
   })
 

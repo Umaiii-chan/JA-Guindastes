@@ -12,7 +12,13 @@ Rota provisória `/api/v1/ws/evaluation`, sem `simulation_id`: a doc-fonte § 15
 `/api/v1/ws/simulations/{simulation_id}`, mas ainda não há simulação persistida. A configuração vem
 em cada mensagem (`payload.configuration_id`; ver `handoffs/TASK-025.md` § 5).
 
-Sem autenticação nem validação de `Origin`: P-009 está pendente (known-gaps L-003).
+Autenticação (ADR-016 § 3; TASK-038): com banco, a composição passa um `connection_guard`. O
+handshake é aceito e, em seguida, o guard confere que o `Origin` bate com o `Host` e que o cookie
+`crane_session` tem sessão válida; se não, a conexão é fechada com `4403` (origem) ou `4401` (sem
+sessão), antes de qualquer mensagem. Aceitar antes de fechar é o que faz o código chegar ao
+navegador: fechar durante o handshake viraria um HTTP 403 sem código. A sessão é conferida só na
+abertura; uma sessão que expira ou é revogada depois não derruba a conexão já aberta. Sem banco não
+há guard (ADR-016 § 5).
 
 O router recebe o `EvaluateOperation` pronto porque a apresentação não importa a infraestrutura
 (contrato de camadas em `backend/pyproject.toml`): quem monta o caso de uso com os adapters e
@@ -21,7 +27,7 @@ registra o router na aplicação é a raiz de composição (leva B).
 
 import json
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from fastapi import APIRouter, WebSocket
@@ -47,6 +53,12 @@ from app.presentation.websocket.evaluation_messages import (
 )
 
 logger = logging.getLogger(__name__)
+
+type WebSocketConnectionGuard = Callable[[WebSocket], int | None]
+"""Confere a conexão recém-aceita: `None` para seguir, ou o código de fechamento (4401/4403).
+
+Síncrono (pode consultar o banco): roda numa thread à parte.
+"""
 
 EVALUATION_WEBSOCKET_PATH = "/api/v1/ws/evaluation"
 """Rota provisória, sem `simulation_id` (doc-fonte § 15.4); muda quando a simulação existir."""
@@ -83,11 +95,13 @@ def create_evaluation_websocket_router(
     evaluate_operation: EvaluateOperation,
     *,
     max_message_bytes: int = DEFAULT_MAX_MESSAGE_BYTES,
+    connection_guard: WebSocketConnectionGuard | None = None,
 ) -> APIRouter:
     """Monta o router do WebSocket de avaliação com o caso de uso montado pela composição.
 
     `max_message_bytes` é o limite de tamanho de cada mensagem recebida (padrão provisório de
-    8 KiB, A VALIDAR em P-008).
+    8 KiB, A VALIDAR em P-008). `connection_guard`, quando vem, confere origem e sessão logo depois
+    do aceite (ADR-016 § 3).
     """
     if (
         isinstance(max_message_bytes, bool)
@@ -103,6 +117,11 @@ def create_evaluation_websocket_router(
     @router.websocket(EVALUATION_WEBSOCKET_PATH)
     async def evaluation_websocket(websocket: WebSocket) -> None:
         await websocket.accept()
+        if connection_guard is not None:
+            close_code = await run_in_threadpool(connection_guard, websocket)
+            if close_code is not None:
+                await websocket.close(code=close_code)
+                return
         try:
             while True:
                 message = await websocket.receive()

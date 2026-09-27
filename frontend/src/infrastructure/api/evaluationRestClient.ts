@@ -18,6 +18,7 @@ import {
   readRecord,
   readString,
 } from '../shared/readJson'
+import { createApiFetch } from './apiFetch'
 import { EVALUATIONS_PATH, toEvaluationRequestDto } from './evaluationContract'
 
 /** Códigos de erro do lado do cliente (os do backend chegam como vieram). */
@@ -44,7 +45,7 @@ export interface EvaluationRestClient {
 }
 
 export interface EvaluationRestClientOptions {
-  /** `fetch` injetável (testes). Padrão: o `fetch` global. */
+  /** `fetch` injetável (testes). Padrão: o `fetch` global. Sempre embrulhado por `createApiFetch` (cookie e CSRF). */
   readonly fetchFn?: typeof fetch
   /** Prefixo da origem; vazio = mesma origem (proxy do Vite em dev, nginx no container). */
   readonly baseUrl?: string
@@ -53,7 +54,7 @@ export interface EvaluationRestClientOptions {
 export function createEvaluationRestClient(
   options: EvaluationRestClientOptions = {},
 ): EvaluationRestClient {
-  const fetchFn = options.fetchFn ?? ((input, init) => fetch(input, init))
+  const fetchFn = createApiFetch(options.fetchFn)
   const url = `${options.baseUrl ?? ''}${EVALUATIONS_PATH}`
 
   return {

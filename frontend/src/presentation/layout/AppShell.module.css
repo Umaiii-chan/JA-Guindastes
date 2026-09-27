@@ -1,0 +1,261 @@
+.shell {
+  --rail-width: var(--shell-rail-expanded);
+
+  display: grid;
+  grid-template-columns: var(--rail-width) minmax(0, 1fr);
+  height: 100%;
+  transition: grid-template-columns var(--duration-slow) var(--ease-out);
+}
+
+.collapsed {
+  --rail-width: var(--shell-rail-collapsed);
+}
+
+.skipLink {
+  position: absolute;
+  left: var(--space-3);
+  top: var(--space-3);
+  z-index: var(--z-toast);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: var(--color-text-inverse);
+  font-weight: var(--font-weight-semibold);
+  transform: translateY(-160%);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.skipLink:focus-visible {
+  transform: none;
+}
+
+/* ── Trilho ─────────────────────────────────────────────────────────────── */
+
+.rail {
+  position: relative;
+  z-index: var(--z-shell);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3) var(--space-3) var(--space-3);
+  background: linear-gradient(180deg, rgb(17 24 33 / 0.96), rgb(11 16 22 / 0.98));
+  border-right: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: calc(var(--shell-topbar-height) - var(--space-3));
+  padding: 0 7px var(--space-2);
+  margin-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.brand svg {
+  flex: none;
+}
+
+.brandText {
+  display: grid;
+  min-width: 0;
+  white-space: nowrap;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+
+.brandName {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+}
+
+.brandTagline {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-3);
+  letter-spacing: 0.04em;
+}
+
+.navList {
+  list-style: none;
+  display: grid;
+  gap: 2px;
+}
+
+.navSection {
+  margin-top: var(--space-4);
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-3);
+  white-space: nowrap;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+
+.navLink {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 40px;
+  padding: 0 11px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-2);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.navLink:hover {
+  text-decoration: none;
+  color: var(--color-text-1);
+  background: rgb(148 178 214 / 0.07);
+}
+
+.navLink:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--color-accent);
+}
+
+.navIcon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    transform var(--duration-base) var(--ease-spring);
+}
+
+.navLink:hover .navIcon {
+  transform: translateY(-1px);
+}
+
+.navLabel {
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+
+.navLinkActive {
+  color: var(--color-text-1);
+  background: linear-gradient(90deg, var(--color-accent-soft), rgb(34 211 238 / 0.02));
+}
+
+.navLinkActive::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--color-accent);
+  box-shadow: 0 0 12px var(--color-accent-glow);
+}
+
+.navLinkActive .navIcon {
+  color: var(--color-accent);
+}
+
+.railFooter {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.version {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-3);
+  white-space: nowrap;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+
+.collapsed .brandText,
+.collapsed .navLabel,
+.collapsed .navSection,
+.collapsed .version {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.collapsed .navSection {
+  height: 0;
+  margin-top: var(--space-3);
+  overflow: hidden;
+}
+
+/* ── Área principal ─────────────────────────────────────────────────────── */
+
+.main {
+  display: grid;
+  grid-template-rows: var(--shell-topbar-height) minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.topBar {
+  position: relative;
+  z-index: var(--z-shell);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 0 var(--space-5);
+  background: rgb(10 14 20 / 0.85);
+  border-bottom: 1px solid var(--color-border);
+  backdrop-filter: blur(12px);
+}
+
+.titles {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.pageTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.pageDescription {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topBarActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+}
+
+.userSlot {
+  display: flex;
+  align-items: center;
+  padding-left: var(--space-3);
+  margin-left: var(--space-1);
+  border-left: 1px solid var(--color-border);
+}
+
+.content {
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  outline: none;
+}
+
+.fullBleed {
+  overflow: hidden;
+}

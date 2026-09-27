@@ -275,7 +275,7 @@ describe('mapCraneKinematics sobre o GLB de exemplo FICTÍCIO', () => {
     it('avisa quando P e T do asset não batem com a e h da ficha técnica, mas monta o rig', async () => {
       const result = await mapExample({
         ...CONFIG,
-        geometryParameters: { boomPivotOffsetM: -1.2, boomPivotHeightM: 3.5 },
+        geometryParameters: { boomPivotOffsetM: -1.56, boomPivotHeightM: 3.5 },
       })
 
       expect(result.ok).toBe(true)
@@ -283,7 +283,7 @@ describe('mapCraneKinematics sobre o GLB de exemplo FICTÍCIO', () => {
         expect.objectContaining({
           kind: 'position',
           point: 'boom-pivot',
-          expected: [0, 3.5, -1.2],
+          expected: [0, 3.5, -1.56],
         }),
         expect.objectContaining({ kind: 'position', point: 'boom-tip' }),
       ])

@@ -220,3 +220,74 @@ describe('createLoadChartRestClient — ativação', () => {
     expect(error.message).toContain('detalhe fictício')
   })
 })
+
+describe('createLoadChartRestClient — validação prévia (TASK-042)', () => {
+  it('envia o mesmo multipart para /validate e devolve VALID com os pontos', async () => {
+    const { fetchFn, client } = clientAnswering(
+      jsonResponse({ ...IMPORTED_DRAFT, source: undefined, issues: [] }, 200),
+    )
+
+    const result = await client.validateChart(REQUEST)
+
+    const [url, init] = fetchFn.mock.calls[0]
+    expect(url).toBe('http://backend/api/v1/load-charts/validate')
+    expect(init?.method).toBe('POST')
+    const form = init?.body as FormData
+    expect(form.get('configuration_id')).toBe('CFG-FICTICIA')
+    expect(form.get('version')).toBe('v2')
+    expect(result).toEqual({
+      kind: 'VALID',
+      points: [
+        { boomLengthM: 20, workingRadiusM: 10, maxCapacityKg: 5000 },
+        { boomLengthM: 20, workingRadiusM: 15.5, maxCapacityKg: 3200 },
+      ],
+    })
+  })
+
+  it('200 com status INVALID → relatório com linha e coluna', async () => {
+    const { client } = clientAnswering(jsonResponse(INVALID_REPORT, 200))
+
+    const result = await client.validateChart(REQUEST)
+
+    expect(result.kind).toBe('INVALID')
+    expect(result.kind === 'INVALID' && result.issues[1]).toEqual({
+      code: 'INVALID_NUMBER',
+      message: 'Valor não numérico: "abc".',
+      line: 3,
+      column: 'working_radius_m',
+    })
+  })
+
+  it('413 → FILE_TOO_LARGE', async () => {
+    const { client } = clientAnswering(jsonResponse({ detail: 'grande demais' }, 413))
+    const error = await rejection(client.validateChart(REQUEST))
+    expect(error.code).toBe(LOAD_CHART_CLIENT_ERROR_CODES.tooLarge)
+  })
+
+  it('status fora do contrato → INVALID_RESPONSE', async () => {
+    const { client } = clientAnswering(jsonResponse({ ...IMPORTED_DRAFT, status: 'ACTIVE' }, 200))
+    const error = await rejection(client.validateChart(REQUEST))
+    expect(error.code).toBe(LOAD_CHART_CLIENT_ERROR_CODES.invalidResponse)
+  })
+})
+
+describe('createLoadChartRestClient — consulta (TASK-042)', () => {
+  it('GET /load-charts/{id} com o id codificado → tabela gravada', async () => {
+    const { fetchFn, client } = clientAnswering(jsonResponse(ACTIVATED_FIRST, 200))
+
+    const chart = await client.getChart('TAB/1')
+
+    expect(fetchFn.mock.calls[0][0]).toBe('http://backend/api/v1/load-charts/TAB%2F1')
+    expect(fetchFn.mock.calls[0][1]?.method).toBe('GET')
+    expect(chart.status).toBe('ACTIVE')
+    expect(chart.points).toHaveLength(2)
+    expect(chart.sourceFileName).toBe('tabela-ficticia.csv')
+  })
+
+  it('404 → LOAD_CHART_NOT_FOUND', async () => {
+    const { client } = clientAnswering(jsonResponse({ detail: 'não existe' }, 404))
+    const error = await rejection(client.getChart('TAB-X'))
+    expect(error.code).toBe(LOAD_CHART_CLIENT_ERROR_CODES.chartNotFound)
+    expect(error.httpStatus).toBe(404)
+  })
+})
