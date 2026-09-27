@@ -299,6 +299,51 @@ def test_removing_or_renaming_a_zone_with_charts_answers_409(
     assert kept["rotation_zones"] == zonas_payload_ficticio()
 
 
+def test_adding_zones_to_a_configuration_with_zoneless_charts_answers_409(api: Api) -> None:
+    configuration = api.configuration()
+    assert api.import_chart(configuration["id"], "LC-SEM-ZONA").status_code == 201
+    path = f"{CONFIGURATIONS}/{configuration['id']}"
+
+    response = api.client.patch(
+        path, json={"rotation_zones": zonas_payload_ficticio(), "hook_block_weight_kg": 200.0}
+    )
+
+    assert_coded(response, 409, "ZONELESS_LOAD_CHARTS_EXIST")
+    assert "sem zona" in response.json()["detail"]
+    kept = api.client.get(path).json()
+    assert kept["rotation_zones"] is None
+    assert kept["hook_block_weight_kg"] is None
+
+
+def test_zoneless_charts_error_comes_after_422_and_404(api: Api) -> None:
+    configuration = api.configuration()
+    assert api.import_chart(configuration["id"], "LC-SEM-ZONA").status_code == 201
+
+    invalid = api.client.patch(
+        f"{CONFIGURATIONS}/{configuration['id']}",
+        json={"rotation_zones": zonas_payload_ficticio()[:1]},
+    )
+    missing = api.client.patch(
+        f"{CONFIGURATIONS}/CFG-INEXISTENTE", json={"rotation_zones": zonas_payload_ficticio()}
+    )
+
+    assert_coded(invalid, 422, "INVALID_ROTATION_ZONES")
+    assert missing.status_code == 404
+
+
+def test_configuration_without_zones_and_zoneless_charts_accepts_other_edits(api: Api) -> None:
+    configuration = api.configuration()
+    assert api.import_chart(configuration["id"], "LC-SEM-ZONA").status_code == 201
+
+    response = api.client.patch(
+        f"{CONFIGURATIONS}/{configuration['id']}",
+        json={"hook_block_weight_kg": 200.0, "rotation_zones": []},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["hook_block_weight_kg"] == 200.0
+
+
 # --- importação -----------------------------------------------------------------------------
 
 

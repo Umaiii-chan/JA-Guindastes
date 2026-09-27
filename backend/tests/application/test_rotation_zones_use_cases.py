@@ -13,6 +13,7 @@ from app.application.use_cases.crane_catalog import (
     UNCHANGED,
     ManageCraneCatalog,
     RotationZoneInUseError,
+    ZonelessLoadChartsExistError,
 )
 from app.application.use_cases.import_load_chart import (
     ImportedLoadChart,
@@ -184,16 +185,65 @@ def test_zones_without_charts_can_be_removed(
     assert updated.rotation_zones == kept_front
 
 
-def test_adding_zones_to_a_configuration_with_charts_without_zone_is_accepted(
+def test_adding_zones_to_a_configuration_with_charts_without_zone_is_rejected(
     catalog: InMemoryCraneCatalog, store: InMemoryLoadChartStore
 ) -> None:
     store.add(chart("LC-FICTICIO-SEM-ZONA", None, configuration_id=SEM_ZONAS_ID), SOURCE_FICTICIA)
 
+    with pytest.raises(ZonelessLoadChartsExistError) as error:
+        ManageCraneCatalog(catalog, load_chart_listing=store).update_configuration(
+            SEM_ZONAS_ID, rotation_zones=zonas_ficticias(), hook_block_weight=Mass(200.0)
+        )
+
+    assert error.value.load_chart_ids == ("LC-FICTICIO-SEM-ZONA",)
+    stored = catalog.get_configuration(SEM_ZONAS_ID)
+    assert stored is not None
+    assert stored.rotation_zones is None
+    assert stored.hook_block_weight is None
+
+
+def test_adding_zones_to_a_configuration_without_charts_is_accepted(
+    catalog: InMemoryCraneCatalog, store: InMemoryLoadChartStore
+) -> None:
     updated = ManageCraneCatalog(catalog, load_chart_listing=store).update_configuration(
         SEM_ZONAS_ID, rotation_zones=zonas_ficticias()
     )
 
     assert updated.rotation_zones == zonas_ficticias()
+
+
+def test_other_edits_of_a_configuration_without_zones_with_zoneless_charts_still_work(
+    catalog: InMemoryCraneCatalog, store: InMemoryLoadChartStore
+) -> None:
+    store.add(chart("LC-FICTICIO-SEM-ZONA", None, configuration_id=SEM_ZONAS_ID), SOURCE_FICTICIA)
+    service = ManageCraneCatalog(catalog, load_chart_listing=store)
+
+    renamed = service.update_configuration(
+        SEM_ZONAS_ID, name="Nova FICTÍCIA", hook_block_weight=Mass(150.0)
+    )
+    still_without = service.update_configuration(SEM_ZONAS_ID, rotation_zones=None)
+
+    assert renamed.hook_block_weight == Mass(150.0)
+    assert still_without.rotation_zones is None
+
+
+def test_replacing_zones_keeps_working_when_a_zoned_configuration_has_charts(
+    catalog: InMemoryCraneCatalog, store: InMemoryLoadChartStore
+) -> None:
+    store.add(chart("LC-FICTICIO-FRONTAL", ZONA_FRONTAL_FICTICIA), SOURCE_FICTICIA)
+    store.add(chart("LC-FICTICIO-LATERAL", ZONA_LATERAL_TRASEIRA_FICTICIA), SOURCE_FICTICIA)
+    moved = RotationZones(
+        zones=(
+            RotationZone(ZONA_FRONTAL_FICTICIA, "Frontal FICTÍCIA", 300.0, 60.0),
+            RotationZone(ZONA_LATERAL_TRASEIRA_FICTICIA, "Resto FICTÍCIO", 60.0, 300.0),
+        )
+    )
+
+    updated = ManageCraneCatalog(catalog, load_chart_listing=store).update_configuration(
+        CONFIGURATION_FICTICIA_ID, rotation_zones=moved
+    )
+
+    assert updated.rotation_zones == moved
 
 
 # --- importação -----------------------------------------------------------------------------
