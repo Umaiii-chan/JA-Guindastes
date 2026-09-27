@@ -218,7 +218,7 @@ describe('página Tabelas', () => {
     expect(alert.closest('[role="alert"]')?.textContent).toContain('mudou ao mesmo tempo')
   })
 
-  it('linha do tempo pela rota nova: tabelas gravadas em outro lugar, a mais recente primeiro e a ativa na matriz', async () => {
+  it('linha do tempo pela rota nova: tabelas gravadas em outro lugar, da maior versão para a menor (v10 antes de v7) e a ativa na matriz', async () => {
     const source = { file_type: 'text/csv', sha256: 'a', uri: 'local://a' }
     loadChartFetch = createFakeLoadChartFetch([
       {
@@ -241,12 +241,12 @@ describe('página Tabelas', () => {
         source: { ...source, file_name: 'v7.csv' },
       },
       {
-        chart_id: 'TAB-V8',
-        version: 'v8',
+        chart_id: 'TAB-V10',
+        version: 'v10',
         configuration_id: 'CFG-A1-FICHA',
         status: 'DRAFT',
         points: [{ boom_length_m: 12, working_radius_m: 4, max_capacity_kg: 9500 }],
-        source: { ...source, file_name: 'v8.csv' },
+        source: { ...source, file_name: 'v10.csv' },
       },
       {
         chart_id: 'TAB-OUTRA',
@@ -288,7 +288,7 @@ describe('página Tabelas', () => {
     fireEvent.click(within(items[2]).getByRole('button', { name: 'Ver matriz' }))
     expect(await screen.findByRole('table', { name: /Versão v6/ })).toBeTruthy()
     // Sugere a versão seguinte à maior da configuração.
-    expect((screen.getByRole('textbox', { name: /^Versão/ }) as HTMLInputElement).value).toBe('v9')
+    expect((screen.getByRole('textbox', { name: /^Versão/ }) as HTMLInputElement).value).toBe('v11')
   })
 
   it('configuração que sumiu (404 na listagem): alerta com a mensagem', async () => {

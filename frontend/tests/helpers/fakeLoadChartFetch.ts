@@ -96,10 +96,28 @@ function summaryOf(chart: ChartRow) {
   return { ...rest, point_count: points.length }
 }
 
+/** Números da versão (`v2.1` → `[2, 1]`), para ordenar como o backend. */
+function versionNumbers(version: string): number[] {
+  return (version.match(/\d+/g) ?? []).map(Number)
+}
+
 /**
- * Cria o `fetch` falso das tabelas. `charts` pode vir preenchido (tabelas já gravadas), da mais
- * antiga para a mais recente: a listagem por configuração devolve na ordem inversa, como o backend
- * (da importada mais recentemente para a mais antiga).
+ * Ordem da listagem do backend (TASK-044): versão da maior para a menor, comparando os números como
+ * números (`v10`, `v9`, `v2.1`, `v2`, `v1`); empate por `chart_id` decrescente.
+ */
+function byVersionDesc(a: ChartRow, b: ChartRow): number {
+  const left = versionNumbers(a.version)
+  const right = versionNumbers(b.version)
+  for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
+    const difference = (right[index] ?? -1) - (left[index] ?? -1)
+    if (difference !== 0) return difference
+  }
+  return b.chart_id.localeCompare(a.chart_id)
+}
+
+/**
+ * Cria o `fetch` falso das tabelas. `charts` pode vir preenchido (tabelas já gravadas); a listagem
+ * por configuração devolve na ordem do backend (`byVersionDesc`).
  */
 export function createFakeLoadChartFetch(
   charts: ChartRow[] = [],
@@ -113,9 +131,11 @@ export function createFakeLoadChartFetch(
     if (method === 'GET' && list) {
       const configurationId = decodeURIComponent(list[1])
       if (options.configurationIds && !options.configurationIds.includes(configurationId)) {
-        return jsonResponse({ detail: `Configuração ${configurationId} não encontrada.` }, 404)
+        return jsonResponse({ detail: `configuração com id '${configurationId}' não existe` }, 404)
       }
-      const items = charts.filter((chart) => chart.configuration_id === configurationId).reverse()
+      const items = charts
+        .filter((chart) => chart.configuration_id === configurationId)
+        .sort(byVersionDesc)
       return jsonResponse({
         items: items.map(summaryOf),
         active_chart_id: items.find((chart) => chart.status === 'ACTIVE')?.chart_id ?? null,

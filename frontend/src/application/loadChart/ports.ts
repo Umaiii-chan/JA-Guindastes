@@ -36,7 +36,10 @@ export interface LoadChartSummary {
 
 /** Tabelas de uma configuração (`GET /configurations/{id}/load-charts`). */
 export interface ConfigurationLoadCharts {
-  /** Da versão importada mais recentemente para a mais antiga (ordem do backend). */
+  /**
+   * Ordem do backend: versão da maior para a menor, com os números comparados como números (`v10`,
+   * `v9`, `v2.1`, `v2`, `v1`); empate por `chartId` decrescente. Não é a ordem de importação.
+   */
   readonly items: readonly LoadChartSummary[]
   /** A tabela ativa da configuração, se houver (no máximo uma; ADR-009). */
   readonly activeChartId: string | null

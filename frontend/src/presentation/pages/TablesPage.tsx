@@ -120,7 +120,7 @@ function ChartWorkspace({
   const fileState = fileCheck.state
   const filePoints = fileState.status === 'valid' ? fileState.points : null
 
-  // Prévia: o arquivo válido recém-solto, a versão escolhida, a ativa ou a mais recente.
+  // Prévia: o arquivo válido recém-solto, a versão escolhida, a ativa ou a de maior versão.
   const chosenVersion =
     preview?.kind === 'version' ? versions.find((item) => item.chartId === preview.chartId) : null
   const showFile = filePoints !== null && preview?.kind === 'file'

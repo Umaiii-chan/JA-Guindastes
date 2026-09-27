@@ -186,12 +186,4 @@ describe('alteração de configuração (TASK-044)', () => {
     expect(sameTechnicalSheet(null, null)).toBe(true)
     expect(sameTechnicalSheet(SHEET_FICTICIA, null)).toBe(false)
   })
-
-  it('409 vira erro no campo do nome, quando indicado', () => {
-    const conflict = new CatalogRequestError('CONFLICT', 'Já existe "Config".')
-    expect(formErrorsFromRequest(conflict, 'modelName').fieldErrors).toEqual({
-      modelName: 'Já existe "Config".',
-    })
-    expect(formErrorsFromRequest(conflict).fieldErrors).toEqual({})
-  })
 })

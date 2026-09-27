@@ -18,9 +18,9 @@ export interface VersionTimelineProps {
 }
 
 /**
- * Linha do tempo das versões da configuração (RN-005), da importada mais recentemente para a mais
- * antiga, com a ativa em destaque. A lista vem do backend (`GET /configurations/{id}/load-charts`,
- * TASK-044).
+ * Linha do tempo das versões da configuração (RN-005), na ordem do backend (versão da maior para a
+ * menor; não há data de importação), com a ativa (`active_chart_id`) em destaque. A lista vem de
+ * `GET /configurations/{id}/load-charts` (TASK-044).
  */
 export function VersionTimeline({
   state,
@@ -34,7 +34,7 @@ export function VersionTimeline({
   return (
     <Panel
       title="Versões"
-      subtitle="Da mais recente para a mais antiga"
+      subtitle="Da maior versão para a menor"
       icon={<History size={16} />}
       actions={
         <>

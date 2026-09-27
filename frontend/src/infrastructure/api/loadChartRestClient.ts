@@ -13,8 +13,9 @@
 // Erros 404/409/413/415 chegam como `{"detail": str}`.
 // Contrato da TASK-044:
 // - `GET /api/v1/configurations/{configuration_id}/load-charts` → 200
-//   `{items: [LoadChartResponse sem points], active_chart_id: str | null}`, da versão importada mais
-//   recentemente para a mais antiga; 404 se a configuração não existe.
+//   `{items: [LoadChartResponse sem points], active_chart_id: str | null}`, por versão da maior para a
+//   menor (números comparados como números; empate por chart_id decrescente); 404 `{detail}` se a
+//   configuração não existe.
 
 import type {
   ConfigurationLoadCharts,

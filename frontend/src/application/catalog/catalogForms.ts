@@ -132,20 +132,13 @@ export function parseTechnicalSheet(values: SheetFormValues): SheetParseResult {
  * Traduz o erro do backend para o formulário: erros 422 vão para os campos (o primeiro de cada campo)
  * e `message` resume. Erro sem campo (ex.: 404 do guindaste, 409, rede) fica só em `message`.
  */
-export function formErrorsFromRequest(
-  error: CatalogRequestError,
-  /** Campo do nome: um 409 (nome repetido; TASK-044) vira erro nele. */
-  conflictField?: string,
-): {
+export function formErrorsFromRequest(error: CatalogRequestError): {
   readonly fieldErrors: FormErrors
   readonly message: string
 } {
   const fieldErrors: Record<string, string> = {}
   for (const { field, message } of error.fieldErrors) {
     if (!(field in fieldErrors)) fieldErrors[field] = message
-  }
-  if (error.code === 'CONFLICT' && conflictField !== undefined) {
-    fieldErrors[conflictField] = error.message
   }
   return { fieldErrors, message: error.message }
 }

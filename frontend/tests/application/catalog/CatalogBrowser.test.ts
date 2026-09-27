@@ -232,15 +232,20 @@ describe('CatalogBrowser — cadastros', () => {
     ]).toEqual(['FAB-A', 'GUI-A1', 'CFG-A1-FICHA'])
   })
 
-  it('alterar: 409 e 404 voltam como erro, sem mudar a lista', async () => {
+  it('alterar: 404 e 422 voltam como erro, sem mudar a lista', async () => {
     const { browser } = browserWith()
     await browser.selectManufacturer('FAB-A')
 
-    const conflict = await browser.updateCrane('GUI-A1', 'Modelo FICTÍCIO A2')
     const missing = await browser.updateCrane('GUI-INEXISTENTE', 'Qualquer')
+    const invalid = await browser.updateCrane('GUI-A1', ' ')
 
-    expect(conflict.ok || conflict.error.code).toBe('CONFLICT')
     expect(missing.ok || missing.error.code).toBe('NOT_FOUND')
+    expect(missing.ok || missing.error.message).toBe(
+      "guindaste com id 'GUI-INEXISTENTE' não existe",
+    )
+    expect(invalid.ok || invalid.error.fieldErrors).toEqual([
+      { field: 'modelName', message: 'String should match pattern' },
+    ])
     expect(browser.getState().cranes.items.map((item) => item.modelName)).toEqual([
       'Modelo FICTÍCIO A1',
       'Modelo FICTÍCIO A2',

@@ -58,12 +58,12 @@ export function createFakeCatalogFetch(
     (a: T, b: T) =>
       key(a).localeCompare(key(b))
   const blank = (value: unknown) => typeof value !== 'string' || value.trim() === ''
-  const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
   /**
-   * `PATCH` dos cadastros (TASK-044): 404 se não existe; 422 com campo vazio, sem campo nenhum ou
-   * `geometry: null`; 409 se o nome repete outro do mesmo nível (fabricantes; guindastes do mesmo
-   * fabricante; configurações do mesmo guindaste). É a regra deste falso: basta para exercitar a tela.
+   * `PATCH` dos cadastros, no contrato da TASK-044: o corpo é validado antes de procurar o item
+   * (422 no formato do FastAPI para campo vazio ou `null`, campo desconhecido como `id`/`crane_id`/
+   * `manufacturer_id`, ou nenhum campo); depois, 404 `{detail}` se o item não existe. Nomes não são
+   * únicos: não há 409. `geometry` substitui a ficha inteira.
    */
   function patch(path: string, body: unknown): Response {
     const request = (body ?? {}) as Record<string, unknown>
@@ -71,59 +71,54 @@ export function createFakeCatalogFetch(
       path,
     ) ?? [null, null, null]
     const id = rawId === null ? '' : decodeURIComponent(rawId)
-    const conflict = (name: string) => jsonResponse({ detail: `Já existe "${name}".` }, 409)
+    const allowed = {
+      manufacturers: ['name'],
+      cranes: ['model_name'],
+      configurations: ['name', 'geometry'],
+    }
+    if (kind === null) return jsonResponse({ detail: 'Method Not Allowed' }, 405)
+
+    const unknown = Object.keys(request).find(
+      (key) => !allowed[kind as keyof typeof allowed].includes(key),
+    )
+    if (unknown !== undefined) {
+      return jsonResponse(validationError([unknown], 'Extra inputs are not permitted'), 422)
+    }
+    const notFound = (entity: string) =>
+      jsonResponse({ detail: `${entity} com id '${id}' não existe` }, 404)
 
     if (kind === 'manufacturers') {
-      const row = data.manufacturers.find((item) => item.id === id)
-      if (!row) return jsonResponse({ detail: `Fabricante ${id} não encontrado.` }, 404)
       if (blank(request.name)) {
         return jsonResponse(validationError(['name'], 'String should match pattern'), 422)
       }
-      const name = String(request.name)
-      if (data.manufacturers.some((item) => item.id !== id && sameName(item.name, name))) {
-        return conflict(name)
-      }
-      row.name = name
+      const row = data.manufacturers.find((item) => item.id === id)
+      if (!row) return notFound('fabricante')
+      row.name = String(request.name)
       return jsonResponse(row)
     }
     if (kind === 'cranes') {
-      const row = data.cranes.find((item) => item.id === id)
-      if (!row) return jsonResponse({ detail: `Guindaste ${id} não encontrado.` }, 404)
       if (blank(request.model_name)) {
         return jsonResponse(validationError(['model_name'], 'String should match pattern'), 422)
       }
-      const modelName = String(request.model_name)
-      const siblings = data.cranes.filter(
-        (item) => item.manufacturer_id === row.manufacturer_id && item.id !== id,
-      )
-      if (siblings.some((item) => sameName(item.model_name, modelName))) return conflict(modelName)
-      row.model_name = modelName
+      const row = data.cranes.find((item) => item.id === id)
+      if (!row) return notFound('guindaste')
+      row.model_name = String(request.model_name)
       return jsonResponse(row)
     }
-    if (kind === 'configurations') {
-      const row = data.configurations.find((item) => item.id === id)
-      if (!row) return jsonResponse({ detail: `Configuração ${id} não encontrada.` }, 404)
-      if (!('name' in request) && !('geometry' in request)) {
-        return jsonResponse(validationError([], 'Informe ao menos um campo.'), 422)
-      }
-      if ('name' in request && blank(request.name)) {
-        return jsonResponse(validationError(['name'], 'String should match pattern'), 422)
-      }
-      if ('geometry' in request && request.geometry === null) {
-        return jsonResponse(validationError(['geometry'], 'A ficha não pode ser nula.'), 422)
-      }
-      if ('name' in request) {
-        const name = String(request.name)
-        const siblings = data.configurations.filter(
-          (item) => item.crane_id === row.crane_id && item.id !== id,
-        )
-        if (siblings.some((item) => sameName(item.name, name))) return conflict(name)
-        row.name = name
-      }
-      if ('geometry' in request) row.geometry = request.geometry as CraneGeometryDto
-      return jsonResponse(row)
+    if (!('name' in request) && !('geometry' in request)) {
+      return jsonResponse(validationError([], 'Informe ao menos um campo.'), 422)
     }
-    return jsonResponse({ detail: 'Method Not Allowed' }, 405)
+    if ('name' in request && blank(request.name)) {
+      return jsonResponse(validationError(['name'], 'String should match pattern'), 422)
+    }
+    if ('geometry' in request && request.geometry === null) {
+      return jsonResponse(validationError(['geometry'], 'Input should be a valid dictionary'), 422)
+    }
+    const row = data.configurations.find((item) => item.id === id)
+    if (!row) return notFound('configuração')
+    if ('name' in request) row.name = String(request.name)
+    if ('geometry' in request) row.geometry = request.geometry as CraneGeometryDto
+    return jsonResponse(row)
   }
 
   return vi.fn<typeof fetch>(async (input, init) => {

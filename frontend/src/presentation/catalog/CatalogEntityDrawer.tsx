@@ -227,7 +227,7 @@ function EntityForm({
       onClose()
       return
     }
-    const { fieldErrors, message: summary } = formErrorsFromRequest(result.error, nameField)
+    const { fieldErrors, message: summary } = formErrorsFromRequest(result.error)
     setBackendErrors(fieldErrors)
     setMessage(summary)
   }

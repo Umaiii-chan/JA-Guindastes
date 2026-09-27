@@ -116,7 +116,7 @@ describe('página Catálogo', () => {
         source: { ...source, file_name: 'v3.csv' },
       },
       {
-        // Mais recente, mas rascunho: não é a ativa.
+        // Versão maior, mas rascunho: não é a ativa.
         chart_id: 'TAB-RASCUNHO',
         version: 'v4',
         configuration_id: 'CFG-A1-FICHA',
@@ -416,18 +416,20 @@ describe('página Catálogo — edição com PATCH (TASK-044)', () => {
     expect(patches()).toEqual([])
   })
 
-  it('409: nome repetido aparece no campo, e o Drawer continua aberto', async () => {
-    stubBackend()
+  it('nome igual ao de outra configuração é aceito (sem 409)', async () => {
+    const { patches } = stubBackend()
     const { detail } = await openEditor()
     fireEvent.click(within(detail).getByRole('button', { name: 'Editar' }))
     const drawer = screen.getByRole('dialog', { name: 'Editar configuração' })
     const nameInput = within(drawer).getByLabelText(/Nome da configuração/)
 
+    // Nomes não são únicos no backend (sem 409): o nome de outra configuração é aceito.
     fireEvent.change(nameInput, { target: { value: 'Config FICTÍCIA sem ficha' } })
     fireEvent.click(within(drawer).getByRole('button', { name: 'Salvar alterações' }))
-    await waitFor(() => expect(nameInput.getAttribute('aria-invalid')).toBe('true'))
-    expect(within(drawer).getAllByText('Já existe "Config FICTÍCIA sem ficha".').length).toBe(2)
-    expect(screen.getByRole('dialog', { name: 'Editar configuração' })).toBeTruthy()
+    expect(await screen.findByText('Configuração alterada')).toBeTruthy()
+    expect(patches()).toEqual([
+      { url: '/api/v1/configurations/CFG-A1-FICHA', body: { name: 'Config FICTÍCIA sem ficha' } },
+    ])
   })
 
   it('422 do backend num campo da ficha vai para o campo', async () => {

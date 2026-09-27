@@ -270,16 +270,13 @@ describe('cliente REST do catálogo — cadastros', () => {
     expect(missing.code).toBe('NOT_FOUND')
   })
 
-  it.each([
-    [404, 'NOT_FOUND'],
-    [409, 'CONFLICT'],
-  ] as const)('PATCH: %i vira %s com o detail do backend', async (status, code) => {
-    const { client } = clientAnswering(jsonResponse({ detail: 'Detalhe FICTÍCIO' }, status))
+  it('PATCH: 404 vira NOT_FOUND com o detail do backend (sem campo code)', async () => {
+    const detail = "configuração com id 'CFG-X' não existe"
+    const { client } = clientAnswering(jsonResponse({ detail }, 404))
     const error = await rejection(client.updateConfiguration('CFG-X', { name: 'Outro' }))
-    expect(error.code).toBe(code)
-    expect(error.message).toBe('Detalhe FICTÍCIO')
+    expect(error.code).toBe('NOT_FOUND')
+    expect(error.message).toBe(detail)
   })
-
   it('PATCH: 422 do guindaste vira erro no campo modelName', async () => {
     const fetchFn = createFakeCatalogFetch(catalogFicticio())
     const error = await rejection(createCatalogRestClient({ fetchFn }).updateCrane('GUI-A1', ' '))
