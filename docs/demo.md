@@ -152,16 +152,25 @@ Nos passos seguintes, troque `http://127.0.0.1:8080` por `http://localhost:5173`
 
 ## 5. Selecionar a configuração e mover o guindaste
 
-1. Abra a tela e entre com o usuário criado (§ 3.1), se a tela de login já estiver disponível
-   (TASK-040). A cena 3D mostra o guindaste **provisório** (caixas e cilindros; medidas e limites
-   FICTÍCIOS).
-2. Selecione a configuração **"Configuração Demonstração FICTÍCIA"** (id
-   `demo-ficticio-configuracao`). Se a tela de seleção do catálogo ainda não estiver disponível,
-   digite o id no campo **"Configuração (configuration_id)"**.
-3. Em **"Peso da carga (kg)"**, digite `3000`.
-4. Deixe **giro = 0°** e **cabo = 5,0 m** (a pose inicial) e mova a inclinação e o comprimento da
-   lança conforme a tabela abaixo. O painel do backend atualiza sozinho (WebSocket, com REST de
-   reserva) e sempre mostra a marca **"PROVISÓRIO — consulta conservadora (ADR-015)"**.
+1. Abra a tela: sem sessão, ela leva a **/login**. Entre com o admin criado por
+   `python -m app.create_admin` (§ 3 ou § 4; detalhes na § 3.1). Se a tela abrir direto no Início
+   com o aviso "Modo sem autenticação", o backend está sem banco: volte à § 3 ou § 4.
+2. No trilho à esquerda, abra o **Simulador**. A cena ocupa a página e mostra o modelo
+   **ilustrativo** do guindaste sobre caminhão (`guindaste-caminhao.glb`, TASK-043), que é baixado
+   em segundo plano: por uma fração de segundo aparece o guindaste provisório, que ele substitui. O
+   modelo não define capacidade nem medidas de cálculo (RN-003), que vêm da ficha técnica FICTÍCIA.
+3. Passo **1 Guindaste**: escolha **"Fabricante Demonstração FICTÍCIO"** → **"Guindaste
+   Demonstração FICTÍCIO"** → **"Configuração Demonstração FICTÍCIA"** (id
+   `demo-ficticio-configuracao`) e continue.
+4. Passo **2 Carga**: preencha uma descrição (ex.: `Carga FICTÍCIA`), **"Peso (kg)"** = `3000` e
+   comprimento, largura e altura maiores que zero (ex.: 2, 1 e 1 m). O peso só vai para a avaliação
+   com o formulário inteiro válido; as dimensões só desenham a caixa pendurada no gancho.
+5. Passo **3 Posição**: deixe **"Giro da torre"** em 0° e **"Comprimento do cabo"** em 5,0 m (a pose
+   inicial) e mova **"Inclinação da lança"** e **"Comprimento da lança"** conforme a tabela abaixo. O
+   resultado à direita atualiza sozinho (WebSocket, com REST de reserva), mostra a situação com cor,
+   o medidor de utilização, a capacidade e o raio do backend, e sempre traz a marca **"PROVISÓRIO —
+   consulta conservadora (ADR-015)"**. O anel no chão marca o raio de pré-visualização e ganha a cor
+   da situação.
 
 Valores esperados com a tabela `demo-ficticia-v1` ativa (arredondados a 2 casas; a tela formata em
 pt-BR):
@@ -179,8 +188,10 @@ Como ler:
 - raio = a + L·cos θ (ADR-013), com a = −1,56 m; ex.: A → −1,56 + 12·cos 35° ≈ 8,27 m;
 - entre dois raios tabelados vale a **menor** capacidade dos dois vizinhos (ADR-015): em A, 8,27 m
   fica entre 8 m (5 500 kg) e 10 m (4 200 kg) → 4 200 kg; utilização = 3 000 / 4 200 = 71,43 %;
-- em C a utilização passa de 100 %, mas o status continua "Avaliado": ainda não há níveis de alerta
-  (PEND-004), e "Avaliado" só quer dizer que a tabela cobre o estado;
+- em C a utilização passa de 100 %: o resultado continua "Avaliado" (a tabela cobre o estado), e a
+  situação aparece como **"Acima da capacidade"**, em vermelho no painel e no anel da cena. Isso só
+  compara a carga com a capacidade: ainda não há níveis de alerta (PEND-004), e 100 % exatos contam
+  como dentro da capacidade (P-005). D e E aparecem como "Não avaliável", em cinza, com os motivos;
 - em D o comprimento de lança não existe na tabela (12, 17 e 22 m) e não é interpolado (ADR-013
   C-6); em E o raio fica abaixo do menor raio tabelado (RN-007).
 
@@ -196,10 +207,11 @@ curl -s -b cookies.txt -X POST http://127.0.0.1:8000/api/v1/evaluations \
 
 ## 6. Importar uma tabela com erro e ver o relatório
 
-Use a tela de importação (se já estiver disponível) com o arquivo
-`backend/app/demo_data/tabela_carga_ficticia_demo_com_erros.csv`, a configuração de demonstração,
-id `demo-ficticio-tabela-com-erros` e versão `demo-ficticia-com-erros`. Pela API, na raiz do
-repositório, com o login de admin da § 3.1:
+Na página **Tabelas** (importar exige o perfil ADMIN), escolha a configuração de demonstração e
+solte (ou escolha) o arquivo `backend/app/demo_data/tabela_carga_ficticia_demo_com_erros.csv`. A
+validação prévia mostra o relatório de erros numa tabela com linha, coluna e problema. Se tentar
+importar, use o id `demo-ficticio-tabela-com-erros` e a versão `demo-ficticia-com-erros`. Pela API,
+na raiz do repositório, com o login de admin da § 3.1:
 
 ```bash
 curl -s -b cookies.txt -H 'X-Requested-With: crane-simulator' \
@@ -225,8 +237,11 @@ A tabela ativa continua sendo a `demo-ficticia-v1` (repita o cenário A: 4 200 k
 
 ## 7. Ativar outra versão
 
-Importe a versão 2 (FICTÍCIA) e ative-a — pela tela de importação e ativação, se disponível, ou
-pela API:
+Importe a versão 2 (FICTÍCIA) e ative-a. Na página **Tabelas**: solte
+`tabela_carga_ficticia_demo_v2.csv`, importe como rascunho com o id `demo-ficticio-tabela-v2` e a
+versão `demo-ficticia-v2`, e use **"Ativar"** na linha do tempo, que pede confirmação. A linha do
+tempo vai da maior versão para a menor e passa a mostrar a v2 ativa e a v1 substituída. Ou pela
+API:
 
 ```bash
 curl -s -b cookies.txt -H 'X-Requested-With: crane-simulator' \
