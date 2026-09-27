@@ -112,7 +112,7 @@ export function ConfigurationDetail({
               tone="warning"
               icon={<TriangleAlert size={22} />}
               title="Configuração sem ficha técnica"
-              description="Sem a ficha, a avaliação responde “não avaliável”. Edite para salvar uma nova configuração com a ficha preenchida."
+              description="Sem a ficha, a avaliação responde “não avaliável”. Edite a configuração para preencher a ficha."
             />
           ) : (
             <>

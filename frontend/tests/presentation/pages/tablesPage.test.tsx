@@ -288,9 +288,7 @@ describe('página Tabelas', () => {
     fireEvent.click(within(items[2]).getByRole('button', { name: 'Ver matriz' }))
     expect(await screen.findByRole('table', { name: /Versão v6/ })).toBeTruthy()
     // Sugere a versão seguinte à maior da configuração.
-    expect((screen.getByRole('textbox', { name: /^Versão/ }) as HTMLInputElement).value).toBe(
-      'v9',
-    )
+    expect((screen.getByRole('textbox', { name: /^Versão/ }) as HTMLInputElement).value).toBe('v9')
   })
 
   it('configuração que sumiu (404 na listagem): alerta com a mensagem', async () => {

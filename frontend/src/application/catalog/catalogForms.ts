@@ -4,7 +4,12 @@
 // sem ida ao servidor: nome obrigatório, número finito, comprimentos e altura ≥ 0, mínimo ≤ máximo e
 // os dois limites de giro juntos (ADR-013 C-4). O resto (ex.: faixa de θ) chega como erro 422.
 
-import type { CatalogRequestError, CraneTechnicalSheet } from '../../domain/catalog/catalog'
+import type {
+  CatalogRequestError,
+  CraneConfiguration,
+  CraneTechnicalSheet,
+} from '../../domain/catalog/catalog'
+import type { ConfigurationChanges } from './ports'
 
 export type SheetFieldKey = keyof CraneTechnicalSheet
 
@@ -127,7 +132,11 @@ export function parseTechnicalSheet(values: SheetFormValues): SheetParseResult {
  * Traduz o erro do backend para o formulário: erros 422 vão para os campos (o primeiro de cada campo)
  * e `message` resume. Erro sem campo (ex.: 404 do guindaste, 409, rede) fica só em `message`.
  */
-export function formErrorsFromRequest(error: CatalogRequestError): {
+export function formErrorsFromRequest(
+  error: CatalogRequestError,
+  /** Campo do nome: um 409 (nome repetido; TASK-044) vira erro nele. */
+  conflictField?: string,
+): {
   readonly fieldErrors: FormErrors
   readonly message: string
 } {
@@ -135,7 +144,36 @@ export function formErrorsFromRequest(error: CatalogRequestError): {
   for (const { field, message } of error.fieldErrors) {
     if (!(field in fieldErrors)) fieldErrors[field] = message
   }
+  if (error.code === 'CONFLICT' && conflictField !== undefined) {
+    fieldErrors[conflictField] = error.message
+  }
   return { fieldErrors, message: error.message }
+}
+
+/** As duas fichas têm os mesmos valores (`null` = sem ficha). */
+export function sameTechnicalSheet(
+  a: CraneTechnicalSheet | null,
+  b: CraneTechnicalSheet | null,
+): boolean {
+  if (a === null || b === null) return a === b
+  return SHEET_FIELD_KEYS.every((key) => a[key] === b[key])
+}
+
+/**
+ * O que mudou na configuração editada (TASK-044): o nome, se diferente, e a ficha, se preenchida e
+ * diferente da atual. Vazio quando nada mudou. A ficha nunca é removida (o backend não aceita
+ * `geometry: null` na alteração).
+ */
+export function configurationChanges(
+  original: CraneConfiguration,
+  name: string,
+  sheet: CraneTechnicalSheet | null,
+): ConfigurationChanges {
+  const trimmed = name.trim()
+  return {
+    ...(trimmed !== original.name && { name: trimmed }),
+    ...(sheet !== null && !sameTechnicalSheet(sheet, original.geometry) && { geometry: sheet }),
+  }
 }
 
 /**

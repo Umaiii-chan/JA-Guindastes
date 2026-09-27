@@ -373,7 +373,16 @@ export function CatalogPage({
               activeChart={activeChart}
               canEdit={canEdit}
               onEdit={() =>
-                crane && setDrawer({ entity: 'configuration', crane, editing: configuration })
+                crane &&
+                setDrawer({
+                  entity: 'configuration',
+                  crane,
+                  editing: configuration,
+                  // Sem a lista carregada, não se sabe se há tabela ativa (o Drawer confirma).
+                  ...(versions.state.status === 'loaded' && {
+                    activeChartVersion: active?.version ?? null,
+                  }),
+                })
               }
             />
           ) : (
