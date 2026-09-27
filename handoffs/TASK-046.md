@@ -277,4 +277,5 @@ sessão principal em `f42f48c`.
 | # | Pergunta | Bloqueia? | Resposta | Respondida em |
 |---|----------|-----------|----------|---------------|
 | F-1 | Confirmar no CI (E2E com backend) que −180° no slider, com o seed, cai em `LATERAL_TRASEIRA` | não | | |
-| F-2 | Código novo `409 ZONELESS_LOAD_CHARTS_EXIST` (backend-2, depois de `f42f48c`). Verifiquei que `catalogRestClient.ts` já mostra o `detail` de qualquer 409 que não seja `ROTATION_ZONE_IN_USE`, então a mensagem do backend aparece. Uma mensagem própria no editor de zonas é opcional | não | | |
+| F-2 | Código novo `409 ZONELESS_LOAD_CHARTS_EXIST`: feito no frontend-2 (`bb49b8f`, `5df932d`). O editor mostra a mensagem própria e, com a listagem de versões carregada, bloqueia o atalho e "Adicionar zona" antes de salvar. Sem a listagem (vazia ou com erro), o formulário deixa salvar e o 409 aparece no editor | não | feito | 2026-09-27 |
+| F-3 | Uma execução completa de `npm test` no frontend-2 teve 1 falha não identificada; as 5 seguintes e as 2 da integração passaram (644 passed). Possível teste instável sob carga: observar no CI | não | | |
