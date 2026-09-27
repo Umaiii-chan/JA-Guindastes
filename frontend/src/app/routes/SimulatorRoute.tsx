@@ -36,6 +36,7 @@ import type { CraneCommands, CraneState } from '../../three/crane/types'
 import { useCatalog } from '../catalog/catalogContext'
 import { chooseCraneSetup } from '../craneSetup'
 import { buildEvaluationInput } from '../evaluationInput'
+import { sceneRotationZoneCode } from '../sceneRotationZone'
 import { useSimulatorDraft } from '../simulator/simulatorDraft'
 import { useEvaluationSession } from '../useEvaluationSession'
 
@@ -144,6 +145,16 @@ export function SimulatorRoute() {
   const sceneStatus = evaluationStatus(
     evaluationInput.problem === null && evaluation.error === null ? evaluation.result : null,
   )
+  // Zonas de giro no chão (TASK-046). A zona destacada é a do backend quando o resultado vale para o
+  // estado atual (sem nada a caminho); senão, a prévia pelo giro ψ, só para desenho (RN-008).
+  const rotationZones = selectedConfiguration?.rotationZones ?? []
+  const activeZoneCode = sceneRotationZoneCode({
+    zones: rotationZones,
+    turretRotationDeg: crane?.state.turretRotationDeg ?? null,
+    result: evaluation.result,
+    resultIsCurrent:
+      evaluationInput.problem === null && evaluation.error === null && !evaluation.pending,
+  })
   const sceneLoad = validLoad
     ? { lengthM: validLoad.lengthM, widthM: validLoad.widthM, heightM: validLoad.heightM }
     : null
@@ -174,6 +185,8 @@ export function SimulatorRoute() {
         onCraneChange={handleCraneChange}
         evaluationStatus={sceneStatus}
         load={sceneLoad}
+        rotationZones={rotationZones}
+        activeZoneCode={activeZoneCode}
       />
     </SceneErrorBoundary>
   )

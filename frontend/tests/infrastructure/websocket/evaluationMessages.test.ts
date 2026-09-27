@@ -44,6 +44,10 @@ describe('mensagens do WebSocket de avaliação', () => {
         utilizationPercent: 75,
         loadChartId: 'LC-FICTICIO-AVALIACAO-001',
         loadChartVersion: 'FICTICIO-AVALIACAO-v1',
+        rotationZoneCode: null,
+        rotationZoneName: null,
+        hookBlockWeightKg: null,
+        comparedWeightKg: null,
       },
     })
   })

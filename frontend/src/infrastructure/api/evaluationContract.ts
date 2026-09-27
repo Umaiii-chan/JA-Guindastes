@@ -61,6 +61,12 @@ export interface EvaluationResponseDto {
   readonly load_chart_id: string | null
   readonly load_chart_version: string | null
   readonly reasons: readonly NotEvaluableReasonDto[]
+  /** TASK-046 (ADR-018): a zona de giro usada e as parcelas do peso comparado. */
+  readonly rotation_zone_code?: string | null
+  readonly rotation_zone_name?: string | null
+  readonly hook_block_weight_kg?: number
+  /** Carga + gancho: o valor comparado com a capacidade. */
+  readonly compared_weight_kg?: number
 }
 
 export function toEvaluationRequestDto(input: EvaluationInput): EvaluationRequestDto {

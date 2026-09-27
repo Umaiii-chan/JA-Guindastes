@@ -398,6 +398,128 @@
   color: var(--color-text-1);
 }
 
+/* Editor das zonas de giro no Drawer da configuração (TASK-046). */
+.zonesFieldset {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.zonesLegend {
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-1);
+}
+
+.zonesActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.zonesEmpty {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-3);
+}
+
+.zoneRows {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.zoneRow {
+  display: grid;
+  grid-template-columns:
+    auto minmax(0, 1.1fr) minmax(0, 1.4fr) minmax(0, 0.8fr) minmax(0, 0.8fr)
+    auto;
+  gap: var(--space-2);
+  align-items: start;
+}
+
+.zoneIndex {
+  margin-top: 30px;
+  min-width: 18px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-3);
+  text-align: center;
+}
+
+.zoneRemove {
+  margin-top: 24px;
+}
+
+@media (max-width: 560px) {
+  .zoneRow {
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto;
+  }
+
+  .zoneField_name {
+    grid-column: 2 / span 2;
+  }
+}
+
+/* Zonas no detalhe da configuração, com a tabela ativa de cada uma (TASK-046). */
+.zonesDetail {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.zoneTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.zoneTable th,
+.zoneTable td {
+  padding: var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.zoneTable thead th {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-3);
+}
+
+.zoneTable tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.zoneCode {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-3);
+}
+
+.zoneSector {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hookLine {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-2);
+}
+
+.hookLine strong {
+  color: var(--color-text-1);
+  font-variant-numeric: tabular-nums;
+}
+
 @keyframes rise {
   from {
     opacity: 0;

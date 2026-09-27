@@ -20,7 +20,7 @@ import {
   filterCatalogTree,
 } from '../../application/catalog/catalogTree'
 import type { CatalogGateway } from '../../application/catalog/ports'
-import { activeVersion } from '../../application/loadChart/chartVersions'
+import { firstActiveVersion } from '../../application/loadChart/chartVersions'
 import { createLoadChartCache } from '../../application/loadChart/loadChartCache'
 import type { LoadChartGateway } from '../../application/loadChart/ports'
 import { CatalogColumn, ColumnEmpty } from '../catalog/CatalogColumn'
@@ -87,8 +87,6 @@ export function CatalogPage({
   const [drawer, setDrawer] = useState<CatalogDrawerRequest | null>(null)
   const versions = useChartVersions(loadChartGateway, selection.selectedConfigurationId)
   const [chartCache] = useState(() => createLoadChartCache(loadChartGateway))
-  const active = activeVersion(versions.state.versions, versions.state.activeChartId)
-  const activeChart = useStoredChart(chartCache, active?.chartId ?? null)
 
   const tree = state.tree
   const fullTree = tree ?? EMPTY_TREE
@@ -109,6 +107,15 @@ export function CatalogPage({
         (item) => item.id === selection.selectedConfigurationId,
       ) ?? null)
     : null
+
+  // Com zonas (TASK-046), a matriz do detalhe é a da primeira zona com tabela ativa.
+  const active = firstActiveVersion(
+    versions.state.versions,
+    versions.state.activeCharts,
+    (configuration?.rotationZones ?? []).map((zone) => zone.code),
+    versions.state.activeChartId,
+  )
+  const activeChart = useStoredChart(chartCache, active?.chartId ?? null)
 
   const noResults = (what: string) => (
     <ColumnEmpty

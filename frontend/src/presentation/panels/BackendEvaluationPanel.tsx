@@ -56,8 +56,9 @@ const kilograms = (value: number) => `${formatNumber(value, 0)} kg`
 /**
  * HUD do resultado OFICIAL, calculado no backend (RN-008): situação com cor, utilização no medidor,
  * capacidade, raio e o ponto tabelado usado, com a marca da consulta conservadora provisória
- * (ADR-015). "Não avaliável" mostra os motivos (RN-007). A cor só compara a carga com a capacidade;
- * não há níveis de alerta (PEND-004).
+ * (ADR-015). "Não avaliável" mostra os motivos (RN-007). Com zonas de giro (TASK-046), mostra a zona
+ * usada e as parcelas do peso comparado (carga + gancho), todas vindas do backend. A cor só compara o
+ * peso comparado com a capacidade; não há níveis de alerta (PEND-004).
  */
 export function BackendEvaluationPanel({
   result,
@@ -76,6 +77,8 @@ export function BackendEvaluationPanel({
       : STATUS_PRESENTATION[status]
   const waitingFirst = inputProblem === null && error === null && result === null
   const utilization = shown?.kind === 'EVALUATED' ? shown.utilizationPercent : null
+  // Zona de giro usada pelo backend (TASK-046); some numa configuração sem zonas.
+  const zoneLabel = shown ? (shown.rotationZoneName ?? shown.rotationZoneCode) : null
 
   return (
     <section className={styles.hud} aria-labelledby={titleId} aria-busy={pending}>
@@ -123,10 +126,42 @@ export function BackendEvaluationPanel({
           <Metric label="Capacidade" loading={waitingFirst && pending}>
             {shown?.capacity ? kilograms(shown.capacity.maximumCapacityKg) : '—'}
           </Metric>
-          <Metric label="Carga">{loadWeightKg === null ? '—' : kilograms(loadWeightKg)}</Metric>
+          {zoneLabel !== null && (
+            <Metric label="Zona de giro">
+              <span className={styles.zoneValue} title={shown?.rotationZoneCode ?? undefined}>
+                {zoneLabel}
+              </span>
+            </Metric>
+          )}
           <Metric label="Raio (backend)" loading={waitingFirst && pending}>
             {shown?.workingRadiusM !== null && shown?.workingRadiusM !== undefined
               ? meters(shown.workingRadiusM)
+              : '—'}
+          </Metric>
+        </dl>
+      </div>
+
+      <div className={styles.parts} role="group" aria-label="Peso comparado com a capacidade">
+        <dl className={styles.part}>
+          <Metric label="Carga">{loadWeightKg === null ? '—' : kilograms(loadWeightKg)}</Metric>
+        </dl>
+        <span className={styles.partsOperator} aria-hidden="true">
+          +
+        </span>
+        <dl className={styles.part}>
+          <Metric label="Gancho">
+            {shown?.hookBlockWeightKg !== null && shown?.hookBlockWeightKg !== undefined
+              ? kilograms(shown.hookBlockWeightKg)
+              : '—'}
+          </Metric>
+        </dl>
+        <span className={styles.partsOperator} aria-hidden="true">
+          =
+        </span>
+        <dl className={styles.part}>
+          <Metric label="Peso comparado">
+            {shown?.comparedWeightKg !== null && shown?.comparedWeightKg !== undefined
+              ? kilograms(shown.comparedWeightKg)
               : '—'}
           </Metric>
         </dl>
@@ -205,6 +240,20 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
   if (result.kind === 'EVALUATED') {
     rows.push({ label: 'Utilização', value: `${formatNumber(result.utilizationPercent, 2)} %` })
   }
+  if (result.rotationZoneCode !== null || result.rotationZoneName !== null) {
+    rows.push({
+      label: 'Zona de giro',
+      value: [result.rotationZoneName, result.rotationZoneCode && `(${result.rotationZoneCode})`]
+        .filter(Boolean)
+        .join(' '),
+    })
+  }
+  if (result.comparedWeightKg !== null) {
+    rows.push({
+      label: 'Peso comparado (carga + gancho)',
+      value: `${kilograms(result.comparedWeightKg)}${result.hookBlockWeightKg !== null ? ` (gancho ${kilograms(result.hookBlockWeightKg)})` : ''}`,
+    })
+  }
   if (result.workingRadiusM !== null) {
     rows.push({ label: 'Raio de trabalho (backend)', value: meters(result.workingRadiusM) })
   }
@@ -238,7 +287,13 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
     <>
       {result.kind === 'NOT_EVALUABLE' && (
         <div className={styles.reasons}>
-          <p>Motivos:</p>
+          <p>
+            Motivos
+            {result.rotationZoneName !== null || result.rotationZoneCode !== null
+              ? ` (zona ${result.rotationZoneName ?? result.rotationZoneCode})`
+              : ''}
+            :
+          </p>
           <ul>
             {result.reasons.map((reason, index) => (
               <li key={`${reason.code}-${index}`}>
@@ -262,8 +317,8 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
           </dl>
           {result.kind === 'EVALUATED' && (
             <p className={cx(styles.meta, styles.detailsNote)}>
-              A cor só compara a carga com a capacidade: não há níveis de alerta definidos
-              (PEND-004).
+              A cor só compara o peso comparado (carga + gancho) com a capacidade: não há níveis de
+              alerta definidos (PEND-004).
             </p>
           )}
         </details>

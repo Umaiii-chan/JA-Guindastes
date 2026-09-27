@@ -5,7 +5,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   activeVersion,
+  activeVersionsByZone,
+  firstActiveVersion,
   isActivatable,
+  isActiveChart,
   suggestChartId,
   suggestNextVersion,
   summaryOf,
@@ -22,9 +25,44 @@ function chart(chartId: string, patch: Partial<StoredLoadChart> = {}): StoredLoa
     status: 'DRAFT',
     points: [{ boomLengthM: 12, workingRadiusM: 4, maxCapacityKg: 9000 }],
     sourceFileName: 'tabela_ficticia.csv',
+    rotationZoneCode: null,
     ...patch,
   }
 }
+
+describe('ativas por zona (TASK-046)', () => {
+  const versions = [
+    summaryOf(chart('F2', { rotationZoneCode: 'FRONTAL' })),
+    summaryOf(chart('F1', { rotationZoneCode: 'FRONTAL', status: 'ACTIVE' })),
+    summaryOf(chart('L1', { rotationZoneCode: 'LATERAL_TRASEIRA', status: 'ACTIVE' })),
+  ]
+  const activeCharts = [
+    { rotationZoneCode: 'LATERAL_TRASEIRA', chartId: 'L1' },
+    { rotationZoneCode: 'FRONTAL', chartId: 'F1' },
+    { rotationZoneCode: 'FRONTAL', chartId: 'FORA-DA-LISTA' },
+  ]
+
+  it('uma ativa por zona, pela active_charts do backend', () => {
+    const byZone = activeVersionsByZone(versions, activeCharts)
+    expect(byZone.get('FRONTAL')?.chartId).toBe('F1')
+    expect(byZone.get('LATERAL_TRASEIRA')?.chartId).toBe('L1')
+    expect(byZone.has(null)).toBe(false)
+    expect(isActiveChart('F1', activeCharts)).toBe(true)
+    expect(isActiveChart('F2', activeCharts)).toBe(false)
+  })
+
+  it('a primeira ativa segue a ordem das zonas da configuração', () => {
+    expect(
+      firstActiveVersion(versions, activeCharts, ['FRONTAL', 'LATERAL_TRASEIRA'])?.chartId,
+    ).toBe('F1')
+    expect(
+      firstActiveVersion(versions, activeCharts, ['LATERAL_TRASEIRA', 'FRONTAL'])?.chartId,
+    ).toBe('L1')
+    // Sem `active_charts` (backend anterior), vale o status ACTIVE, como antes.
+    expect(firstActiveVersion(versions, [], [])?.chartId).toBe('F1')
+    expect(firstActiveVersion([], [], [])).toBeNull()
+  })
+})
 
 describe('activeVersion', () => {
   const versions = [
@@ -53,6 +91,7 @@ describe('summaryOf', () => {
       status: 'DRAFT',
       pointCount: 1,
       sourceFileName: 'tabela_ficticia.csv',
+      rotationZoneCode: null,
     })
   })
 })

@@ -10,11 +10,13 @@ import styles from './tables.module.css'
 export interface ActivationDialogProps {
   /** Versão a ativar; `null` fecha o Dialog. */
   readonly target: LoadChartSummary | null
-  /** Versão ativa hoje, se houver. */
+  /** Versão ativa hoje, se houver: com zonas (TASK-046), a ativa da MESMA zona da que vai ser ativada. */
   readonly current: LoadChartSummary | null
   /** Pontos das duas versões, quando já lidos (a listagem não os traz); sem eles, não compara. */
   readonly targetPoints: readonly LoadChartPoint[] | null
   readonly currentPoints: readonly LoadChartPoint[] | null
+  /** Nome da zona de giro da versão (TASK-046); `null` numa configuração sem zonas. */
+  readonly zoneName?: string | null
   readonly busy: boolean
   onConfirm(): void
   onCancel(): void
@@ -30,6 +32,7 @@ export function ActivationDialog({
   current,
   targetPoints,
   currentPoints,
+  zoneName = null,
   busy,
   onConfirm,
   onCancel,
@@ -47,7 +50,11 @@ export function ActivationDialog({
       open={target !== null}
       onClose={busy ? () => undefined : onCancel}
       title={target ? `Ativar a versão ${target.version}?` : ''}
-      description="A capacidade calculada muda: toda avaliação nova desta configuração passa a usar esta tabela."
+      description={
+        zoneName
+          ? `A capacidade calculada muda na zona ${zoneName}: toda avaliação nova desta configuração com o giro nessa zona passa a usar esta tabela.`
+          : 'A capacidade calculada muda: toda avaliação nova desta configuração passa a usar esta tabela.'
+      }
       footer={
         <>
           <Button variant="ghost" onClick={onCancel} disabled={busy}>
@@ -70,16 +77,28 @@ export function ActivationDialog({
             <li>
               {current ? (
                 <>
-                  A <strong>{current.version}</strong>, ativa hoje, passa a{' '}
-                  <strong>Substituída</strong> (SUPERSEDED) e deixa de valer.
+                  A <strong>{current.version}</strong>, ativa hoje{zoneName ? ' nesta zona' : ''},
+                  passa a <strong>Substituída</strong> (SUPERSEDED) e deixa de valer.
                 </>
               ) : (
-                <>Esta configuração não tem versão ativa hoje: esta passa a ser a primeira.</>
+                <>
+                  {zoneName
+                    ? `A zona ${zoneName} não tem versão ativa hoje: esta passa a ser a primeira.`
+                    : 'Esta configuração não tem versão ativa hoje: esta passa a ser a primeira.'}
+                </>
               )}
             </li>
+            {zoneName && <li>As tabelas ativas das outras zonas não mudam.</li>}
           </ul>
           {comparison && comparison.common > 0 && (
-            <div className={styles.comparison} aria-label="Comparação com a versão ativa">
+            <div
+              className={styles.comparison}
+              aria-label={
+                zoneName
+                  ? `Comparação com a versão ativa da zona ${zoneName}`
+                  : 'Comparação com a versão ativa'
+              }
+            >
               <p className={styles.comparisonTitle}>
                 Nos {comparison.common} pontos (lança, raio) presentes nas duas versões:
               </p>
