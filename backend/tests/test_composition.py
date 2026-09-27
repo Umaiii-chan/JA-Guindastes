@@ -276,6 +276,18 @@ def test_with_database_url_the_api_requires_a_session(sqlite_engine: Engine) -> 
     assert {LOGIN_PATH, LOGOUT_PATH, SESSION_PATH, USERS_PATH} <= set(paths)
 
 
+def test_with_database_url_the_task_044_routes_are_registered(sqlite_engine: Engine) -> None:
+    # A listagem de tabelas da configuração só depende do banco, não de FILE_STORAGE_DIR.
+    client = TestClient(create_database_app(sqlite_engine, {}), raise_server_exceptions=False)
+
+    paths = client.get("/openapi.json").json()["paths"]
+
+    assert "get" in paths["/api/v1/configurations/{configuration_id}/load-charts"]
+    assert "patch" in paths["/api/v1/manufacturers/{manufacturer_id}"]
+    assert "patch" in paths["/api/v1/cranes/{crane_id}"]
+    assert "patch" in paths["/api/v1/configurations/{configuration_id}"]
+
+
 @pytest.mark.parametrize(
     ("value", "secure"),
     [

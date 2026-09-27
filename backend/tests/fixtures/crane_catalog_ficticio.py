@@ -3,6 +3,7 @@
 # Nenhum nome ou número daqui representa fabricante, guindaste, configuração ou ficha técnica real.
 """Repositório de catálogo em memória e dados FICTÍCIOS para os testes da TASK-030."""
 
+import dataclasses
 from typing import Any
 
 from app.application.ports.crane_catalog_repository import (
@@ -88,6 +89,28 @@ class InMemoryCraneCatalog:
             item for item in self.configurations.values() if item.crane_id == crane_id
         ]
         return sorted(configurations, key=lambda item: (item.name, item.id))
+
+    def update_manufacturer(self, manufacturer: Manufacturer) -> bool:
+        if manufacturer.id not in self.manufacturers:
+            return False
+        self.manufacturers[manufacturer.id] = manufacturer
+        return True
+
+    def update_crane(self, crane: Crane) -> bool:
+        current = self.cranes.get(crane.id)
+        if current is None:
+            return False
+        self.cranes[crane.id] = dataclasses.replace(current, model_name=crane.model_name)
+        return True
+
+    def update_configuration(self, configuration: CraneConfiguration) -> bool:
+        current = self.configurations.get(configuration.id)
+        if current is None:
+            return False
+        self.configurations[configuration.id] = dataclasses.replace(
+            current, name=configuration.name, geometry=configuration.geometry
+        )
+        return True
 
 
 class SequentialIds:

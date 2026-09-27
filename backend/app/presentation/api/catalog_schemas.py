@@ -201,7 +201,53 @@ class ConfigurationResponse(BaseModel):
         )
 
 
+class ManufacturerUpdateRequest(BaseModel):
+    """Edição do fabricante (TASK-044): o nome, com a mesma validação do cadastro."""
+
+    model_config = _STRICT_INPUT
+
+    name: RequiredText = Field(description="Novo nome do fabricante.")
+
+
+class CraneUpdateRequest(BaseModel):
+    """Edição do guindaste (TASK-044): só o nome do modelo; o fabricante não muda."""
+
+    model_config = _STRICT_INPUT
+
+    model_name: RequiredText = Field(description="Novo nome do modelo do guindaste.")
+
+
+class ConfigurationUpdateRequest(BaseModel):
+    """Edição da configuração (TASK-044): nome e/ou ficha técnica; o guindaste não muda.
+
+    Os dois campos são opcionais, mas pelo menos um precisa vir. Campo ausente mantém o valor
+    atual; `null` explícito é recusado (422): a ficha, quando vem, substitui a ficha inteira, e
+    esta rota não apaga a ficha. A ficha nova vale para as próximas avaliações e não altera as
+    tabelas de carga.
+    """
+
+    model_config = _STRICT_INPUT
+
+    name: RequiredText | None = Field(
+        default=None, description="Novo nome da configuração; ausente mantém o atual."
+    )
+    geometry: CraneGeometryPayload | None = Field(
+        default=None,
+        description="Ficha técnica nova e completa (ADR-013 C-4), que substitui a atual; ausente "
+        "mantém a atual. Não pode ser `null`.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_fields_present(self) -> Self:
+        if not self.model_fields_set:
+            raise ValueError("informe ao menos um campo: name ou geometry")
+        for field_name in ("name", "geometry"):
+            if field_name in self.model_fields_set and getattr(self, field_name) is None:
+                raise ValueError(f"{field_name} não pode ser null")
+        return self
+
+
 class CatalogErrorResponse(BaseModel):
-    """Corpo das respostas 404 e 409 do catálogo."""
+    """Corpo das respostas 404 e 409 do catálogo (e do 404 da listagem de tabelas, TASK-044)."""
 
     detail: str = Field(description="Mensagem legível (sem código de erro definido ainda).")

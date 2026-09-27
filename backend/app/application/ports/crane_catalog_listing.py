@@ -5,11 +5,13 @@ listar, para a pessoa escolher fabricante, guindaste e configuração (RF-010). 
 porta à parte, e não na `CraneCatalogRepository`, para não obrigar outros adapters e fakes que já
 cumprem aquela porta a implementar métodos que não usam.
 
-`CraneCatalogStore` junta as duas: é o que os casos de uso do catálogo recebem.
+`CraneCatalogStore` junta as duas e a `CraneCatalogEditing` (TASK-044): é o que os casos de uso do
+catálogo recebem.
 """
 
 from typing import Protocol
 
+from app.application.ports.crane_catalog_editing import CraneCatalogEditing
 from app.application.ports.crane_catalog_repository import (
     Crane,
     CraneCatalogRepository,
@@ -35,5 +37,5 @@ class CraneCatalogListing(Protocol):
     def list_configurations(self, crane_id: str) -> list[CraneConfiguration]: ...
 
 
-class CraneCatalogStore(CraneCatalogRepository, CraneCatalogListing, Protocol):
-    """Gravação, leitura por id e listagem do catálogo."""
+class CraneCatalogStore(CraneCatalogRepository, CraneCatalogListing, CraneCatalogEditing, Protocol):
+    """Gravação, leitura por id, listagem e edição do catálogo."""

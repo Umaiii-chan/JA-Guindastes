@@ -18,6 +18,7 @@ from fastapi import Depends, FastAPI
 from fastapi.exceptions import RequestValidationError
 
 from app.application.ports.crane_catalog_listing import CraneCatalogStore
+from app.application.ports.load_chart_listing import LoadChartListing
 from app.application.ports.load_chart_parser import LoadChartParser
 from app.application.use_cases.authentication import GetCurrentUser
 from app.application.use_cases.evaluate_operation import EvaluateOperation
@@ -30,6 +31,9 @@ from app.presentation.api.authorization import (
     api_error_handler,
 )
 from app.presentation.api.catalog import create_catalog_router
+from app.presentation.api.configuration_load_charts import (
+    create_configuration_load_charts_router,
+)
 from app.presentation.api.evaluations import (
     EvaluateOperationDependency,
     EvaluationDependencies,
@@ -58,6 +62,7 @@ def create_app(
     catalog_repository: CraneCatalogStore | None = None,
     load_chart_persistence: LoadChartPersistenceDependencies | None = None,
     auth: AuthDependencies | None = None,
+    load_chart_listing: LoadChartListing | None = None,
 ) -> FastAPI:
     """Monta a aplicação com as rotas cujos adapters foram recebidos.
 
@@ -70,10 +75,14 @@ def create_app(
     - as rotas do catálogo só entram com `catalog_repository` (TASK-030);
     - importação com gravação, consulta e ativação de tabelas (TASK-031) só entram com
       `load_chart_persistence`;
+    - a listagem das tabelas de uma configuração (TASK-044) só entra com `catalog_repository` e
+      `load_chart_listing` (não depende do armazenamento de arquivos);
+    - as edições do catálogo (`PATCH`, TASK-044) entram com as demais rotas do catálogo;
     - `on_shutdown` roda quando a aplicação encerra (a composição libera o pool do banco);
     - `auth` (TASK-038, ADR-016) liga a autenticação: cabeçalho CSRF nos métodos inseguros, sessão
-      exigida em toda rota exceto a saúde e `GET /auth/session`, perfil `ADMIN` nos cadastros, na
-      importação e na ativação, rotas de login/logout e de usuários, e origem + sessão no WebSocket.
+      exigida em toda rota exceto a saúde e `GET /auth/session`, perfil `ADMIN` nos cadastros e
+      edições, na importação e na ativação, rotas de login/logout e de usuários, e origem + sessão
+      no WebSocket.
       Sem `auth` (sem banco, ADR-016 § 5), só `GET /auth/session` entra, com `authEnabled: false`,
       e as demais rotas ficam como antes, abertas.
 
@@ -140,6 +149,12 @@ def create_app(
             create_load_chart_persistence_router(
                 load_chart_persistence, write_dependencies=admin_required
             ),
+            dependencies=session_required,
+        )
+
+    if catalog_repository is not None and load_chart_listing is not None:
+        app.include_router(
+            create_configuration_load_charts_router(catalog_repository, load_chart_listing),
             dependencies=session_required,
         )
 

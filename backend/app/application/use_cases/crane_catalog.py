@@ -10,10 +10,15 @@ qualquer texto não vazio; gerar no servidor evita que quem cadastra tenha de in
 conflito de id (`CatalogEntryAlreadyExistsError`) praticamente restrito a erro de programação. O
 gerador é injetável para os testes.
 
-Fora do escopo (TASK-030): editar e excluir; unicidade de nomes (não há regra; pendência 2 da
-TASK-022); paginação.
+Edição (TASK-044): renomear fabricante e guindaste; renomear a configuração e/ou substituir a
+ficha técnica inteira. A ficha nova vale para as próximas avaliações (o `CraneGeometryProvider` lê
+o cadastro a cada avaliação) e não altera as tabelas de carga da configuração.
+
+Fora do escopo: excluir (TASK-030 e TASK-044); unicidade de nomes (não há regra; pendência 2 da
+TASK-022), então editar nunca conflita por nome; paginação.
 """
 
+import dataclasses
 from collections.abc import Callable
 from uuid import uuid4
 
@@ -55,7 +60,8 @@ class ManageCraneCatalog:
     - `CatalogEntryNotFoundError`: o registro pedido não existe, ou o fabricante/guindaste de que o
       novo registro depende não existe;
     - `CatalogEntryAlreadyExistsError` (da porta): o repositório recusou um id repetido;
-    - `ValueError` (dos registros da porta): nome vazio ou só com espaços.
+    - `ValueError` (dos registros da porta): nome vazio ou só com espaços; e, na edição da
+      configuração, nenhum campo informado.
     """
 
     def __init__(
@@ -121,5 +127,43 @@ class ManageCraneCatalog:
     def get_configuration(self, configuration_id: str) -> CraneConfiguration:
         configuration = self._repository.get_configuration(configuration_id)
         if configuration is None:
+            raise CatalogEntryNotFoundError(CONFIGURATION_ENTITY, configuration_id)
+        return configuration
+
+    def rename_manufacturer(self, manufacturer_id: str, name: str) -> Manufacturer:
+        """Troca o nome do fabricante (TASK-044)."""
+        manufacturer = Manufacturer(id=manufacturer_id, name=name)
+        if not self._repository.update_manufacturer(manufacturer):
+            raise CatalogEntryNotFoundError(MANUFACTURER_ENTITY, manufacturer_id)
+        return manufacturer
+
+    def rename_crane(self, crane_id: str, model_name: str) -> Crane:
+        """Troca o nome do modelo do guindaste; o fabricante não muda (TASK-044)."""
+        crane = dataclasses.replace(self.get_crane(crane_id), model_name=model_name)
+        if not self._repository.update_crane(crane):
+            raise CatalogEntryNotFoundError(CRANE_ENTITY, crane_id)
+        return crane
+
+    def update_configuration(
+        self,
+        configuration_id: str,
+        *,
+        name: str | None = None,
+        geometry: CraneGeometry | None = None,
+    ) -> CraneConfiguration:
+        """Troca o nome e/ou a ficha técnica inteira da configuração (TASK-044).
+
+        `None` mantém o valor atual: por aqui não se apaga a ficha. Pelo menos um dos dois precisa
+        vir (`ValueError`). O guindaste não muda, e as tabelas de carga não são tocadas.
+        """
+        if name is None and geometry is None:
+            raise ValueError("informe o nome ou a ficha técnica da configuração")
+        current = self.get_configuration(configuration_id)
+        configuration = dataclasses.replace(
+            current,
+            name=current.name if name is None else name,
+            geometry=current.geometry if geometry is None else geometry,
+        )
+        if not self._repository.update_configuration(configuration):
             raise CatalogEntryNotFoundError(CONFIGURATION_ENTITY, configuration_id)
         return configuration

@@ -2,8 +2,9 @@
 
 Matriz do CA-3: `health` pública; leituras do catálogo e das tabelas, `load-charts/validate` e
 avaliação REST para qualquer perfil; cadastros do catálogo, `load-charts/import` e `activate` só
-para `ADMIN`. WebSocket (CA-5): `4403` com `Origin` diferente do `Host`, `4401` sem sessão.
-Adapters em memória e dados FICTÍCIOS.
+para `ADMIN`. TASK-044: a listagem de tabelas da configuração é leitura; os `PATCH` do catálogo,
+escrita (com o cabeçalho CSRF). WebSocket (CA-5): `4403` com `Origin` diferente do `Host`,
+`4401` sem sessão. Adapters em memória e dados FICTÍCIOS.
 """
 
 from functools import partial
@@ -61,6 +62,7 @@ READ_ROUTES: list[tuple[str, str, dict[str, Any]]] = [
     ("GET", "/api/v1/cranes/gui-inexistente", {}),
     ("GET", "/api/v1/cranes/gui-inexistente/configurations", {}),
     ("GET", "/api/v1/configurations/cfg-inexistente", {}),
+    ("GET", "/api/v1/configurations/cfg-inexistente/load-charts", {}),
     ("GET", f"{LOAD_CHARTS_PREFIX}/tabela-inexistente", {}),
     ("POST", VALIDATE_PATH, {}),
     ("POST", EVALUATIONS_PATH, {"json": EVALUATION_BODY}),
@@ -71,7 +73,11 @@ WRITE_ROUTES: list[tuple[str, str, dict[str, Any]]] = [
     ("POST", "/api/v1/cranes/gui-inexistente/configurations", {"json": {"name": "FICTÍCIA"}}),
     ("POST", IMPORT_PATH, {}),
     ("POST", f"{LOAD_CHARTS_PREFIX}/tabela-inexistente/activate", {}),
+    ("PATCH", "/api/v1/manufacturers/fab-inexistente", {"json": {"name": "FICTÍCIO"}}),
+    ("PATCH", "/api/v1/cranes/gui-inexistente", {"json": {"model_name": "FICTÍCIO"}}),
+    ("PATCH", "/api/v1/configurations/cfg-inexistente", {"json": {"name": "FICTÍCIA"}}),
 ]
+PATCH_ROUTES = [route for route in WRITE_ROUTES if route[0] == "PATCH"]
 
 
 @pytest.fixture
@@ -87,6 +93,7 @@ def client(auth: AuthFicticia) -> TestClient:
         evaluation=shared_evaluate_operation(build_evaluate_operation_ficticio()),
         evaluation_websocket=build_evaluate_operation_ficticio(),
         catalog_repository=InMemoryCraneCatalog(),
+        load_chart_listing=store,
         load_chart_persistence=LoadChartPersistenceDependencies(
             parser_selector=partial(select_limited_load_chart_parser, limits=XlsxLimits()),
             repository=store,
@@ -176,6 +183,38 @@ def test_write_route_without_csrf_header_is_refused_before_authorization(
 
     assert response.status_code == 403
     assert response.json()["code"] == "CSRF_HEADER_MISSING"
+
+
+@pytest.mark.parametrize(("method", "path", "options"), PATCH_ROUTES)
+def test_patch_without_csrf_header_is_refused_before_authorization(
+    client: TestClient, method: str, path: str, options: dict[str, Any]
+) -> None:
+    login_as_admin(client)
+
+    response = client.request(method, path, **options)
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "CSRF_HEADER_MISSING"
+
+
+def test_admin_edits_a_manufacturer_and_the_operator_reads_the_new_name(
+    client: TestClient,
+) -> None:
+    login_as_admin(client)
+    created = client.post(
+        "/api/v1/manufacturers", json={"name": "Fabricante FICTÍCIO"}, headers=CSRF_HEADERS
+    ).json()
+    edited = client.patch(
+        f"/api/v1/manufacturers/{created['id']}",
+        json={"name": "Fabricante FICTÍCIO editado"},
+        headers=CSRF_HEADERS,
+    )
+    assert edited.status_code == 200
+
+    login_as_operator(client)
+    fetched = client.get(f"/api/v1/manufacturers/{created['id']}")
+
+    assert fetched.json()["name"] == "Fabricante FICTÍCIO editado"
 
 
 # --- WebSocket (CA-5) --------------------------------------------------------------------------

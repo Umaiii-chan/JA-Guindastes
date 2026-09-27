@@ -56,13 +56,13 @@ que ainda não existem):
 | Domínio — geometria (ADR-013) | `CraneGeometry` (ficha técnica), `OperationalState`, `OperationalGeometry`; `calculate_operational_geometry` (raio, posições do pino, ponta e gancho) | `domain/value_objects/`, `domain/services/geometry_service.py` | nada |
 | Domínio — consulta de capacidade | porta `LoadChartInterpolator`; estratégias `ExactPointLookup` (ponto exato) e `ConservativeTabulatedLookup` (ADR-015, provisória, **a usada na composição**); `utilization.py` | `domain/services/` | nada |
 | Domínio — carga | `Load`, `LoadDimensions`, `LoadCenterOfGravity`, `weight_compared_with_capacity` (ponto único onde a PEND-006 entrará) | `domain/entities/load.py`, `domain/services/compared_load_weight.py` | nada |
-| Aplicação — portas | `CraneGeometryProvider`, `ActiveLoadChartProvider`, `CraneCatalogRepository`, `CraneCatalogListing`/`CraneCatalogStore`, `LoadChartRepository`, `LoadChartActivationRepository`, `LoadChartParser`, `FileStoragePort`, `LoadChartFileLimitExceededError` | `application/ports/` | domínio |
-| Aplicação — casos de uso | `EvaluateOperation` (`execute`, `execute_for_load`), `ManageCraneCatalog`, `ValidateLoadChartImport`, `ImportLoadChart`, `ActivateLoadChart` | `application/use_cases/` | domínio, portas |
+| Aplicação — portas | `CraneGeometryProvider`, `ActiveLoadChartProvider`, `CraneCatalogRepository`, `CraneCatalogListing`, `CraneCatalogEditing` (TASK-044), `CraneCatalogStore` (as três juntas), `LoadChartRepository`, `LoadChartActivationRepository`, `LoadChartListing` (TASK-044), `LoadChartParser`, `FileStoragePort`, `LoadChartFileLimitExceededError` | `application/ports/` | domínio |
+| Aplicação — casos de uso | `EvaluateOperation` (`execute`, `execute_for_load`), `ManageCraneCatalog` (inclui a edição, TASK-044), `ValidateLoadChartImport`, `ImportLoadChart`, `ActivateLoadChart`, `ListConfigurationLoadCharts` (TASK-044) | `application/use_cases/` | domínio, portas |
 | Infraestrutura — banco | `DatabaseSettings` (`DATABASE_URL`), engine, fábrica de sessões, `Base` e modelos SQLAlchemy | `infrastructure/database/` | aplicação, domínio |
-| Infraestrutura — repositórios | `SqlAlchemyCraneCatalogRepository` (catálogo + `CraneGeometryProvider`), `SqlAlchemyLoadChartRepository` (tabelas + `ActiveLoadChartProvider`), `SqlAlchemyLoadChartActivationRepository` (troca atômica da `ACTIVE`) | `infrastructure/repositories/` | aplicação, domínio |
+| Infraestrutura — repositórios | `SqlAlchemyCraneCatalogRepository` (catálogo com edição + `CraneGeometryProvider`), `SqlAlchemyLoadChartRepository` (tabelas + `ActiveLoadChartProvider` + `LoadChartListing`), `SqlAlchemyLoadChartActivationRepository` (troca atômica da `ACTIVE`) | `infrastructure/repositories/` | aplicação, domínio |
 | Infraestrutura — storage | `LocalFileStorage`: grava em `<FILE_STORAGE_DIR>/<sha256>`, URI `local://<sha256>`, nunca sobrescreve | `infrastructure/storage/` | aplicação |
 | Infraestrutura — importadores | `CsvLoadChartParser`, `XlsxLoadChartParser` (primeira planilha), `select_load_chart_parser`, limites do XLSX (`xlsx_resource_limits.py`, provisórios, P-008) | `infrastructure/importers/` | aplicação, domínio |
-| Apresentação — REST | `create_app` e os routers: saúde, avaliação, validação de tabela, catálogo, importação/consulta/ativação; schemas Pydantic; limite de upload (`upload_limits.py`); handler do 422 para números não finitos | `presentation/api/` | aplicação |
+| Apresentação — REST | `create_app` e os routers: saúde, avaliação, validação de tabela, catálogo (com edição), importação/consulta/ativação, tabelas de uma configuração (lista de rotas no § 4); schemas Pydantic; limite de upload (`upload_limits.py`); handler do 422 para números não finitos | `presentation/api/` | aplicação |
 | Apresentação — WebSocket | `/api/v1/ws/evaluation`: mensagens `simulation.state.changed` → `simulation.evaluated` / `simulation.error`, limite de 8 KiB por mensagem (provisório, P-008) | `presentation/websocket/` | aplicação |
 | Raiz de composição | escolhe a composição por `DATABASE_URL` (`compose_app`) e liga os adapters da infraestrutura à apresentação; a importação com gravação é montada em módulo à parte | `app/main.py`, `app/load_chart_persistence_composition.py` | todas as camadas |
 | Seed da demonstração (TASK-035) | cadastra, pelos casos de uso reais, fabricante, guindaste e configuração FICTÍCIOS com ficha técnica e importa e ativa a tabela FICTÍCIA v1; idempotente (ids fixos `demo-ficticio-*`); fora das camadas, como a raiz de composição | `app/demo_seed.py`, `app/demo_data/` (CSVs FICTÍCIOS v1, v2 e com erros) | todas as camadas |
@@ -70,8 +70,9 @@ que ainda não existem):
 Composição (`backend/app/main.py`):
 
 - **com `DATABASE_URL`**: repositórios SQLAlchemy; REST com uma conexão do pool por requisição;
-  WebSocket com sessões abertas e fechadas a cada mensagem; saúde com `SELECT 1`; rotas de catálogo;
-  rotas de importação com gravação só se `FILE_STORAGE_DIR` também estiver definida.
+  WebSocket com sessões abertas e fechadas a cada mensagem; saúde com `SELECT 1`; rotas de catálogo
+  (com edição) e a listagem das tabelas de uma configuração (TASK-044); rotas de importação com
+  gravação, consulta e ativação só se `FILE_STORAGE_DIR` também estiver definida.
 - **sem `DATABASE_URL`**: provedores "não configurados" (sempre `None`): a avaliação responde
   `NOT_EVALUABLE` sem inventar dados, a saúde mostra `NOT_CONFIGURED`, um aviso vai para o log, e as
   rotas de catálogo e de tabelas gravadas não são registradas.
@@ -174,6 +175,31 @@ valida; inválida → 422 com o relatório e nada gravado; válida → grava o a
 (conferindo o SHA-256) e a tabela como `DRAFT`. `POST /api/v1/load-charts/{id}/activate` leva
 `DRAFT → VALIDATED → ACTIVE` e rebaixa a `ACTIVE` anterior da configuração para `SUPERSEDED` na
 mesma transação (`SELECT … FOR UPDATE`; interpretação a confirmar, TASK-031 § 8).
+
+Rotas REST (prefixo `/api/v1`; perfis do ADR-016, que só valem com `DATABASE_URL`; "escrita" =
+perfil `ADMIN` e cabeçalho `X-Requested-With: crane-simulator`):
+
+| Método e caminho | Acesso | Observação |
+|------------------|--------|------------|
+| `GET /health` | público | sempre registrada |
+| `GET /auth/session`, `POST /auth/login`, `POST /auth/logout` | público / sessão | TASK-038 |
+| `GET /users`, `POST /users`, `PATCH /users/{user_id}` | `ADMIN` | TASK-038 |
+| `POST /evaluations` | qualquer perfil | avaliação REST (mesma do WebSocket `/ws/evaluation`) |
+| `POST /load-charts/validate` | qualquer perfil | CSV, sem gravar |
+| `GET/POST /manufacturers`, `GET /manufacturers/{id}` | leitura / escrita | TASK-030 |
+| `PATCH /manufacturers/{id}` `{name}` | escrita | TASK-044; 200, 404, 422 |
+| `GET/POST /cranes` (filtro `manufacturer_id`), `GET /cranes/{id}` | leitura / escrita | TASK-030 |
+| `PATCH /cranes/{id}` `{model_name}` | escrita | TASK-044; o fabricante não muda |
+| `GET/POST /cranes/{id}/configurations` | leitura / escrita | TASK-030 |
+| `GET /configurations/{id}` | leitura | TASK-030 |
+| `PATCH /configurations/{id}` `{name?, geometry?}` | escrita | TASK-044; ao menos um campo, sem `null`; a ficha substitui a inteira e vale para as próximas avaliações, sem mexer nas tabelas |
+| `GET /configurations/{id}/load-charts` | leitura | TASK-044; `{items, active_chart_id}`, itens sem `points`, da maior versão para a menor (ordem natural; não há data de importação gravada); 404 se a configuração não existe |
+| `POST /load-charts/import` | escrita | TASK-031; exige `FILE_STORAGE_DIR` |
+| `GET /load-charts/{chart_id}` | leitura | TASK-031; exige `FILE_STORAGE_DIR` |
+| `POST /load-charts/{chart_id}/activate` | escrita | TASK-031; exige `FILE_STORAGE_DIR` |
+
+Nomes de fabricante, guindaste e configuração não são únicos (pendência 2 da TASK-022): nem o
+cadastro nem a edição respondem 409 por nome.
 
 ---
 

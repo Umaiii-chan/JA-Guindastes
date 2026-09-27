@@ -4,19 +4,25 @@
 - `GET/POST /api/v1/cranes` (listagem com filtro opcional `manufacturer_id`) e
   `GET /api/v1/cranes/{crane_id}`;
 - `GET/POST /api/v1/cranes/{crane_id}/configurations`;
-- `GET /api/v1/configurations/{configuration_id}`.
+- `GET /api/v1/configurations/{configuration_id}`;
+- edição (TASK-044): `PATCH /api/v1/manufacturers/{manufacturer_id}` (`name`),
+  `PATCH /api/v1/cranes/{crane_id}` (`model_name`) e
+  `PATCH /api/v1/configurations/{configuration_id}` (`name` e/ou `geometry`), com os mesmos
+  schemas de resposta da criação.
 
 Códigos HTTP:
-- **201** ao criar (ids gerados pelo servidor, UUID em texto); **200** ao ler e listar;
+- **201** ao criar (ids gerados pelo servidor, UUID em texto); **200** ao ler, listar e editar;
 - **404** quando o registro da rota não existe, ou o fabricante/guindaste de que o novo registro
   depende não existe (inclusive o `manufacturer_id` do corpo e o do filtro da listagem);
 - **409** quando o repositório recusa um id repetido (`CatalogEntryAlreadyExistsError`). Nomes
-  repetidos são aceitos: não há regra de unicidade (pendência 2 da TASK-022);
-- **422** para o corpo malformado, inclusive nome vazio e ficha técnica incoerente.
+  repetidos são aceitos: não há regra de unicidade (pendência 2 da TASK-022), então a edição
+  nunca responde 409;
+- **422** para o corpo malformado, inclusive nome vazio e ficha técnica incoerente. O corpo é
+  validado antes de procurar o registro: corpo inválido num id inexistente responde 422.
 
-Sem editar/excluir (fora do escopo da TASK-030) e sem paginação. Autorização (ADR-016; TASK-038):
-com banco, as leituras exigem sessão (qualquer perfil) e os cadastros (`POST`), o perfil `ADMIN`;
-a composição passa as dependências em `write_dependencies` e na inclusão do router.
+Sem excluir e sem paginação. Autorização (ADR-016; TASK-038): com banco, as leituras exigem sessão
+(qualquer perfil) e os cadastros e as edições (`POST`, `PATCH`), o perfil `ADMIN` e o cabeçalho
+CSRF; a composição passa as dependências em `write_dependencies` e na inclusão do router.
 
 O router recebe o repositório pronto porque a apresentação não pode importar a infraestrutura
 (contrato de camadas em `backend/pyproject.toml`): quem o escolhe é a raiz de composição,
@@ -41,10 +47,13 @@ from app.presentation.api.catalog_schemas import (
     CatalogErrorResponse,
     ConfigurationCreateRequest,
     ConfigurationResponse,
+    ConfigurationUpdateRequest,
     CraneCreateRequest,
     CraneResponse,
+    CraneUpdateRequest,
     ManufacturerCreateRequest,
     ManufacturerResponse,
+    ManufacturerUpdateRequest,
 )
 
 API_PREFIX = "/api/v1"
@@ -84,7 +93,8 @@ def create_catalog_router(
 ) -> APIRouter:
     """Monta o router do catálogo com o repositório escolhido pela composição.
 
-    `write_dependencies` entram só nas rotas de cadastro (`POST`): a exigência do perfil `ADMIN`.
+    `write_dependencies` entram só nas rotas de cadastro e de edição (`POST`, `PATCH`): a exigência
+    do perfil `ADMIN`.
     """
     writes = list(write_dependencies)
     catalog = ManageCraneCatalog(repository, id_generator)
@@ -179,6 +189,50 @@ def create_catalog_router(
     )
     def get_configuration(configuration_id: str) -> ConfigurationResponse:
         configuration = _call(lambda: catalog.get_configuration(configuration_id))
+        return ConfigurationResponse.from_record(configuration)
+
+    @router.patch(
+        f"{MANUFACTURERS_PATH}/{{manufacturer_id}}",
+        dependencies=writes,
+        summary="Editar o nome do fabricante (TASK-044)",
+        responses=_NOT_FOUND,
+    )
+    def update_manufacturer(
+        manufacturer_id: str, request: ManufacturerUpdateRequest
+    ) -> ManufacturerResponse:
+        manufacturer = _call(lambda: catalog.rename_manufacturer(manufacturer_id, request.name))
+        return ManufacturerResponse.from_record(manufacturer)
+
+    @router.patch(
+        f"{CRANES_PATH}/{{crane_id}}",
+        dependencies=writes,
+        summary="Editar o nome do modelo do guindaste (TASK-044)",
+        responses=_NOT_FOUND,
+    )
+    def update_crane(crane_id: str, request: CraneUpdateRequest) -> CraneResponse:
+        crane = _call(lambda: catalog.rename_crane(crane_id, request.model_name))
+        return CraneResponse.from_record(crane)
+
+    @router.patch(
+        f"{CONFIGURATIONS_PATH}/{{configuration_id}}",
+        dependencies=writes,
+        summary="Editar o nome e/ou a ficha técnica da configuração (TASK-044)",
+        description=(
+            "Campo ausente mantém o valor atual; pelo menos um campo é obrigatório, e `null` é "
+            "recusado (422). A `geometry`, quando vem, substitui a ficha inteira (RN-003) e vale "
+            "para as próximas avaliações; as tabelas de carga não mudam."
+        ),
+        responses=_NOT_FOUND,
+    )
+    def update_configuration(
+        configuration_id: str, request: ConfigurationUpdateRequest
+    ) -> ConfigurationResponse:
+        geometry = None if request.geometry is None else request.geometry.to_domain()
+        configuration = _call(
+            lambda: catalog.update_configuration(
+                configuration_id, name=request.name, geometry=geometry
+            )
+        )
         return ConfigurationResponse.from_record(configuration)
 
     return router
