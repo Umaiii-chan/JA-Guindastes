@@ -8,14 +8,26 @@ import {
   type FormErrors,
   formErrorsFromRequest,
   isConfigurationFormField,
+  isEmptyConfigurationChanges,
+  isZoneOrHookField,
   parseTechnicalSheet,
   SHEET_FIELD_KEYS,
   sheetFieldPath,
   type SheetFormValues,
   unshownFieldErrors,
   validateRequiredName,
+  type ZoneAndHookValues,
 } from '../../application/catalog/catalogForms'
 import type { ConfigurationChanges } from '../../application/catalog/ports'
+import {
+  parseHookBlockWeight,
+  parseZoneRows,
+  type ZoneFormRow,
+  type ZoneRowField,
+  zoneRowsFrom,
+  ZONES_FIELD,
+} from '../../application/catalog/rotationZones'
+import { ROTATION_ZONE_IN_USE } from '../../domain/catalog/catalog'
 import type {
   Crane,
   CraneConfiguration,
@@ -25,6 +37,7 @@ import type {
 import { TechnicalSheetFields } from '../panels/TechnicalSheetFields'
 import { Button, Dialog, Drawer, Field, Input, Notice, useToast } from '../ui'
 import styles from './catalog.module.css'
+import { RotationZonesEditor } from './RotationZonesEditor'
 
 /** O que o Drawer faz: cadastra um item novo, ou altera um existente (`editing`). */
 export type CatalogDrawerRequest =
@@ -49,6 +62,7 @@ export interface CatalogMutations {
     craneId: string,
     name: string,
     geometry: CraneTechnicalSheet | null,
+    extras?: ZoneAndHookValues,
   ): Promise<CatalogMutationResult<CraneConfiguration>>
   onUpdateManufacturer(
     manufacturerId: string,
@@ -145,11 +159,23 @@ function EntityForm({
   const [sheetValues, setSheetValues] = useState<SheetFormValues>(() =>
     sheetToForm(editedConfiguration?.geometry ?? null),
   )
+  const [zoneRows, setZoneRows] = useState<readonly ZoneFormRow[]>(() =>
+    zoneRowsFrom(editedConfiguration?.rotationZones ?? []),
+  )
+  const [hookText, setHookText] = useState(() =>
+    editedConfiguration?.hookBlockWeightKg === null ||
+    editedConfiguration?.hookBlockWeightKg === undefined
+      ? ''
+      : String(editedConfiguration.hookBlockWeightKg),
+  )
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [backendErrors, setBackendErrors] = useState<FormErrors>({})
   const [message, setMessage] = useState<string | null>(null)
-  /** Alteração da ficha esperando a confirmação (o Drawer some enquanto o Dialog está aberto). */
+  /**
+   * Alteração da ficha, das zonas ou do gancho esperando a confirmação (o Drawer some enquanto o
+   * Dialog está aberto).
+   */
   const [pendingSheet, setPendingSheet] = useState<ConfigurationChanges | null>(null)
 
   // Validação local, recalculada a cada tecla (a que vale continua sendo a do backend).
@@ -165,6 +191,21 @@ function EntityForm({
       if (submitted || (sheetValues[key] ?? '').trim() !== '') localErrors[field] = error
     }
   }
+  // Zonas de giro e gancho (TASK-046): só na configuração.
+  const isConfiguration = request.entity === 'configuration'
+  const zoneResult = isConfiguration ? parseZoneRows(zoneRows) : null
+  const hookResult = isConfiguration ? parseHookBlockWeight(hookText) : null
+  if (zoneResult?.errors) {
+    for (const [field, error] of Object.entries(zoneResult.errors)) {
+      const match = /^rotationZones\.(\d+)\.(code|name|startDeg|endDeg)$/.exec(field)
+      const typed = match
+        ? (zoneRows[Number(match[1])]?.[match[2] as ZoneRowField] ?? '').trim() !== ''
+        : true
+      // Cobertura (o todo) sempre; campo da zona, assim que tem texto ou depois de tentar gravar.
+      if (submitted || typed) localErrors[field] = error
+    }
+  }
+  if (hookResult?.error) localErrors.hookBlockWeightKg = hookResult.error
   const errors: FormErrors = { ...localErrors, ...backendErrors }
 
   const clearBackendError = (field: string) => {
@@ -174,8 +215,23 @@ function EntityForm({
     setBackendErrors(next)
   }
 
+  /** Qualquer mudança nas zonas limpa os erros do backend sobre elas (o todo e os campos). */
+  const changeZoneRows = (rows: readonly ZoneFormRow[]) => {
+    setZoneRows(rows)
+    if (!Object.keys(backendErrors).some((field) => field.startsWith(ZONES_FIELD))) return
+    setBackendErrors(
+      Object.fromEntries(
+        Object.entries(backendErrors).filter(([field]) => !field.startsWith(ZONES_FIELD)),
+      ),
+    )
+  }
+
   /** O que salvar: cadastrar, alterar, pedir confirmação da ficha ou nada (nada mudou). */
-  const planSave = (trimmed: string, sheet: CraneTechnicalSheet | null): SavePlan => {
+  const planSave = (
+    trimmed: string,
+    sheet: CraneTechnicalSheet | null,
+    extras: ZoneAndHookValues,
+  ): SavePlan => {
     switch (request.entity) {
       case 'manufacturer': {
         const original = request.editing
@@ -194,11 +250,19 @@ function EntityForm({
         const original = request.editing
         const craneId = request.crane.id
         if (!original) {
-          return { kind: 'run', run: () => onCreateConfiguration(craneId, trimmed, sheet) }
+          return {
+            kind: 'run',
+            run: () => onCreateConfiguration(craneId, trimmed, sheet, extras),
+          }
         }
-        const changes = configurationChanges(original, trimmed, sheet)
-        if (changes.name === undefined && changes.geometry === undefined) return { kind: 'none' }
-        if (changes.geometry !== undefined && request.activeChartVersion !== null) {
+        const changes = configurationChanges(original, trimmed, sheet, extras)
+        if (isEmptyConfigurationChanges(changes)) return { kind: 'none' }
+        // Ficha, zonas e gancho mudam as avaliações seguintes: com tabela ativa, confirma.
+        const changesEvaluation =
+          changes.geometry !== undefined ||
+          changes.rotationZones !== undefined ||
+          changes.hookBlockWeightKg !== undefined
+        if (changesEvaluation && request.activeChartVersion !== null) {
           return { kind: 'confirm-sheet', changes }
         }
         return { kind: 'run', run: () => onUpdateConfiguration(original.id, changes) }
@@ -228,7 +292,12 @@ function EntityForm({
       return
     }
     const { fieldErrors, message: summary } = formErrorsFromRequest(result.error)
-    setBackendErrors(fieldErrors)
+    // 409 ROTATION_ZONE_IN_USE (TASK-046): o problema é da lista de zonas; mostra no editor também.
+    setBackendErrors(
+      result.error.apiCode === ROTATION_ZONE_IN_USE
+        ? { ...fieldErrors, [ZONES_FIELD]: result.error.message }
+        : fieldErrors,
+    )
     setMessage(summary)
   }
 
@@ -236,11 +305,14 @@ function EntityForm({
     event.preventDefault()
     setSubmitted(true)
     setMessage(null)
-    if (nameError || sheetResult?.errors) {
+    if (nameError || sheetResult?.errors || zoneResult?.errors || hookResult?.error) {
       setMessage('Corrija os campos indicados.')
       return
     }
-    const plan = planSave(name.trim(), sheetResult?.sheet ?? null)
+    const extras: ZoneAndHookValues = isConfiguration
+      ? { rotationZones: zoneResult?.zones ?? [], hookBlockWeightKg: hookResult?.value ?? null }
+      : {}
+    const plan = planSave(name.trim(), sheetResult?.sheet ?? null, extras)
     if (plan.kind === 'none') {
       setMessage('Nada mudou: não há o que salvar.')
       return
@@ -267,7 +339,8 @@ function EntityForm({
         : 'O id é gerado pelo servidor.'
   const unshown = unshownFieldErrors(backendErrors, (field) =>
     request.entity === 'configuration'
-      ? isConfigurationFormField(field) && (withSheet || field === 'name')
+      ? isConfigurationFormField(field) &&
+        (withSheet || field === 'name' || isZoneOrHookField(field))
       : field === nameField,
   )
   const activeChartVersion =
@@ -348,6 +421,25 @@ function EntityForm({
                     }}
                   />
                 )}
+                <Field
+                  label="Peso do gancho (kg)"
+                  error={errors.hookBlockWeightKg}
+                  hint="O peso do gancho que a tabela de carga já inclui. A avaliação compara carga + gancho com a capacidade (ADR-018). Vazio conta como 0."
+                >
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="any"
+                    min={0}
+                    unit="kg"
+                    value={hookText}
+                    onChange={(event) => {
+                      setHookText(event.currentTarget.value)
+                      clearBackendError('hookBlockWeightKg')
+                    }}
+                  />
+                </Field>
+                <RotationZonesEditor rows={zoneRows} errors={errors} onChange={changeZoneRows} />
               </>
             )}
           </fieldset>
@@ -368,7 +460,11 @@ function EntityForm({
       <Dialog
         open={pendingSheet !== null}
         onClose={submitting ? () => undefined : () => setPendingSheet(null)}
-        title={`Mudar a ficha técnica de ${editedConfiguration?.name ?? 'configuração'}?`}
+        title={
+          pendingSheet?.geometry !== undefined || pendingSheet === null
+            ? `Mudar a ficha técnica de ${editedConfiguration?.name ?? 'configuração'}?`
+            : `Mudar as zonas de giro ou o gancho de ${editedConfiguration?.name ?? 'configuração'}?`
+        }
         description="As avaliações seguintes desta configuração mudam."
         footer={
           <>
@@ -381,27 +477,49 @@ function EntityForm({
               loading={submitting}
               onClick={confirmSheet}
             >
-              Salvar a ficha nova
+              {pendingSheet?.geometry !== undefined || pendingSheet === null
+                ? 'Salvar a ficha nova'
+                : 'Salvar as alterações'}
             </Button>
           </>
         }
       >
         <ul className={styles.confirmList}>
-          <li>
-            Toda avaliação nova desta configuração passa a usar a ficha nova (a, h e os limites de
-            L, θ, c e ψ): a posição da ponta da lança, o raio de trabalho e, com eles, a capacidade
-            lida na tabela podem mudar.
-          </li>
+          {pendingSheet?.geometry !== undefined && (
+            <li>
+              Toda avaliação nova desta configuração passa a usar a ficha nova (a, h e os limites de
+              L, θ, c e ψ): a posição da ponta da lança, o raio de trabalho e, com eles, a
+              capacidade lida na tabela podem mudar.
+            </li>
+          )}
+          {pendingSheet?.rotationZones !== undefined && (
+            <li>
+              {pendingSheet.rotationZones.length === 0
+                ? 'A configuração deixa de ter zonas de giro: uma tabela passa a valer para todo o giro.'
+                : `As zonas de giro passam a ser ${pendingSheet.rotationZones.map((zone) => zone.name).join(', ')}: o giro da torre escolhe a tabela de cada zona.`}
+            </li>
+          )}
+          {pendingSheet?.hookBlockWeightKg !== undefined && (
+            <li>
+              O peso do gancho passa a{' '}
+              <strong>
+                {pendingSheet.hookBlockWeightKg === null
+                  ? 'não informado (0 kg)'
+                  : `${pendingSheet.hookBlockWeightKg.toLocaleString('pt-BR')} kg`}
+              </strong>
+              : o peso comparado com a capacidade (carga + gancho) e a utilização mudam.
+            </li>
+          )}
           <li>
             {typeof activeChartVersion === 'string' ? (
               <>
-                A tabela ativa (<strong>{activeChartVersion}</strong>) continua a mesma: só a
-                geometria muda.
+                A tabela ativa (<strong>{activeChartVersion}</strong>) continua a mesma
+                {pendingSheet?.geometry !== undefined ? ': só a geometria muda.' : '.'}
               </>
             ) : (
               <>
-                Não foi possível conferir a tabela ativa agora. Se houver uma, ela continua a mesma:
-                só a geometria muda.
+                Não foi possível conferir a tabela ativa agora. Se houver uma, ela continua a mesma
+                {pendingSheet?.geometry !== undefined ? ': só a geometria muda.' : '.'}
               </>
             )}
           </li>

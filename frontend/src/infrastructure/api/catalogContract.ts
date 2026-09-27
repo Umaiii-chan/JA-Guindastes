@@ -71,8 +71,7 @@ export interface ConfigurationCreateDto {
 }
 
 /** Códigos de erro do backend para as zonas na configuração (TASK-046 § 3). */
-export const ROTATION_ZONE_IN_USE = 'ROTATION_ZONE_IN_USE'
-export const INVALID_ROTATION_ZONES = 'INVALID_ROTATION_ZONES'
+export { INVALID_ROTATION_ZONES, ROTATION_ZONE_IN_USE } from '../../domain/catalog/catalog'
 
 /** `ManufacturerUpdateRequest` (TASK-044). */
 export interface ManufacturerUpdateDto {

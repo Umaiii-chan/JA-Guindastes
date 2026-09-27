@@ -62,6 +62,10 @@ export interface CraneConfiguration {
   readonly hookBlockWeightKg?: number | null
 }
 
+/** Códigos de erro do backend para as zonas na configuração (TASK-046 § 3). */
+export const ROTATION_ZONE_IN_USE = 'ROTATION_ZONE_IN_USE'
+export const INVALID_ROTATION_ZONES = 'INVALID_ROTATION_ZONES'
+
 export type CatalogErrorCode =
   'NOT_FOUND' | 'CONFLICT' | 'VALIDATION' | 'HTTP_ERROR' | 'NETWORK_ERROR' | 'INVALID_RESPONSE'
 

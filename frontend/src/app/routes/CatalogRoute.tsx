@@ -48,9 +48,9 @@ export function CatalogRoute() {
           `Guindaste "${modelName}" cadastrado`,
         )
       }
-      onCreateConfiguration={(craneId, name, geometry) =>
+      onCreateConfiguration={(craneId, name, geometry, extras) =>
         notify(
-          catalog.createConfiguration(craneId, name, geometry),
+          catalog.createConfiguration(craneId, name, geometry, extras),
           `Configuração "${name}" cadastrada`,
         )
       }
@@ -74,7 +74,9 @@ export function CatalogRoute() {
           'Configuração alterada',
           changes.geometry
             ? 'A ficha nova vale para as próximas avaliações; as tabelas de carga não mudaram.'
-            : 'O nome novo já vale em todas as telas.',
+            : changes.rotationZones !== undefined || changes.hookBlockWeightKg !== undefined
+              ? 'As zonas de giro e o peso do gancho novos valem para as próximas avaliações.'
+              : 'O nome novo já vale em todas as telas.',
         )
       }
     />
