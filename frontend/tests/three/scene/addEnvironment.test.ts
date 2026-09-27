@@ -1,4 +1,13 @@
-import { Fog, Mesh, Scene, ShaderMaterial, Vector3 } from 'three'
+import {
+  Color,
+  DirectionalLight,
+  Mesh,
+  MeshBasicMaterial,
+  Scene,
+  ShaderMaterial,
+  ShadowMaterial,
+  Vector3,
+} from 'three'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -6,10 +15,12 @@ import {
   atmosphereRange,
   GRID_MAJOR_SPACING_M,
   GRID_MINOR_SPACING_M,
+  GROUND_SHADOW_OPACITY,
 } from '../../../src/three/scene/addEnvironment'
+import { PAPER_INK, SCENE_COLORS } from '../../../src/three/scene/palette'
 
 describe('addEnvironment', () => {
-  it('grade técnica com linhas secundárias a cada 1 m e principais a cada 5 m', () => {
+  it('papel milimetrado: linhas de 1 m na cor das linhas, de 5 m mais fortes e eixos em tinta', () => {
     const scene = new Scene()
     const { grid } = addEnvironment(scene)
 
@@ -19,49 +30,77 @@ describe('addEnvironment', () => {
     expect(GRID_MAJOR_SPACING_M).toBe(5)
     expect(material.uniforms.minorSpacing.value).toBe(1)
     expect(material.uniforms.majorSpacing.value).toBe(5)
+    expect((material.uniforms.minorColor.value as Color).getHex()).toBe(PAPER_INK.line)
+    expect((material.uniforms.axisColor.value as Color).getHex()).toBe(PAPER_INK.inkSecondary)
+    // A linha de 5 m é mais escura (mais forte) que a de 1 m.
+    const luminance = (color: Color) => color.r + color.g + color.b
+    expect(luminance(material.uniforms.majorColor.value as Color)).toBeLessThan(
+      luminance(material.uniforms.minorColor.value as Color),
+    )
     expect(material.transparent).toBe(true)
     expect(grid.position.y).toBeGreaterThanOrEqual(0)
     expect(grid.position.y).toBeLessThan(0.01)
   })
 
-  it('céu escuro com névoa da cor do horizonte e sombras suaves do sol', () => {
+  it('fundo e chão no mesmo papel, sem céu nem névoa', () => {
     const scene = new Scene()
-    const { sun, sky } = addEnvironment(scene)
+    const { ground } = addEnvironment(scene)
 
-    expect(scene.fog).toBeInstanceOf(Fog)
-    const horizon = (sky.material as ShaderMaterial).uniforms.horizonColor.value
-    expect((scene.fog as Fog).color.equals(horizon)).toBe(true)
-    // Escuro: luminância baixa no horizonte.
-    expect(horizon.r + horizon.g + horizon.b).toBeLessThan(0.3)
+    expect((scene.background as Color).getHex()).toBe(PAPER_INK.paper)
+    expect(scene.fog).toBeNull()
+    expect(scene.getObjectByName('environment-sky')).toBeUndefined()
+    const material = ground.material as MeshBasicMaterial
+    // Sem luz e sem tone mapping: a cor sai exatamente a do fundo, sem emenda no horizonte.
+    expect(material).toBeInstanceOf(MeshBasicMaterial)
+    expect(material.toneMapped).toBe(false)
+    expect(material.color.getHex()).toBe(SCENE_COLORS.background)
+  })
+
+  it('luz neutra com sombra discreta, num plano que só recebe a sombra', () => {
+    const scene = new Scene()
+    const { sun, groundShadow } = addEnvironment(scene)
+
     expect(sun.castShadow).toBe(true)
+    expect(sun.color.getHex()).toBe(0xffffff)
     expect(sun.shadow.mapSize.x).toBe(2048)
     expect(sun.shadow.radius).toBeGreaterThan(1)
+    expect(groundShadow.receiveShadow).toBe(true)
+    const shadow = groundShadow.material as ShadowMaterial
+    expect(shadow).toBeInstanceOf(ShadowMaterial)
+    expect(shadow.opacity).toBe(GROUND_SHADOW_OPACITY)
+    expect(GROUND_SHADOW_OPACITY).toBeLessThanOrEqual(0.2)
+    // Nenhuma luz colorida (a luz de recorte azul do tema escuro saiu).
+    const lights: DirectionalLight[] = []
+    scene.traverse((object) => {
+      if (object instanceof DirectionalLight) lights.push(object)
+    })
+    for (const light of lights) expect(light.color.getHex()).toBe(0xffffff)
     expect(scene.getObjectByName('environment-ground')).toBeInstanceOf(Mesh)
   })
 
-  it('a névoa e o esmaecimento da grade acompanham a distância da câmera', () => {
+  it('o esmaecimento da grade acompanha a distância da câmera', () => {
     const near = atmosphereRange(20)
     const far = atmosphereRange(120)
-    expect(far.fogNearM).toBeGreaterThan(near.fogNearM)
     expect(far.gridFadeFarM).toBeGreaterThan(near.gridFadeFarM)
+    expect(far.gridFadeNearM).toBeGreaterThan(near.gridFadeNearM)
     expect(near.gridFadeNearM).toBeLessThan(near.gridFadeFarM)
-    expect(near.fogNearM).toBeLessThan(near.fogFarM)
-    // O alvo da órbita fica sempre antes do início da névoa.
-    expect(far.fogNearM).toBeGreaterThan(120)
+    // O alvo da órbita fica sempre antes do fim do esmaecimento.
+    expect(far.gridFadeFarM).toBeGreaterThan(120)
   })
 
-  it('update põe o céu na câmera e ajusta névoa e grade', () => {
+  it('update põe a grade sob a câmera e ajusta o esmaecimento', () => {
     const scene = new Scene()
     const environment = addEnvironment(scene)
 
     environment.update(new Vector3(5, 6, 7), 80)
 
-    expect(environment.sky.position.toArray()).toEqual([5, 6, 7])
+    expect(environment.grid.position.x).toBe(5)
+    expect(environment.grid.position.z).toBe(7)
+    expect(environment.grid.position.y).toBeLessThan(0.01)
     const range = atmosphereRange(80)
-    expect((scene.fog as Fog).near).toBe(range.fogNearM)
-    expect((environment.grid.material as ShaderMaterial).uniforms.fadeFar.value).toBe(
-      range.gridFadeFarM,
-    )
+    const uniforms = (environment.grid.material as ShaderMaterial).uniforms
+    expect(uniforms.fadeNear.value).toBe(range.gridFadeNearM)
+    expect(uniforms.fadeFar.value).toBe(range.gridFadeFarM)
   })
 
   it('fitShadowToReach cobre o alcance máximo com folga', () => {

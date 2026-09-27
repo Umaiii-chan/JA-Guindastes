@@ -29,7 +29,8 @@ describe('buildCraneScene', () => {
     const { scene, rig, environment, hookLoad } = buildCraneScene()
 
     expect(environment.sun.castShadow).toBe(true)
-    expect(scene.getObjectByName('environment-ground')?.receiveShadow).toBe(true)
+    // O chão de papel não tem luz: quem recebe a sombra é o plano de sombra logo acima dele.
+    expect(scene.getObjectByName('environment-ground-shadow')?.receiveShadow).toBe(true)
     // O halo (transparente) fica pendurado no gancho, mas não é peça do guindaste nem faz sombra.
     const halo = hookLoad.root.getObjectByName(HOOK_LOAD_NAMES.halo) as Mesh
     expect(halo.castShadow).toBe(false)

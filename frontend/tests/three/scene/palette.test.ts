@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   EVALUATION_STATUSES,
   normalizeEvaluationStatus,
+  PAPER_INK,
+  SCENE_COLORS,
   STATUS_COLORS,
   statusColor,
   statusCssColor,
@@ -16,7 +18,30 @@ describe('palette', () => {
     expect(new Set(colors).size).toBe(EVALUATION_STATUSES.length)
   })
 
-  it('segue o ADR-017: verde, âmbar, vermelho e cinza', () => {
+  it('usa as cores de situação e o papel e tinta do ADR-019, como nos tokens CSS', () => {
+    expect(statusCssColor('ok')).toBe('#2f6b3a')
+    expect(statusCssColor('over')).toBe('#b42318')
+    expect(statusCssColor('warning')).toBe('#b7791f')
+    expect(statusCssColor('unknown')).toBe('#77756d')
+    expect(toCssHex(PAPER_INK.paper)).toBe('#f4f1ea')
+    expect(toCssHex(PAPER_INK.surface)).toBe('#fbfaf6')
+    expect(toCssHex(PAPER_INK.ink)).toBe('#1f1f1c')
+    expect(toCssHex(PAPER_INK.inkSecondary)).toBe('#5c5a53')
+    expect(toCssHex(PAPER_INK.line)).toBe('#cfcab9')
+    expect(toCssHex(PAPER_INK.accent)).toBe('#d9480f')
+  })
+
+  it('cena em papel e tinta: fundo papel, grade nas linhas, zona atual no acento', () => {
+    expect(SCENE_COLORS.background).toBe(PAPER_INK.paper)
+    expect(SCENE_COLORS.ground).toBe(PAPER_INK.paper)
+    expect(SCENE_COLORS.gridMinor).toBe(PAPER_INK.line)
+    expect(SCENE_COLORS.zoneSectorActive).toBe(PAPER_INK.accent)
+    expect(SCENE_COLORS.labelText).toBe(PAPER_INK.ink)
+    // O acento não se confunde com nenhuma cor de situação.
+    expect(Object.values(STATUS_COLORS)).not.toContain(PAPER_INK.accent)
+  })
+
+  it('verde, âmbar, vermelho e cinza, distinguíveis pelos canais', () => {
     const channels = (color: number) => ({
       r: (color >> 16) & 0xff,
       g: (color >> 8) & 0xff,

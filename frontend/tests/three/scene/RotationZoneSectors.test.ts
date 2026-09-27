@@ -1,7 +1,14 @@
 // Setores das zonas de giro no chão (TASK-046), com zonas FICTÍCIAS. Convenção de ψ do ADR-013 C-2:
 // 0° = +Z (frente), 90° = +X (esquerda), anti-horário visto de cima.
 
-import { Box3, type Mesh, type MeshBasicMaterial, Vector3 } from 'three'
+import {
+  Box3,
+  type Line,
+  type LineBasicMaterial,
+  type Mesh,
+  type MeshBasicMaterial,
+  Vector3,
+} from 'three'
 import { describe, expect, it } from 'vitest'
 
 import { buildCraneScene } from '../../../src/three/scene/buildCraneScene'
@@ -81,6 +88,18 @@ describe('RotationZoneSectors', () => {
     expect(opacity(rear)).toBe(ZONE_FILL_OPACITY.active)
     expect(opacity(front)).toBe(ZONE_FILL_OPACITY.idle)
     expect(color(rear)).toBe(SCENE_COLORS.zoneSectorActive)
+    expect(color(front)).toBe(SCENE_COLORS.zoneSector)
+    // Traço de tinta: o preenchimento é quase transparente, mesmo na zona atual (ADR-019).
+    expect(ZONE_FILL_OPACITY.active).toBeLessThanOrEqual(0.08)
+    expect(ZONE_FILL_OPACITY.idle).toBeLessThan(ZONE_FILL_OPACITY.active)
+    const arcColor = (code: string) =>
+      (
+        sectors.root.children.find(
+          (child) => child.name === ROTATION_ZONE_NAMES.arc && child.userData.zoneCode === code,
+        ) as Line
+      ).material as LineBasicMaterial
+    expect(arcColor('LATERAL_TRASEIRA').color.getHex()).toBe(SCENE_COLORS.zoneSectorActive)
+    expect(arcColor('FRONTAL').color.getHex()).toBe(SCENE_COLORS.zoneSector)
 
     expect(sectors.setZones(ZONES.map((zone) => ({ ...zone })))).toBe(false)
     expect(sectors.setZones([])).toBe(true)

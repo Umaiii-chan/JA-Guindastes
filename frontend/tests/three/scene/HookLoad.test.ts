@@ -1,4 +1,14 @@
-import { BoxGeometry, Color, Group, LineSegments, Mesh, Vector3 } from 'three'
+import {
+  BoxGeometry,
+  Color,
+  Group,
+  LineSegments,
+  Mesh,
+  NormalBlending,
+  type ShaderMaterial,
+  type SphereGeometry,
+  Vector3,
+} from 'three'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -88,6 +98,14 @@ describe('HookLoad', () => {
     expect(HALO_INTENSITY).toBeLessThanOrEqual(0.5)
     hookLoad.setStatus('unknown')
     expect(hookLoad.haloIntensity).toBe(HALO_INTENSITY_UNKNOWN)
+  })
+
+  it('o halo usa mistura normal sobre o papel, sem brilho aditivo (ADR-019)', () => {
+    const { hook } = setup()
+    const halo = hook.getObjectByName(HOOK_LOAD_NAMES.halo) as Mesh<SphereGeometry, ShaderMaterial>
+
+    expect(halo.material.blending).toBe(NormalBlending)
+    expect(halo.material.transparent).toBe(true)
   })
 
   it('dispose tira o grupo do gancho', () => {
