@@ -84,11 +84,11 @@ paralelo e altera a lista de rotas de `docs/architecture.md`; esta tarefa não m
 | # | Passo | Arquivos | Como verificar | Feito |
 |---|-------|----------|----------------|-------|
 | 1 | Ler os handoffs TASK-038..043, ADR-016/017 e conferir fatos no código | — | — | [x] |
-| 2 | README | `README.md` | `check-structure.sh` | [ ] |
-| 3 | Arquitetura (sem a lista de rotas) | `docs/architecture.md` | `check-structure.sh` | [ ] |
-| 4 | Guia, testes e segurança | `docs/development-guide.md`, `docs/testing-strategy.md`, `docs/security.md` | `check-structure.sh` | [ ] |
-| 5 | Lacunas, requisitos e visão geral | `docs/known-gaps.md`, `docs/requirements/*.md`, `docs/project-overview.md` | `check-structure.sh` | [ ] |
-| 6 | Handoff e commits | `handoffs/TASK-045.md` | `git log` | [ ] |
+| 2 | README | `README.md` | `check-structure.sh` | [x] |
+| 3 | Arquitetura (sem a lista de rotas) | `docs/architecture.md` | `check-structure.sh` | [x] |
+| 4 | Guia, testes e segurança | `docs/development-guide.md`, `docs/testing-strategy.md`, `docs/security.md` | `check-structure.sh` | [x] |
+| 5 | Lacunas, requisitos e visão geral | `docs/known-gaps.md`, `docs/requirements/*.md`, `docs/project-overview.md` | `check-structure.sh` | [x] |
+| 6 | Handoff e commits | `handoffs/TASK-045.md` | `git log` | [x] |
 
 **Análise de impacto:**
 - Arquivos que podem quebrar indiretamente: nenhum (só texto).
@@ -99,7 +99,7 @@ paralelo e altera a lista de rotas de `docs/architecture.md`; esta tarefa não m
 
 | Cenário | Critério | Tipo | Arquivo de teste | Status |
 |---------|----------|------|------------------|--------|
-| links internos válidos e sem `<preencher>` no contexto mínimo | CA-8 | estrutura | `scripts/check-structure.sh` | a rodar |
+| links internos válidos e sem `<preencher>` no contexto mínimo | CA-8 | estrutura | `scripts/check-structure.sh` | verde |
 
 ## 10. Parecer da revisão (preenchido pelo Revisor)
 
