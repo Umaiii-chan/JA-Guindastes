@@ -25,6 +25,9 @@ from app.infrastructure.importers.xlsx_resource_limits import (
     XlsxLimits,
     select_limited_load_chart_parser,
 )
+from app.infrastructure.repositories.sqlalchemy_crane_catalog_repository import (
+    SqlAlchemyCraneCatalogRepository,
+)
 from app.infrastructure.repositories.sqlalchemy_load_chart_activation_repository import (
     SqlAlchemyLoadChartActivationRepository,
 )
@@ -59,4 +62,6 @@ def build_load_chart_persistence(
         file_storage=storage,
         # Limite padrão PROVISÓRIO de 1 MiB por arquivo — A VALIDAR (P-008).
         upload_limits=UploadLimits(),
+        # Zonas de giro da configuração, conferidas na importação (TASK-046).
+        catalog=SqlAlchemyCraneCatalogRepository(session_factory),
     )

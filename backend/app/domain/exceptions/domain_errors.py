@@ -34,3 +34,11 @@ class ConflictingLoadChartPointsError(InvalidLoadChartError):
 
 class UndefinedUtilizationError(DomainError):
     """A utilização não pode ser calculada (capacidade igual a zero)."""
+
+
+class InvalidRotationZonesError(DomainError):
+    """As zonas de giro da configuração, ou o código de zona de uma tabela, são inválidos.
+
+    Código inválido, nome vazio ou longo demais, ângulo fora de [0°, 360°), menos de 2 zonas,
+    códigos repetidos, buraco ou sobreposição no giro (ADR-018 § 1).
+    """

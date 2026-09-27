@@ -9,10 +9,16 @@ Cadastra, pelos casos de uso e repositórios existentes:
 1. fabricante, guindaste e configuração FICTÍCIOS (`ManageCraneCatalog`, TASK-030), com a ficha
    técnica compatível com o modelo 3D ilustrativo do guindaste sobre caminhão
    (`frontend/public/models/guindaste-caminhao.glb`, TASK-043): a = −1,56 m, h = 3,3 m e as
-   faixas dos sliders (lança 12–22 m, inclinação 0–80°, cabo 1–15 m, giro contínuo);
-2. a tabela de carga FICTÍCIA `demo_data/tabela_carga_ficticia_demo_v1.csv`, importada pelo fluxo
-   real (`ImportLoadChart`: validação, arquivo-fonte preservado, gravação em `DRAFT`) e ativada
-   (`ActivateLoadChart`).
+   faixas dos sliders (lança 12–22 m, inclinação 0–80°, cabo 1–15 m, giro contínuo). Desde a
+   TASK-046 (ADR-018), a configuração tem duas zonas de giro FICTÍCIAS, `FRONTAL` (305° a 55°) e
+   `LATERAL_TRASEIRA` (55° a 305°), no formato "frontal 110° + lateral e traseira 250°", e um peso
+   de gancho FICTÍCIO de 200 kg;
+2. as tabelas de carga FICTÍCIAS, importadas pelo fluxo real (`ImportLoadChart`: zona conferida,
+   validação, arquivo-fonte preservado, gravação em `DRAFT`) e ativadas (`ActivateLoadChart`), uma
+   por zona:
+   - `demo_data/tabela_carga_ficticia_demo_v1.csv` na zona `FRONTAL`;
+   - `demo_data/tabela_carga_ficticia_demo_lateral_traseira_v1.csv` (a v1 com a capacidade × 0,8)
+     na zona `LATERAL_TRASEIRA`.
 
 **Idempotente:** os ids são fixos (`DemoSeedIds`); o que já existe não é recriado nem duplicado, e
 cada passo diz se criou, se já existia ou se ativou. A tabela de demonstração já substituída por
@@ -53,6 +59,8 @@ from app.domain.entities.load_chart import LoadChartStatus
 from app.domain.value_objects.angle import Angle
 from app.domain.value_objects.crane_geometry import CraneGeometry
 from app.domain.value_objects.length import Length
+from app.domain.value_objects.mass import Mass
+from app.domain.value_objects.rotation_zone import RotationZone, RotationZones
 from app.infrastructure.database.config import (
     DATABASE_URL_ENV_VAR,
     DatabaseConfigurationError,
@@ -79,10 +87,15 @@ DEMO_DATA_DIR = Path(__file__).resolve().parent / "demo_data"
 """Pasta dos arquivos FICTÍCIOS da demonstração (ver `demo_data/README.md`)."""
 
 DEMO_LOAD_CHART_FILE = DEMO_DATA_DIR / "tabela_carga_ficticia_demo_v1.csv"
-"""Tabela de carga FICTÍCIA importada e ativada pelo seed."""
+"""Tabela de carga FICTÍCIA da zona frontal, importada e ativada pelo seed."""
+
+DEMO_LOAD_CHART_SIDE_REAR_FILE = (
+    DEMO_DATA_DIR / "tabela_carga_ficticia_demo_lateral_traseira_v1.csv"
+)
+"""Tabela FICTÍCIA da zona lateral e traseira (a v1 × 0,8), importada e ativada pelo seed."""
 
 DEMO_LOAD_CHART_V2_FILE = DEMO_DATA_DIR / "tabela_carga_ficticia_demo_v2.csv"
-"""Segunda versão FICTÍCIA, importada à mão no roteiro (troca de versão); o seed não a usa."""
+"""Segunda versão FICTÍCIA da zona frontal, importada à mão no roteiro (troca de versão)."""
 
 DEMO_LOAD_CHART_WITH_ERRORS_FILE = DEMO_DATA_DIR / "tabela_carga_ficticia_demo_com_erros.csv"
 """Tabela FICTÍCIA com inconsistências, para mostrar o relatório de erros no roteiro."""
@@ -91,6 +104,12 @@ DEMO_MANUFACTURER_NAME = "Fabricante Demonstração FICTÍCIO"
 DEMO_CRANE_MODEL_NAME = "Guindaste Demonstração FICTÍCIO"
 DEMO_CONFIGURATION_NAME = "Configuração Demonstração FICTÍCIA"
 DEMO_LOAD_CHART_VERSION = "demo-ficticia-v1"
+DEMO_LOAD_CHART_SIDE_REAR_VERSION = "demo-ficticia-lateral-traseira-v1"
+
+DEMO_FRONT_ZONE = "FRONTAL"
+DEMO_SIDE_REAR_ZONE = "LATERAL_TRASEIRA"
+DEMO_HOOK_BLOCK_WEIGHT_KG = 200.0
+"""Peso de gancho FICTÍCIO da demonstração (ADR-018 § 2): a avaliação compara carga + 200 kg."""
 
 # Exit codes da linha de comando.
 EXIT_OK = 0
@@ -111,9 +130,39 @@ class DemoSeedIds:
     crane_id: str = "demo-ficticio-guindaste"
     configuration_id: str = "demo-ficticio-configuracao"
     load_chart_id: str = "demo-ficticio-tabela-v1"
+    side_rear_load_chart_id: str = "demo-ficticio-tabela-lateral-traseira-v1"
 
 
 DEMO_SEED_IDS = DemoSeedIds()
+
+
+def build_demo_rotation_zones() -> RotationZones:
+    """Zonas de giro FICTÍCIAS: frontal de 305° a 55° (110°) e lateral/traseira de 55° a 305°.
+
+    Imitam o formato de uma tabela de fabricante com "área frontal" e "áreas lateral e traseira"
+    (ADR-018), mas os ângulos são inventados para a demonstração.
+    """
+    return RotationZones(
+        zones=(
+            RotationZone(DEMO_FRONT_ZONE, "Frontal FICTÍCIA", 305.0, 55.0),
+            RotationZone(DEMO_SIDE_REAR_ZONE, "Lateral e traseira FICTÍCIA", 55.0, 305.0),
+        )
+    )
+
+
+@dataclass(frozen=True)
+class DemoLoadChart:
+    """Uma tabela FICTÍCIA da demonstração e a zona em que é importada."""
+
+    chart_id: str
+    version: str
+    rotation_zone_code: str
+    file: Path
+    content: bytes | None = None
+    """Substitui o conteúdo de `file` (testes)."""
+
+    def read(self) -> bytes:
+        return self.file.read_bytes() if self.content is None else self.content
 
 
 def build_demo_crane_geometry() -> CraneGeometry:
@@ -185,19 +234,32 @@ def seed_demo(
 ) -> DemoSeedResult:
     """Cadastra a demonstração FICTÍCIA, sem duplicar o que já existe.
 
-    `load_chart_content` substitui o CSV de `DEMO_LOAD_CHART_FILE` (testes). Levanta
-    `DemoSeedError` quando um registro com o id da demonstração existe com outro conteúdo (o seed
-    não sobrescreve nada) ou quando a tabela de demonstração não passa na validação.
+    `load_chart_content` substitui o CSV de `DEMO_LOAD_CHART_FILE`, a tabela da zona frontal
+    (testes). Levanta `DemoSeedError` quando um registro com o id da demonstração existe com outro
+    conteúdo (o seed não sobrescreve nada) ou quando uma tabela de demonstração não passa na
+    validação.
     """
     steps = [
         _seed_manufacturer(catalog, ids),
         _seed_crane(catalog, ids),
         _seed_configuration(catalog, ids),
     ]
-    content = (
-        DEMO_LOAD_CHART_FILE.read_bytes() if load_chart_content is None else load_chart_content
-    )
-    steps.extend(_seed_load_chart(load_charts, activation, file_storage, ids, content))
+    for chart in (
+        DemoLoadChart(
+            ids.load_chart_id,
+            DEMO_LOAD_CHART_VERSION,
+            DEMO_FRONT_ZONE,
+            DEMO_LOAD_CHART_FILE,
+            load_chart_content,
+        ),
+        DemoLoadChart(
+            ids.side_rear_load_chart_id,
+            DEMO_LOAD_CHART_SIDE_REAR_VERSION,
+            DEMO_SIDE_REAR_ZONE,
+            DEMO_LOAD_CHART_SIDE_REAR_FILE,
+        ),
+    ):
+        steps.extend(_seed_load_chart(catalog, load_charts, activation, file_storage, ids, chart))
     return DemoSeedResult(steps=tuple(steps))
 
 
@@ -231,40 +293,52 @@ def _seed_configuration(catalog: CraneCatalogStore, ids: DemoSeedIds) -> SeedSte
     entity = "configuração"
     existing = catalog.get_configuration(ids.configuration_id)
     if existing is not None:
-        if existing.crane_id != ids.crane_id or existing.geometry != build_demo_crane_geometry():
+        if (
+            existing.crane_id != ids.crane_id
+            or existing.geometry != build_demo_crane_geometry()
+            or existing.rotation_zones != build_demo_rotation_zones()
+            or existing.hook_block_weight != Mass(DEMO_HOOK_BLOCK_WEIGHT_KG)
+        ):
             raise DemoSeedError(
-                f"a configuração {ids.configuration_id!r} já existe com outro guindaste ou outra "
-                "ficha técnica; o seed não sobrescreve cadastros (os valores do roteiro "
-                "dependem da ficha FICTÍCIA de demonstração)"
+                f"a configuração {ids.configuration_id!r} já existe com outro guindaste, outra "
+                "ficha técnica, outras zonas de giro ou outro peso de gancho; o seed não "
+                "sobrescreve cadastros (os valores do roteiro dependem dos dados FICTÍCIOS de "
+                "demonstração). Banco semeado antes da TASK-046? Recrie o banco (docs/demo.md)"
             )
         return SeedStep(entity, ids.configuration_id, SeedAction.ALREADY_EXISTS)
     ManageCraneCatalog(catalog, id_generator=lambda: ids.configuration_id).create_configuration(
-        ids.crane_id, DEMO_CONFIGURATION_NAME, build_demo_crane_geometry()
+        ids.crane_id,
+        DEMO_CONFIGURATION_NAME,
+        build_demo_crane_geometry(),
+        rotation_zones=build_demo_rotation_zones(),
+        hook_block_weight=Mass(DEMO_HOOK_BLOCK_WEIGHT_KG),
     )
     return SeedStep(entity, ids.configuration_id, SeedAction.CREATED)
 
 
 def _seed_load_chart(
+    catalog: CraneCatalogStore,
     load_charts: LoadChartRepository,
     activation: LoadChartActivationRepository,
     file_storage: FileStoragePort,
     ids: DemoSeedIds,
-    content: bytes,
+    demo_chart: DemoLoadChart,
 ) -> list[SeedStep]:
     entity = "tabela de carga"
-    chart_id = ids.load_chart_id
+    chart_id = demo_chart.chart_id
     steps: list[SeedStep] = []
 
     existing = load_charts.get_by_id(chart_id)
     if existing is None:
-        result = ImportLoadChart(load_charts, file_storage).execute(
-            content,
+        result = ImportLoadChart(load_charts, file_storage, catalog).execute(
+            demo_chart.read(),
             parser=CsvLoadChartParser(),
-            file_name=DEMO_LOAD_CHART_FILE.name,
+            file_name=demo_chart.file.name,
             file_type=CSV_CONTENT_TYPE,
             load_chart_id=chart_id,
-            version=DEMO_LOAD_CHART_VERSION,
+            version=demo_chart.version,
             configuration_id=ids.configuration_id,
+            rotation_zone_code=demo_chart.rotation_zone_code,
         )
         if isinstance(result, InvalidLoadChartImport):
             issues = "; ".join(
@@ -279,11 +353,13 @@ def _seed_load_chart(
         chart = existing.chart
         if (
             chart.configuration_id != ids.configuration_id
-            or chart.version != DEMO_LOAD_CHART_VERSION
+            or chart.version != demo_chart.version
+            or chart.rotation_zone_code != demo_chart.rotation_zone_code
         ):
             raise DemoSeedError(
-                f"a tabela de carga {chart_id!r} já existe em outra configuração ou versão "
-                f"({chart.configuration_id!r}, {chart.version!r}); o seed não sobrescreve tabelas"
+                f"a tabela de carga {chart_id!r} já existe em outra configuração, versão ou zona "
+                f"({chart.configuration_id!r}, {chart.version!r}, {chart.rotation_zone_code!r}); "
+                "o seed não sobrescreve tabelas"
             )
         status = chart.status
         steps.append(SeedStep(entity, chart_id, SeedAction.ALREADY_EXISTS))

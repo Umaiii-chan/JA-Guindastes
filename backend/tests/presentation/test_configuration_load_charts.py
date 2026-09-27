@@ -68,6 +68,7 @@ def test_lists_the_versions_without_points_and_the_active_one(
                 "chart_id": "LC-V2",
                 "version": "v2",
                 "configuration_id": CONFIGURATION_FICTICIA_ID,
+                "rotation_zone_code": None,
                 "status": "ACTIVE",
                 "point_count": POINT_COUNT,
                 "source": source,
@@ -76,12 +77,14 @@ def test_lists_the_versions_without_points_and_the_active_one(
                 "chart_id": "LC-V1",
                 "version": "v1",
                 "configuration_id": CONFIGURATION_FICTICIA_ID,
+                "rotation_zone_code": None,
                 "status": "SUPERSEDED",
                 "point_count": POINT_COUNT,
                 "source": source,
             },
         ],
         "active_chart_id": "LC-V2",
+        "active_charts": [{"rotation_zone_code": None, "chart_id": "LC-V2"}],
     }
 
 
@@ -102,7 +105,7 @@ def test_configuration_without_charts_returns_empty_items_and_null_active(
     response = client.get(PATH)
 
     assert response.status_code == 200
-    assert response.json() == {"items": [], "active_chart_id": None}
+    assert response.json() == {"items": [], "active_chart_id": None, "active_charts": []}
 
 
 def test_missing_configuration_returns_404(client: TestClient) -> None:

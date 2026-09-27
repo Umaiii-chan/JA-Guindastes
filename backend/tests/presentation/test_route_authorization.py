@@ -41,6 +41,7 @@ from tests.fixtures.avaliacao_operacional_ficticia import CONFIGURATION_AVALIACA
 from tests.fixtures.crane_catalog_ficticio import InMemoryCraneCatalog
 from tests.fixtures.load_chart_ficticio import CONFIGURATION_FICTICIA_ID
 from tests.fixtures.load_chart_persistence_fakes import InMemoryFileStorage, InMemoryLoadChartStore
+from tests.fixtures.rotation_zones_ficticias import zonas_payload_ficticio
 from tests.presentation.websocket.test_evaluation_websocket import (
     build_evaluate_operation_ficticio,
 )
@@ -76,6 +77,18 @@ WRITE_ROUTES: list[tuple[str, str, dict[str, Any]]] = [
     ("PATCH", "/api/v1/manufacturers/fab-inexistente", {"json": {"name": "FICTÍCIO"}}),
     ("PATCH", "/api/v1/cranes/gui-inexistente", {"json": {"model_name": "FICTÍCIO"}}),
     ("PATCH", "/api/v1/configurations/cfg-inexistente", {"json": {"name": "FICTÍCIA"}}),
+    # TASK-046: zonas de giro e gancho são escrita do ADMIN, com CSRF.
+    (
+        "PATCH",
+        "/api/v1/configurations/cfg-inexistente",
+        {"json": {"rotation_zones": zonas_payload_ficticio(), "hook_block_weight_kg": 200.0}},
+    ),
+    (
+        "POST",
+        "/api/v1/cranes/gui-inexistente/configurations",
+        {"json": {"name": "FICTÍCIA", "rotation_zones": zonas_payload_ficticio()}},
+    ),
+    ("POST", IMPORT_PATH, {"data": {"rotation_zone_code": "FRONTAL"}}),
 ]
 PATCH_ROUTES = [route for route in WRITE_ROUTES if route[0] == "PATCH"]
 

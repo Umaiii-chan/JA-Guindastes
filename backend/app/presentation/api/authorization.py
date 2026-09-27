@@ -74,18 +74,21 @@ class ApiErrorResponse(BaseModel):
 
 
 class ApiError(Exception):
-    """Erro com status HTTP e código; tratado por `api_error_handler`."""
+    """Erro com status HTTP e código; tratado por `api_error_handler`.
 
-    def __init__(self, status_code: int, code: AuthErrorCode, message: str) -> None:
+    O código é um `StrEnum`: os da autenticação (`AuthErrorCode`) e os de outras rotas que usam o
+    mesmo corpo `{"detail", "code"}` (ex.: as zonas de giro, TASK-046).
+    """
+
+    def __init__(self, status_code: int, code: StrEnum, message: str) -> None:
         self.status_code = status_code
         self.code = code
         self.message = message
         super().__init__(message)
 
 
-def api_error_response(status_code: int, code: AuthErrorCode, message: str) -> JSONResponse:
-    body = ApiErrorResponse(detail=message, code=code)
-    return JSONResponse(status_code=status_code, content=body.model_dump(mode="json"))
+def api_error_response(status_code: int, code: StrEnum, message: str) -> JSONResponse:
+    return JSONResponse(status_code=status_code, content={"detail": message, "code": code.value})
 
 
 async def api_error_handler(request: Request, exc: Exception) -> JSONResponse:

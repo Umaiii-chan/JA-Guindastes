@@ -8,7 +8,9 @@ Exclusões são `RESTRICT`: apagar um fabricante, guindaste ou configuração n�
 depende dele, porque as tabelas de carga precisam continuar rastreáveis (RNF-005, RN-005).
 """
 
-from sqlalchemy import CheckConstraint, Double, ForeignKey, String
+from typing import Any
+
+from sqlalchemy import JSON, CheckConstraint, Double, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.database.base import Base
@@ -86,6 +88,10 @@ class CraneConfigurationModel(Base):
             CheckConstraint(f"{column} >= 0", name=f"{column}_non_negative")
             for column in _NON_NEGATIVE_LENGTH_COLUMNS
         ),
+        CheckConstraint(
+            "hook_block_weight_kg >= 0 AND hook_block_weight_kg <= 100000",
+            name="hook_block_weight_kg_range",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -104,3 +110,9 @@ class CraneConfigurationModel(Base):
     cable_length_max_m: Mapped[float | None] = mapped_column(Double)
     turret_rotation_min_deg: Mapped[float | None] = mapped_column(Double)
     turret_rotation_max_deg: Mapped[float | None] = mapped_column(Double)
+
+    # Zonas de giro e peso do gancho (TASK-046; ADR-018). As zonas vão como uma lista JSON de
+    # `{code, name, start_deg, end_deg}`, na ordem declarada; a cobertura de 360° é validada pelo
+    # domínio (`RotationZones`) ao gravar e ao ler. `NULL` = sem zonas; gancho `NULL` = 0 kg.
+    rotation_zones: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    hook_block_weight_kg: Mapped[float | None] = mapped_column(Double)

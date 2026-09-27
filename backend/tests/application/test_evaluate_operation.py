@@ -79,7 +79,9 @@ class FakeActiveLoadChartProvider:
         self._charts = dict(charts)
         self.requested: list[str] = []
 
-    def get_active_load_chart(self, configuration_id: str) -> LoadChart | None:
+    def get_active_load_chart(
+        self, configuration_id: str, rotation_zone_code: str | None = None
+    ) -> LoadChart | None:
         self.requested.append(configuration_id)
         return self._charts.get(configuration_id)
 

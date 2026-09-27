@@ -31,6 +31,7 @@ def with_status(chart: LoadChart, status: LoadChartStatus) -> LoadChart:
         configuration_id=chart.configuration_id,
         status=status,
         points=chart.points,
+        rotation_zone_code=chart.rotation_zone_code,
     )
 
 
@@ -67,9 +68,11 @@ class InMemoryLoadChartStore:
         if stored is None:
             raise LoadChartNotFoundError(load_chart_id)
         if new_status is LoadChartStatus.ACTIVE and self._active_of(
-            stored.chart.configuration_id, excluding=load_chart_id
+            stored.chart, excluding=load_chart_id
         ):
-            raise ActiveLoadChartConflictError(stored.chart.configuration_id)
+            raise ActiveLoadChartConflictError(
+                stored.chart.configuration_id, stored.chart.rotation_zone_code
+            )
         self.status_changes.append((load_chart_id, new_status))
         self._set(load_chart_id, new_status)
 
@@ -85,7 +88,7 @@ class InMemoryLoadChartStore:
         if stored.chart.status is not expected_status:
             raise LoadChartStatusChangedError(load_chart_id, expected_status, stored.chart.status)
         self.activations.append((load_chart_id, expected_status))
-        previous = self._active_of(stored.chart.configuration_id, excluding=load_chart_id)
+        previous = self._active_of(stored.chart, excluding=load_chart_id)
         if previous is not None:
             self._set(previous, LoadChartStatus.SUPERSEDED)
         self._set(load_chart_id, LoadChartStatus.ACTIVE)
@@ -101,19 +104,36 @@ class InMemoryLoadChartStore:
                 status=stored.chart.status,
                 point_count=len(stored.chart.points),
                 source=stored.source,
+                rotation_zone_code=stored.chart.rotation_zone_code,
             )
             for stored in self.charts.values()
             if stored.chart.configuration_id == configuration_id
         ]
 
+    def get_active_load_chart(
+        self, configuration_id: str, rotation_zone_code: str | None = None
+    ) -> LoadChart | None:
+        """`ActiveLoadChartProvider` (TASK-046): a ativa da configuração nessa zona."""
+        for stored in self.charts.values():
+            chart = stored.chart
+            if (
+                chart.configuration_id == configuration_id
+                and chart.rotation_zone_code == rotation_zone_code
+                and chart.status is LoadChartStatus.ACTIVE
+            ):
+                return chart
+        return None
+
     def status_of(self, load_chart_id: str) -> LoadChartStatus:
         return self.charts[load_chart_id].chart.status
 
-    def _active_of(self, configuration_id: str, *, excluding: str) -> str | None:
+    def _active_of(self, chart: LoadChart, *, excluding: str) -> str | None:
+        """A `ACTIVE` da mesma configuração e zona de `chart` (uma por zona; TASK-046)."""
         for chart_id, stored in self.charts.items():
             if (
                 chart_id != excluding
-                and stored.chart.configuration_id == configuration_id
+                and stored.chart.configuration_id == chart.configuration_id
+                and stored.chart.rotation_zone_code == chart.rotation_zone_code
                 and stored.chart.status is LoadChartStatus.ACTIVE
             ):
                 return chart_id

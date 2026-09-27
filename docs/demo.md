@@ -25,16 +25,22 @@ nada.
 | Guindaste | `demo-ficticio-guindaste` | "Guindaste Demonstração FICTÍCIO" |
 | Configuração | `demo-ficticio-configuracao` | "Configuração Demonstração FICTÍCIA" |
 | Ficha técnica | — | a = −1,56 m; h = 3,3 m; lança 12–22 m; inclinação 0–80°; cabo 1–15 m; giro contínuo — coerente com o modelo 3D ilustrativo `guindaste-caminhao.glb` (TASK-043; até então, a = −1,2 m) |
-| Tabela de carga | `demo-ficticio-tabela-v1` | versão `demo-ficticia-v1`, 27 pontos, lanças de 12, 17 e 22 m, **ACTIVE** |
+| Zonas de giro (TASK-046) | — | `FRONTAL` "Frontal FICTÍCIA", de 305° a 55° (110°), e `LATERAL_TRASEIRA` "Lateral e traseira FICTÍCIA", de 55° a 305° (250°) |
+| Peso do gancho (TASK-046) | — | 200 kg: a avaliação compara **carga + 200 kg** com a capacidade |
+| Tabela de carga, zona `FRONTAL` | `demo-ficticio-tabela-v1` | versão `demo-ficticia-v1`, 27 pontos, lanças de 12, 17 e 22 m, **ACTIVE** |
+| Tabela de carga, zona `LATERAL_TRASEIRA` | `demo-ficticio-tabela-lateral-traseira-v1` | versão `demo-ficticia-lateral-traseira-v1`: os mesmos pontos com a capacidade × 0,8, **ACTIVE** |
 
-> **Banco semeado antes da TASK-043 (a = −1,2 m):** o seed não sobrescreve uma configuração com
-> ficha diferente e termina com erro ("não sobrescreve"). Recrie o banco antes de semear de novo
-> (no Docker: `docker compose down -v`).
+> **Banco semeado antes da TASK-043 (a = −1,2 m) ou da TASK-046 (sem zonas nem gancho):** o seed
+> não sobrescreve uma configuração com ficha, zonas ou gancho diferentes e termina com erro ("não
+> sobrescreve"). Recrie o banco antes de semear de novo (no Docker: `docker compose down -v`).
 
 Arquivos em `backend/app/demo_data/` (ver o README da pasta):
 
-- `tabela_carga_ficticia_demo_v1.csv` — importada e ativada pelo seed;
-- `tabela_carga_ficticia_demo_v2.csv` — mesma grade com capacidade × 0,9, para a troca de versão (§ 7);
+- `tabela_carga_ficticia_demo_v1.csv` — importada e ativada pelo seed na zona `FRONTAL`;
+- `tabela_carga_ficticia_demo_lateral_traseira_v1.csv` — mesma grade com capacidade × 0,8, importada
+  e ativada pelo seed na zona `LATERAL_TRASEIRA`;
+- `tabela_carga_ficticia_demo_v2.csv` — mesma grade com capacidade × 0,9, para a troca de versão na
+  zona `FRONTAL` (§ 7);
 - `tabela_carga_ficticia_demo_com_erros.csv` — para ver o relatório de erros (§ 6).
 
 ## 2. Pré-requisitos
@@ -72,11 +78,13 @@ Seed da demonstração — dados FICTÍCIOS (ADR-012): não representam capacida
 - configuração 'demo-ficticio-configuracao': criado
 - tabela de carga 'demo-ficticio-tabela-v1': criado
 - tabela de carga 'demo-ficticio-tabela-v1': ativada
+- tabela de carga 'demo-ficticio-tabela-lateral-traseira-v1': criado
+- tabela de carga 'demo-ficticio-tabela-lateral-traseira-v1': ativada
 Pronto: selecione a configuração 'demo-ficticio-configuracao' na tela.
 ```
 
-Na segunda vez, todos os itens dizem "já existia; nada alterado", a tabela diz "já estava ativa;
-nada alterado" e a última linha é "Nada a fazer: a demonstração já estava semeada.".
+Na segunda vez, todos os itens dizem "já existia; nada alterado", as duas tabelas dizem "já estava
+ativa; nada alterado" e a última linha é "Nada a fazer: a demonstração já estava semeada.".
 
 Conferir a API: `curl http://127.0.0.1:8000/api/v1/health` → `"status":"UP"` e
 `"database":"UP"`. A tela fica em **http://127.0.0.1:8080** (portas mudam com `BACKEND_PORT` e
@@ -166,31 +174,43 @@ Nos passos seguintes, troque `http://127.0.0.1:8080` por `http://localhost:5173`
    comprimento, largura e altura maiores que zero (ex.: 2, 1 e 1 m). O peso só vai para a avaliação
    com o formulário inteiro válido; as dimensões só desenham a caixa pendurada no gancho.
 5. Passo **3 Posição**: deixe **"Giro da torre"** em 0° e **"Comprimento do cabo"** em 5,0 m (a pose
-   inicial) e mova **"Inclinação da lança"** e **"Comprimento da lança"** conforme a tabela abaixo. O
-   resultado à direita atualiza sozinho (WebSocket, com REST de reserva), mostra a situação com cor,
-   o medidor de utilização, a capacidade e o raio do backend, e sempre traz a marca **"PROVISÓRIO —
-   consulta conservadora (ADR-015)"**. O anel no chão marca o raio de pré-visualização e ganha a cor
-   da situação.
+   inicial, na zona `FRONTAL`) e mova **"Inclinação da lança"** e **"Comprimento da lança"**
+   conforme a tabela abaixo; depois gire a torre (cenários F e G). O resultado à direita atualiza
+   sozinho (WebSocket, com REST de reserva), mostra a situação com cor, o medidor de utilização, a
+   capacidade e o raio do backend, a zona de giro e as parcelas do peso comparado (carga, gancho e
+   total), e sempre traz a marca **"PROVISÓRIO — consulta conservadora (ADR-015)"**. O anel no chão
+   marca o raio de pré-visualização e ganha a cor da situação.
 
-Valores esperados com a tabela `demo-ficticia-v1` ativa (arredondados a 2 casas; a tela formata em
+Valores esperados com as tabelas `demo-ficticia-v1` (zona `FRONTAL`) e
+`demo-ficticia-lateral-traseira-v1` (zona `LATERAL_TRASEIRA`) ativas, carga de 3 000 kg e gancho
+FICTÍCIO de 200 kg, ou seja, **3 200 kg comparados** (arredondados a 2 casas; a tela formata em
 pt-BR):
 
-| Cenário | Lança | Inclinação | Raio (backend) | Resultado | Capacidade admissível | Ponto tabelado usado | Utilização |
-|---------|-------|------------|----------------|-----------|-----------------------|----------------------|------------|
-| A — pose inicial | 12,0 m | 35° | 8,27 m | Avaliado | 4 200 kg | 12 m × 10 m | 71,43 % |
-| B — lança mais alta | 12,0 m | 60° | 4,44 m | Avaliado | 7 000 kg | 12 m × 6 m | 42,86 % |
-| C — lança estendida | 22,0 m | 35° | 16,46 m | Avaliado | 1 500 kg | 22 m × 18 m | 200,00 % |
-| D — lança fora da tabela | 17,5 m | 35° | 12,78 m | Não avaliável: `BOOM_LENGTH_NOT_IN_CHART` | — | — | — |
-| E — raio abaixo da tabela | 12,0 m | 80° | 0,52 m | Não avaliável: `RADIUS_BELOW_CHART_MIN` | — | — | — |
+| Cenário | Giro | Lança | Inclinação | Raio (backend) | Zona | Resultado | Capacidade admissível | Ponto tabelado usado | Utilização |
+|---------|------|-------|------------|----------------|------|-----------|-----------------------|----------------------|------------|
+| A — pose inicial | 0° | 12,0 m | 35° | 8,27 m | `FRONTAL` | Avaliado | 4 200 kg | 12 m × 10 m | 76,19 % |
+| B — lança mais alta | 0° | 12,0 m | 60° | 4,44 m | `FRONTAL` | Avaliado | 7 000 kg | 12 m × 6 m | 45,71 % |
+| C — lança estendida | 0° | 22,0 m | 35° | 16,46 m | `FRONTAL` | Avaliado | 1 500 kg | 22 m × 18 m | 213,33 % |
+| D — lança fora da tabela | 0° | 17,5 m | 35° | 12,78 m | `FRONTAL` | Não avaliável: `BOOM_LENGTH_NOT_IN_CHART` | — | — | — |
+| E — raio abaixo da tabela | 0° | 12,0 m | 80° | 0,52 m | `FRONTAL` | Não avaliável: `RADIUS_BELOW_CHART_MIN` | — | — | — |
+| F — giro para trás | 180° | 12,0 m | 35° | 8,27 m | `LATERAL_TRASEIRA` | Avaliado | 3 360 kg | 12 m × 10 m | 95,24 % |
+| G — giro na fronteira | 55° | 12,0 m | 35° | 8,27 m | `LATERAL_TRASEIRA` | Avaliado | 3 360 kg | 12 m × 10 m | 95,24 % |
 
 Como ler:
 
 - raio = a + L·cos θ (ADR-013), com a = −1,56 m; ex.: A → −1,56 + 12·cos 35° ≈ 8,27 m;
 - entre dois raios tabelados vale a **menor** capacidade dos dois vizinhos (ADR-015): em A, 8,27 m
-  fica entre 8 m (5 500 kg) e 10 m (4 200 kg) → 4 200 kg; utilização = 3 000 / 4 200 = 71,43 %;
+  fica entre 8 m (5 500 kg) e 10 m (4 200 kg) → 4 200 kg;
+- o peso comparado é **carga + gancho** (ADR-018 § 2): 3 000 + 200 = 3 200 kg; em A, utilização =
+  3 200 / 4 200 = 76,19 %;
+- o giro escolhe a zona (ADR-018 § 1): de 305° a 55° vale a tabela `FRONTAL`; de 55° a 305°, a
+  `LATERAL_TRASEIRA` (capacidade × 0,8). Em F, 8,27 m cai entre 8 m (4 400 kg) e 10 m (3 360 kg) →
+  3 360 kg; utilização = 3 200 / 3 360 = 95,24 %. No slider, 180° e −180° são o mesmo giro;
+- em G o giro está **na fronteira** (55°): valem as duas zonas, e fica a **menor** capacidade
+  (4 200 kg na frontal, 3 360 kg na lateral e traseira → 3 360 kg, zona `LATERAL_TRASEIRA`);
 - em C a utilização passa de 100 %: o resultado continua "Avaliado" (a tabela cobre o estado), e a
   situação aparece como **"Acima da capacidade"**, em vermelho no painel e no anel da cena. Isso só
-  compara a carga com a capacidade: ainda não há níveis de alerta (PEND-004), e 100 % exatos contam
+  compara o peso com a capacidade: ainda não há níveis de alerta (PEND-004), e 100 % exatos contam
   como dentro da capacidade (P-005). D e E aparecem como "Não avaliável", em cinza, com os motivos;
 - em D o comprimento de lança não existe na tabela (12, 17 e 22 m) e não é interpolado (ADR-013
   C-6); em E o raio fica abaixo do menor raio tabelado (RN-007).
@@ -201,17 +221,23 @@ Conferir pela API (qualquer caminho):
 curl -s -b cookies.txt -X POST http://127.0.0.1:8000/api/v1/evaluations \
   -H 'Content-Type: application/json' -H 'X-Requested-With: crane-simulator' \
   -d '{"configuration_id":"demo-ficticio-configuracao","boom_length_m":12,"boom_angle_deg":35,"turret_rotation_deg":0,"cable_length_m":5,"load_weight_kg":3000}'
-# → "status":"EVALUATED", "maximum_capacity_kg":4200.0, "utilization_percent":71.428...,
-#   "load_chart_id":"demo-ficticio-tabela-v1"
+# → "status":"EVALUATED", "maximum_capacity_kg":4200.0, "utilization_percent":76.190...,
+#   "load_chart_id":"demo-ficticio-tabela-v1", "rotation_zone_code":"FRONTAL",
+#   "hook_block_weight_kg":200.0, "compared_weight_kg":3200.0
 ```
+
+Com `"turret_rotation_deg":180`, a resposta traz `"rotation_zone_code":"LATERAL_TRASEIRA"`,
+`"maximum_capacity_kg":3360.0`, `"utilization_percent":95.238...` e
+`"load_chart_id":"demo-ficticio-tabela-lateral-traseira-v1"`.
 
 ## 6. Importar uma tabela com erro e ver o relatório
 
 Na página **Tabelas** (importar exige o perfil ADMIN), escolha a configuração de demonstração e
 solte (ou escolha) o arquivo `backend/app/demo_data/tabela_carga_ficticia_demo_com_erros.csv`. A
 validação prévia mostra o relatório de erros numa tabela com linha, coluna e problema. Se tentar
-importar, use o id `demo-ficticio-tabela-com-erros` e a versão `demo-ficticia-com-erros`. Pela API,
-na raiz do repositório, com o login de admin da § 3.1:
+importar, use o id `demo-ficticio-tabela-com-erros`, a versão `demo-ficticia-com-erros` e a zona
+`FRONTAL` (a configuração de demonstração tem zonas de giro, então a importação pede a zona). Pela
+API, na raiz do repositório, com o login de admin da § 3.1:
 
 ```bash
 curl -s -b cookies.txt -H 'X-Requested-With: crane-simulator' \
@@ -219,8 +245,12 @@ curl -s -b cookies.txt -H 'X-Requested-With: crane-simulator' \
   -F "file=@backend/app/demo_data/tabela_carga_ficticia_demo_com_erros.csv;type=text/csv" \
   -F configuration_id=demo-ficticio-configuracao \
   -F chart_id=demo-ficticio-tabela-com-erros \
-  -F version=demo-ficticia-com-erros
+  -F version=demo-ficticia-com-erros \
+  -F rotation_zone_code=FRONTAL
 ```
+
+Sem o `rotation_zone_code`, a resposta é HTTP **422** com `"code":"ROTATION_ZONE_REQUIRED"`, antes
+de o arquivo ser lido.
 
 Esperado: HTTP **422** com `"status":"INVALID"` e **nada gravado** (nem a tabela, nem o arquivo). O
 relatório (`issues`) traz, nesta ordem:
@@ -233,15 +263,16 @@ relatório (`issues`) traz, nesta ordem:
 | 5 | `max_capacity_kg` | `EMPTY_VALUE` | valor obrigatório vazio |
 | 6 | — | `CONFLICTING_POINTS` | o mesmo conflito, visto da linha 6 |
 
-A tabela ativa continua sendo a `demo-ficticia-v1` (repita o cenário A: 4 200 kg).
+As tabelas ativas continuam as mesmas (repita o cenário A: 4 200 kg).
 
 ## 7. Ativar outra versão
 
-Importe a versão 2 (FICTÍCIA) e ative-a. Na página **Tabelas**: solte
-`tabela_carga_ficticia_demo_v2.csv`, importe como rascunho com o id `demo-ficticio-tabela-v2` e a
-versão `demo-ficticia-v2`, e use **"Ativar"** na linha do tempo, que pede confirmação. A linha do
-tempo vai da maior versão para a menor e passa a mostrar a v2 ativa e a v1 substituída. Ou pela
-API:
+Importe a versão 2 (FICTÍCIA) na zona `FRONTAL` e ative-a. Na página **Tabelas**: solte
+`tabela_carga_ficticia_demo_v2.csv`, escolha a zona **"Frontal FICTÍCIA"**, importe como rascunho
+com o id `demo-ficticio-tabela-v2` e a versão `demo-ficticia-v2`, e use **"Ativar"** na linha do
+tempo, que pede confirmação e compara com a ativa **da mesma zona**. A linha do tempo vai da maior
+versão para a menor e passa a mostrar a v2 ativa na zona frontal, a v1 substituída e a
+lateral/traseira ainda ativa. Ou pela API:
 
 ```bash
 curl -s -b cookies.txt -H 'X-Requested-With: crane-simulator' \
@@ -249,23 +280,27 @@ curl -s -b cookies.txt -H 'X-Requested-With: crane-simulator' \
   -F "file=@backend/app/demo_data/tabela_carga_ficticia_demo_v2.csv;type=text/csv" \
   -F configuration_id=demo-ficticio-configuracao \
   -F chart_id=demo-ficticio-tabela-v2 \
-  -F version=demo-ficticia-v2
-# → HTTP 201, "status":"DRAFT"
+  -F version=demo-ficticia-v2 \
+  -F rotation_zone_code=FRONTAL
+# → HTTP 201, "status":"DRAFT", "rotation_zone_code":"FRONTAL"
 
 curl -s -b cookies.txt -H 'X-Requested-With: crane-simulator' \
   -X POST http://127.0.0.1:8000/api/v1/load-charts/demo-ficticio-tabela-v2/activate
-# → a v2 fica ACTIVE e a v1 vira SUPERSEDED
+# → a v2 fica ACTIVE na zona FRONTAL e a v1 vira SUPERSEDED ("superseded_chart_id":
+#   "demo-ficticio-tabela-v1"); a tabela da zona LATERAL_TRASEIRA não muda
 ```
 
-Volte à tela com a pose do cenário A (12,0 m, 35°, carga 3 000 kg). Esperado: capacidade
-admissível **3 780 kg** (ponto 12 m × 10 m da v2), utilização **79,37 %** e "Tabela de carga"
-mostrando `demo-ficticia-v2`.
+Volte à tela com a pose do cenário A (giro 0°, 12,0 m, 35°, carga 3 000 kg). Esperado: capacidade
+admissível **3 780 kg** (ponto 12 m × 10 m da v2), utilização **84,66 %** (3 200 / 3 780) e
+"Tabela de carga" mostrando `demo-ficticia-v2`. Gire para 180° (cenário F): a capacidade continua
+**3 360 kg** e a utilização **95,24 %**, da tabela `demo-ficticia-lateral-traseira-v1`.
 
 ## 8. Repetir do início
 
 - Rodar o seed de novo depois do § 7 **não** reativa a v1: a saída diz
-  "está SUPERSEDED (outra versão foi ativada); não reativada" (reativar `SUPERSEDED` não está no
-  fluxo da doc-fonte § 13.2).
+  "está SUPERSEDED (outra versão foi ativada); não reativada" para a v1 e "já estava ativa; nada
+  alterado" para a tabela lateral/traseira (reativar `SUPERSEDED` não está no fluxo da doc-fonte
+  § 13.2).
 - Para recomeçar do zero no Docker: `docker compose down --volumes` (apaga **os dois** volumes
   locais: banco e arquivos importados) e volte à seção 3.
 - Sem Docker: recrie o banco vazio, apague o conteúdo de `FILE_STORAGE_DIR` e volte à seção 4.
@@ -277,8 +312,10 @@ mostrando `demo-ficticia-v2`.
 | Seed: `ERRO: defina DATABASE_URL` ou `defina FILE_STORAGE_DIR` | variável ausente no processo | exporte as duas (Caminho B) ou use o comando do Compose (Caminho A) |
 | Seed: `ERRO: falha no banco (ProgrammingError)` | migrations não aplicadas | `alembic upgrade head` antes do seed |
 | Seed: `ERRO: falha no banco (OperationalError)` | PostgreSQL fora do ar ou URL errada | confira o banco e a `DATABASE_URL` |
-| Seed: "já existe com outro guindaste ou outra ficha técnica" | banco com dados de demonstração alterados | recomece do zero (§ 8) |
-| Painel: `CRANE_GEOMETRY_NOT_FOUND` / `ACTIVE_LOAD_CHART_NOT_FOUND` | seed não rodou, id digitado errado ou API sem `DATABASE_URL` | rode o seed e confira o id |
+| Seed: "já existe com outro guindaste, outra ficha técnica, outras zonas de giro ou outro peso de gancho" | banco com dados de demonstração alterados, ou semeado antes da TASK-046 (sem zonas nem gancho) | recomece do zero (§ 8) |
+| Seed: `ERRO: falha no banco (ProgrammingError)` depois de atualizar o código | migration da TASK-046 não aplicada | `alembic upgrade head` antes do seed |
+| Painel: `CRANE_GEOMETRY_NOT_FOUND` / `ACTIVE_LOAD_CHART_NOT_FOUND` | seed não rodou, id digitado errado ou API sem `DATABASE_URL`; com zonas, a zona do giro atual sem tabela ativa (`rotation_zone_code` mostra qual) | rode o seed, confira o id ou ative uma tabela nessa zona |
+| Importação: `422` com `"code":"ROTATION_ZONE_REQUIRED"`, `UNKNOWN_ROTATION_ZONE` ou `ROTATION_ZONE_NOT_ALLOWED` | zona ausente numa configuração com zonas, zona que não existe nela, ou zona informada numa configuração sem zonas | envie `-F rotation_zone_code=FRONTAL` (ou `LATERAL_TRASEIRA`) na configuração de demonstração |
 | Importação responde 404 na rota | API sem `FILE_STORAGE_DIR` ou sem `DATABASE_URL` (rotas não registradas) | defina as duas e reinicie a API |
 | `create_admin`: `ERRO: falha no banco (ProgrammingError)` | migrations não aplicadas (tabela `app_user` ausente) | `alembic upgrade head` antes |
 | `create_admin`: "já existe; nada alterado" | o usuário já foi criado antes | entre com a senha dele; o comando não troca senha |

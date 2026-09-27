@@ -7,8 +7,11 @@
 - `GET /api/v1/configurations/{configuration_id}`;
 - edição (TASK-044): `PATCH /api/v1/manufacturers/{manufacturer_id}` (`name`),
   `PATCH /api/v1/cranes/{crane_id}` (`model_name`) e
-  `PATCH /api/v1/configurations/{configuration_id}` (`name` e/ou `geometry`), com os mesmos
-  schemas de resposta da criação.
+  `PATCH /api/v1/configurations/{configuration_id}` (`name`, `geometry`, `rotation_zones` e/ou
+  `hook_block_weight_kg`), com os mesmos schemas de resposta da criação;
+- zonas de giro e peso do gancho (TASK-046; ADR-018) na criação e na edição da configuração:
+  zonas inválidas → 422 `{"detail", "code": "INVALID_ROTATION_ZONES"}`; remover ou renomear uma
+  zona que já tem tabelas → 409 `{"detail", "code": "ROTATION_ZONE_IN_USE"}`.
 
 Códigos HTTP:
 - **201** ao criar (ids gerados pelo servidor, UUID em texto); **200** ao ler, listar e editar;
@@ -37,12 +40,19 @@ from fastapi import APIRouter, HTTPException, Query, params, status
 
 from app.application.ports.crane_catalog_listing import CraneCatalogStore
 from app.application.ports.crane_catalog_repository import CatalogEntryAlreadyExistsError
+from app.application.ports.load_chart_listing import LoadChartListing
 from app.application.use_cases.crane_catalog import (
+    UNCHANGED,
     CatalogEntryNotFoundError,
     IdGenerator,
     ManageCraneCatalog,
+    RotationZoneInUseError,
+    Unchanged,
     generate_uuid_id,
 )
+from app.domain.exceptions.domain_errors import InvalidRotationZonesError
+from app.domain.value_objects.mass import Mass
+from app.domain.value_objects.rotation_zone import RotationZones
 from app.presentation.api.catalog_schemas import (
     CatalogErrorResponse,
     ConfigurationCreateRequest,
@@ -54,6 +64,14 @@ from app.presentation.api.catalog_schemas import (
     ManufacturerCreateRequest,
     ManufacturerResponse,
     ManufacturerUpdateRequest,
+    RotationZonePayload,
+    hook_block_weight_to_domain,
+    rotation_zones_to_domain,
+)
+from app.presentation.api.rotation_zone_errors import (
+    RotationZoneErrorCode,
+    rotation_zone_error,
+    rotation_zone_error_responses,
 )
 
 API_PREFIX = "/api/v1"
@@ -75,6 +93,23 @@ _CREATE_ERRORS: dict[int | str, dict[str, Any]] = {
 }
 
 
+_INVALID_ZONES = rotation_zone_error_responses(
+    (
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        RotationZoneErrorCode.INVALID_ROTATION_ZONES,
+        "zonas de giro inválidas (corpo `{detail, code}`; os demais 422 seguem o formato padrão "
+        "do FastAPI, com `detail` em lista).",
+    ),
+)
+_ZONE_IN_USE = rotation_zone_error_responses(
+    (
+        status.HTTP_409_CONFLICT,
+        RotationZoneErrorCode.ROTATION_ZONE_IN_USE,
+        "a edição remove ou renomeia uma zona que já tem tabelas de carga.",
+    ),
+)
+
+
 def _call[T](action: Callable[[], T]) -> T:
     """Roda o caso de uso e traduz os erros do catálogo para 404 e 409."""
     try:
@@ -83,6 +118,22 @@ def _call[T](action: Callable[[], T]) -> T:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
     except CatalogEntryAlreadyExistsError as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    except RotationZoneInUseError as error:
+        raise rotation_zone_error(
+            status.HTTP_409_CONFLICT, RotationZoneErrorCode.ROTATION_ZONE_IN_USE, str(error)
+        ) from error
+
+
+def _rotation_zones(zones: list[RotationZonePayload] | None) -> RotationZones | None:
+    """Zonas do corpo no domínio, ou 422 `INVALID_ROTATION_ZONES` (antes de procurar o registro)."""
+    try:
+        return rotation_zones_to_domain(zones)
+    except InvalidRotationZonesError as error:
+        raise rotation_zone_error(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            RotationZoneErrorCode.INVALID_ROTATION_ZONES,
+            str(error),
+        ) from error
 
 
 def create_catalog_router(
@@ -90,14 +141,16 @@ def create_catalog_router(
     id_generator: IdGenerator = generate_uuid_id,
     *,
     write_dependencies: Sequence[params.Depends] = (),
+    load_chart_listing: LoadChartListing | None = None,
 ) -> APIRouter:
     """Monta o router do catálogo com o repositório escolhido pela composição.
 
     `write_dependencies` entram só nas rotas de cadastro e de edição (`POST`, `PATCH`): a exigência
-    do perfil `ADMIN`.
+    do perfil `ADMIN`. `load_chart_listing` (TASK-046) confere as zonas em uso pelas tabelas na
+    edição das zonas de giro (409 `ROTATION_ZONE_IN_USE`).
     """
     writes = list(write_dependencies)
-    catalog = ManageCraneCatalog(repository, id_generator)
+    catalog = ManageCraneCatalog(repository, id_generator, load_chart_listing=load_chart_listing)
     router = APIRouter(tags=["catalog"])
 
     @router.post(
@@ -162,14 +215,18 @@ def create_catalog_router(
             "A ficha técnica geométrica é opcional e vem só deste cadastro, nunca do modelo 3D "
             "(RN-003). Valores em unidades internas (metros e graus; RN-006)."
         ),
-        responses={**_NOT_FOUND, **_CREATE_ERRORS},
+        responses={**_NOT_FOUND, **_CREATE_ERRORS, **_INVALID_ZONES},
     )
     def create_configuration(
         crane_id: str, request: ConfigurationCreateRequest
     ) -> ConfigurationResponse:
         geometry = None if request.geometry is None else request.geometry.to_domain()
+        zones = _rotation_zones(request.rotation_zones)
+        hook = hook_block_weight_to_domain(request.hook_block_weight_kg)
         configuration = _call(
-            lambda: catalog.create_configuration(crane_id, request.name, geometry)
+            lambda: catalog.create_configuration(
+                crane_id, request.name, geometry, rotation_zones=zones, hook_block_weight=hook
+            )
         )
         return ConfigurationResponse.from_record(configuration)
 
@@ -216,21 +273,38 @@ def create_catalog_router(
     @router.patch(
         f"{CONFIGURATIONS_PATH}/{{configuration_id}}",
         dependencies=writes,
-        summary="Editar o nome e/ou a ficha técnica da configuração (TASK-044)",
+        summary="Editar nome, ficha técnica, zonas de giro e/ou gancho da configuração",
         description=(
-            "Campo ausente mantém o valor atual; pelo menos um campo é obrigatório, e `null` é "
-            "recusado (422). A `geometry`, quando vem, substitui a ficha inteira (RN-003) e vale "
-            "para as próximas avaliações; as tabelas de carga não mudam."
+            "Campo ausente mantém o valor atual; pelo menos um campo é obrigatório. `name` e "
+            "`geometry` não aceitam `null` (422). A `geometry`, quando vem, substitui a ficha "
+            "inteira (RN-003). `rotation_zones` substitui a lista (`[]` ou `null` remove as zonas) "
+            "e `hook_block_weight_kg: null` apaga o gancho (TASK-046). Ordem das validações: "
+            "corpo (422 padrão) → zonas (422 `INVALID_ROTATION_ZONES`) → configuração (404) → "
+            "zonas em uso (409 `ROTATION_ZONE_IN_USE`). Os valores novos valem para as próximas "
+            "avaliações; as tabelas de carga não mudam."
         ),
-        responses=_NOT_FOUND,
+        responses={**_NOT_FOUND, **_INVALID_ZONES, **_ZONE_IN_USE},
     )
     def update_configuration(
         configuration_id: str, request: ConfigurationUpdateRequest
     ) -> ConfigurationResponse:
+        fields = request.model_fields_set
         geometry = None if request.geometry is None else request.geometry.to_domain()
+        zones: RotationZones | None | Unchanged = (
+            _rotation_zones(request.rotation_zones) if "rotation_zones" in fields else UNCHANGED
+        )
+        hook: Mass | None | Unchanged = (
+            hook_block_weight_to_domain(request.hook_block_weight_kg)
+            if "hook_block_weight_kg" in fields
+            else UNCHANGED
+        )
         configuration = _call(
             lambda: catalog.update_configuration(
-                configuration_id, name=request.name, geometry=geometry
+                configuration_id,
+                name=request.name,
+                geometry=geometry,
+                rotation_zones=zones,
+                hook_block_weight=hook,
             )
         )
         return ConfigurationResponse.from_record(configuration)

@@ -59,6 +59,11 @@ NOT_EVALUABLE_WITHOUT_DATA = {
     "utilization_percent": None,
     "load_chart_id": None,
     "load_chart_version": None,
+    # Sem banco não há zonas nem gancho (TASK-046): o peso comparado é o da carga.
+    "rotation_zone_code": None,
+    "rotation_zone_name": None,
+    "hook_block_weight_kg": 0.0,
+    "compared_weight_kg": 1500.0,
     "reasons": [
         {"code": "CRANE_GEOMETRY_NOT_FOUND", "category": "EVALUATION"},
         {"code": "ACTIVE_LOAD_CHART_NOT_FOUND", "category": "EVALUATION"},

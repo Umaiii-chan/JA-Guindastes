@@ -10,8 +10,9 @@ FICTÍCIO está no nome de cada arquivo e neste README, e não dentro dos arquiv
 
 | Arquivo | Conteúdo | Usado em |
 |---------|----------|----------|
-| `tabela_carga_ficticia_demo_v1.csv` | 27 pontos FICTÍCIOS, lanças de 12, 17 e 22 m; importada e ativada pelo seed | `app/demo_seed.py` |
-| `tabela_carga_ficticia_demo_v2.csv` | os mesmos pontos com a capacidade × 0,9 (FICTÍCIA); importada à mão no roteiro para mostrar a troca de versão | `docs/demo.md` |
+| `tabela_carga_ficticia_demo_v1.csv` | 27 pontos FICTÍCIOS, lanças de 12, 17 e 22 m; importada e ativada pelo seed na zona de giro FICTÍCIA `FRONTAL` | `app/demo_seed.py` |
+| `tabela_carga_ficticia_demo_lateral_traseira_v1.csv` | os mesmos pontos da v1 com a capacidade × 0,8 (FICTÍCIA); importada e ativada pelo seed na zona FICTÍCIA `LATERAL_TRASEIRA` (TASK-046) | `app/demo_seed.py` |
+| `tabela_carga_ficticia_demo_v2.csv` | os mesmos pontos com a capacidade × 0,9 (FICTÍCIA); importada à mão no roteiro, na zona `FRONTAL`, para mostrar a troca de versão | `docs/demo.md` |
 | `tabela_carga_ficticia_demo_com_erros.csv` | cabeçalho válido e linhas com texto, negativo, valor vazio e ponto em conflito; mostra o relatório de erros | `docs/demo.md` |
 
 Os valores esperados de cada passo do roteiro estão em `docs/demo.md` e são conferidos por

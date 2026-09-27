@@ -7,6 +7,7 @@ from app.domain.exceptions.domain_errors import (
     InvalidLoadChartError,
 )
 from app.domain.value_objects.length import Length
+from app.domain.value_objects.rotation_zone import require_rotation_zone_code
 
 
 class LoadChartStatus(StrEnum):
@@ -39,7 +40,12 @@ class LoadChart:
     como vieram.
 
     A tabela não escolhe se pode ser usada numa simulação: selecionar a tabela `ACTIVE` da
-    configuração é papel do `LoadChartResolver` (doc-fonte § 14.1), ainda não implementado.
+    configuração é papel do `ActiveLoadChartProvider` (doc-fonte § 14.1, `LoadChartResolver`).
+
+    `rotation_zone_code` (ADR-018 § 1; TASK-046): a zona de giro da configuração em que a tabela
+    vale, ou `None` numa configuração sem zonas (a tabela vale para todo o giro). Quando informado,
+    é um código de zona válido (1 a 32 caracteres `[A-Z0-9_]`, `InvalidRotationZonesError`); se a
+    zona existe na configuração é conferido na importação, não aqui.
     """
 
     id: str
@@ -47,6 +53,7 @@ class LoadChart:
     configuration_id: str
     status: LoadChartStatus
     points: tuple[LoadChartPoint, ...]
+    rotation_zone_code: str | None = None
     _points_by_key: dict[_PointKey, LoadChartPoint] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -59,6 +66,8 @@ class LoadChart:
                 raise InvalidLoadChartError(f"{name} da tabela de carga deve ser informado")
         if not isinstance(self.status, LoadChartStatus):
             raise InvalidLoadChartError(f"status inválido: {self.status!r}")
+        if self.rotation_zone_code is not None:
+            require_rotation_zone_code(self.rotation_zone_code)
 
         points = tuple(self.points)
         points_by_key: dict[_PointKey, LoadChartPoint] = {}

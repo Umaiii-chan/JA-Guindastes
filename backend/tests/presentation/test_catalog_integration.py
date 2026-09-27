@@ -9,6 +9,7 @@ conferem a presença e a ordem relativa dos registros do teste. Dados FICTÍCIOS
 TASK-044: edição (`PATCH`) e listagem das tabelas de uma configuração, também contra o banco.
 """
 
+import dataclasses
 from collections.abc import Iterator
 
 import pytest
@@ -29,6 +30,7 @@ from tests.fixtures.crane_catalog_ficticio import (
     geometry_payload_ficticio,
 )
 from tests.fixtures.load_chart_ficticio import build_load_chart_ficticio
+from tests.fixtures.rotation_zones_ficticias import ZONA_FRONTAL_FICTICIA, zonas_payload_ficticio
 from tests.infrastructure.database.postgres_integration_support import (
     integration_engine,
     rolled_back_session_factory,
@@ -187,6 +189,8 @@ def test_patch_routes_persist_the_edits(client: TestClient) -> None:
         "crane_id": ids["crane_id"],
         "name": "Configuração editada",
         "geometry": new_geometry,
+        "rotation_zones": None,
+        "hook_block_weight_kg": None,
     }
 
 
@@ -239,3 +243,38 @@ def test_list_load_charts_of_missing_configuration_returns_404(client: TestClien
     response = client.get(f"{CONFIGURATIONS}/CFG-FICTICIA-INEXISTENTE/load-charts")
 
     assert response.status_code == 404
+
+
+# --- TASK-046: zonas de giro e gancho ---------------------------------------------------------
+
+
+def test_zones_and_hook_block_round_trip_and_zone_in_use_is_protected(
+    client: TestClient, charts: SqlAlchemyLoadChartRepository
+) -> None:
+    configuration_id = _configuration(client)["configuration_id"]
+    patched = client.patch(
+        f"{CONFIGURATIONS}/{configuration_id}",
+        json={"rotation_zones": zonas_payload_ficticio(), "hook_block_weight_kg": 200.0},
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["rotation_zones"] == zonas_payload_ficticio()
+    stored = client.get(f"{CONFIGURATIONS}/{configuration_id}").json()
+    assert stored["hook_block_weight_kg"] == 200.0
+
+    chart = dataclasses.replace(
+        _chart("LC-FICTICIO-TASK046-F1", "f1", configuration_id),
+        rotation_zone_code=ZONA_FRONTAL_FICTICIA,
+    )
+    charts.save_draft(chart, SOURCE_FICTICIA)
+    charts.change_status(chart.id, LoadChartStatus.ACTIVE)
+
+    removed = client.patch(f"{CONFIGURATIONS}/{configuration_id}", json={"rotation_zones": []})
+    assert removed.status_code == 409, removed.text
+    assert removed.json()["code"] == "ROTATION_ZONE_IN_USE"
+
+    listing = client.get(f"{CONFIGURATIONS}/{configuration_id}/load-charts").json()
+    assert listing["active_chart_id"] is None
+    assert listing["active_charts"] == [
+        {"rotation_zone_code": ZONA_FRONTAL_FICTICIA, "chart_id": chart.id}
+    ]
+    assert listing["items"][0]["rotation_zone_code"] == ZONA_FRONTAL_FICTICIA
