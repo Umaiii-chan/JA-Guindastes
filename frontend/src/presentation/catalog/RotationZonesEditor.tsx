@@ -21,6 +21,12 @@ export interface RotationZonesEditorProps {
   /** Erros com as chaves `rotationZones` (o todo) e `rotationZones.<i>.<campo>`. */
   readonly errors: FormErrors
   readonly disabled?: boolean
+  /**
+   * Por que não dá para pôr zonas agora (ex.: a configuração já tem tabelas importadas sem zona;
+   * 409 `ZONELESS_LOAD_CHARTS_EXIST`). Com ele, o atalho e "Adicionar zona" ficam desabilitados e o
+   * motivo aparece num aviso. `null` (padrão) = liberado.
+   */
+  readonly addLockedReason?: string | null
   onChange(rows: readonly ZoneFormRow[]): void
 }
 
@@ -51,8 +57,10 @@ export function RotationZonesEditor({
   rows,
   errors,
   disabled = false,
+  addLockedReason = null,
   onChange,
 }: RotationZonesEditorProps) {
+  const addLocked = addLockedReason !== null
   const legendId = useId()
   const zonesError = errors[ZONES_FIELD]
   const update = (index: number, field: ZoneRowField, value: string) =>
@@ -74,11 +82,17 @@ export function RotationZonesEditor({
         cima; o setor vai do início ao fim no sentido crescente e pode passar por 0°. Sem zonas, uma
         tabela vale para todo o giro.
       </p>
+      {addLocked && (
+        <Notice tone="warning" compact title="Zonas de giro indisponíveis">
+          {addLockedReason}
+        </Notice>
+      )}
       <div className={styles.zonesActions}>
         <Button
           size="sm"
           variant="secondary"
           icon={<Wand2 size={14} />}
+          disabled={addLocked}
           onClick={() => onChange(zoneRowsFrom(FRONT_110_REAR_250_PRESET))}
         >
           Frontal 110° + lateral e traseira 250°
@@ -87,6 +101,7 @@ export function RotationZonesEditor({
           size="sm"
           variant="ghost"
           icon={<Plus size={14} />}
+          disabled={addLocked}
           onClick={() => onChange([...rows, emptyZoneRow()])}
         >
           Adicionar zona

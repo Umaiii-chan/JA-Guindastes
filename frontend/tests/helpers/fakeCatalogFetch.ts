@@ -33,6 +33,11 @@ export interface FakeCatalogOptions {
    * PATCH responde 409 `ROTATION_ZONE_IN_USE`.
    */
   readonly zonesInUse?: Readonly<Record<string, readonly string[]>>
+  /**
+   * Configurações que já têm tabelas importadas sem zona (TASK-046): pôr zonas nelas no PATCH
+   * responde 409 `ZONELESS_LOAD_CHARTS_EXIST`, na mesma posição de `ROTATION_ZONE_IN_USE`.
+   */
+  readonly zonelessChartsIn?: readonly string[]
 }
 
 /**
@@ -193,6 +198,16 @@ export function createFakeCatalogFetch(
           {
             detail: `a zona ${lost.join(', ')} já tem tabelas de carga`,
             code: 'ROTATION_ZONE_IN_USE',
+          },
+          409,
+        )
+      }
+      const addsZones = zones !== null && zones.length > 0 && !row.rotation_zones?.length
+      if (addsZones && options.zonelessChartsIn?.includes(id)) {
+        return jsonResponse(
+          {
+            detail: 'a configuração já tem tabelas de carga sem zona',
+            code: 'ZONELESS_LOAD_CHARTS_EXIST',
           },
           409,
         )

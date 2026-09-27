@@ -27,7 +27,11 @@ import {
   zoneRowsFrom,
   ZONES_FIELD,
 } from '../../application/catalog/rotationZones'
-import { ROTATION_ZONE_IN_USE } from '../../domain/catalog/catalog'
+import {
+  ROTATION_ZONE_IN_USE,
+  ZONELESS_LOAD_CHARTS_EXIST,
+  ZONELESS_LOAD_CHARTS_MESSAGE,
+} from '../../domain/catalog/catalog'
 import type {
   Crane,
   CraneConfiguration,
@@ -53,6 +57,12 @@ export type CatalogDrawerRequest =
        * confirmação.
        */
       readonly activeChartVersion?: string | null
+      /**
+       * Quantas versões de tabela a configuração editada tem (TASK-046); ausente = não se sabe. Sem
+       * zonas e com versões, pôr zonas é recusado (409 `ZONELESS_LOAD_CHARTS_EXIST`): o editor avisa
+       * antes de salvar.
+       */
+      readonly chartVersionCount?: number
     }
 
 export interface CatalogMutations {
@@ -292,9 +302,11 @@ function EntityForm({
       return
     }
     const { fieldErrors, message: summary } = formErrorsFromRequest(result.error)
-    // 409 ROTATION_ZONE_IN_USE (TASK-046): o problema é da lista de zonas; mostra no editor também.
+    // 409 ROTATION_ZONE_IN_USE e ZONELESS_LOAD_CHARTS_EXIST (TASK-046): o problema é da lista de
+    // zonas; mostra no editor também.
     setBackendErrors(
-      result.error.apiCode === ROTATION_ZONE_IN_USE
+      result.error.apiCode === ROTATION_ZONE_IN_USE ||
+        result.error.apiCode === ZONELESS_LOAD_CHARTS_EXIST
         ? { ...fieldErrors, [ZONES_FIELD]: result.error.message }
         : fieldErrors,
     )
@@ -343,6 +355,14 @@ function EntityForm({
         (withSheet || field === 'name' || isZoneOrHookField(field))
       : field === nameField,
   )
+  // Sem zonas e com tabelas importadas, o backend recusa pôr zonas: avisa antes de salvar.
+  const zonesLockedReason =
+    request.entity === 'configuration' &&
+    editedConfiguration !== undefined &&
+    (editedConfiguration.rotationZones ?? []).length === 0 &&
+    (request.chartVersionCount ?? 0) > 0
+      ? ZONELESS_LOAD_CHARTS_MESSAGE
+      : null
   const activeChartVersion =
     request.entity === 'configuration' ? request.activeChartVersion : undefined
 
@@ -439,7 +459,12 @@ function EntityForm({
                     }}
                   />
                 </Field>
-                <RotationZonesEditor rows={zoneRows} errors={errors} onChange={changeZoneRows} />
+                <RotationZonesEditor
+                  rows={zoneRows}
+                  errors={errors}
+                  addLockedReason={zonesLockedReason}
+                  onChange={changeZoneRows}
+                />
               </>
             )}
           </fieldset>

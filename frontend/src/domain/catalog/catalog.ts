@@ -65,6 +65,12 @@ export interface CraneConfiguration {
 /** Códigos de erro do backend para as zonas na configuração (TASK-046 § 3). */
 export const ROTATION_ZONE_IN_USE = 'ROTATION_ZONE_IN_USE'
 export const INVALID_ROTATION_ZONES = 'INVALID_ROTATION_ZONES'
+/** 409 ao pôr zonas numa configuração que já tem tabelas importadas sem zona. */
+export const ZONELESS_LOAD_CHARTS_EXIST = 'ZONELESS_LOAD_CHARTS_EXIST'
+
+/** Texto da tela para `ZONELESS_LOAD_CHARTS_EXIST` (no aviso antes de salvar e no erro do backend). */
+export const ZONELESS_LOAD_CHARTS_MESSAGE =
+  'Esta configuração já tem tabelas importadas sem zona. Crie outra configuração para usar zonas de giro.'
 
 export type CatalogErrorCode =
   'NOT_FOUND' | 'CONFLICT' | 'VALIDATION' | 'HTTP_ERROR' | 'NETWORK_ERROR' | 'INVALID_RESPONSE'
