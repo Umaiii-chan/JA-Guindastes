@@ -150,7 +150,7 @@ OUTER JOIN load_chart_points ON … WHERE load_charts.configuration_id = … GRO
 
 | # | Pergunta | Bloqueia? | Resposta | Respondida em |
 |---|----------|-----------|----------|---------------|
-| 1 | A linha do tempo pode ficar na ordem natural da versão, ou precisa da ordem real de importação (exige coluna `created_at` e migration)? | não | | |
+| 1 | A linha do tempo pode ficar na ordem natural da versão, ou precisa da ordem real de importação (exige coluna `created_at` e migration)? | não | **Pela versão.** Não haverá `created_at` nem ordem de importação (registrado como P-020 em "Resolvidos" de `docs/known-gaps.md`) | 2026-09-26, pessoa responsável, em chat |
 
 ## 9. ⚠️ Segurança
 
@@ -266,7 +266,8 @@ Ler primeiro: este handoff, `backend/app/presentation/api/configuration_load_cha
 
 - **Pontos por demanda:** a matriz de cada versão é baixada só quando pedida, com cache por página.
   O status vem sempre da listagem.
-- **Ordem:** o frontend não reordena a listagem (P-020 em `docs/known-gaps.md`).
+- **Ordem:** o frontend não reordena a listagem. A ordem pela versão foi confirmada pela pessoa
+  responsável (§ 8 item 1; P-020 em `docs/known-gaps.md`).
 - **Sem voltar para "sem ficha":** numa configuração que já tem ficha, a edição esconde a opção "sem
   ficha", porque o `PATCH` não aceita `geometry: null`.
 - **Dialog no lugar do Drawer:** enquanto o Dialog de confirmação está aberto, ele substitui o Drawer.
