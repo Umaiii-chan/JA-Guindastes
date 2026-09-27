@@ -140,7 +140,11 @@ def create_app(
 
     if catalog_repository is not None:
         app.include_router(
-            create_catalog_router(catalog_repository, write_dependencies=admin_required),
+            create_catalog_router(
+                catalog_repository,
+                write_dependencies=admin_required,
+                load_chart_listing=load_chart_listing,
+            ),
             dependencies=session_required,
         )
 

@@ -211,8 +211,23 @@ class EvaluationResponse(BaseModel):
         "tabela não foi consultada ou a consulta ficou fora do domínio dela."
     )
     utilization_percent: float | None = Field(
-        description="`carga / capacidade × 100`, sem arredondamento (PEND-002). Só existe em "
-        "`EVALUATED`."
+        description="`compared_weight_kg / capacidade × 100`, sem arredondamento (PEND-002). Só "
+        "existe em `EVALUATED`."
+    )
+    rotation_zone_code: str | None = Field(
+        description="Zona de giro usada (ADR-018; TASK-046), ou `null` numa configuração sem "
+        "zonas. Na fronteira entre duas zonas (±ε), é a zona cuja tabela deu a menor capacidade. "
+        "Em `NOT_EVALUABLE`: a zona sem tabela ativa, a da tabela que não cobriu a consulta, ou "
+        "a zona de ψ (na fronteira, a primeira na ordem cadastrada)."
+    )
+    rotation_zone_name: str | None = Field(
+        description="Nome da zona de `rotation_zone_code`, ou `null`."
+    )
+    hook_block_weight_kg: float = Field(
+        description="Peso do gancho da configuração, em kg (0 se não cadastrado; ADR-018 § 2)."
+    )
+    compared_weight_kg: float = Field(
+        description="Carga + gancho, em kg: o peso comparado com a capacidade (ADR-018 § 2)."
     )
     load_chart_id: str | None = Field(
         description="Id da tabela consultada; `null` quando a tabela não chegou a ser consultada."
@@ -231,6 +246,11 @@ class EvaluationResponse(BaseModel):
     def from_evaluation(
         cls, configuration_id: str, evaluation: OperationEvaluation
     ) -> EvaluationResponse:
+        zone = evaluation.rotation_zone
+        zone_code = None if zone is None else zone.code
+        zone_name = None if zone is None else zone.name
+        hook_kg = evaluation.hook_block_weight.kilograms
+        compared_kg = evaluation.compared_weight.kilograms
         match evaluation:
             case EvaluatedOperation():
                 return cls(
@@ -242,9 +262,17 @@ class EvaluationResponse(BaseModel):
                     load_chart_id=evaluation.load_chart_id,
                     load_chart_version=evaluation.load_chart_version,
                     reasons=[],
+                    rotation_zone_code=zone_code,
+                    rotation_zone_name=zone_name,
+                    hook_block_weight_kg=hook_kg,
+                    compared_weight_kg=compared_kg,
                 )
             case NotEvaluableOperation():
                 return cls(
+                    rotation_zone_code=zone_code,
+                    rotation_zone_name=zone_name,
+                    hook_block_weight_kg=hook_kg,
+                    compared_weight_kg=compared_kg,
                     status="NOT_EVALUABLE",
                     configuration_id=configuration_id,
                     geometry=(

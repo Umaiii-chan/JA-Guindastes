@@ -14,6 +14,7 @@ from typing import Annotated, Self
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from app.application.ports.crane_catalog_repository import (
+    HOOK_BLOCK_WEIGHT_MAX_KG,
     Crane,
     CraneConfiguration,
     Manufacturer,
@@ -22,6 +23,8 @@ from app.domain.exceptions.domain_errors import DomainError
 from app.domain.value_objects.angle import Angle
 from app.domain.value_objects.crane_geometry import CraneGeometry
 from app.domain.value_objects.length import Length
+from app.domain.value_objects.mass import Mass
+from app.domain.value_objects.rotation_zone import RotationZone, RotationZones
 
 _STRICT_INPUT = ConfigDict(strict=True, allow_inf_nan=False, extra="forbid")
 # Texto obrigatório: pelo menos um caractere que não seja espaço.
@@ -113,6 +116,71 @@ class CraneGeometryPayload(BaseModel):
         )
 
 
+class RotationZonePayload(BaseModel):
+    """Uma zona de giro da configuração (ADR-018 § 1; TASK-046), em graus.
+
+    Aqui só a forma (texto e números finitos). As regras (código com 1 a 32 caracteres `[A-Z0-9_]`,
+    nome com 1 a 80 caracteres, ângulos em [0, 360), cobertura de 360° sem sobreposição, pelo menos
+    2 zonas, códigos únicos) são do domínio (`RotationZones`) e, violadas, respondem 422 com
+    `code: INVALID_ROTATION_ZONES`.
+    """
+
+    model_config = _STRICT_INPUT
+
+    code: str = Field(description="Código único na configuração: 1 a 32 caracteres `[A-Z0-9_]`.")
+    name: str = Field(description="Nome da zona: 1 a 80 caracteres.")
+    start_deg: float = Field(
+        description="Início do setor, em graus, em [0, 360), na convenção de ψ do ADR-013 (0° = "
+        "lança sobre a frente do chassi, anti-horário visto de cima)."
+    )
+    end_deg: float = Field(
+        description="Fim do setor, em graus, em [0, 360). O setor vai de `start_deg` a `end_deg` "
+        "no sentido crescente e pode passar por 0° (ex.: frontal de 305° a 55°)."
+    )
+
+    @classmethod
+    def from_domain(cls, zone: RotationZone) -> RotationZonePayload:
+        return cls(code=zone.code, name=zone.name, start_deg=zone.start_deg, end_deg=zone.end_deg)
+
+
+def rotation_zones_to_domain(zones: list[RotationZonePayload] | None) -> RotationZones | None:
+    """Zonas do corpo para o domínio; `null` e `[]` = sem zonas.
+
+    Levanta `InvalidRotationZonesError` se as zonas violarem as regras do domínio.
+    """
+    if not zones:
+        return None
+    return RotationZones(
+        zones=tuple(
+            RotationZone(
+                code=zone.code, name=zone.name, start_deg=zone.start_deg, end_deg=zone.end_deg
+            )
+            for zone in zones
+        )
+    )
+
+
+def _rotation_zones_payload(zones: RotationZones | None) -> list[RotationZonePayload] | None:
+    return (
+        None if zones is None else [RotationZonePayload.from_domain(zone) for zone in zones.zones]
+    )
+
+
+def hook_block_weight_to_domain(kilograms: float | None) -> Mass | None:
+    return None if kilograms is None else Mass(kilograms)
+
+
+_ROTATION_ZONES_DESCRIPTION = (
+    "Zonas de giro (ADR-018; TASK-046): `[{code, name, start_deg, end_deg}]`, cobrindo 360° sem "
+    "sobreposição, com pelo menos 2 zonas; `null`, `[]` ou ausente = sem zonas (uma tabela vale "
+    "para todo o giro). Zonas inválidas → 422 `INVALID_ROTATION_ZONES`."
+)
+_HOOK_BLOCK_WEIGHT_DESCRIPTION = (
+    "Peso do gancho que a tabela considera, em kg, de 0 a 100 000 (ADR-018 § 2): a avaliação "
+    "compara carga + gancho com a capacidade. `null` = 0 kg na comparação."
+)
+
+
 def _length(meters: float | None) -> Length | None:
     return None if meters is None else Length(meters)
 
@@ -178,10 +246,16 @@ class ConfigurationCreateRequest(BaseModel):
         description="Ficha técnica geométrica (ADR-013 C-4); opcional. Sem ela, a avaliação da "
         "configuração responde `NOT_EVALUABLE` com `CRANE_GEOMETRY_NOT_FOUND`.",
     )
+    rotation_zones: list[RotationZonePayload] | None = Field(
+        default=None, description=_ROTATION_ZONES_DESCRIPTION
+    )
+    hook_block_weight_kg: float | None = Field(
+        default=None, ge=0, le=HOOK_BLOCK_WEIGHT_MAX_KG, description=_HOOK_BLOCK_WEIGHT_DESCRIPTION
+    )
 
 
 class ConfigurationResponse(BaseModel):
-    """Configuração operacional cadastrada, com a ficha técnica (ou `null`)."""
+    """Configuração operacional cadastrada, com a ficha técnica, as zonas de giro e o gancho."""
 
     id: str = Field(description="Id gerado pelo servidor (UUID em texto).")
     crane_id: str = Field(description="Id do guindaste.")
@@ -189,15 +263,26 @@ class ConfigurationResponse(BaseModel):
     geometry: CraneGeometryPayload | None = Field(
         description="Ficha técnica geométrica (ADR-013 C-4), ou `null` se não foi cadastrada."
     )
+    rotation_zones: list[RotationZonePayload] | None = Field(
+        description="Zonas de giro na ordem em que foram cadastradas (TASK-046), ou `null` sem "
+        "zonas."
+    )
+    hook_block_weight_kg: float | None = Field(
+        description="Peso do gancho em kg, como cadastrado (TASK-046), ou `null` (= 0 kg na "
+        "comparação)."
+    )
 
     @classmethod
     def from_record(cls, configuration: CraneConfiguration) -> ConfigurationResponse:
         geometry = configuration.geometry
+        hook = configuration.hook_block_weight
         return cls(
             id=configuration.id,
             crane_id=configuration.crane_id,
             name=configuration.name,
             geometry=None if geometry is None else CraneGeometryPayload.from_domain(geometry),
+            rotation_zones=_rotation_zones_payload(configuration.rotation_zones),
+            hook_block_weight_kg=None if hook is None else hook.kilograms,
         )
 
 
@@ -218,12 +303,15 @@ class CraneUpdateRequest(BaseModel):
 
 
 class ConfigurationUpdateRequest(BaseModel):
-    """Edição da configuração (TASK-044): nome e/ou ficha técnica; o guindaste não muda.
+    """Edição da configuração (TASK-044, TASK-046): nome, ficha técnica, zonas de giro e/ou peso
+    do gancho; o guindaste não muda.
 
-    Os dois campos são opcionais, mas pelo menos um precisa vir. Campo ausente mantém o valor
-    atual; `null` explícito é recusado (422): a ficha, quando vem, substitui a ficha inteira, e
-    esta rota não apaga a ficha. A ficha nova vale para as próximas avaliações e não altera as
-    tabelas de carga.
+    Os campos são opcionais, mas pelo menos um precisa vir. Campo ausente mantém o valor atual.
+    `name` e `geometry` não aceitam `null` (422): a ficha, quando vem, substitui a ficha inteira, e
+    esta rota não apaga a ficha. `rotation_zones` substitui a lista (`[]` ou `null` remove as
+    zonas; remover ou renomear uma zona com tabelas → 409 `ROTATION_ZONE_IN_USE`), e
+    `hook_block_weight_kg: null` apaga o peso do gancho. Os valores novos valem para as próximas
+    avaliações e não alteram as tabelas de carga.
     """
 
     model_config = _STRICT_INPUT
@@ -236,11 +324,26 @@ class ConfigurationUpdateRequest(BaseModel):
         description="Ficha técnica nova e completa (ADR-013 C-4), que substitui a atual; ausente "
         "mantém a atual. Não pode ser `null`.",
     )
+    rotation_zones: list[RotationZonePayload] | None = Field(
+        default=None,
+        description="Zonas de giro novas, que substituem a lista atual; `[]` ou `null` remove as "
+        "zonas; ausente mantém. Zonas inválidas → 422 `INVALID_ROTATION_ZONES`; remover ou "
+        "renomear o código de uma zona que já tem tabelas → 409 `ROTATION_ZONE_IN_USE`.",
+    )
+    hook_block_weight_kg: float | None = Field(
+        default=None,
+        ge=0,
+        le=HOOK_BLOCK_WEIGHT_MAX_KG,
+        description="Peso do gancho novo, em kg (0 a 100 000); `null` apaga (= 0 kg na "
+        "comparação); ausente mantém.",
+    )
 
     @model_validator(mode="after")
     def _validate_fields_present(self) -> Self:
         if not self.model_fields_set:
-            raise ValueError("informe ao menos um campo: name ou geometry")
+            raise ValueError(
+                "informe ao menos um campo: name, geometry, rotation_zones ou hook_block_weight_kg"
+            )
         for field_name in ("name", "geometry"):
             if field_name in self.model_fields_set and getattr(self, field_name) is None:
                 raise ValueError(f"{field_name} não pode ser null")
