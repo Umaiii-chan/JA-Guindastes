@@ -29,7 +29,8 @@ As primeiras tabelas oficiais da Guindastes Ribas chegaram em 2026-09-27 (MD 300
 
 | Tarefa | Handoff | O que é |
 |--------|---------|---------|
-| TASK-046 | `handoffs/TASK-046.md` | tabelas por zona de giro, peso do gancho na comparação, editor de zonas e setores na cena |
+| TASK-046 | `handoffs/TASK-046.md` | tabelas por zona de giro, peso do gancho na comparação, editor de zonas e setores na cena (PR #42) |
+| TASK-047 | `handoffs/TASK-047.md` | visual de manual técnico (ADR-019, proposto): tema claro, acento laranja único, régua de utilização, cena em papel milimetrado |
 
 ## 3. Autorizações permanentes da pessoa responsável
 
