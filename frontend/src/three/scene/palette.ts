@@ -40,6 +40,13 @@ export const SCENE_COLORS = Object.freeze({
   /** Texto e fundo do rótulo do raio. */
   labelText: 0xe6edf3,
   labelBackground: 0x0b0f15,
+  /**
+   * Setores das zonas de giro no chão (TASK-046): tênues, e o atual mais forte. Azul do acento do
+   * ADR-017, para não disputar com as cores de situação (verde, âmbar, vermelho, cinza).
+   */
+  zoneSector: 0x3b82f6,
+  zoneSectorActive: 0x60a5fa,
+  zoneBoundary: 0x6b7b90,
 })
 
 /** Situação válida ou `unknown` para qualquer outro valor (inclusive `undefined`). */

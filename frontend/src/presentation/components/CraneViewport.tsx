@@ -9,6 +9,7 @@ import {
   mountCraneScene,
 } from '../../three/scene/mountCraneScene'
 import type { EvaluationStatus } from '../../three/scene/palette'
+import type { SceneRotationZone } from '../../three/scene/RotationZoneSectors'
 
 /** API imperativa do viewport (via `ref`), para ações pontuais como os botões de câmera. */
 export interface CraneViewportHandle {
@@ -36,6 +37,16 @@ interface CraneViewportProps {
    * `prefers-reduced-motion`); na montagem, já começa nela. Não remonta a cena.
    */
   cameraPreset?: CameraPreset
+  /**
+   * Zonas de giro da configuração (TASK-046), desenhadas como setores no chão ao redor do eixo de
+   * giro. Sem elas (padrão), nada muda na cena. Não remonta a cena.
+   */
+  rotationZones?: readonly SceneRotationZone[] | null
+  /**
+   * Zona destacada: a do resultado do backend ou, sem ele, a prévia pelo giro ψ (quem compõe
+   * decide). `null` = nenhuma. Não remonta a cena.
+   */
+  activeZoneCode?: string | null
   /** API imperativa (`CraneViewportHandle`). */
   ref?: Ref<CraneViewportHandle>
 }
@@ -51,6 +62,8 @@ export function CraneViewport({
   evaluationStatus = 'unknown',
   load = null,
   cameraPreset,
+  rotationZones = null,
+  activeZoneCode = null,
   ref,
 }: CraneViewportProps) {
   const canvasHostRef = useRef<HTMLDivElement>(null)
@@ -59,6 +72,8 @@ export function CraneViewport({
   const statusRef = useRef(evaluationStatus)
   const loadRef = useRef(load)
   const cameraPresetRef = useRef(cameraPreset)
+  const zonesRef = useRef<readonly SceneRotationZone[]>(rotationZones ?? [])
+  const activeZoneRef = useRef(activeZoneCode)
   const appliedPresetRef = useRef<CameraPreset | undefined>(undefined)
 
   useImperativeHandle(
@@ -81,6 +96,8 @@ export function CraneViewport({
     sceneRef.current = handle
     handle.setEvaluationStatus(statusRef.current)
     handle.setLoad(loadRef.current)
+    handle.setRotationZones(zonesRef.current)
+    handle.setActiveRotationZone(activeZoneRef.current)
     const preset = cameraPresetRef.current
     if (preset) handle.setCameraPreset(preset, { animate: false })
     appliedPresetRef.current = preset
@@ -110,6 +127,19 @@ export function CraneViewport({
     loadRef.current = next
     sceneRef.current?.setLoad(next)
   }, [lengthM, widthM, heightM])
+
+  // Dependência no conteúdo das zonas, não no array: a UI pode mandar um array novo a cada render.
+  const zonesKey = JSON.stringify(rotationZones ?? [])
+  useEffect(() => {
+    const zones = JSON.parse(zonesKey) as SceneRotationZone[]
+    zonesRef.current = zones
+    sceneRef.current?.setRotationZones(zones)
+  }, [zonesKey])
+
+  useEffect(() => {
+    activeZoneRef.current = activeZoneCode
+    sceneRef.current?.setActiveRotationZone(activeZoneCode)
+  }, [activeZoneCode])
 
   useEffect(() => {
     cameraPresetRef.current = cameraPreset

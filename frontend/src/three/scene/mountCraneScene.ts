@@ -18,6 +18,7 @@ import type { CraneCommands, CraneSetup, CraneState } from '../crane/types'
 import { buildCraneScene } from './buildCraneScene'
 import { disposeObject3D } from './disposeObject3D'
 import type { LoadDimensions } from './loadBox'
+import type { SceneRotationZone } from './RotationZoneSectors'
 import {
   type EvaluationStatus,
   normalizeEvaluationStatus,
@@ -56,6 +57,13 @@ export interface CraneSceneHandle {
   setEvaluationStatus(status: EvaluationStatus): void
   /** Caixa da carga pendurada no gancho; `null` (ou medidas inválidas) deixa só o gancho. */
   setLoad(load: LoadDimensions | null): void
+  /**
+   * Setores das zonas de giro no chão (TASK-046), com um rótulo curto por zona. Lista vazia apaga.
+   * Só conferência visual: a zona que vale é a do backend (RN-008).
+   */
+  setRotationZones(zones: readonly SceneRotationZone[]): void
+  /** Destaca o setor da zona atual (`null` = nenhum). A UI decide qual é (resultado ou prévia por ψ). */
+  setActiveRotationZone(code: string | null): void
   /** Leva a câmera a uma predefinição, enquadrando o estado atual do guindaste. */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
   /** Para o laço de renderização e libera renderer, controles, geometrias e materiais. Idempotente. */
@@ -104,6 +112,42 @@ function createRadiusLabelElement(): HTMLDivElement {
   return element
 }
 
+/** Rótulo HTML curto de uma zona de giro (TASK-046), sobre o setor no chão. */
+function createZoneLabelElement(code: string, name: string): HTMLDivElement {
+  const element = document.createElement('div')
+  element.className = 'crane-viewport__zone-label'
+  element.dataset.sceneLabel = 'rotation-zone'
+  element.dataset.zoneCode = code
+  element.textContent = name
+  // O nome da zona atual também está no painel da avaliação; aqui é só apoio visual.
+  element.setAttribute('aria-hidden', 'true')
+  Object.assign(element.style, {
+    font: "600 11px/1.2 'Inter Variable', system-ui, sans-serif",
+    color: toCssHex(SCENE_COLORS.labelText),
+    background: 'rgba(11, 15, 21, 0.6)',
+    border: '1px solid rgba(96, 165, 250, 0.35)',
+    borderRadius: '999px',
+    padding: '2px 8px',
+    whiteSpace: 'nowrap',
+    maxWidth: '180px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    opacity: '0.7',
+    pointerEvents: 'none',
+    userSelect: 'none',
+  } satisfies Partial<CSSStyleDeclaration>)
+  return element
+}
+
+function paintZoneLabel(element: HTMLElement, active: boolean): void {
+  element.dataset.active = active ? 'true' : 'false'
+  element.style.opacity = active ? '1' : '0.7'
+  element.style.borderColor = active
+    ? toCssHex(SCENE_COLORS.zoneSectorActive)
+    : 'rgba(96, 165, 250, 0.35)'
+  element.style.background = active ? 'rgba(29, 78, 216, 0.55)' : 'rgba(11, 15, 21, 0.6)'
+}
+
 /**
  * Cria o renderer WebGL dentro de `container` (que deve ter tamanho definido pelo layout) e começa a
  * desenhar a cena do guindaste provisório, com os limites e os parâmetros a e h de `setup` (sem ele,
@@ -121,7 +165,7 @@ export function mountCraneScene(
   options: MountCraneSceneOptions = {},
 ): CraneSceneHandle {
   const contents = buildCraneScene(setup)
-  const { scene, crane, environment, radiusIndicator, hookLoad } = contents
+  const { scene, crane, environment, radiusIndicator, hookLoad, rotationZones } = contents
 
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -152,6 +196,16 @@ export function mountCraneScene(
   labelElement.textContent = radiusIndicator.labelText
   const label = new CSS2DObject(labelElement)
   radiusIndicator.labelAnchor.add(label)
+
+  // Rótulos das zonas de giro (TASK-046), refeitos quando as zonas mudam.
+  let zoneLabels: { code: string; element: HTMLDivElement; object: CSS2DObject }[] = []
+  const removeZoneLabels = (): void => {
+    for (const zoneLabel of zoneLabels) {
+      zoneLabel.object.removeFromParent()
+      zoneLabel.element.remove()
+    }
+    zoneLabels = []
+  }
 
   const camera = createCamera(1)
   const controls = createOrbitControls(camera, renderer.domElement, INITIAL_CAMERA_TARGET)
@@ -254,6 +308,23 @@ export function mountCraneScene(
       hookLoad.setLoad(load)
       invalidate()
     },
+    setRotationZones(zones) {
+      if (disposed || !rotationZones.setZones(zones)) return
+      removeZoneLabels()
+      for (const { code, name, anchor } of rotationZones.labelAnchors) {
+        const element = createZoneLabelElement(code, name)
+        paintZoneLabel(element, code === rotationZones.activeCode)
+        const object = new CSS2DObject(element)
+        anchor.add(object)
+        zoneLabels.push({ code, element, object })
+      }
+      invalidate()
+    },
+    setActiveRotationZone(code) {
+      if (disposed || !rotationZones.setActive(code)) return
+      for (const zoneLabel of zoneLabels) paintZoneLabel(zoneLabel.element, zoneLabel.code === code)
+      invalidate()
+    },
     setCameraPreset(preset, options = {}) {
       if (disposed) return
       const to = resolveCameraPreset(preset, {
@@ -289,6 +360,8 @@ export function mountCraneScene(
       controls.dispose()
       label.removeFromParent()
       labelElement.remove()
+      removeZoneLabels()
+      rotationZones.dispose()
       labelRenderer.domElement.remove()
       hookLoad.dispose()
       disposeObject3D(scene)
