@@ -31,20 +31,31 @@ Sem essas rotas, as telas funcionam com limitações:
 
 ## 3. Critérios de aceite
 
-- [ ] **CA-1** — `GET /api/v1/configurations/{id}/load-charts`, liberada para qualquer perfil
-  autenticado:
-  - responde `200 { "items": LoadChartSummary[], "activeLoadChartId": string | null }`, com as
-    versões da mais nova para a mais antiga;
-  - cada `LoadChartSummary` traz id, status, arquivo de origem, datas de importação e de ativação
-    e contagens, alinhado aos campos que `GET /load-charts/{id}` já devolve, em camelCase;
+- [ ] **CA-1** — `GET /api/v1/configurations/{configuration_id}/load-charts`, liberada para qualquer
+  perfil autenticado. Contrato em **snake_case**, como o resto do catálogo e das tabelas:
+
+  ```
+  200 {
+    "items": [ { "chart_id", "version", "configuration_id", "status", "point_count",
+                 "source": { "file_name", "file_type", "sha256", "uri" } } ],
+    "active_chart_id": string | null
+  }
+  ```
+
+  - cada item é o `LoadChartResponse` de `GET /load-charts/{id}` **sem** `points`;
+  - ordem: da versão importada mais recentemente para a mais antiga (use a coluna de criação se
+    existir; senão, documente o critério);
   - configuração inexistente → `404`.
-- [ ] **CA-2** — Edição de cadastros, só para `ADMIN` e com o cabeçalho CSRF:
-  - `PATCH /api/v1/manufacturers/{id}` `{name}`;
-  - `PATCH /api/v1/cranes/{id}` `{modelName}`;
-  - `PATCH /api/v1/configurations/{id}` `{name?, geometry?}`;
+- [ ] **CA-2** — Edição de cadastros, só para `ADMIN` e com o cabeçalho CSRF. As respostas usam os
+  mesmos schemas da criação:
+  - `PATCH /api/v1/manufacturers/{id}` `{name}` → `ManufacturerResponse`;
+  - `PATCH /api/v1/cranes/{id}` `{model_name}` → `CraneResponse`;
+  - `PATCH /api/v1/configurations/{id}` `{name?, geometry?}` → `ConfigurationResponse`
+    (`geometry`, quando presente, substitui a ficha inteira e não pode ser `null`; ao menos um
+    campo é obrigatório);
   - as mesmas validações da criação; `404` se não existe; `409` se o nome conflita (mesma regra de
     unicidade da criação, se houver); `422` para validação;
-  - mudar a ficha técnica (`geometry`) vale para as próximas avaliações, sem alterar tabelas.
+  - mudar a ficha técnica vale para as próximas avaliações, sem alterar tabelas.
 - [ ] **CA-3** — Camadas e testes:
   - casos de uso e portas na aplicação, repositórios SQLAlchemy e rotas finas;
   - testes unitários com repositórios falsos, testes de API (perfil, CSRF, 404/409/422) e de
