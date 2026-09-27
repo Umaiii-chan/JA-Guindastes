@@ -226,4 +226,59 @@ Ler primeiro: este handoff, `backend/app/presentation/api/configuration_load_cha
 
 ## Frontend
 
-(A preencher pela sessão principal com as notas da sessão de frontend.)
+> Notas da sessão de frontend (CA-4, CA-5, CA-6), repassadas pela sessão principal e resumidas aqui
+> na TASK-045. Os resultados dos gates são os que a sessão de frontend informou: esta
+> sessão não os executou de novo.
+
+### F.1 O que foi feito
+
+**Clientes REST e aplicação**
+- `listConfigurationCharts` (`GET /configurations/{id}/load-charts`): o 404 vira o código
+  `CONFIGURATION_NOT_FOUND`.
+- `updateManufacturer`, `updateCrane` e `updateConfiguration` (`PATCH`). A ficha técnica vai sempre
+  inteira, com os opcionais em `null`, porque o backend substitui a ficha toda (§ 10).
+- `CatalogBrowser` ganhou os três métodos de edição. Cada um relê o nível editado e mantém a seleção.
+
+**Página Tabelas (CA-4)**
+- Saíram o `knownChartsStorage` (`localStorage`) e o campo "Acompanhar pelo id".
+- A linha do tempo vem da rota nova e é relida depois de importar ou ativar.
+- A versão ativa vem de `active_chart_id`.
+- A ordem é a do backend, com o subtítulo "Da maior versão para a menor".
+
+**Página Catálogo (CA-5)**
+- O detalhe da configuração mostra a tabela ativa pela rota nova.
+- "Editar" grava com `PATCH`: o botão diz "Salvar alterações", e com "Nada mudou" o backend não é
+  chamado.
+- Trocar a ficha de uma configuração abre o Dialog de confirmação quando há tabela ativa ou quando a
+  lista ainda está carregando.
+- Erros: 422 aparece nos campos; 404 mostra um toast, fecha o Drawer e relê; não há tratamento de
+  409 (o backend não o devolve).
+
+**E2E (CA-6)**
+- `loadChartImport.spec.ts`: o bloco com backend passou a fazer login e mandar o cabeçalho CSRF, e
+  confere a linha do tempo pela rota nova.
+- `catalogEdit.spec.ts` (novo, só com backend): renomeia a configuração e troca a ficha com
+  confirmação, sem criar item novo; renomeia o fabricante.
+- `backendCatalog.ts` (helper novo): cria pela API um fabricante, um guindaste e uma configuração
+  FICTÍCIOS, com nomes novos a cada execução.
+
+### F.2 Decisões
+
+- **Pontos por demanda:** a matriz de cada versão é baixada só quando pedida, com cache por página.
+  O status vem sempre da listagem.
+- **Ordem:** o frontend não reordena a listagem (P-020 em `docs/known-gaps.md`).
+- **Sem voltar para "sem ficha":** numa configuração que já tem ficha, a edição esconde a opção "sem
+  ficha", porque o `PATCH` não aceita `geometry: null`.
+- **Dialog no lugar do Drawer:** enquanto o Dialog de confirmação está aberto, ele substitui o Drawer.
+
+### F.3 Gates do frontend (informados pela sessão de frontend)
+
+| Comando | Resultado |
+|---------|-----------|
+| `npm test` | ✅ 582 passaram, 1 pulado |
+| `npm run e2e` (sem backend) | ✅ 9 passaram, 9 pulados (os que exigem `E2E_BACKEND=1`) |
+
+### F.4 Pendências
+
+- Os specs com backend (`catalogEdit.spec.ts` e o bloco "com backend" de `loadChartImport.spec.ts`)
+  **não foram executados** localmente: só rodam no job `e2e` do CI.
