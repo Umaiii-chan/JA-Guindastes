@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-26 por pessoa responsável ("pode criar as rotas que faltam", via orquestrador) |
 | **Iniciada em** | 2026-09-26 |
@@ -106,3 +106,5 @@ Sem essas rotas, as telas funcionam com limitações:
 
 Seguir `docs/demo.md`: importar a v2, ver as duas versões na linha do tempo, ativar e editar o nome
 de uma configuração.
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
