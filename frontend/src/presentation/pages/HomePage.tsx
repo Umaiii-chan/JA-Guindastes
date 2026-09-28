@@ -87,7 +87,7 @@ export function HomePage({ catalog, onRetryCatalog }: HomePageProps) {
           <figure className={styles.figure}>
             <HeroIllustration />
             <span className={styles.stamp} aria-hidden="true">
-              Dados fictícios
+              Fictício
             </span>
             <figcaption className={styles.figcaption}>
               <span className={styles.figNumber}>Fig. 1</span>

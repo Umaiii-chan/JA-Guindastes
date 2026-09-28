@@ -50,7 +50,7 @@
 
 .cells {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   align-content: start;
   min-height: 0;
 }
@@ -252,4 +252,14 @@
 
 .detailsNote {
   padding: 0 0 var(--space-1);
+}
+
+/* Aguardando ou erro dentro da célula de notas: nota compacta, sem ocupar a ficha. */
+.cellNotes .note {
+  padding: var(--space-2) var(--space-3);
+  column-gap: var(--space-2);
+}
+
+.cellNotes .note > p {
+  font-size: var(--font-size-sm);
 }

@@ -171,6 +171,7 @@ export function BackendEvaluationPanel({
           {inputProblem !== null ? (
             <EmptyState
               compact
+              className={styles.note}
               tone="neutral"
               icon={<ChevronRight size={16} />}
               title="Aguardando os passos"
@@ -179,6 +180,7 @@ export function BackendEvaluationPanel({
           ) : error !== null ? (
             <EmptyState
               compact
+              className={styles.note}
               tone="danger"
               role="alert"
               icon={<CircleAlert size={16} />}
