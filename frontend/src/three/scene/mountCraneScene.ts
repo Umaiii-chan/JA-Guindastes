@@ -20,6 +20,7 @@ import { disposeObject3D } from './disposeObject3D'
 import type { LoadDimensions } from './loadBox'
 import type { SceneRotationZone } from './RotationZoneSectors'
 import { type EvaluationStatus, normalizeEvaluationStatus, statusCssColor } from './palette'
+import { createScaleBar, pixelsPerMeter } from './scaleBar'
 import { createRadiusLabel, createZoneLabelElement, paintZoneLabel } from './sceneLabels'
 import {
   type CraneModelLoader,
@@ -145,19 +146,47 @@ export function mountCraneScene(
     zoneLabels = []
   }
 
+  // Escala gráfica no canto do quadro (TASK-047), na distância do alvo da órbita.
+  const scaleBar = createScaleBar()
+  container.appendChild(scaleBar.element)
+
   const camera = createCamera(1)
   const controls = createOrbitControls(camera, renderer.domElement, INITIAL_CAMERA_TARGET)
 
   let transition: CameraTransition | null = null
-  // Arrastar a câmera interrompe a transição em curso.
+  /**
+   * Predefinição que a câmera ainda segue: enquanto a pessoa não mexe na órbita, uma mudança de
+   * tamanho do quadro refaz o enquadramento para a proporção nova (TASK-047). Começa na perspectiva.
+   */
+  let followedPreset: CameraPreset | null = 'perspectiva'
+  // Arrastar (ou dar zoom) interrompe a transição em curso e solta a predefinição.
   const cancelTransition = (): void => {
     transition = null
+    followedPreset = null
   }
   controls.addEventListener('start', cancelTransition)
 
   const applyView = (view: CameraView): void => {
     camera.position.set(view.position.x, view.position.y, view.position.z)
     controls.target.set(view.target.x, view.target.y, view.target.z)
+  }
+
+  /** Enquadramento da predefinição para o estado atual do guindaste e a proporção do quadro. */
+  const presetView = (preset: CameraPreset): CameraView =>
+    resolveCameraPreset(preset, {
+      turretRotationDeg: crane.getState().turretRotationDeg,
+      geometry: crane.getOperationalGeometry(),
+      maxReachM: radiusIndicator.reach.maxM,
+      operatorEye: contents.operatorEye ?? undefined,
+      aspect: camera.aspect,
+      fovDeg: camera.fov,
+    })
+
+  const jumpTo = (view: CameraView): void => {
+    transition = null
+    applyView(view)
+    applyCameraLimits(controls)
+    controls.update()
   }
 
   // Renderização sob demanda (CA-6): o laço roda a cada quadro, mas só desenha quando algo mudou
@@ -175,9 +204,13 @@ export function mountCraneScene(
     renderer.setSize(width, height, false)
     labelRenderer.setSize(width, height)
     resizeCamera(camera, width, height)
+    // Quadro mais estreito ou mais alto: a predefinição seguida se reenquadra, sem cortar a lança.
+    if (followedPreset && !transition) jumpTo(presetView(followedPreset))
     invalidate()
   }
   resize()
+  // Vista inicial: a perspectiva enquadrada para o quadro (mesmo antes de ele ter tamanho).
+  if (followedPreset) jumpTo(presetView(followedPreset))
   const resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(container)
 
@@ -208,7 +241,9 @@ export function mountCraneScene(
     const lifted = keepCameraAboveGround(controls)
     if (!(dirty || craneChanged || moving || cameraChanged || lifted)) return
     dirty = false
-    environment.update(camera.position, camera.position.distanceTo(controls.target))
+    const targetDistance = camera.position.distanceTo(controls.target)
+    environment.update(camera.position, targetDistance)
+    scaleBar.update(pixelsPerMeter(targetDistance, camera.fov, container.clientHeight))
     renderer.render(scene, camera)
     labelRenderer.render(scene, camera)
   }
@@ -265,18 +300,11 @@ export function mountCraneScene(
     },
     setCameraPreset(preset, options = {}) {
       if (disposed) return
-      const to = resolveCameraPreset(preset, {
-        turretRotationDeg: crane.getState().turretRotationDeg,
-        geometry: crane.getOperationalGeometry(),
-        maxReachM: radiusIndicator.reach.maxM,
-        operatorEye: contents.operatorEye ?? undefined,
-      })
+      const to = presetView(preset)
       const animate = (options.animate ?? true) && !prefersReducedMotion()
       if (!animate) {
-        transition = null
-        applyView(to)
-        applyCameraLimits(controls)
-        controls.update()
+        jumpTo(to)
+        followedPreset = preset
         invalidate()
         return
       }
@@ -285,6 +313,7 @@ export function mountCraneScene(
         target: { x: controls.target.x, y: controls.target.y, z: controls.target.z },
       }
       transition = new CameraTransition(from, to, CAMERA_TRANSITION_MS, performance.now())
+      followedPreset = preset
     },
     dispose() {
       if (disposed) return
@@ -301,6 +330,7 @@ export function mountCraneScene(
       removeZoneLabels()
       rotationZones.dispose()
       labelRenderer.domElement.remove()
+      scaleBar.element.remove()
       hookLoad.dispose()
       disposeObject3D(scene)
       renderer.dispose()
