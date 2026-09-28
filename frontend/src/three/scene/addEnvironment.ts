@@ -40,8 +40,8 @@ export interface AtmosphereRange {
 export function atmosphereRange(cameraDistanceM: number): AtmosphereRange {
   const distance = Math.max(0, cameraDistanceM)
   return {
-    gridFadeNearM: distance * 0.6 + 10,
-    gridFadeFarM: distance * 1.5 + 35,
+    gridFadeNearM: distance * 1.2 + 20,
+    gridFadeFarM: Math.min(distance * 3 + 70, GRID_SIZE_M / 2 - 20),
   }
 }
 
