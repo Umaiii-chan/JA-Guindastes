@@ -1,4 +1,4 @@
-import { Building2, Construction, RefreshCw, Settings2, TriangleAlert } from 'lucide-react'
+import { RefreshCw, TriangleAlert } from 'lucide-react'
 import { type ReactNode, useId } from 'react'
 
 import type { CatalogList } from '../../application/catalog/CatalogBrowser'
@@ -56,7 +56,6 @@ export function CatalogSelectionPanel(props: CatalogSelectionPanelProps) {
     <>
       <CatalogSelect
         label="Fabricante"
-        icon={<Building2 size={14} />}
         list={manufacturers}
         options={manufacturers.items.map((item) => ({ id: item.id, label: item.name }))}
         selectedId={selectedManufacturerId}
@@ -70,7 +69,6 @@ export function CatalogSelectionPanel(props: CatalogSelectionPanelProps) {
       )}
       <CatalogSelect
         label="Guindaste"
-        icon={<Construction size={14} />}
         list={cranes}
         options={cranes.items.map((item) => ({ id: item.id, label: item.modelName }))}
         selectedId={selectedCraneId}
@@ -80,7 +78,6 @@ export function CatalogSelectionPanel(props: CatalogSelectionPanelProps) {
       />
       <CatalogSelect
         label="Configuração"
-        icon={<Settings2 size={14} />}
         list={configurations}
         options={configurations.items.map((item) => ({
           id: item.id,
@@ -102,11 +99,7 @@ export function CatalogSelectionPanel(props: CatalogSelectionPanelProps) {
       </section>
     )
   }
-  return (
-    <Panel title={TITLE} icon={<Construction size={16} />}>
-      {body}
-    </Panel>
-  )
+  return <Panel title={TITLE}>{body}</Panel>
 }
 
 /** Ficha técnica da configuração escolhida, em chips; aviso quando não há ficha. */
@@ -172,7 +165,6 @@ function ConfigurationSummary({ configuration }: { readonly configuration: Crane
 
 function CatalogSelect({
   label,
-  icon,
   list,
   options,
   selectedId,
@@ -182,7 +174,6 @@ function CatalogSelect({
   onRetry,
 }: {
   readonly label: string
-  readonly icon: ReactNode
   readonly list: CatalogList<unknown>
   readonly options: readonly SelectOption[]
   readonly selectedId: string | null
@@ -198,12 +189,7 @@ function CatalogSelect({
 
   return (
     <Field
-      label={
-        <span className={styles.labelWithIcon}>
-          {icon}
-          {label}
-        </span>
-      }
+      label={<span className={styles.labelWithIcon}>{label}</span>}
       labelAside={
         loading ? (
           <span className={styles.loadingHint}>

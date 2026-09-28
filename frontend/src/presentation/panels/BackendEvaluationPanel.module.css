@@ -1,33 +1,32 @@
+/*
+ * Ficha do resultado como carimbo de prancha (ADR-019). Faixa de título com a situação; embaixo, a
+ * linha da utilização (número grande em mono ao lado da régua graduada) de ponta a ponta e, sob ela,
+ * duas células separadas por um filete vertical: os valores (tabela densa) e as notas.
+ */
 .hud {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
+  height: 100%;
 }
 
 .header {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-}
-
-.headerIcon {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  background: var(--color-accent-softer);
-  border: 1px solid rgb(34 211 238 / 0.2);
-  color: var(--color-accent);
+  gap: var(--space-3);
+  min-height: 36px;
+  padding: 3px var(--space-2) 3px var(--space-4);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .title {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex: 1;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
 }
 
 .pending {
@@ -35,39 +34,56 @@
   align-items: center;
   gap: 6px;
   font-size: var(--font-size-xs);
-  color: var(--color-accent);
+  color: var(--color-text-1);
 }
 
-.statusRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
+.headerSpacer {
+  flex: 1;
 }
 
 .kind {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-3);
-  letter-spacing: 0.02em;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-2);
+  text-transform: lowercase;
 }
 
-.hero {
+.cells {
   display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  background:
-    radial-gradient(circle at 25% 50%, rgb(34 211 238 / 0.06), transparent 60%), rgb(8 11 16 / 0.45);
-  border: 1px solid var(--color-border);
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  align-content: start;
+  min-height: 0;
 }
+
+.cell {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: var(--space-2) var(--space-4);
+  min-width: 0;
+}
+
+/* Utilização: a linha inteira, sobre um filete. */
+.cellUtilization {
+  grid-column: 1 / -1;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cellNotes {
+  gap: var(--space-2);
+  border-left: 1px solid var(--color-border);
+}
+
+/* ── Valores: rótulo em caixa alta pequena sobre o número em mono ─────────── */
 
 .keyMetrics {
   display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: var(--space-3);
-  min-width: 0;
+  margin: 0;
 }
 
 .metric {
@@ -77,18 +93,21 @@
 }
 
 .metric dt {
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-3xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
-  color: var(--color-text-3);
+  color: var(--color-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .metric dd {
   margin: 0;
   font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: var(--font-size-lg);
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-1);
   white-space: nowrap;
@@ -96,18 +115,53 @@
   text-overflow: ellipsis;
 }
 
+.zoneValue {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Conta do peso comparado: carga + gancho = peso comparado, em linha, sobre um filete. */
+.parts {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) auto minmax(0, 0.8fr) auto minmax(0, 1.4fr);
+  align-items: end;
+  gap: 6px;
+  margin: 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--color-border);
+}
+
+.part {
+  min-width: 0;
+  margin: 0;
+}
+
+.parts .metric dd {
+  font-size: var(--font-size-sm);
+}
+
+.partTotal .metric dd {
+  justify-self: start;
+  border-bottom: 2px solid var(--color-text-1);
+}
+
+.partsOperator {
+  padding-bottom: 2px;
+  font-family: var(--font-mono);
+  color: var(--color-text-2);
+}
+
+/* ── Notas ──────────────────────────────────────────────────────────────── */
+
 .waiting {
   font-size: var(--font-size-xs);
-  color: var(--color-text-3);
+  color: var(--color-text-2);
 }
 
 .reasons {
   display: grid;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--color-status-neutral-soft);
-  border: 1px solid rgb(139 149 163 / 0.25);
+  gap: var(--space-1);
   font-size: var(--font-size-xs);
   color: var(--color-text-2);
 }
@@ -115,45 +169,43 @@
 .reasons ul {
   list-style: none;
   display: grid;
-  gap: var(--space-1);
+  gap: 2px;
 }
 
 .details {
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: rgb(8 11 16 / 0.35);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .details summary {
-  padding: var(--space-2) var(--space-3);
+  padding: 2px 0 4px;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  color: var(--color-text-2);
+  color: var(--color-text-1);
   cursor: pointer;
   list-style-position: inside;
-  transition: color var(--duration-fast) var(--ease-out);
 }
 
 .details summary:hover {
-  color: var(--color-text-1);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .rows {
   display: grid;
-  padding: 0 var(--space-3) var(--space-2);
+  padding-bottom: var(--space-1);
 }
 
 .row {
   display: flex;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: 6px 0;
+  padding: 3px 0;
   border-top: 1px solid var(--color-border);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-2xs);
 }
 
 .row dt {
-  color: var(--color-text-3);
+  color: var(--color-text-2);
 }
 
 .row dd {
@@ -164,32 +216,30 @@
   text-align: right;
 }
 
+/* PROVISÓRIO: carimbo retangular pequeno e inclinado, seguido da nota em texto corrido. */
 .provisional {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--color-status-warning-soft);
-  border: 1px dashed rgb(245 165 36 / 0.4);
-}
-
-.provisionalIcon {
-  display: grid;
-  flex: none;
-  padding-top: 1px;
-  color: var(--color-status-warning);
-}
-
-.provisional p {
   font-size: var(--font-size-2xs);
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--color-text-2);
 }
 
 .provisional strong {
-  color: var(--color-status-warning);
   font-weight: var(--font-weight-semibold);
+  color: var(--color-text-1);
+}
+
+.provisionalStamp {
+  display: inline-block;
+  margin-right: 2px;
+  padding: 0 4px;
+  border: 1.5px solid var(--color-status-warning-text);
+  color: var(--color-status-warning-text);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-bold);
+  font-stretch: var(--font-stretch-condensed);
+  letter-spacing: var(--letter-spacing-caps);
+  line-height: 1.5;
+  transform: rotate(-3deg);
 }
 
 .meta {
@@ -198,39 +248,5 @@
 }
 
 .detailsNote {
-  padding: 0 var(--space-3) var(--space-2);
-}
-
-/* Zona de giro usada e parcelas do peso comparado (TASK-046). */
-.zoneValue {
-  font-family: var(--font-sans);
-  font-size: var(--font-size-md);
-  color: var(--color-accent);
-}
-
-.parts {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1.2fr);
-  align-items: end;
-  gap: var(--space-2);
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-1);
-}
-
-.part {
-  min-width: 0;
-  margin: 0;
-}
-
-.parts dd {
-  font-size: var(--font-size-md);
-}
-
-.partsOperator {
-  padding-bottom: 2px;
-  font-family: var(--font-mono);
-  color: var(--color-text-3);
+  padding: 0 0 var(--space-1);
 }

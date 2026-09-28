@@ -1,110 +1,86 @@
+/*
+ * Simulador em colunas (ADR-019 § 2): procedimento à esquerda (largura fixa), prancha à direita. A
+ * prancha tem moldura de tinta; dentro dela, a faixa de título, o quadro da cena (papel, com marcas
+ * de canto) e a ficha do resultado no pé.
+ */
 .stage {
-  position: relative;
+  display: grid;
+  grid-template-columns: minmax(300px, 344px) minmax(0, 1fr);
+  gap: var(--space-3);
   width: 100%;
   height: 100%;
+  padding: var(--space-3);
   overflow: hidden;
-  isolation: isolate;
 }
 
-.scene {
-  position: absolute;
-  inset: 0;
-  z-index: var(--z-scene);
-}
-
-/* Escurece levemente as bordas para os painéis se destacarem da cena. */
-.vignette {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      90deg,
-      rgb(8 11 16 / 0.55),
-      transparent 28%,
-      transparent 72%,
-      rgb(8 11 16 / 0.5)
-    ),
-    linear-gradient(0deg, rgb(8 11 16 / 0.45), transparent 22%);
-}
-
-.overlay {
-  position: absolute;
-  inset: 0;
-  z-index: var(--z-overlay-panel);
-  display: grid;
-  grid-template-columns: minmax(300px, 356px) minmax(0, 1fr) minmax(290px, 330px);
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: var(--space-4);
-  padding: var(--space-4);
-  pointer-events: none;
-}
-
-.left,
-.right,
-.bottom {
-  pointer-events: auto;
+.procedure {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
 }
 
-.left {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  display: flex;
-  flex-direction: column;
-  animation: slide-left var(--duration-slow) var(--ease-out);
+.drawing {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--color-border-ink);
+  background: var(--color-surface-1);
 }
 
-.right {
-  grid-column: 3;
-  grid-row: 1 / span 2;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  overflow-y: auto;
-  padding: 2px;
-  margin: -2px;
-  animation: slide-right var(--duration-slow) var(--ease-out);
+/* Quadro da cena: papel, com um filete interno a 6 px da moldura, como a margem de uma prancha. */
+.scene {
+  position: relative;
+  min-height: 0;
+  background: var(--paper);
 }
 
-.right > * {
-  flex: none;
-}
-
-.bottom {
-  container: status-bar / inline-size;
-  grid-column: 2;
-  grid-row: 2;
-  align-self: end;
-  display: flex;
-  justify-content: center;
-  width: 100%;
+.corners {
+  position: absolute;
+  inset: 6px;
+  z-index: 1;
   pointer-events: none;
-  animation: rise var(--duration-slow) var(--ease-out);
+  border: 1px solid var(--color-border);
 }
 
-.bottom > * {
-  pointer-events: auto;
+/* Marcas de canto: pequenos esquadros de tinta nos quatro cantos do filete interno. */
+.corners::before,
+.corners::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: var(--color-text-1);
+  border-style: solid;
 }
 
-@keyframes slide-left {
-  from {
-    opacity: 0;
-    transform: translateX(-12px);
-  }
+.corners::before {
+  left: -1px;
+  top: -1px;
+  border-width: 1px 0 0 1px;
 }
 
-@keyframes slide-right {
-  from {
-    opacity: 0;
-    transform: translateX(12px);
-  }
+.corners::after {
+  right: -1px;
+  bottom: -1px;
+  border-width: 0 1px 1px 0;
 }
 
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
+/* Ficha no pé da prancha: o resultado (largo) e a geometria (estreita), separados por um filete. */
+.result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 250px);
+  min-width: 0;
+  max-height: 46vh;
+  overflow-y: auto;
+  border-top: 1px solid var(--color-border-ink);
+}
+
+.evaluation {
+  min-width: 0;
+}
+
+.geometry {
+  min-width: 0;
+  border-left: 1px solid var(--color-border-ink);
 }

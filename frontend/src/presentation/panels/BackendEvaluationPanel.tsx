@@ -1,4 +1,4 @@
-import { ChevronRight, CircleAlert, Gauge as GaugeIcon, ShieldAlert } from 'lucide-react'
+import { ChevronRight, CircleAlert } from 'lucide-react'
 import { type ReactNode, useId } from 'react'
 
 import {
@@ -35,7 +35,7 @@ const TRANSPORT_LABEL: Record<EvaluationTransportLabel, string> = {
   rest: 'REST',
 }
 
-/** Cor e texto de cada situação (ADR-017 § 3; sem níveis de alerta, PEND-004). */
+/** Cor e texto de cada situação (ADR-019 § 1; sem níveis de alerta, PEND-004). */
 const STATUS_PRESENTATION: Record<EvaluationStatus, { tone: Tone; label: string }> = {
   ok: { tone: 'ok', label: 'Dentro da capacidade' },
   warning: { tone: 'warning', label: 'No limite da capacidade' },
@@ -54,11 +54,13 @@ const meters = (value: number) => `${formatNumber(value, 2)} m`
 const kilograms = (value: number) => `${formatNumber(value, 0)} kg`
 
 /**
- * HUD do resultado OFICIAL, calculado no backend (RN-008): situação com cor, utilização no medidor,
- * capacidade, raio e o ponto tabelado usado, com a marca da consulta conservadora provisória
- * (ADR-015). "Não avaliável" mostra os motivos (RN-007). Com zonas de giro (TASK-046), mostra a zona
- * usada e as parcelas do peso comparado (carga + gancho), todas vindas do backend. A cor só compara o
- * peso comparado com a capacidade; não há níveis de alerta (PEND-004).
+ * Ficha do resultado OFICIAL, calculado no backend (RN-008), como o carimbo de uma prancha
+ * (ADR-019): faixa de título com a situação; célula da utilização (número grande em mono e a régua
+ * graduada); célula dos valores (capacidade, zona, raio e a conta carga + gancho = peso comparado);
+ * célula das notas (motivos, detalhes da consulta e a nota PROVISÓRIO da consulta conservadora,
+ * ADR-015). "Não avaliável" mostra os motivos (RN-007). Com zonas de giro (TASK-046), mostra a zona
+ * usada e as parcelas do peso comparado, todas vindas do backend. A cor só compara o peso comparado
+ * com a capacidade; não há níveis de alerta (PEND-004).
  */
 export function BackendEvaluationPanel({
   result,
@@ -83,133 +85,132 @@ export function BackendEvaluationPanel({
   return (
     <section className={styles.hud} aria-labelledby={titleId} aria-busy={pending}>
       <header className={styles.header}>
-        <span className={styles.headerIcon} aria-hidden="true">
-          <GaugeIcon size={16} />
-        </span>
         <h2 id={titleId} className={styles.title}>
           Avaliação <Badge tone="info">backend</Badge>
         </h2>
         {pending && (
           <span className={styles.pending}>
-            <Spinner size={12} /> atualizando…
+            <Spinner size={10} /> atualizando…
           </span>
         )}
-      </header>
-
-      <div className={styles.statusRow}>
-        <StatusPill tone={presentation.tone} size="lg" live pulse={waitingFirst && pending}>
-          {presentation.label}
-        </StatusPill>
+        <span className={styles.headerSpacer} aria-hidden="true" />
         {shown?.kind === 'EVALUATED' && (
           <span className={styles.kind} title="A tabela de carga cobre o estado">
             Avaliado
           </span>
         )}
-      </div>
+        <StatusPill tone={presentation.tone} size="lg" live pulse={waitingFirst && pending}>
+          {presentation.label}
+        </StatusPill>
+      </header>
 
-      <div className={styles.hero}>
-        <Gauge
-          value={utilization}
-          tone={presentation.tone}
-          label="Utilização"
-          bands={[{ from: 0, to: FULL_CAPACITY_PERCENT, tone: 'ok' }]}
-          caption={
-            status === 'over'
-              ? 'acima de 100 %'
-              : shown?.kind === 'NOT_EVALUABLE'
-                ? 'sem utilização'
-                : undefined
-          }
-          size={148}
-        />
-        <dl className={styles.keyMetrics}>
-          <Metric label="Capacidade" loading={waitingFirst && pending}>
-            {shown?.capacity ? kilograms(shown.capacity.maximumCapacityKg) : '—'}
-          </Metric>
-          {zoneLabel !== null && (
-            <Metric label="Zona de giro">
-              <span className={styles.zoneValue} title={shown?.rotationZoneCode ?? undefined}>
-                {zoneLabel}
-              </span>
+      <div className={styles.cells}>
+        <div className={cx(styles.cell, styles.cellUtilization)}>
+          <Gauge
+            value={utilization}
+            tone={presentation.tone}
+            label="Utilização"
+            bands={[{ from: 0, to: FULL_CAPACITY_PERCENT, tone: 'ok' }]}
+            caption={
+              status === 'over'
+                ? 'acima de 100 %'
+                : shown?.kind === 'NOT_EVALUABLE'
+                  ? 'sem utilização'
+                  : undefined
+            }
+          />
+        </div>
+
+        <div className={cx(styles.cell, styles.cellValues)}>
+          <dl className={styles.keyMetrics}>
+            <Metric label="Capacidade" loading={waitingFirst && pending}>
+              {shown?.capacity ? kilograms(shown.capacity.maximumCapacityKg) : '—'}
             </Metric>
+            {zoneLabel !== null && (
+              <Metric label="Zona de giro">
+                <span className={styles.zoneValue} title={shown?.rotationZoneCode ?? undefined}>
+                  {zoneLabel}
+                </span>
+              </Metric>
+            )}
+            <Metric label="Raio (backend)" loading={waitingFirst && pending}>
+              {shown?.workingRadiusM !== null && shown?.workingRadiusM !== undefined
+                ? meters(shown.workingRadiusM)
+                : '—'}
+            </Metric>
+          </dl>
+
+          <div className={styles.parts} role="group" aria-label="Peso comparado com a capacidade">
+            <dl className={styles.part}>
+              <Metric label="Carga">{loadWeightKg === null ? '—' : kilograms(loadWeightKg)}</Metric>
+            </dl>
+            <span className={styles.partsOperator} aria-hidden="true">
+              +
+            </span>
+            <dl className={styles.part}>
+              <Metric label="Gancho">
+                {shown?.hookBlockWeightKg !== null && shown?.hookBlockWeightKg !== undefined
+                  ? kilograms(shown.hookBlockWeightKg)
+                  : '—'}
+              </Metric>
+            </dl>
+            <span className={styles.partsOperator} aria-hidden="true">
+              =
+            </span>
+            <dl className={cx(styles.part, styles.partTotal)}>
+              <Metric label="Peso comparado">
+                {shown?.comparedWeightKg !== null && shown?.comparedWeightKg !== undefined
+                  ? kilograms(shown.comparedWeightKg)
+                  : '—'}
+              </Metric>
+            </dl>
+          </div>
+        </div>
+
+        <div className={cx(styles.cell, styles.cellNotes)}>
+          {inputProblem !== null ? (
+            <EmptyState
+              compact
+              tone="neutral"
+              icon={<ChevronRight size={16} />}
+              title="Aguardando os passos"
+              description={inputProblem}
+            />
+          ) : error !== null ? (
+            <EmptyState
+              compact
+              tone="danger"
+              role="alert"
+              icon={<CircleAlert size={16} />}
+              title="Não foi possível avaliar"
+              description={
+                <>
+                  {error.message} <code>{error.code}</code>
+                </>
+              }
+            />
+          ) : result === null ? (
+            <p className={styles.waiting}>Aguardando a primeira avaliação do backend…</p>
+          ) : (
+            <EvaluationDetails result={result} />
           )}
-          <Metric label="Raio (backend)" loading={waitingFirst && pending}>
-            {shown?.workingRadiusM !== null && shown?.workingRadiusM !== undefined
-              ? meters(shown.workingRadiusM)
-              : '—'}
-          </Metric>
-        </dl>
+
+          <p className={styles.provisional} role="note">
+            <strong>
+              <span className={styles.provisionalStamp}>PROVISÓRIO</span>
+              <span>{PROVISIONAL_MARK.slice('PROVISÓRIO'.length)}</span>
+            </strong>
+            <span>
+              {' '}
+              Capacidade tirada de um ponto da tabela, do lado seguro; não é valor definitivo.
+            </span>
+          </p>
+
+          {transport !== null && result !== null && error === null && inputProblem === null && (
+            <p className={styles.meta}>Recebida por {TRANSPORT_LABEL[transport]}.</p>
+          )}
+        </div>
       </div>
-
-      <div className={styles.parts} role="group" aria-label="Peso comparado com a capacidade">
-        <dl className={styles.part}>
-          <Metric label="Carga">{loadWeightKg === null ? '—' : kilograms(loadWeightKg)}</Metric>
-        </dl>
-        <span className={styles.partsOperator} aria-hidden="true">
-          +
-        </span>
-        <dl className={styles.part}>
-          <Metric label="Gancho">
-            {shown?.hookBlockWeightKg !== null && shown?.hookBlockWeightKg !== undefined
-              ? kilograms(shown.hookBlockWeightKg)
-              : '—'}
-          </Metric>
-        </dl>
-        <span className={styles.partsOperator} aria-hidden="true">
-          =
-        </span>
-        <dl className={styles.part}>
-          <Metric label="Peso comparado">
-            {shown?.comparedWeightKg !== null && shown?.comparedWeightKg !== undefined
-              ? kilograms(shown.comparedWeightKg)
-              : '—'}
-          </Metric>
-        </dl>
-      </div>
-
-      {inputProblem !== null ? (
-        <EmptyState
-          compact
-          tone="neutral"
-          icon={<ChevronRight size={20} />}
-          title="Aguardando os passos"
-          description={inputProblem}
-        />
-      ) : error !== null ? (
-        <EmptyState
-          compact
-          tone="danger"
-          role="alert"
-          icon={<CircleAlert size={20} />}
-          title="Não foi possível avaliar"
-          description={
-            <>
-              {error.message} <code>{error.code}</code>
-            </>
-          }
-        />
-      ) : result === null ? (
-        <p className={styles.waiting}>Aguardando a primeira avaliação do backend…</p>
-      ) : (
-        <EvaluationDetails result={result} />
-      )}
-
-      <div className={styles.provisional} role="note">
-        <span className={styles.provisionalIcon} aria-hidden="true">
-          <ShieldAlert size={16} />
-        </span>
-        <p>
-          <strong>{PROVISIONAL_MARK}</strong>
-          <span>
-            {' '}
-            Capacidade tirada de um ponto da tabela, do lado seguro; não é valor definitivo.
-          </span>
-        </p>
-      </div>
-
-      {transport !== null && result !== null && error === null && inputProblem === null && (
-        <p className={styles.meta}>Recebida por {TRANSPORT_LABEL[transport]}.</p>
-      )}
     </section>
   )
 }
