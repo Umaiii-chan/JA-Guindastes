@@ -1,9 +1,13 @@
+/*
+ * Tabela de ficha técnica (ADR-019 § 2): filetes finos, cabeçalho em caixa alta pequena sobre um
+ * filete de tinta, números alinhados à direita em mono tabular.
+ */
 .wrap {
   position: relative;
   overflow: auto;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: rgb(8 11 16 / 0.35);
+  border-top: 1px solid var(--color-border-ink);
+  border-bottom: 1px solid var(--color-border-ink);
+  background: var(--color-surface-1);
 }
 
 .table {
@@ -15,10 +19,12 @@
 
 .caption {
   caption-side: top;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   text-align: left;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
   color: var(--color-text-2);
   border-bottom: 1px solid var(--color-border);
 }
@@ -27,31 +33,27 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-surface-2);
-  border-bottom: 1px solid var(--color-border-strong);
+  padding: 7px var(--space-3);
+  background: var(--color-surface-1);
+  border-bottom: 1px solid var(--color-border-ink);
   text-align: left;
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-3xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
-  color: var(--color-text-3);
+  color: var(--color-text-2);
   white-space: nowrap;
 }
 
 .table td {
-  padding: var(--space-2) var(--space-4);
+  padding: 6px var(--space-3);
   border-bottom: 1px solid var(--color-border);
   color: var(--color-text-1);
   vertical-align: middle;
 }
 
-.table tbody tr {
-  transition: background-color var(--duration-fast) var(--ease-out);
-}
-
-.table tbody tr:hover:not(.skeletonRow) {
-  background: rgb(34 211 238 / 0.04);
+.table tbody tr:hover:not(.skeletonRow) td {
+  background: var(--color-surface-2);
 }
 
 .table tbody tr:last-child td {
@@ -60,20 +62,20 @@
 
 .dense th,
 .dense td {
-  padding-top: 6px;
-  padding-bottom: 6px;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 .numeric {
   text-align: right !important;
   font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums slashed-zero;
 }
 
 .emptyCell {
-  padding: 0 !important;
+  padding: var(--space-3) !important;
 }
 
 .skeletonRow td {
-  height: 36px;
+  height: 32px;
 }

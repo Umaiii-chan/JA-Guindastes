@@ -1,7 +1,4 @@
-import { Box, Eye, Grid3x3, MoveHorizontal } from 'lucide-react'
-import type { ReactNode } from 'react'
-
-import { IconButton } from '../ui'
+import { cx } from '../ui'
 import styles from './CameraPresetButtons.module.css'
 
 /**
@@ -10,11 +7,12 @@ import styles from './CameraPresetButtons.module.css'
  */
 export type CameraPresetId = 'perspectiva' | 'lateral' | 'topo' | 'operador'
 
-const PRESETS: readonly { id: CameraPresetId; label: string; icon: ReactNode }[] = [
-  { id: 'perspectiva', label: 'Câmera em perspectiva', icon: <Box size={16} /> },
-  { id: 'lateral', label: 'Câmera lateral', icon: <MoveHorizontal size={16} /> },
-  { id: 'topo', label: 'Câmera de topo', icon: <Grid3x3 size={16} /> },
-  { id: 'operador', label: 'Câmera do operador', icon: <Eye size={16} /> },
+/** Nome acessível completo e o nome curto à vista, como o nome de uma vista na prancha. */
+const PRESETS: readonly { id: CameraPresetId; label: string; short: string }[] = [
+  { id: 'perspectiva', label: 'Câmera em perspectiva', short: 'Perspectiva' },
+  { id: 'lateral', label: 'Câmera lateral', short: 'Lateral' },
+  { id: 'topo', label: 'Câmera de topo', short: 'Topo' },
+  { id: 'operador', label: 'Câmera do operador', short: 'Operador' },
 ]
 
 export interface CameraPresetButtonsProps {
@@ -23,20 +21,29 @@ export interface CameraPresetButtonsProps {
   readonly onSelect: (preset: CameraPresetId) => void
 }
 
-/** Botões de câmera da barra de status do simulador (IconButton com dica). */
+/**
+ * Vistas da cena na barra do quadro (ADR-019): botões de texto lado a lado, separados por filetes; a
+ * vista escolhida leva o filete laranja embaixo. O nome acessível ("Câmera lateral") contém o texto à
+ * vista ("Lateral").
+ */
 export function CameraPresetButtons({ active, onSelect }: CameraPresetButtonsProps) {
   return (
     <div className={styles.group} role="group" aria-label="Câmera">
+      <span className={styles.caption} aria-hidden="true">
+        Vista
+      </span>
       {PRESETS.map((preset) => (
-        <IconButton
+        <button
           key={preset.id}
-          size="sm"
-          label={preset.label}
-          icon={preset.icon}
-          tooltip="top"
-          pressed={active === preset.id}
+          type="button"
+          className={cx(styles.view, active === preset.id && styles.selected)}
+          aria-label={preset.label}
+          aria-pressed={active === preset.id}
+          title={preset.label}
           onClick={() => onSelect(preset.id)}
-        />
+        >
+          {preset.short}
+        </button>
       ))}
     </div>
   )

@@ -1,14 +1,9 @@
+/* Carregando: bloco de tinta clara que pulsa devagar (sem degradê de brilho). */
 .skeleton {
   display: block;
   border-radius: var(--radius-xs);
-  background: linear-gradient(
-    100deg,
-    var(--color-surface-3) 20%,
-    rgb(148 178 214 / 0.16) 40%,
-    var(--color-surface-3) 60%
-  );
-  background-size: 220% 100%;
-  animation: shimmer 1.4s var(--ease-in-out) infinite;
+  background: var(--color-surface-3);
+  animation: breathe 1.6s var(--ease-in-out) infinite alternate;
 }
 
 .text {
@@ -17,19 +12,14 @@
   width: 100%;
 }
 
-@keyframes shimmer {
-  from {
-    background-position: 120% 0;
-  }
-
+@keyframes breathe {
   to {
-    background-position: -120% 0;
+    background: var(--color-surface-4);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .skeleton {
     animation: none !important;
-    background: var(--color-surface-3);
   }
 }

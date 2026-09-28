@@ -1,5 +1,4 @@
-import { Cable, Info, RotateCw, Ruler, TrendingUp } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { Info } from 'lucide-react'
 
 import type { CraneLimits, CraneState } from '../../three/crane/types'
 import { Slider } from '../ui'
@@ -24,7 +23,6 @@ interface ControlDefinition {
   readonly unit: string
   readonly step: number
   readonly fractionDigits: number
-  readonly icon: ReactNode
 }
 
 const CONTROLS: readonly ControlDefinition[] = [
@@ -34,7 +32,6 @@ const CONTROLS: readonly ControlDefinition[] = [
     unit: '°',
     step: 1,
     fractionDigits: 0,
-    icon: <RotateCw size={14} />,
   },
   {
     key: 'boomAngleDeg',
@@ -42,7 +39,6 @@ const CONTROLS: readonly ControlDefinition[] = [
     unit: '°',
     step: 1,
     fractionDigits: 0,
-    icon: <TrendingUp size={14} />,
   },
   {
     key: 'boomLengthM',
@@ -50,7 +46,6 @@ const CONTROLS: readonly ControlDefinition[] = [
     unit: ' m',
     step: 0.1,
     fractionDigits: 1,
-    icon: <Ruler size={14} />,
   },
   {
     key: 'cableLengthM',
@@ -58,7 +53,6 @@ const CONTROLS: readonly ControlDefinition[] = [
     unit: ' m',
     step: 0.1,
     fractionDigits: 1,
-    icon: <Cable size={14} />,
   },
 ]
 
@@ -90,7 +84,6 @@ export function CraneControlPanel({
           <Slider
             key={control.key}
             label={control.label}
-            icon={control.icon}
             value={state?.[control.key]}
             min={range?.min}
             max={range?.max}

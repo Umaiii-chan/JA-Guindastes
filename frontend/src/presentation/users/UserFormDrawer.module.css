@@ -29,11 +29,9 @@
 
 .reveal:hover {
   color: var(--color-text-1);
-  background: var(--color-accent-softer);
+  text-decoration: none;
 }
 
 .reveal:focus-visible {
-  outline: none;
-  box-shadow: var(--shadow-focus);
   color: var(--color-text-1);
 }

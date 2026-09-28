@@ -1,4 +1,4 @@
-import { type CSSProperties, useId } from 'react'
+import type { CSSProperties } from 'react'
 
 import { cx } from './cx'
 import styles from './Gauge.module.css'
@@ -6,36 +6,35 @@ import type { Tone } from './tone'
 import { useAnimatedNumber } from './useAnimatedNumber'
 
 export interface GaugeBand {
-  /** Início da faixa, na escala do medidor (0 a `max`). */
+  /** Início da faixa, na escala da régua (0 a `max`). */
   readonly from: number
   readonly to: number
   readonly tone: Tone
 }
 
 export interface GaugeProps {
-  /** Utilização em %; `null` quando não há valor (sem avaliação). Acima de `max`, o arco fica cheio. */
+  /** Utilização em %; `null` quando não há valor (sem avaliação). Acima de `max`, a barra estoura. */
   readonly value: number | null
   readonly max?: number
-  /** Cor do arco de valor. */
+  /** Cor do preenchimento (a cor da situação). */
   readonly tone: Tone
-  /** Nome acessível (ex.: "Utilização"). */
+  /** Nome acessível e rótulo à vista (ex.: "Utilização"). */
   readonly label: string
-  /** Faixas de cor desenhadas no anel externo (ex.: até 100 % verde). */
+  /** Faixas desenhadas como um filete sob a régua (ex.: até 100 % verde). */
   readonly bands?: readonly GaugeBand[]
-  /** Texto sob o número (ex.: "acima da capacidade"). */
+  /** Texto sob o número (ex.: "acima de 100 %"). */
   readonly caption?: string
-  readonly size?: number
   readonly fractionDigits?: number
   readonly className?: string
+  /** @deprecated Compatibilidade com o medidor circular do ADR-017; a régua ocupa a largura dada. */
+  readonly size?: number
 }
 
-const SWEEP_DEG = 270
-const START_DEG = 135
-
-function polar(center: number, radius: number, fraction: number): [number, number] {
-  const angle = ((START_DEG + SWEEP_DEG * fraction) * Math.PI) / 180
-  return [center + radius * Math.cos(angle), center + radius * Math.sin(angle)]
-}
+/** Parte da largura ocupada pela escala de 0 a `max`; o resto é a zona de "excede". */
+const SCALE_FRACTION = 0.8
+/** Quanto acima de `max` a zona de "excede" representa até o fim (em fração de `max`). */
+const OVERFLOW_SPAN = 0.5
+const TICKS = Array.from({ length: 11 }, (_, index) => index / 10)
 
 function formatPercent(value: number, fractionDigits: number): string {
   return value.toLocaleString('pt-BR', {
@@ -44,10 +43,19 @@ function formatPercent(value: number, fractionDigits: number): string {
   })
 }
 
+/** Posição (0 a 100 % da largura) de um valor na régua, com a zona de "excede" depois de `max`. */
+function rulerPosition(value: number, max: number): number {
+  if (value <= max) return (Math.max(0, value) / max) * SCALE_FRACTION * 100
+  const beyond = Math.min(1, (value - max) / (max * OVERFLOW_SPAN))
+  return (SCALE_FRACTION + beyond * (1 - SCALE_FRACTION)) * 100
+}
+
 /**
- * Medidor circular de utilização (0 a 100 %), com faixas de cor, marcas a cada 10 % e animação do arco
- * e do número (desligada com `prefers-reduced-motion`). `role="meter"` com o valor real em
- * `aria-valuetext`, inclusive acima de 100 %.
+ * Utilização como RÉGUA LINEAR GRADUADA (ADR-019 § 2): escala de 0 a 100 % com marcas a cada 10 %,
+ * preenchimento na cor da situação e o número em mono grande ao lado. Acima de 100 %, a barra estoura
+ * a régua e entra na zona de "excede", marcada em vermelho. O número e a barra animam (desligado com
+ * `prefers-reduced-motion`). `role="meter"` com o valor real em `aria-valuetext`, inclusive acima de
+ * 100 %. (O nome `Gauge` ficou do medidor circular do ADR-017, para não mexer em quem o usa.)
  */
 export function Gauge({
   value,
@@ -56,26 +64,14 @@ export function Gauge({
   label,
   bands = [],
   caption,
-  size = 168,
   fractionDigits = 1,
   className,
 }: GaugeProps) {
-  const gradientId = `gauge-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   const hasValue = value !== null && Number.isFinite(value)
   const target = hasValue ? Math.max(0, value) : 0
   const animated = useAnimatedNumber(target)
-  const fraction = Math.min(1, Math.max(0, animated / max))
   const over = hasValue && value > max
-
-  const center = size / 2
-  const stroke = Math.round(size * 0.066)
-  const radius = center - stroke - 10
-  const bandRadius = radius + stroke / 2 + 5
-  const circumference = 2 * Math.PI * radius
-  const arcLength = (circumference * SWEEP_DEG) / 360
-  const bandCircumference = 2 * Math.PI * bandRadius
-  const bandArc = (bandCircumference * SWEEP_DEG) / 360
-  const [capX, capY] = polar(center, radius, fraction)
+  const fill = hasValue ? rulerPosition(animated, max) : 0
 
   const valueText = hasValue
     ? `${formatPercent(value, fractionDigits)} %${caption ? ` — ${caption}` : ''}`
@@ -90,79 +86,57 @@ export function Gauge({
       aria-valuemax={max}
       aria-valuenow={hasValue ? Math.min(max, Math.max(0, value)) : undefined}
       aria-valuetext={valueText}
-      style={{ width: size, height: size, '--gauge-size': `${size}px` } as CSSProperties}
+      style={
+        {
+          '--ruler-scale': `${SCALE_FRACTION * 100}%`,
+          '--ruler-fill': `${fill}%`,
+        } as CSSProperties
+      }
     >
-      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} aria-hidden="true">
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0%" className={styles.gradientStart} />
-            <stop offset="100%" className={styles.gradientEnd} />
-          </linearGradient>
-        </defs>
-        {bands.map((band) => {
-          const from = Math.max(0, Math.min(max, band.from)) / max
-          const to = Math.max(0, Math.min(max, band.to)) / max
-          return (
-            <circle
-              key={`${band.from}-${band.to}`}
-              className={cx(styles.band, styles[`band-${band.tone}`])}
-              cx={center}
-              cy={center}
-              r={bandRadius}
-              strokeDasharray={`${bandArc * (to - from)} ${bandCircumference}`}
-              strokeDashoffset={-bandArc * from}
-              transform={`rotate(${START_DEG} ${center} ${center})`}
-            />
-          )
-        })}
-        <circle
-          className={styles.track}
-          cx={center}
-          cy={center}
-          r={radius}
-          strokeWidth={stroke}
-          strokeDasharray={`${arcLength} ${circumference}`}
-          transform={`rotate(${START_DEG} ${center} ${center})`}
-        />
-        {Array.from({ length: 11 }, (_, index) => {
-          const tickFraction = index / 10
-          const major = index % 5 === 0
-          const [x1, y1] = polar(center, radius - stroke / 2 - 3, tickFraction)
-          const [x2, y2] = polar(center, radius - stroke / 2 - (major ? 9 : 6), tickFraction)
-          return (
-            <line
-              key={index}
-              className={cx(styles.tick, major && styles.tickMajor)}
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
-            />
-          )
-        })}
-        {hasValue && (
-          <>
-            <circle
-              className={styles.value}
-              cx={center}
-              cy={center}
-              r={radius}
-              strokeWidth={stroke}
-              stroke={`url(#${gradientId})`}
-              strokeDasharray={`${arcLength * fraction} ${circumference}`}
-              transform={`rotate(${START_DEG} ${center} ${center})`}
-            />
-            <circle className={styles.cap} cx={capX} cy={capY} r={stroke * 0.42} />
-          </>
-        )}
-      </svg>
       <div className={styles.readout}>
+        <span className={styles.label}>{label}</span>
         <span className={styles.number}>
           {hasValue ? formatPercent(animated, fractionDigits) : '—'}
           {hasValue && <span className={styles.unit}>%</span>}
         </span>
-        <span className={styles.label}>{label}</span>
         {caption && <span className={styles.caption}>{caption}</span>}
+      </div>
+      <div className={styles.ruler} aria-hidden="true">
+        <div className={styles.ticks}>
+          {TICKS.map((tick, index) => (
+            <span
+              key={tick}
+              className={cx(styles.tick, index % 5 === 0 && styles.tickMajor)}
+              style={{ left: `${tick * SCALE_FRACTION * 100}%` }}
+            />
+          ))}
+        </div>
+        <div className={styles.track}>
+          <span className={styles.overflowZone} />
+          {hasValue && <span className={styles.fill} />}
+          <span className={styles.limit} />
+          {over && <span className={styles.exceeds}>excede</span>}
+        </div>
+        {bands.length > 0 && (
+          <div className={styles.bands}>
+            {bands.map((band) => {
+              const from = rulerPosition(Math.min(max, band.from), max)
+              const to = rulerPosition(Math.min(max, band.to), max)
+              return (
+                <span
+                  key={`${band.from}-${band.to}`}
+                  className={cx(styles.band, styles[`band-${band.tone}`])}
+                  style={{ left: `${from}%`, width: `${to - from}%` }}
+                />
+              )
+            })}
+          </div>
+        )}
+        <div className={styles.scaleLabels}>
+          <span style={{ left: '0%' }}>0</span>
+          <span style={{ left: `${SCALE_FRACTION * 50}%` }}>{max / 2}</span>
+          <span style={{ left: `${SCALE_FRACTION * 100}%` }}>{max}</span>
+        </div>
       </div>
     </div>
   )

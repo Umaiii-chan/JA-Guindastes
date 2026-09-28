@@ -1,4 +1,3 @@
-import { Eye } from 'lucide-react'
 import { useId } from 'react'
 
 import type {
@@ -51,7 +50,6 @@ export function OperationalGeometryPanel({
   return (
     <section className={styles.geometry} aria-labelledby={titleId}>
       <h2 id={titleId} className={styles.geometryTitle}>
-        <Eye size={14} aria-hidden="true" />
         Geometria <Badge tone="neutral">pré-visualização — frontend</Badge>
       </h2>
       <dl className={styles.geometryValues}>

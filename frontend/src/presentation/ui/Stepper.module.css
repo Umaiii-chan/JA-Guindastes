@@ -1,117 +1,115 @@
+/*
+ * Procedimento numerado (ADR-019 § 2). Coluna do número com 40 px; o traço vertical desce do número
+ * até o próximo passo: tracejado fino enquanto bloqueado, tinta nos concluídos e laranja no atual.
+ */
 .stepper {
+  --stepper-gutter: 44px;
+  --stepper-axis: 13px;
+
   list-style: none;
   display: grid;
-  gap: 0;
   min-height: 0;
 }
 
 .step {
   position: relative;
   display: grid;
-  padding-left: 0;
 }
 
-/* Linha que liga os passos; fica ciano quando o passo está concluído. */
-.step:not(:last-child)::before {
+.step::before {
   content: '';
   position: absolute;
-  left: 21px;
-  top: 44px;
-  bottom: -2px;
-  width: 2px;
-  border-radius: 2px;
-  background: var(--color-surface-4);
-  transition: background-color var(--duration-slow) var(--ease-out);
+  left: var(--stepper-axis);
+  top: 40px;
+  bottom: 6px;
+  width: 0;
+  border-left: 1px dashed var(--color-border-strong);
 }
 
-.complete:not(:last-child)::before {
-  background: linear-gradient(180deg, var(--color-accent), rgb(34 211 238 / 0.25));
+.step:last-child::before {
+  display: none;
+}
+
+.step.active::before {
+  display: block;
+}
+
+.complete::before {
+  border-left: 2px solid var(--color-text-1);
+  margin-left: -0.5px;
+}
+
+.current::before,
+.active::before {
+  border-left: 2px solid var(--color-accent);
+  margin-left: -0.5px;
 }
 
 .header {
   position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
+  display: grid;
+  grid-template-columns: var(--stepper-gutter) minmax(0, 1fr) auto;
+  align-items: start;
   width: 100%;
-  padding: var(--space-3) var(--space-2);
-  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-2) var(--space-3) 0;
   text-align: left;
-  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
-.header:hover:not(:disabled) {
-  background: rgb(148 178 214 / 0.06);
+.header:hover:not(:disabled) .title {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
 .header:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 2px var(--color-accent);
+  outline-offset: -2px;
 }
 
 .header:disabled {
   cursor: not-allowed;
 }
 
+/* Número do passo: mono grande; laranja no passo atual. */
 .marker {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1.5px solid var(--color-border-strong);
-  background: var(--color-surface-2);
-  color: var(--color-text-3);
   font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  transition:
-    background-color var(--duration-base) var(--ease-out),
-    border-color var(--duration-base) var(--ease-out),
-    color var(--duration-base) var(--ease-out),
-    box-shadow var(--duration-base) var(--ease-out),
-    transform var(--duration-base) var(--ease-spring);
+  font-size: 1.375rem;
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--color-text-1);
+  padding-top: 2px;
 }
 
-.current .marker {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-  background: var(--color-accent-softer);
+.pending .marker {
+  color: var(--color-text-3);
 }
 
-.active.current .marker {
-  box-shadow:
-    0 0 0 4px var(--color-accent-softer),
-    0 0 16px -2px var(--color-accent-glow);
+.current .marker,
+.active .marker {
+  color: var(--color-accent-ink);
 }
 
-.complete .marker {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
-  color: var(--color-text-inverse);
-  animation: pop var(--duration-slow) var(--ease-spring);
+.complete.active .marker {
+  color: var(--color-accent-ink);
 }
 
 .headings {
-  flex: 1;
   display: grid;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
-  padding-top: 1px;
 }
 
 .kicker {
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-3xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
   color: var(--color-text-3);
 }
 
-.current .kicker,
-.active .kicker {
-  color: var(--color-accent);
+.current .kicker {
+  color: var(--color-accent-ink);
 }
 
 .title {
@@ -122,6 +120,7 @@
 
 .pending .title {
   color: var(--color-text-3);
+  font-weight: var(--font-weight-medium);
 }
 
 .summary,
@@ -137,18 +136,28 @@
   color: var(--color-text-3);
 }
 
+/* Concluído: check simples em tinta e o convite para editar. */
 .state {
-  align-self: center;
-  font-family: var(--font-mono);
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  padding-top: 1px;
+  color: var(--color-text-1);
+}
+
+.edit {
   font-size: var(--font-size-2xs);
-  color: var(--color-accent);
+  color: var(--color-text-2);
+  text-decoration: underline;
+  text-decoration-color: var(--color-border-strong);
+  text-underline-offset: 2px;
 }
 
 .content {
   display: grid;
   gap: var(--space-4);
-  margin-left: 44px;
-  padding: var(--space-1) var(--space-2) var(--space-5) 0;
+  margin-left: var(--stepper-gutter);
+  padding: 0 var(--space-2) var(--space-5) 0;
   animation: content-in var(--duration-base) var(--ease-out);
 }
 
@@ -157,19 +166,8 @@
   color: var(--color-text-2);
 }
 
-@keyframes pop {
-  0% {
-    transform: scale(0.7);
-  }
-
-  100% {
-    transform: scale(1);
-  }
-}
-
 @keyframes content-in {
   from {
     opacity: 0;
-    transform: translateY(-4px);
   }
 }

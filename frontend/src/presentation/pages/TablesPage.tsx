@@ -66,7 +66,7 @@ export function TablesPage({ selection, configuration, gateway, canEdit }: Table
         {configuration === null ? (
           <>
             <div className={styles.mainColumn}>
-              <Panel title="Tabela de carga" icon={<Grid3x3 size={16} />}>
+              <Panel title="Tabela de carga" stamp="TAB. —">
                 <EmptyState
                   icon={<Settings2 size={24} />}
                   title="Escolha a configuração"
@@ -230,7 +230,7 @@ function ChartWorkspace({
                 ? `Versão ${shownVersion.version}${zoneName(shownVersion.rotationZoneCode) ? ` · zona ${zoneName(shownVersion.rotationZoneCode)}` : ''} · ${shownVersion.sourceFileName}`
                 : 'Lança × raio, colorida pela capacidade'
           }
-          icon={<Grid3x3 size={16} />}
+          stamp="TAB. 1"
           actions={
             showFile ? (
               <Badge tone="info" variant="outline">

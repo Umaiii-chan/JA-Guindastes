@@ -1,4 +1,4 @@
-// Cores da cena 3D (TASK-041), num lugar só, para a TASK-039 alinhar os tokens CSS do ADR-017.
+// Cores da cena 3D (TASK-041; TASK-047), num lugar só, alinhadas aos tokens CSS do ADR-019.
 //
 // Sem Three.js (ADR-005): a UI React pode importar daqui os tipos e os valores em CSS. As cores são
 // sRGB em hexadecimal (0xRRGGBB), como nos tokens CSS; o Three.js as converte para o espaço linear.
@@ -12,41 +12,60 @@ export type EvaluationStatus = 'ok' | 'warning' | 'over' | 'unknown'
 
 export const EVALUATION_STATUSES: readonly EvaluationStatus[] = ['ok', 'warning', 'over', 'unknown']
 
-/** Cores de situação do ADR-017: verde, âmbar, vermelho e cinza. */
+/** Cores de situação do ADR-019: verde, âmbar (reservado, PEND-004), vermelho e cinza, sóbrios. */
 export const STATUS_COLORS: Readonly<Record<EvaluationStatus, number>> = Object.freeze({
-  ok: 0x22c55e,
-  warning: 0xf5a524,
-  over: 0xef4444,
-  unknown: 0x8b95a3,
+  ok: 0x2f6b3a,
+  warning: 0xb7791f,
+  over: 0xb42318,
+  unknown: 0x77756d,
 })
 
-/** Cores do ambiente escuro, grafite-azulado (ADR-017). */
+/** Papel e tinta do ADR-019 e o único acento (laranja-segurança): os mesmos valores dos tokens CSS. */
+export const PAPER_INK = Object.freeze({
+  /** Papel: fundo da página e da cena. */
+  paper: 0xf4f1ea,
+  /** Superfície: um tom acima do papel (quadros, fichas). */
+  surface: 0xfbfaf6,
+  ink: 0x1f1f1c,
+  inkSecondary: 0x5c5a53,
+  /** Linhas finas de desenho técnico. */
+  line: 0xcfcab9,
+  /** Acento: ação primária, foco e o elemento selecionado (na cena, a zona atual). */
+  accent: 0xd9480f,
+})
+
+/** Cores da cena 3D como prancha técnica clara (ADR-019): papel milimetrado e traço de tinta. */
 export const SCENE_COLORS = Object.freeze({
-  /** Topo do céu. */
-  skyZenith: 0x0a0f17,
-  /** Horizonte: também é a cor da névoa, para o chão sumir no céu sem emenda. */
-  skyHorizon: 0x222c3a,
-  // Com a luz da cena, o chão iluminado fica perto da cor da névoa: horizonte sem faixa.
-  ground: 0x262e3a,
-  gridMinor: 0x2b3542,
-  gridMajor: 0x46566b,
-  /** Arco de alcance (raio mínimo e máximo), em linha tênue. */
-  reachArc: 0x6b7b90,
-  /** Carga pendurada no gancho. */
-  load: 0x55606e,
-  loadEdges: 0x9fb0c4,
+  /** Fundo e chão: o mesmo papel, sem céu nem horizonte desenhado. */
+  background: PAPER_INK.paper,
+  ground: PAPER_INK.paper,
+  /** Papel milimetrado: linhas de 1 m na cor das linhas e de 5 m um pouco mais fortes. */
+  gridMinor: PAPER_INK.line,
+  gridMajor: 0xb3ac98,
+  /** Eixos de referência X e Z pela origem (ponto O), em tinta. */
+  gridAxis: PAPER_INK.inkSecondary,
+  /** Sombra projetada no chão: tinta, em baixa opacidade (`GROUND_SHADOW_OPACITY`). */
+  shadow: PAPER_INK.ink,
+  /** Arco de alcance (raio mínimo e máximo), em traço interrompido. */
+  reachArc: PAPER_INK.inkSecondary,
+  /** Linha radial do eixo de giro até o gancho, como linha de cota. */
+  radial: PAPER_INK.inkSecondary,
+  /** Carga pendurada no gancho: bloco claro com arestas em tinta. */
+  load: 0xe2dccd,
+  loadEdges: PAPER_INK.ink,
   /** Linhas (lingas) entre o gancho e a carga. */
-  sling: 0x9aa3ab,
-  /** Texto e fundo do rótulo do raio. */
-  labelText: 0xe6edf3,
-  labelBackground: 0x0b0f15,
+  sling: PAPER_INK.inkSecondary,
+  /** Texto dos rótulos de cota e o papel que recorta a grade por trás deles. */
+  labelText: PAPER_INK.ink,
+  labelMutedText: PAPER_INK.inkSecondary,
+  labelBackground: PAPER_INK.paper,
   /**
-   * Setores das zonas de giro no chão (TASK-046): tênues, e o atual mais forte. Azul do acento do
-   * ADR-017, para não disputar com as cores de situação (verde, âmbar, vermelho, cinza).
+   * Setores das zonas de giro no chão (TASK-046): traço de tinta secundária, e a zona atual no
+   * acento laranja, que não disputa com as cores de situação (verde, âmbar, vermelho, cinza).
    */
-  zoneSector: 0x3b82f6,
-  zoneSectorActive: 0x60a5fa,
-  zoneBoundary: 0x6b7b90,
+  zoneSector: PAPER_INK.inkSecondary,
+  zoneSectorActive: PAPER_INK.accent,
+  zoneBoundary: PAPER_INK.inkSecondary,
 })
 
 /** Situação válida ou `unknown` para qualquer outro valor (inclusive `undefined`). */
@@ -66,7 +85,7 @@ export function toCssHex(color: number): string {
   return `#${color.toString(16).padStart(6, '0')}`
 }
 
-/** Cor da situação como string CSS `#rrggbb`, para os tokens do ADR-017. */
+/** Cor da situação como string CSS `#rrggbb`, para os tokens do ADR-019. */
 export function statusCssColor(status: EvaluationStatus): string {
   return toCssHex(statusColor(status))
 }

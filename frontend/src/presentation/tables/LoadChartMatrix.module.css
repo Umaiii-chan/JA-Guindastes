@@ -1,14 +1,16 @@
 /*
- * Escala sequencial de um tom (ciano do acento), do escuro (menor capacidade) ao claro (maior).
- * Texto claro nas três primeiras faixas e escuro nas duas últimas, para manter o contraste AA
- * (conferido em handoffs/TASK-042.md § 5).
+ * Matriz lança × raio como tabela de ficha técnica (ADR-019): filetes finos entre as células e uma
+ * escala sequencial de densidade de TINTA, do papel (menor capacidade) à tinta (maior). Nada de
+ * laranja: o acento fica para ação e seleção. Texto em tinta nas três primeiras faixas e em papel nas
+ * duas últimas, para manter o contraste AA.
  */
 .figure {
-  --band-0: color-mix(in oklab, var(--color-accent) 8%, var(--color-surface-2));
-  --band-1: color-mix(in oklab, var(--color-accent) 20%, var(--color-surface-2));
-  --band-2: color-mix(in oklab, var(--color-accent) 34%, var(--color-surface-2));
-  --band-3: color-mix(in oklab, var(--color-accent) 68%, var(--color-surface-2));
-  --band-4: color-mix(in oklab, var(--color-accent-strong) 88%, var(--color-surface-2));
+  --band-0: color-mix(in oklab, var(--ink) 5%, var(--paper-raised));
+  --band-1: color-mix(in oklab, var(--ink) 14%, var(--paper-raised));
+  --band-2: color-mix(in oklab, var(--ink) 27%, var(--paper-raised));
+  --band-3: color-mix(in oklab, var(--ink) 62%, var(--paper-raised));
+  --band-4: color-mix(in oklab, var(--ink) 88%, var(--paper-raised));
+
   display: grid;
   gap: var(--space-3);
   margin: 0;
@@ -18,9 +20,9 @@
 .scroll {
   overflow: auto;
   max-height: 460px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: rgb(8 11 16 / 0.35);
+  border-top: 1px solid var(--color-border-ink);
+  border-bottom: 1px solid var(--color-border-ink);
+  background: var(--color-surface-1);
 }
 
 .compact .scroll {
@@ -28,25 +30,22 @@
 }
 
 .scroll:focus-visible {
-  outline: none;
-  box-shadow: var(--shadow-focus);
+  outline-offset: 2px;
 }
 
 .matrix {
-  border-collapse: separate;
-  border-spacing: 2px;
-  padding: 2px;
+  border-collapse: collapse;
   font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums slashed-zero;
   font-size: var(--font-size-xs);
 }
 
 .matrix th {
   position: sticky;
   z-index: 1;
-  background: var(--color-surface-2);
+  background: var(--color-surface-1);
   color: var(--color-text-2);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-regular);
   white-space: nowrap;
 }
 
@@ -54,14 +53,17 @@
   top: 0;
   padding: var(--space-2) var(--space-2);
   text-align: right;
-  border-bottom: 1px solid var(--color-border-strong);
+  border-bottom: 1px solid var(--color-border-ink);
+  box-shadow: 0 1px 0 var(--color-border-ink);
 }
 
 .rowHead {
   left: 0;
   padding: 0 var(--space-3) 0 var(--space-2);
   text-align: right;
-  border-right: 1px solid var(--color-border-strong);
+  border-right: 1px solid var(--color-border-ink);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-1) !important;
 }
 
 .corner {
@@ -71,12 +73,13 @@
   padding: var(--space-1) var(--space-2);
   text-align: left;
   font-family: var(--font-sans);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold) !important;
   letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
-  color: var(--color-text-3) !important;
-  border-bottom: 1px solid var(--color-border-strong);
-  border-right: 1px solid var(--color-border-strong);
+  color: var(--color-text-2) !important;
+  border-bottom: 1px solid var(--color-border-ink);
+  border-right: 1px solid var(--color-border-ink);
 }
 
 .cornerRow,
@@ -89,33 +92,26 @@
 }
 
 .cell {
-  min-width: 68px;
-  padding: 7px var(--space-2);
-  border-radius: var(--radius-xs);
+  min-width: 64px;
+  padding: 6px var(--space-2);
+  border: 1px solid var(--color-surface-1);
   text-align: right;
   color: var(--color-text-1);
-  transition:
-    transform var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .compact .cell {
-  min-width: 56px;
-  padding: 5px 6px;
+  min-width: 54px;
+  padding: 4px 6px;
 }
 
 .cell:hover {
-  position: relative;
-  z-index: 1;
-  box-shadow:
-    0 0 0 1px var(--color-accent-strong),
-    0 6px 16px -6px rgb(0 0 0 / 0.7);
-  transform: scale(1.06);
+  outline: 1px solid var(--color-text-1);
+  outline-offset: -2px;
 }
 
 .missing {
   color: var(--color-text-3);
-  background: repeating-linear-gradient(135deg, transparent 0 5px, rgb(148 178 214 / 0.07) 5px 6px);
+  border-color: var(--color-border);
   text-align: center;
 }
 
@@ -134,79 +130,80 @@
 .band3 {
   background: var(--band-3);
   color: var(--color-text-inverse);
-  font-weight: var(--font-weight-medium);
 }
 
 .band4 {
   background: var(--band-4);
   color: var(--color-text-inverse);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
+}
+
+.band3:hover,
+.band4:hover {
+  outline-color: var(--color-text-inverse);
 }
 
 .legend {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--space-2) var(--space-4);
   font-size: var(--font-size-xs);
   color: var(--color-text-2);
 }
 
 .legendTitle {
-  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
   color: var(--color-text-1);
+  padding-bottom: 2px;
 }
 
 .legendScale {
   display: flex;
-  gap: 2px;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
+  border: 1px solid var(--color-text-1);
 }
 
 .legendItem {
   display: grid;
-  justify-items: center;
-  gap: 3px;
+  justify-items: stretch;
+  gap: 0;
+}
+
+.legendItem + .legendItem {
+  border-left: 1px solid var(--color-text-1);
 }
 
 .swatch {
   display: block;
-  width: 44px;
-  height: 10px;
-  border-radius: 3px;
+  width: 76px;
+  height: 8px;
 }
 
 .compact .swatch {
-  width: 22px;
-}
-
-.legendItem:first-child .swatch {
-  border-radius: 999px 3px 3px 999px;
-}
-
-.legendItem:last-child .swatch {
-  border-radius: 3px 999px 999px 3px;
+  width: 34px;
 }
 
 .legendRange {
+  padding: 2px 4px;
+  border-top: 1px solid var(--color-text-1);
   font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-3xs);
   font-variant-numeric: tabular-nums;
-  color: var(--color-text-3);
+  color: var(--color-text-2);
   white-space: nowrap;
+  text-align: center;
 }
 
 .legendMeta {
   margin-left: auto;
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
-  color: var(--color-text-3);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cell:hover {
-    transform: none;
-  }
+  color: var(--color-text-2);
 }

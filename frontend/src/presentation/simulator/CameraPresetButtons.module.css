@@ -1,5 +1,53 @@
 .group {
   display: inline-flex;
-  align-items: center;
-  gap: 2px;
+  align-items: stretch;
+  height: 100%;
+}
+
+.caption {
+  display: grid;
+  place-items: center;
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+
+.view {
+  position: relative;
+  padding: 0 var(--space-3);
+  border-left: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-2);
+  white-space: nowrap;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.view:hover {
+  color: var(--color-text-1);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.view:focus-visible {
+  outline-offset: -3px;
+}
+
+/* Vista escolhida: tinta e o filete laranja na base da célula. */
+.selected {
+  color: var(--color-text-1);
+  font-weight: var(--font-weight-semibold);
+}
+
+.selected::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--color-accent);
 }

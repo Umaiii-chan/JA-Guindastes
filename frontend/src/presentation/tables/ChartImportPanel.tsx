@@ -209,7 +209,7 @@ export function ChartImportPanel({
     <Panel
       title="Importar tabela"
       subtitle="Arraste o arquivo, confira a prévia e importe como rascunho"
-      icon={<Upload size={16} />}
+      stamp="IMP."
     >
       <div className={styles.importBody}>
         <Dropzone

@@ -1,50 +1,47 @@
 import {
-  BackSide,
   Color,
   DirectionalLight,
-  Fog,
   HemisphereLight,
   Mesh,
-  MeshLambertMaterial,
+  MeshBasicMaterial,
   PlaneGeometry,
   type Scene,
   ShaderMaterial,
-  SphereGeometry,
+  ShadowMaterial,
   type Vector3,
 } from 'three'
 
 import { SCENE_COLORS } from './palette'
 
-// Ambiente escuro de "software 3D" (TASK-041): céu em gradiente, chão grafite com névoa até o
-// horizonte, grade técnica que esmaece com a distância e luz com sombras suaves.
+// Prancha técnica viva (TASK-047; ADR-019): fundo e chão no mesmo papel, sem céu nem névoa; grade de
+// papel milimetrado que esmaece com a distância, eixos de referência em tinta e luz clara e neutra
+// com sombra discreta, de desenho.
 
-/** Lado do chão (m): bem maior que o alcance da névoa, para a borda nunca aparecer. */
+/** Lado do chão (m): o chão tem a cor do fundo, então a borda nunca aparece. */
 export const GROUND_SIZE_M = 1200
+/** Lado da grade (m): ela acompanha a câmera e esmaece bem antes da borda. */
+export const GRID_SIZE_M = 600
 /** Linhas secundárias da grade a cada 1 m e principais a cada 5 m (CA-1). */
 export const GRID_MINOR_SPACING_M = 1
 export const GRID_MAJOR_SPACING_M = 5
-/** Raio do domo do céu (m); ele acompanha a câmera, então não precisa cobrir a cena toda. */
-export const SKY_RADIUS_M = 600
+/** Opacidade da sombra no chão: presente, mas discreta (sombra de desenho, não dramática). */
+export const GROUND_SHADOW_OPACITY = 0.14
 
-/** Distâncias (m) da névoa e do esmaecimento da grade para a câmera a `cameraDistanceM` do alvo. */
+/** Distâncias (m) do esmaecimento da grade para a câmera a `cameraDistanceM` do alvo. */
 export interface AtmosphereRange {
-  readonly fogNearM: number
-  readonly fogFarM: number
   readonly gridFadeNearM: number
   readonly gridFadeFarM: number
 }
 
 /**
- * A névoa e o esmaecimento da grade acompanham o zoom: perto do guindaste a grade aparece nítida, e ao
- * afastar a câmera o guindaste não some na névoa.
+ * O esmaecimento da grade acompanha o zoom: perto do guindaste a grade aparece nítida, e ao afastar a
+ * câmera ela some no papel antes de virar moiré.
  */
 export function atmosphereRange(cameraDistanceM: number): AtmosphereRange {
   const distance = Math.max(0, cameraDistanceM)
   return {
-    fogNearM: distance + 30,
-    fogFarM: distance + 260,
-    gridFadeNearM: distance * 0.4 + 6,
-    gridFadeFarM: distance * 1.3 + 30,
+    gridFadeNearM: distance * 1.2 + 20,
+    gridFadeFarM: Math.min(distance * 3 + 70, GRID_SIZE_M / 2 - 20),
   }
 }
 
@@ -52,34 +49,14 @@ export function atmosphereRange(cameraDistanceM: number): AtmosphereRange {
 export interface SceneEnvironment {
   readonly sun: DirectionalLight
   readonly grid: Mesh
-  readonly sky: Mesh
+  readonly ground: Mesh
+  /** Plano que só recebe a sombra, em tinta translúcida sobre o papel. */
+  readonly groundShadow: Mesh
   /** Ajusta a sombra ao alcance do guindaste (m), para não desperdiçar resolução do mapa. */
   fitShadowToReach(reachM: number): void
-  /** Céu atrás da câmera; névoa e grade na distância certa. */
+  /** Grade sob a câmera e esmaecimento na distância certa. */
   update(cameraPosition: Vector3, cameraDistanceM: number): void
 }
-
-const SKY_VERTEX = /* glsl */ `
-varying vec3 vDirection;
-void main() {
-  vDirection = normalize(position);
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}
-`
-
-const SKY_FRAGMENT = /* glsl */ `
-uniform vec3 zenithColor;
-uniform vec3 horizonColor;
-varying vec3 vDirection;
-void main() {
-  float h = clamp(vDirection.y, 0.0, 1.0);
-  vec3 color = mix(horizonColor, zenithColor, smoothstep(0.0, 0.55, h));
-  gl_FragColor = vec4(color, 1.0);
-  // Mesmo tone mapping do chão com névoa: sem faixa visível no horizonte.
-  #include <tonemapping_fragment>
-  #include <colorspace_fragment>
-}
-`
 
 const GRID_VERTEX = /* glsl */ `
 varying vec3 vWorld;
@@ -91,75 +68,83 @@ void main() {
 `
 
 // Linhas com largura constante em pixels (fwidth), sem serrilhado nem moiré ao longe; as secundárias
-// somem antes das principais.
+// somem antes das principais. Os eixos X e Z pela origem são linhas de centro (traço e ponto), como no
+// desenho técnico. Sem tone mapping: as cores saem exatamente as da paleta.
 const GRID_FRAGMENT = /* glsl */ `
 uniform vec3 minorColor;
 uniform vec3 majorColor;
+uniform vec3 axisColor;
 uniform float minorSpacing;
 uniform float majorSpacing;
 uniform float fadeNear;
 uniform float fadeFar;
 varying vec3 vWorld;
 
+// Linha da grade com o espaçamento dado; some quando as linhas ficam a menos de ~6 px uma da outra na
+// tela, antes de virar moiré (perto do horizonte ou com a câmera longe).
 float gridLine(vec2 p, float spacing, float widthPx) {
   vec2 cell = p / spacing;
-  vec2 d = abs(fract(cell - 0.5) - 0.5) / fwidth(cell);
-  return 1.0 - min(min(d.x, d.y) / widthPx, 1.0);
+  vec2 cellsPerPx = fwidth(cell);
+  vec2 d = abs(fract(cell - 0.5) - 0.5) / cellsPerPx;
+  float line = 1.0 - min(min(d.x, d.y) / widthPx, 1.0);
+  float density = max(cellsPerPx.x, cellsPerPx.y);
+  return line * (1.0 - smoothstep(0.12, 0.3, density));
+}
+
+// Traço longo, falha, ponto, falha: padrão de 4 m ao longo do eixo.
+float centerDash(float t) {
+  float m = mod(t, 4.0);
+  return (m < 2.6 || (m > 3.1 && m < 3.5)) ? 1.0 : 0.0;
+}
+
+float axisLine(float across, float along, float widthPx) {
+  float d = abs(across) / fwidth(across);
+  return (1.0 - min(d / widthPx, 1.0)) * centerDash(along);
 }
 
 void main() {
   float distanceToCamera = distance(cameraPosition, vWorld);
   float fade = 1.0 - smoothstep(fadeNear, fadeFar, distanceToCamera);
-  float minorFade = 1.0 - smoothstep(fadeNear * 0.5, fadeFar * 0.55, distanceToCamera);
-  float minor = gridLine(vWorld.xz, minorSpacing, 1.0) * minorFade * 0.55;
-  float major = gridLine(vWorld.xz, majorSpacing, 1.3) * 0.7;
-  float alpha = max(minor, major) * fade;
+  float minor = gridLine(vWorld.xz, minorSpacing, 1.0);
+  float major = gridLine(vWorld.xz, majorSpacing, 1.2);
+  float axis = max(axisLine(vWorld.z, vWorld.x, 1.2), axisLine(vWorld.x, vWorld.z, 1.2));
+  vec3 color = minorColor;
+  float alpha = minor;
+  if (major >= alpha) {
+    color = majorColor;
+    alpha = major;
+  }
+  // O eixo passa por cima da linha de 5 m que coincide com ele.
+  if (axis > 0.0 && axis >= alpha * 0.5) {
+    color = axisColor;
+    alpha = max(alpha, axis * 0.75);
+  }
+  alpha *= fade;
   if (alpha < 0.004) discard;
-  vec3 color = major >= minor ? majorColor : minorColor;
   gl_FragColor = vec4(color, alpha);
   #include <colorspace_fragment>
 }
 `
 
-/** Adiciona céu, névoa, luzes, chão e grade à cena. O chão fica no plano y = 0. */
+/** Adiciona fundo, luzes, chão, sombra e grade à cena. O chão fica no plano y = 0. */
 export function addEnvironment(scene: Scene): SceneEnvironment {
-  const horizon = new Color(SCENE_COLORS.skyHorizon)
-  scene.background = horizon.clone()
-  const initialRange = atmosphereRange(40)
-  const fog = new Fog(horizon.clone(), initialRange.fogNearM, initialRange.fogFarM)
-  scene.fog = fog
+  scene.background = new Color(SCENE_COLORS.background)
+  // Sem névoa: o esmaecimento da grade faz o papel do horizonte, sem escurecer nem velar o guindaste.
+  scene.fog = null
 
-  const sky = new Mesh(
-    new SphereGeometry(SKY_RADIUS_M, 32, 16),
-    new ShaderMaterial({
-      name: 'environment-sky',
-      uniforms: {
-        zenithColor: { value: new Color(SCENE_COLORS.skyZenith) },
-        horizonColor: { value: horizon.clone() },
-      },
-      vertexShader: SKY_VERTEX,
-      fragmentShader: SKY_FRAGMENT,
-      side: BackSide,
-      depthWrite: false,
-      fog: false,
-    }),
-  )
-  sky.name = 'environment-sky'
-  sky.renderOrder = -1
-  sky.frustumCulled = false
-  scene.add(sky)
-
-  const hemisphere = new HemisphereLight(0xbcd0ec, 0x151a21, 1.15)
+  // Luz clara e neutra: céu branco e o chão devolvendo o tom do papel, sem luz colorida de recorte.
+  const hemisphere = new HemisphereLight(0xffffff, 0xe6e0d2, 1.5)
   hemisphere.name = 'environment-hemisphere-light'
   scene.add(hemisphere)
 
-  const sun = new DirectionalLight(0xfff4e5, 2.6)
+  const sun = new DirectionalLight(0xffffff, 2.1)
   sun.name = 'environment-sun'
-  sun.position.set(24, 42, 18)
+  // Alto e de lado: sombra curta, logo ao lado do guindaste e visível da vista em perspectiva.
+  sun.position.set(-22, 46, 10)
   sun.castShadow = true
-  // 2048² com PCF e raio pequeno: sombra suave e barata o bastante para 60 fps num notebook comum.
+  // 2048² com PCF e raio largo: borda macia e barata o bastante para 60 fps num notebook comum.
   sun.shadow.mapSize.set(2048, 2048)
-  sun.shadow.radius = 3
+  sun.shadow.radius = 5
   sun.shadow.bias = -0.0004
   sun.shadow.normalBias = 0.03
   sun.shadow.camera.near = 1
@@ -167,27 +152,48 @@ export function addEnvironment(scene: Scene): SceneEnvironment {
   scene.add(sun)
   scene.add(sun.target)
 
-  // Luz de recorte fria, por trás, sem sombra: separa o guindaste do fundo escuro.
-  const rim = new DirectionalLight(0x7ea6ff, 0.55)
-  rim.name = 'environment-rim-light'
-  rim.position.set(-30, 18, -26)
-  scene.add(rim)
+  // Luz de preenchimento neutra, por trás, sem sombra: o lado oposto ao sol não fica chapado.
+  const fill = new DirectionalLight(0xffffff, 0.6)
+  fill.name = 'environment-fill-light'
+  fill.position.set(26, 18, -22)
+  scene.add(fill)
 
+  // Chão sem luz, exatamente da cor do fundo: nenhuma emenda no horizonte.
   const ground = new Mesh(
     new PlaneGeometry(GROUND_SIZE_M, GROUND_SIZE_M),
-    // Lambert: sem reflexo especular rasante, que clareava o chão perto do horizonte.
-    new MeshLambertMaterial({ color: SCENE_COLORS.ground }),
+    new MeshBasicMaterial({ color: SCENE_COLORS.ground, toneMapped: false, fog: false }),
   )
   ground.name = 'environment-ground'
   ground.rotation.x = -Math.PI / 2
-  ground.receiveShadow = true
   scene.add(ground)
 
+  // A sombra fica num plano à parte, que só a recebe: tinta translúcida sobre o papel.
+  const groundShadow = new Mesh(
+    new PlaneGeometry(GROUND_SIZE_M / 4, GROUND_SIZE_M / 4),
+    new ShadowMaterial({
+      color: SCENE_COLORS.shadow,
+      opacity: GROUND_SHADOW_OPACITY,
+      depthWrite: false,
+      toneMapped: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    }),
+  )
+  groundShadow.name = 'environment-ground-shadow'
+  groundShadow.rotation.x = -Math.PI / 2
+  groundShadow.position.y = 0.001
+  groundShadow.receiveShadow = true
+  groundShadow.renderOrder = -1
+  scene.add(groundShadow)
+
+  const initialRange = atmosphereRange(40)
   const gridMaterial = new ShaderMaterial({
     name: 'environment-grid',
     uniforms: {
       minorColor: { value: new Color(SCENE_COLORS.gridMinor) },
       majorColor: { value: new Color(SCENE_COLORS.gridMajor) },
+      axisColor: { value: new Color(SCENE_COLORS.gridAxis) },
       minorSpacing: { value: GRID_MINOR_SPACING_M },
       majorSpacing: { value: GRID_MAJOR_SPACING_M },
       fadeNear: { value: initialRange.gridFadeNearM },
@@ -199,11 +205,10 @@ export function addEnvironment(scene: Scene): SceneEnvironment {
     depthWrite: false,
     // Um pouco à frente do chão na profundidade, sem sair do plano y = 0.
     polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
   })
-  // A grade só precisa cobrir até onde o esmaecimento chega com o zoom máximo.
-  const grid = new Mesh(new PlaneGeometry(600, 600), gridMaterial)
+  const grid = new Mesh(new PlaneGeometry(GRID_SIZE_M, GRID_SIZE_M), gridMaterial)
   grid.name = 'environment-grid'
   grid.rotation.x = -Math.PI / 2
   grid.position.y = 0.002
@@ -212,7 +217,8 @@ export function addEnvironment(scene: Scene): SceneEnvironment {
   return {
     sun,
     grid,
-    sky,
+    ground,
+    groundShadow,
     fitShadowToReach(reachM: number) {
       const half = Math.max(reachM, 10) + 8
       const camera = sun.shadow.camera
@@ -223,10 +229,10 @@ export function addEnvironment(scene: Scene): SceneEnvironment {
       camera.updateProjectionMatrix()
     },
     update(cameraPosition: Vector3, cameraDistanceM: number) {
-      sky.position.copy(cameraPosition)
+      // As linhas são calculadas em coordenadas do mundo: mover o plano não as desloca.
+      grid.position.x = cameraPosition.x
+      grid.position.z = cameraPosition.z
       const range = atmosphereRange(cameraDistanceM)
-      fog.near = range.fogNearM
-      fog.far = range.fogFarM
       gridMaterial.uniforms.fadeNear.value = range.gridFadeNearM
       gridMaterial.uniforms.fadeFar.value = range.gridFadeFarM
     },

@@ -14,10 +14,10 @@ export interface SliderProps {
   /** Formata o valor e os limites (ex.: `12,5 m`). */
   readonly format?: (value: number) => string
   readonly onChange: (value: number) => void
-  /** Ícone à esquerda do rótulo. */
-  readonly icon?: ReactNode
   /** Observação sob o controle (ex.: limite FICTÍCIO). */
   readonly note?: ReactNode
+  /** @deprecated Compatibilidade com o ADR-017: ícone pequeno antes do rótulo. O ADR-019 dispensa. */
+  readonly icon?: ReactNode
   readonly id?: string
   readonly className?: string
 }
@@ -32,10 +32,14 @@ function sliderFillPercent(
   return Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100))
 }
 
+/** Marcas da escala: a cada 10 % do curso, maiores no início, no meio e no fim. */
+const TICKS = Array.from({ length: 11 }, (_, index) => index * 10)
+
 /**
- * Controle deslizante com trilha preenchida, valor em fonte mono e limites embaixo. Usa o
- * `input type="range"` nativo: teclado (setas, Home, End, PageUp/PageDown) e leitores de tela funcionam
- * sem código extra.
+ * Controle deslizante como escala graduada (ADR-019 § 2): filete fino com marcas a cada 10 %, trecho
+ * percorrido em tinta, cursor retangular e valor em mono. Usa o `input type="range"` nativo por cima
+ * da escala desenhada: teclado (setas, Home, End, PageUp/PageDown) e leitores de tela funcionam sem
+ * código extra.
  */
 export function Slider({
   label,
@@ -46,8 +50,8 @@ export function Slider({
   disabled = false,
   format = String,
   onChange,
-  icon,
   note,
+  icon,
   id,
   className,
 }: SliderProps) {
@@ -72,20 +76,31 @@ export function Slider({
           {value === undefined ? '—' : format(value)}
         </output>
       </div>
-      <input
-        id={inputId}
-        className={styles.range}
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value ?? 0}
-        disabled={disabled || unavailable}
-        aria-describedby={note ? noteId : undefined}
-        aria-valuetext={value === undefined ? undefined : format(value)}
-        style={{ '--slider-fill': `${fill}%` } as CSSProperties}
-        onChange={(event) => onChange(event.currentTarget.valueAsNumber)}
-      />
+      <div className={styles.control} style={{ '--slider-fill': `${fill}%` } as CSSProperties}>
+        <span className={styles.scale} aria-hidden="true">
+          {TICKS.map((tick) => (
+            <span
+              key={tick}
+              className={cx(styles.tick, tick % 50 === 0 && styles.tickMajor)}
+              style={{ left: `${tick}%` }}
+            />
+          ))}
+          <span className={styles.fill} />
+        </span>
+        <input
+          id={inputId}
+          className={styles.range}
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value ?? 0}
+          disabled={disabled || unavailable}
+          aria-describedby={note ? noteId : undefined}
+          aria-valuetext={value === undefined ? undefined : format(value)}
+          onChange={(event) => onChange(event.currentTarget.valueAsNumber)}
+        />
+      </div>
       {min !== undefined && max !== undefined && (
         <div className={styles.bounds} aria-hidden="true">
           <span>{format(min)}</span>

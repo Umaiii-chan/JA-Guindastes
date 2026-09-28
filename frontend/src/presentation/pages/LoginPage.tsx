@@ -1,7 +1,7 @@
 import { Eye, EyeOff, LogIn, UserRound } from 'lucide-react'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 
-import { BrandMark } from '../layout/BrandMark'
+import { Wordmark } from '../layout/Wordmark'
 import { Badge, Button, Field, Input, Notice, Spinner, type Tone } from '../ui'
 import styles from './LoginPage.module.css'
 
@@ -73,11 +73,7 @@ export function LoginPage({ status, notice, onSubmit }: LoginPageProps) {
       <LoginBackdrop />
       <section className={styles.card} aria-labelledby="login-title" aria-busy={submitting}>
         <div className={styles.brand}>
-          <BrandMark size={40} />
-          <div>
-            <p className={styles.brandName}>JA Guindastes</p>
-            <p className={styles.brandTagline}>Simulador de tabelas de carga</p>
-          </div>
+          <Wordmark variant="stacked" />
         </div>
         <div className={styles.heading}>
           <h1 id="login-title" className={styles.title}>
@@ -168,38 +164,53 @@ export function LoginPage({ status, notice, onSubmit }: LoginPageProps) {
   )
 }
 
-/** Fundo decorativo: grade técnica, traço de guindaste e cotas em mono (só SVG, sem dados). */
+/**
+ * Fundo decorativo: papel milimetrado (linhas de 10 e 50 px em tinta clara) e o traço do guindaste
+ * com cotas, como uma prancha sob a folha de acesso. Só SVG, sem degradê nem dados.
+ */
 function LoginBackdrop() {
   return (
     <div className={styles.backdrop} aria-hidden="true">
-      <div className={styles.grid} />
+      <svg className={styles.grid} width="100%" height="100%">
+        <defs>
+          <pattern id="login-mm" width="10" height="10" patternUnits="userSpaceOnUse">
+            <path d="M10 0H0V10" className={styles.gridMinor} />
+          </pattern>
+          <pattern id="login-cm" width="50" height="50" patternUnits="userSpaceOnUse">
+            <rect width="50" height="50" fill="url(#login-mm)" />
+            <path d="M50 0H0V50" className={styles.gridMajor} />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#login-cm)" />
+      </svg>
       <svg className={styles.blueprint} viewBox="0 0 800 500" fill="none">
-        <g stroke="rgb(103 232 249 / 0.22)" strokeWidth="1.2">
+        <g className={styles.blueprintInk}>
           <path d="M150 420h180" />
           <path d="M170 420l20-40h100l20 40" />
           <path d="M215 380v-26h50v26" />
           <path d="M240 354L600 110" />
-          <path d="M252 362L604 124" strokeDasharray="4 6" />
-          <path d="M600 110v150" strokeDasharray="2 5" />
-          <rect x="585" y="260" width="30" height="24" rx="2" />
+          <path d="M252 362L604 124" />
+          <path d="M600 110v150" />
+          <rect x="585" y="260" width="30" height="24" />
         </g>
-        <g stroke="rgb(148 178 214 / 0.18)" strokeDasharray="3 6">
-          <ellipse cx="240" cy="420" rx="360" ry="46" />
-          <path d="M240 450h360" />
+        <g className={styles.blueprintDim}>
+          <path d="M240 330v130" strokeDasharray="10 3 2 3" />
+          <path d="M600 290v170" />
+          <path d="M240 452h360" />
+          <path d="M240 452l8-3v6zM600 452l-8-3v6z" />
         </g>
         <g className={styles.blueprintLabel}>
-          <text x="410" y="470">
-            R = 12,0 m
+          <text x="410" y="446">
+            R
           </text>
           <text x="430" y="210">
-            L = 31,4 m
+            L
           </text>
-          <text x="330" y="330">
-            α = 34°
+          <text x="330" y="336">
+            θ
           </text>
         </g>
       </svg>
-      <div className={styles.glow} />
     </div>
   )
 }

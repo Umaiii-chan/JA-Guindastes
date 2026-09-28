@@ -31,7 +31,7 @@ import {
 } from '../../presentation/simulator/CameraPresetButtons'
 import { ConnectionStatusBar } from '../../presentation/simulator/ConnectionStatusBar'
 import { GuidedStepsPanel } from '../../presentation/simulator/GuidedStepsPanel'
-import { buttonClassName, EmptyState, Panel } from '../../presentation/ui'
+import { buttonClassName, EmptyState } from '../../presentation/ui'
 import type { CraneCommands, CraneState } from '../../three/crane/types'
 import { useCatalog } from '../catalog/catalogContext'
 import { chooseCraneSetup } from '../craneSetup'
@@ -171,7 +171,7 @@ export function SimulatorRoute() {
             <EmptyState
               tone="danger"
               role="alert"
-              icon={<TriangleAlert size={24} />}
+              icon={<TriangleAlert size={16} />}
               title="Não foi possível iniciar a cena 3D"
               description="Verifique se o navegador oferece WebGL (aceleração gráfica ligada). Os passos e o resultado continuam funcionando."
             />
@@ -236,25 +236,21 @@ export function SimulatorRoute() {
         />
       }
       result={
-        <>
-          <Panel variant="glass" as="div">
-            <BackendEvaluationPanel
-              result={evaluation.result}
-              error={evaluation.error}
-              pending={evaluation.pending}
-              transport={evaluation.transport}
-              inputProblem={evaluationInput.problem}
-              loadWeightKg={input?.loadWeightKg ?? null}
-            />
-          </Panel>
-          <Panel variant="glass" as="div">
-            <OperationalGeometryPanel
-              geometry={crane?.geometry ?? null}
-              parameters={crane?.commands.geometryParameters ?? null}
-              parametersFromSheet={craneSetup.fromSheet}
-            />
-          </Panel>
-        </>
+        <BackendEvaluationPanel
+          result={evaluation.result}
+          error={evaluation.error}
+          pending={evaluation.pending}
+          transport={evaluation.transport}
+          inputProblem={evaluationInput.problem}
+          loadWeightKg={input?.loadWeightKg ?? null}
+        />
+      }
+      geometry={
+        <OperationalGeometryPanel
+          geometry={crane?.geometry ?? null}
+          parameters={crane?.commands.geometryParameters ?? null}
+          parametersFromSheet={craneSetup.fromSheet}
+        />
       }
       statusBar={
         <ConnectionStatusBar

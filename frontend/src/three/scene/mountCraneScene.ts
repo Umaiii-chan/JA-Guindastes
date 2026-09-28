@@ -1,4 +1,4 @@
-import { ACESFilmicToneMapping, PCFShadowMap, SRGBColorSpace, WebGLRenderer } from 'three'
+import { NeutralToneMapping, PCFShadowMap, SRGBColorSpace, WebGLRenderer } from 'three'
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js'
 
 import {
@@ -19,13 +19,9 @@ import { buildCraneScene } from './buildCraneScene'
 import { disposeObject3D } from './disposeObject3D'
 import type { LoadDimensions } from './loadBox'
 import type { SceneRotationZone } from './RotationZoneSectors'
-import {
-  type EvaluationStatus,
-  normalizeEvaluationStatus,
-  SCENE_COLORS,
-  statusCssColor,
-  toCssHex,
-} from './palette'
+import { type EvaluationStatus, normalizeEvaluationStatus, statusCssColor } from './palette'
+import { createScaleBar, pixelsPerMeter } from './scaleBar'
+import { createRadiusLabel, createZoneLabelElement, paintZoneLabel } from './sceneLabels'
 import {
   type CraneModelLoader,
   type CraneModelUpgradeResult,
@@ -87,67 +83,6 @@ function prefersReducedMotion(): boolean {
   )
 }
 
-/** Rótulo HTML do raio (CSS2D): nítido em qualquer zoom, legível sobre o chão escuro. */
-function createRadiusLabelElement(): HTMLDivElement {
-  const element = document.createElement('div')
-  element.className = 'crane-viewport__radius-label'
-  element.dataset.sceneLabel = 'working-radius'
-  // O mesmo valor está no painel de geometria; aqui é só apoio visual.
-  element.setAttribute('aria-hidden', 'true')
-  Object.assign(element.style, {
-    font: "600 12px/1.2 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-    fontVariantNumeric: 'tabular-nums',
-    letterSpacing: '0.02em',
-    color: toCssHex(SCENE_COLORS.labelText),
-    background: 'rgba(11, 15, 21, 0.82)',
-    border: '1px solid',
-    borderLeftWidth: '3px',
-    borderRadius: '4px',
-    padding: '3px 8px',
-    whiteSpace: 'nowrap',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35)',
-    pointerEvents: 'none',
-    userSelect: 'none',
-  } satisfies Partial<CSSStyleDeclaration>)
-  return element
-}
-
-/** Rótulo HTML curto de uma zona de giro (TASK-046), sobre o setor no chão. */
-function createZoneLabelElement(code: string, name: string): HTMLDivElement {
-  const element = document.createElement('div')
-  element.className = 'crane-viewport__zone-label'
-  element.dataset.sceneLabel = 'rotation-zone'
-  element.dataset.zoneCode = code
-  element.textContent = name
-  // O nome da zona atual também está no painel da avaliação; aqui é só apoio visual.
-  element.setAttribute('aria-hidden', 'true')
-  Object.assign(element.style, {
-    font: "600 11px/1.2 'Inter Variable', system-ui, sans-serif",
-    color: toCssHex(SCENE_COLORS.labelText),
-    background: 'rgba(11, 15, 21, 0.6)',
-    border: '1px solid rgba(96, 165, 250, 0.35)',
-    borderRadius: '999px',
-    padding: '2px 8px',
-    whiteSpace: 'nowrap',
-    maxWidth: '180px',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    opacity: '0.7',
-    pointerEvents: 'none',
-    userSelect: 'none',
-  } satisfies Partial<CSSStyleDeclaration>)
-  return element
-}
-
-function paintZoneLabel(element: HTMLElement, active: boolean): void {
-  element.dataset.active = active ? 'true' : 'false'
-  element.style.opacity = active ? '1' : '0.7'
-  element.style.borderColor = active
-    ? toCssHex(SCENE_COLORS.zoneSectorActive)
-    : 'rgba(96, 165, 250, 0.35)'
-  element.style.background = active ? 'rgba(29, 78, 216, 0.55)' : 'rgba(11, 15, 21, 0.6)'
-}
-
 /**
  * Cria o renderer WebGL dentro de `container` (que deve ter tamanho definido pelo layout) e começa a
  * desenhar a cena do guindaste provisório, com os limites e os parâmetros a e h de `setup` (sem ele,
@@ -169,7 +104,8 @@ export function mountCraneScene(
 
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.toneMapping = ACESFilmicToneMapping
+  // Neutral: preserva as cores da paleta e o branco do papel, sem o amarelado e o contraste do ACES.
+  renderer.toneMapping = NeutralToneMapping
   renderer.toneMappingExposure = 1
   renderer.outputColorSpace = SRGBColorSpace
   renderer.shadowMap.enabled = true
@@ -192,9 +128,12 @@ export function mountCraneScene(
     overflow: 'hidden',
   })
   container.appendChild(labelRenderer.domElement)
-  const labelElement = createRadiusLabelElement()
-  labelElement.textContent = radiusIndicator.labelText
+  const radiusLabel = createRadiusLabel()
+  const labelElement = radiusLabel.element
+  radiusLabel.text.textContent = radiusIndicator.labelText
   const label = new CSS2DObject(labelElement)
+  // A ponta da linha de chamada (canto de baixo à esquerda) fica sobre a âncora.
+  label.center.set(0, 1)
   radiusIndicator.labelAnchor.add(label)
 
   // Rótulos das zonas de giro (TASK-046), refeitos quando as zonas mudam.
@@ -207,19 +146,47 @@ export function mountCraneScene(
     zoneLabels = []
   }
 
+  // Escala gráfica no canto do quadro (TASK-047), na distância do alvo da órbita.
+  const scaleBar = createScaleBar()
+  container.appendChild(scaleBar.element)
+
   const camera = createCamera(1)
   const controls = createOrbitControls(camera, renderer.domElement, INITIAL_CAMERA_TARGET)
 
   let transition: CameraTransition | null = null
-  // Arrastar a câmera interrompe a transição em curso.
+  /**
+   * Predefinição que a câmera ainda segue: enquanto a pessoa não mexe na órbita, uma mudança de
+   * tamanho do quadro refaz o enquadramento para a proporção nova (TASK-047). Começa na perspectiva.
+   */
+  let followedPreset: CameraPreset | null = 'perspectiva'
+  // Arrastar (ou dar zoom) interrompe a transição em curso e solta a predefinição.
   const cancelTransition = (): void => {
     transition = null
+    followedPreset = null
   }
   controls.addEventListener('start', cancelTransition)
 
   const applyView = (view: CameraView): void => {
     camera.position.set(view.position.x, view.position.y, view.position.z)
     controls.target.set(view.target.x, view.target.y, view.target.z)
+  }
+
+  /** Enquadramento da predefinição para o estado atual do guindaste e a proporção do quadro. */
+  const presetView = (preset: CameraPreset): CameraView =>
+    resolveCameraPreset(preset, {
+      turretRotationDeg: crane.getState().turretRotationDeg,
+      geometry: crane.getOperationalGeometry(),
+      maxReachM: radiusIndicator.reach.maxM,
+      operatorEye: contents.operatorEye ?? undefined,
+      aspect: camera.aspect,
+      fovDeg: camera.fov,
+    })
+
+  const jumpTo = (view: CameraView): void => {
+    transition = null
+    applyView(view)
+    applyCameraLimits(controls)
+    controls.update()
   }
 
   // Renderização sob demanda (CA-6): o laço roda a cada quadro, mas só desenha quando algo mudou
@@ -237,9 +204,13 @@ export function mountCraneScene(
     renderer.setSize(width, height, false)
     labelRenderer.setSize(width, height)
     resizeCamera(camera, width, height)
+    // Quadro mais estreito ou mais alto: a predefinição seguida se reenquadra, sem cortar a lança.
+    if (followedPreset && !transition) jumpTo(presetView(followedPreset))
     invalidate()
   }
   resize()
+  // Vista inicial: a perspectiva enquadrada para o quadro (mesmo antes de ele ter tamanho).
+  if (followedPreset) jumpTo(presetView(followedPreset))
   const resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(container)
 
@@ -253,7 +224,7 @@ export function mountCraneScene(
       workingRadiusM: crane.getOperationalGeometry().workingRadiusM,
       turretRotationDeg: state.turretRotationDeg,
     })
-    if (changed) labelElement.textContent = radiusIndicator.labelText
+    if (changed) radiusLabel.text.textContent = radiusIndicator.labelText
     return true
   }
 
@@ -270,7 +241,9 @@ export function mountCraneScene(
     const lifted = keepCameraAboveGround(controls)
     if (!(dirty || craneChanged || moving || cameraChanged || lifted)) return
     dirty = false
-    environment.update(camera.position, camera.position.distanceTo(controls.target))
+    const targetDistance = camera.position.distanceTo(controls.target)
+    environment.update(camera.position, targetDistance)
+    scaleBar.update(pixelsPerMeter(targetDistance, camera.fov, container.clientHeight))
     renderer.render(scene, camera)
     labelRenderer.render(scene, camera)
   }
@@ -301,7 +274,7 @@ export function mountCraneScene(
       const normalized = normalizeEvaluationStatus(status)
       radiusIndicator.setStatus(normalized)
       hookLoad.setStatus(normalized)
-      labelElement.style.borderColor = statusCssColor(normalized)
+      radiusLabel.paint(statusCssColor(normalized))
       invalidate()
     },
     setLoad(load) {
@@ -327,18 +300,11 @@ export function mountCraneScene(
     },
     setCameraPreset(preset, options = {}) {
       if (disposed) return
-      const to = resolveCameraPreset(preset, {
-        turretRotationDeg: crane.getState().turretRotationDeg,
-        geometry: crane.getOperationalGeometry(),
-        maxReachM: radiusIndicator.reach.maxM,
-        operatorEye: contents.operatorEye ?? undefined,
-      })
+      const to = presetView(preset)
       const animate = (options.animate ?? true) && !prefersReducedMotion()
       if (!animate) {
-        transition = null
-        applyView(to)
-        applyCameraLimits(controls)
-        controls.update()
+        jumpTo(to)
+        followedPreset = preset
         invalidate()
         return
       }
@@ -347,6 +313,7 @@ export function mountCraneScene(
         target: { x: controls.target.x, y: controls.target.y, z: controls.target.z },
       }
       transition = new CameraTransition(from, to, CAMERA_TRANSITION_MS, performance.now())
+      followedPreset = preset
     },
     dispose() {
       if (disposed) return
@@ -363,6 +330,7 @@ export function mountCraneScene(
       removeZoneLabels()
       rotationZones.dispose()
       labelRenderer.domElement.remove()
+      scaleBar.element.remove()
       hookLoad.dispose()
       disposeObject3D(scene)
       renderer.dispose()

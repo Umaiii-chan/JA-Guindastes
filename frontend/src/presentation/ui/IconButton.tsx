@@ -10,6 +10,7 @@ export interface IconButtonProps extends Omit<
   /** Nome acessível, obrigatório (o botão não tem texto). Também vira a dica ao passar o mouse. */
   readonly label: string
   readonly icon: ReactNode
+  /** `glass` fica por compatibilidade com o ADR-017 e desenha como `solid`. */
   readonly variant?: 'ghost' | 'solid' | 'glass'
   readonly size?: 'sm' | 'md'
   /** Botão de alternância: vira `aria-pressed`. */
@@ -41,7 +42,12 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       aria-pressed={pressed}
       data-tooltip={tooltip === 'none' ? undefined : label}
       data-tooltip-side={tooltip === 'none' ? undefined : tooltip}
-      className={cx(styles.iconButton, styles[variant], styles[size], className)}
+      className={cx(
+        styles.iconButton,
+        styles[variant === 'glass' ? 'solid' : variant],
+        styles[size],
+        className,
+      )}
       {...rest}
     >
       <span className={styles.icon} aria-hidden="true">

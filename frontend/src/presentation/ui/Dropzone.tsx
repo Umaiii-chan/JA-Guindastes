@@ -124,7 +124,7 @@ export function Dropzone({
         }}
       />
       <Button
-        variant={status === 'idle' ? 'primary' : 'secondary'}
+        variant="secondary"
         size="sm"
         icon={<FileUp size={15} />}
         disabled={disabled || status === 'validating'}

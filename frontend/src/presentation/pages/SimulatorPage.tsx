@@ -3,32 +3,44 @@ import type { ReactNode } from 'react'
 import styles from './SimulatorPage.module.css'
 
 export interface SimulatorPageProps {
-  /** Cena 3D (o `CraneViewport` com o limite de erro), que ocupa a página inteira. */
+  /** Cena 3D (o `CraneViewport` com o limite de erro), no quadro de desenho. */
   readonly viewport: ReactNode
-  /** Painel de passos, à esquerda. */
+  /** Coluna de procedimento (passos), à esquerda. */
   readonly steps: ReactNode
-  /** HUD do resultado e pré-visualização da geometria, à direita. */
+  /** Ficha do resultado do backend, no pé do quadro. */
   readonly result: ReactNode
-  /** Barra de status da conexão e da câmera, embaixo. */
+  /** Pré-visualização da geometria, na última célula da ficha. */
+  readonly geometry?: ReactNode
+  /** Faixa de título do quadro: conexão e vistas da câmera. */
   readonly statusBar: ReactNode
 }
 
 /**
- * Página do simulador guiado (ADR-017 § 2): a cena ocupa a área inteira e os painéis de vidro
- * flutuam por cima — passos à esquerda, resultado à direita, status embaixo. Os cliques no espaço
- * livre entre os painéis chegam à cena (girar e aproximar a câmera).
+ * Página do simulador guiado (ADR-017 § 2, com o visual do ADR-019): em colunas, nada flutua sobre a
+ * cena. À esquerda, a coluna de procedimento; à direita, a prancha: faixa de título (conexão e
+ * vistas), o quadro claro da cena com borda de desenho técnico e, no pé, a ficha do resultado com a
+ * geometria, como o carimbo de uma prancha.
  */
-export function SimulatorPage({ viewport, steps, result, statusBar }: SimulatorPageProps) {
+export function SimulatorPage({
+  viewport,
+  steps,
+  result,
+  geometry,
+  statusBar,
+}: SimulatorPageProps) {
   return (
     <div className={styles.stage}>
-      <div className={styles.scene}>{viewport}</div>
-      <div className={styles.vignette} aria-hidden="true" />
-      <div className={styles.overlay}>
-        <div className={styles.left}>{steps}</div>
-        <aside className={styles.right} aria-label="Resultado da avaliação">
-          {result}
+      <div className={styles.procedure}>{steps}</div>
+      <div className={styles.drawing}>
+        {statusBar}
+        <div className={styles.scene}>
+          {viewport}
+          <span className={styles.corners} aria-hidden="true" />
+        </div>
+        <aside className={styles.result} aria-label="Resultado da avaliação">
+          <div className={styles.evaluation}>{result}</div>
+          {geometry && <div className={styles.geometry}>{geometry}</div>}
         </aside>
-        <div className={styles.bottom}>{statusBar}</div>
       </div>
     </div>
   )
