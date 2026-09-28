@@ -1,66 +1,63 @@
+/* Área de soltar arquivo: moldura tracejada de 1 px, como um campo a preencher na prancha. */
 .zone {
-  --tone: var(--color-accent);
+  --tone: var(--color-text-2);
+
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-5);
-  border-radius: var(--radius-lg);
-  border: 1.5px dashed var(--color-border-strong);
-  background:
-    radial-gradient(
-      120% 140% at 0% 0%,
-      color-mix(in srgb, var(--tone) 7%, transparent),
-      transparent 60%
-    ),
-    rgb(8 11 16 / 0.35);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--color-border-strong);
+  background: var(--color-surface-1);
   transition:
     border-color var(--duration-fast) var(--ease-out),
-    background-color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-base) var(--ease-out),
-    transform var(--duration-base) var(--ease-out);
+    background-color var(--duration-fast) var(--ease-out);
 }
 
 .zone:focus-within {
   border-color: var(--color-accent);
 }
 
+/* Arrastando por cima: o alvo selecionado leva o acento. */
 .dragging {
+  --tone: var(--color-accent-ink);
+
   border-style: solid;
   border-color: var(--color-accent);
   background-color: var(--color-accent-softer);
-  box-shadow: var(--shadow-glow-accent);
-  transform: scale(1.01);
 }
 
 .validating {
   border-style: solid;
-  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  border-color: var(--color-text-2);
 }
 
+/* Conferindo: um traço que corre no pé da moldura. */
 .validating::after {
   content: '';
   position: absolute;
-  inset: auto 0 0;
+  left: 0;
+  bottom: -1px;
+  width: 30%;
   height: 2px;
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
-  background-size: 40% 100%;
-  background-repeat: no-repeat;
-  animation: sweep 1.2s var(--ease-in-out) infinite;
+  background: var(--color-text-1);
+  animation: sweep 1.2s var(--ease-in-out) infinite alternate;
 }
 
 .valid {
   --tone: var(--color-status-ok);
+
   border-style: solid;
-  border-color: color-mix(in srgb, var(--color-status-ok) 50%, transparent);
+  border-color: var(--color-status-ok);
 }
 
 .invalid {
   --tone: var(--color-status-danger);
+
   border-style: solid;
-  border-color: color-mix(in srgb, var(--color-status-danger) 55%, transparent);
+  border-color: var(--color-status-danger);
 }
 
 .disabled {
@@ -70,16 +67,11 @@
 .icon {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
+  width: 40px;
+  height: 40px;
   color: var(--tone);
-  background: color-mix(in srgb, var(--tone) 12%, var(--color-surface-2));
-  border: 1px solid color-mix(in srgb, var(--tone) 32%, transparent);
-}
-
-.dragging .icon {
-  animation: bob 900ms var(--ease-in-out) infinite alternate;
+  border: 1px solid currentcolor;
+  border-radius: var(--radius-sm);
 }
 
 .text {
@@ -102,22 +94,16 @@
 
 @keyframes sweep {
   from {
-    background-position: -40% 0;
+    left: 0;
   }
-  to {
-    background-position: 140% 0;
-  }
-}
 
-@keyframes bob {
   to {
-    transform: translateY(-3px);
+    left: 70%;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .validating::after,
-  .dragging .icon {
+  .validating::after {
     animation: none;
   }
 }

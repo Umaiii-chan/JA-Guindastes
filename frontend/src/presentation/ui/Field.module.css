@@ -1,6 +1,6 @@
 .field {
   display: grid;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 }
 
@@ -14,13 +14,12 @@
 .label {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  color: var(--color-text-2);
-  letter-spacing: 0.01em;
+  color: var(--color-text-1);
 }
 
 .required {
   margin-left: 2px;
-  color: var(--color-accent);
+  color: var(--color-accent-ink);
 }
 
 .labelAside {
@@ -34,19 +33,19 @@
   align-items: center;
 }
 
+/* Campo: papel com contorno de 1 px; foco com contorno laranja e filete de 2 px embaixo. */
 .input {
   width: 100%;
-  height: 36px;
+  height: 34px;
   padding: 0 var(--space-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-strong);
-  background: rgb(8 11 16 / 0.55);
+  background: var(--color-surface-1);
   color: var(--color-text-1);
   font-size: var(--font-size-md);
   transition:
     border-color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-base) var(--ease-out),
-    background-color var(--duration-fast) var(--ease-out);
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .input[type='number'] {
@@ -67,27 +66,24 @@
 }
 
 .input:hover:not(:disabled) {
-  border-color: rgb(148 178 214 / 0.34);
+  border-color: var(--color-text-1);
 }
 
 .input:focus-visible {
-  outline: none;
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-accent-soft);
-  background: rgb(8 11 16 / 0.8);
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-color: var(--color-text-1);
 }
 
 .input:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
+  background: var(--color-surface-2);
 }
 
 .input[aria-invalid='true'] {
-  border-color: rgb(239 68 68 / 0.8);
-}
-
-.input[aria-invalid='true']:focus-visible {
-  box-shadow: 0 0 0 3px var(--color-status-danger-soft);
+  border-color: var(--color-status-danger);
+  box-shadow: inset 0 -2px 0 var(--color-status-danger);
 }
 
 .withUnit .input {
@@ -95,7 +91,7 @@
 }
 
 .withIcon .input {
-  padding-left: 34px;
+  padding-left: 32px;
 }
 
 .unit {
@@ -103,13 +99,13 @@
   right: var(--space-3);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
-  color: var(--color-text-3);
+  color: var(--color-text-2);
   pointer-events: none;
 }
 
 .leadingIcon {
   position: absolute;
-  left: 11px;
+  left: 10px;
   display: grid;
   color: var(--color-text-3);
   pointer-events: none;
@@ -125,44 +121,42 @@
 
 .input[type='file']::file-selector-button {
   margin-right: var(--space-3);
-  padding: 6px var(--space-3);
+  padding: 5px var(--space-3);
   border-radius: var(--radius-sm);
-  border: 1px solid rgb(34 211 238 / 0.35);
-  background: var(--color-accent-soft);
-  color: var(--color-accent-strong);
+  border: 1px solid var(--color-text-1);
+  background: var(--color-surface-1);
+  color: var(--color-text-1);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
 .input[type='file']:hover::file-selector-button {
-  background: rgb(34 211 238 / 0.22);
+  text-decoration: underline;
 }
 
 .select {
   appearance: none;
-  padding-right: 34px;
+  padding-right: 32px;
   cursor: pointer;
   text-overflow: ellipsis;
 }
 
 .select option {
-  background: var(--color-surface-2);
+  background: var(--color-surface-1);
   color: var(--color-text-1);
 }
 
 .chevron {
   position: absolute;
-  right: 10px;
+  right: 9px;
   display: grid;
-  color: var(--color-text-3);
+  color: var(--color-text-2);
   pointer-events: none;
-  transition: color var(--duration-fast) var(--ease-out);
 }
 
 .selectControl:hover .chevron,
 .selectControl:focus-within .chevron {
-  color: var(--color-accent);
+  color: var(--color-text-1);
 }
 
 .hint {
@@ -187,6 +181,5 @@
 @keyframes error-in {
   from {
     opacity: 0;
-    transform: translateY(-3px);
   }
 }

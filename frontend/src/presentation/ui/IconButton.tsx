@@ -10,7 +10,7 @@ export interface IconButtonProps extends Omit<
   /** Nome acessível, obrigatório (o botão não tem texto). Também vira a dica ao passar o mouse. */
   readonly label: string
   readonly icon: ReactNode
-  readonly variant?: 'ghost' | 'solid' | 'glass'
+  readonly variant?: 'ghost' | 'solid'
   readonly size?: 'sm' | 'md'
   /** Botão de alternância: vira `aria-pressed`. */
   readonly pressed?: boolean

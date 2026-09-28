@@ -55,7 +55,7 @@ describe('IconButton', () => {
 describe('Panel', () => {
   it('com título, é uma região nomeada pelo título', () => {
     render(
-      <Panel title="Resultado" variant="glass">
+      <Panel title="Resultado" stamp="FL. 1">
         conteúdo
       </Panel>,
     )
@@ -143,7 +143,7 @@ describe('Slider', () => {
     expect(
       document.getElementById(slider.getAttribute('aria-describedby') ?? '')?.textContent,
     ).toBe('Limite FICTÍCIO.')
-    expect(slider.style.getPropertyValue('--slider-fill')).toBe('37.5%')
+    expect(slider.parentElement?.style.getPropertyValue('--slider-fill')).toBe('37.5%')
     fireEvent.change(slider, { target: { value: '45' } })
     expect(onChange).toHaveBeenCalledWith(45)
   })

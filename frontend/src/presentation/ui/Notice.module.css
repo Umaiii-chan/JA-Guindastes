@@ -1,50 +1,45 @@
+/*
+ * Aviso em bloco como nota do manual (ADR-019 § 4): filete de cor à esquerda, fundo de papel, sem
+ * brilho nem degradê.
+ */
 .ok {
   --tone: var(--color-status-ok);
-  --tone-soft: var(--color-status-ok-soft);
+  --tone-text: var(--color-status-ok);
 }
 
 .warning {
   --tone: var(--color-status-warning);
-  --tone-soft: var(--color-status-warning-soft);
+  --tone-text: var(--color-status-warning-text);
 }
 
 .danger {
   --tone: var(--color-status-danger);
-  --tone-soft: var(--color-status-danger-soft);
+  --tone-text: var(--color-status-danger-text);
 }
 
 .neutral {
   --tone: var(--color-status-neutral);
-  --tone-soft: var(--color-status-neutral-soft);
+  --tone-text: var(--color-status-neutral-text);
 }
 
 .info {
-  --tone: var(--color-accent);
-  --tone-soft: var(--color-accent-softer);
+  --tone: var(--color-text-1);
+  --tone-text: var(--color-text-1);
 }
 
 .notice {
   position: relative;
   display: flex;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  background: linear-gradient(90deg, var(--tone-soft), transparent 120%);
-  border: 1px solid color-mix(in srgb, var(--tone) 22%, transparent);
-  overflow: hidden;
-}
-
-.notice::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  background: var(--tone);
-  box-shadow: 0 0 12px var(--tone);
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-left: 2px solid var(--tone);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-1);
 }
 
 .compact {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
   gap: var(--space-2);
 }
 
@@ -52,7 +47,7 @@
   display: grid;
   flex: none;
   padding-top: 1px;
-  color: var(--tone);
+  color: var(--tone-text);
 }
 
 .content {

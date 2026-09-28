@@ -8,7 +8,6 @@
 
 .danger {
   --tone: var(--color-status-danger);
-  --tone-text: var(--color-status-danger-text);
 }
 
 .neutral {
@@ -16,138 +15,220 @@
 }
 
 .info {
-  --tone: var(--color-accent);
+  --tone: var(--color-text-1);
 }
 
+/* Número grande à esquerda, régua à direita. */
 .gauge {
-  position: relative;
   display: grid;
-  place-items: center;
-  flex: none;
-}
-
-.gauge svg {
-  position: absolute;
-  inset: 0;
-  overflow: visible;
-}
-
-.track {
-  fill: none;
-  stroke: var(--color-surface-3);
-  stroke-linecap: round;
-}
-
-.band {
-  fill: none;
-  stroke-width: 3;
-  stroke-linecap: round;
-  opacity: 0.5;
-}
-
-.band-ok {
-  stroke: var(--color-status-ok);
-}
-
-.band-warning {
-  stroke: var(--color-status-warning);
-}
-
-.band-danger {
-  stroke: var(--color-status-danger);
-}
-
-.band-neutral {
-  stroke: var(--color-status-neutral);
-}
-
-.band-info {
-  stroke: var(--color-accent);
-}
-
-.tick {
-  stroke: var(--color-text-3);
-  stroke-width: 1;
-  opacity: 0.45;
-}
-
-.tickMajor {
-  stroke-width: 1.5;
-  opacity: 0.8;
-}
-
-.value {
-  fill: none;
-  stroke-linecap: round;
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--tone) 70%, transparent));
-  transition: stroke var(--duration-base) var(--ease-out);
-}
-
-.gradientStart {
-  stop-color: color-mix(in srgb, var(--tone) 55%, #0b1016);
-  transition: stop-color var(--duration-base) var(--ease-out);
-}
-
-.gradientEnd {
-  stop-color: var(--tone);
-  transition: stop-color var(--duration-base) var(--ease-out);
-}
-
-.cap {
-  fill: var(--color-bg);
-  stroke: var(--tone);
-  stroke-width: 2.5;
-  filter: drop-shadow(0 0 5px var(--tone));
-}
-
-.over .value {
-  animation: over-pulse 1.8s var(--ease-in-out) infinite;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  column-gap: var(--space-5);
+  min-width: 0;
 }
 
 .readout {
-  position: relative;
   display: grid;
-  justify-items: center;
   gap: 2px;
-  margin-top: calc(var(--gauge-size) * -0.02);
-  text-align: center;
+  min-width: 7.5ch;
+}
+
+.label {
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-2);
 }
 
 .number {
   display: inline-flex;
   align-items: baseline;
-  gap: 2px;
+  gap: 3px;
   font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: calc(var(--gauge-size) * 0.155);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1;
-  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-size: 2.5rem;
+  font-weight: var(--font-weight-medium);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
   color: var(--color-text-1);
 }
 
-.unit {
-  font-size: var(--font-size-md);
-  color: var(--color-text-2);
+.over .number {
+  color: var(--color-status-danger-text);
 }
 
-.label {
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--letter-spacing-caps);
-  text-transform: uppercase;
-  color: var(--color-text-3);
+.unit {
+  font-size: var(--font-size-lg);
+  letter-spacing: 0;
+  color: var(--color-text-2);
 }
 
 .caption {
   font-size: var(--font-size-2xs);
   line-height: 1.3;
   white-space: nowrap;
-  color: var(--tone-text, var(--tone));
+  color: var(--color-text-2);
 }
 
-@keyframes over-pulse {
-  50% {
-    filter: drop-shadow(0 0 12px var(--tone));
-  }
+.over .caption {
+  color: var(--color-status-danger-text);
+}
+
+/* ── Régua ──────────────────────────────────────────────────────────────── */
+
+.ruler {
+  position: relative;
+  display: grid;
+  gap: 0;
+  padding-bottom: 2px;
+}
+
+.ticks {
+  position: relative;
+  height: 9px;
+}
+
+.tick {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  height: 5px;
+  margin-left: -0.5px;
+  background: var(--color-text-2);
+}
+
+.tickMajor {
+  height: 9px;
+  background: var(--color-text-1);
+}
+
+.track {
+  position: relative;
+  height: 16px;
+}
+
+/* Corpo da régua (0 a 100 %): moldura de 1 px em tinta. */
+.track::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--ruler-scale);
+  border: 1px solid var(--color-text-1);
+  background: var(--color-surface-1);
+}
+
+/* Zona de "excede", depois de 100 %: só a moldura tracejada, até a barra estourar. */
+.overflowZone {
+  position: absolute;
+  inset: 0 0 0 var(--ruler-scale);
+  border: 1px dashed var(--color-border-strong);
+  border-left: 0;
+}
+
+.over .overflowZone {
+  border-color: var(--color-status-danger);
+  border-style: solid;
+  background: var(--color-status-danger-soft);
+}
+
+.fill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: max(0px, calc(var(--ruler-fill) - 4px));
+  background: var(--tone);
+  transition: background-color var(--duration-base) var(--ease-out);
+}
+
+.over .fill {
+  width: calc(var(--ruler-fill) - 2px);
+}
+
+/* Traço do limite (100 %): atravessa a régua de cima a baixo. */
+.limit {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  left: var(--ruler-scale);
+  width: 2px;
+  margin-left: -1px;
+  background: var(--color-text-1);
+}
+
+.bands {
+  position: relative;
+  height: 4px;
+  margin-top: 2px;
+}
+
+.band {
+  position: absolute;
+  top: 1px;
+  height: 2px;
+}
+
+.band-ok {
+  background: var(--color-status-ok);
+}
+
+.band-warning {
+  background: var(--color-status-warning);
+}
+
+.band-danger {
+  background: var(--color-status-danger);
+}
+
+.band-neutral {
+  background: var(--color-status-neutral);
+}
+
+.band-info {
+  background: var(--color-text-1);
+}
+
+.scaleLabels {
+  position: relative;
+  height: 16px;
+  margin-top: 1px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-2);
+}
+
+.scaleLabels > span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.scaleLabels > span:first-child {
+  transform: none;
+}
+
+/*
+ * Marca de "excede": o rótulo em papel sobre o trecho vermelho que estourou a régua, entre o traço
+ * de 100 % e o fim da barra.
+ */
+.exceeds {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: calc(var(--ruler-scale) + 2px);
+  right: calc(100% - var(--ruler-fill));
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--color-text-inverse);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-bold);
+  font-stretch: var(--font-stretch-condensed);
+  letter-spacing: var(--letter-spacing-caps);
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
 }

@@ -1,5 +1,5 @@
-// Design system próprio (ADR-017 § 3; TASK-039): componentes em CSS Modules sobre os tokens de
-// src/presentation/theme/tokens.css.
+// Design system próprio (ADR-017; visual de manual técnico do ADR-019, TASK-047): componentes em CSS
+// Modules sobre os tokens de src/presentation/theme/tokens.css.
 
 export { Badge, StatusPill } from './Badge'
 export type { BadgeProps, StatusPillProps } from './Badge'
