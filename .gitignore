@@ -47,3 +47,7 @@ assets/source/
 
 # worktrees dos agentes do Claude Code (tarefas em paralelo)
 .claude/worktrees/
+
+# Dados oficiais da Guindastes Ribas (tabelas de carga reais e PDFs de origem): ficam só na máquina
+# da pessoa responsável e são importados pela página Tabelas; nunca versionar (decisão de 2026-09-27, P-007).
+dados-oficiais/

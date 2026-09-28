@@ -8,8 +8,9 @@ não usam. `CraneCatalogStore` junta as três.
 O que cada `update_*` pode mudar:
 - fabricante: o nome;
 - guindaste: o nome do modelo (o fabricante não muda);
-- configuração: o nome e a ficha técnica inteira (o guindaste não muda). A ficha nova vale para as
-  próximas avaliações; as tabelas de carga da configuração não são tocadas.
+- configuração: o nome, a ficha técnica inteira, as zonas de giro e o peso do gancho (TASK-046; o
+  guindaste não muda). Os valores novos valem para as próximas avaliações; as tabelas de carga da
+  configuração não são tocadas.
 """
 
 from typing import Protocol
@@ -29,7 +30,8 @@ class CraneCatalogEditing(Protocol):
     - devolve `False` quando o id não existe, sem gravar nada e sem levantar exceção por isso;
     - `update_crane` ignora `manufacturer_id` e `update_configuration` ignora `crane_id`: o vínculo
       com o registro pai não muda;
-    - `update_configuration` grava a ficha recebida como está (`None` apaga a ficha);
+    - `update_configuration` grava a ficha, as zonas de giro e o peso do gancho recebidos como
+      estão (`None` apaga cada um; TASK-046);
     - cada chamada é atômica: ou grava tudo, ou nada.
     """
 

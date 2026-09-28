@@ -4,7 +4,13 @@
 // importada mais recentemente para a mais antiga e com a ativa indicada. Aqui ficam só as regras da
 // tela sobre ela: qual é a ativa, o que pode ser ativado e as sugestões de versão e id.
 
-import type { LoadChartFailure, LoadChartStatus, LoadChartSummary, StoredLoadChart } from './ports'
+import type {
+  ActiveChartRef,
+  LoadChartFailure,
+  LoadChartStatus,
+  LoadChartSummary,
+  StoredLoadChart,
+} from './ports'
 
 /**
  * A versão ativa da lista: a indicada pelo backend (`active_chart_id`) ou, sem ela, a de status
@@ -27,7 +33,52 @@ export function summaryOf(chart: StoredLoadChart): LoadChartSummary {
     status: chart.status,
     pointCount: chart.points.length,
     sourceFileName: chart.sourceFileName,
+    rotationZoneCode: chart.rotationZoneCode,
   }
+}
+
+/**
+ * A versão ativa de cada zona (ADR-018; TASK-046), pela `active_charts` do backend. A chave `null`
+ * é a ativa de uma configuração sem zonas. Ativa indicada que não está na lista fica de fora.
+ */
+export function activeVersionsByZone<
+  T extends { readonly chartId: string; readonly rotationZoneCode: string | null },
+>(versions: readonly T[], activeCharts: readonly ActiveChartRef[]): ReadonlyMap<string | null, T> {
+  const byZone = new Map<string | null, T>()
+  for (const ref of activeCharts) {
+    const version = versions.find((item) => item.chartId === ref.chartId)
+    if (version && !byZone.has(ref.rotationZoneCode)) byZone.set(ref.rotationZoneCode, version)
+  }
+  return byZone
+}
+
+/** A tabela é a ativa da sua zona (ou da configuração sem zonas). */
+export function isActiveChart(chartId: string, activeCharts: readonly ActiveChartRef[]): boolean {
+  return activeCharts.some((item) => item.chartId === chartId)
+}
+
+/**
+ * A primeira ativa na ordem das zonas da configuração (ou a ativa sem zona), para quem mostra uma
+ * só matriz. Sem zonas, é a ativa de sempre.
+ */
+export function firstActiveVersion<
+  T extends {
+    readonly chartId: string
+    readonly status: LoadChartStatus
+    readonly rotationZoneCode: string | null
+  },
+>(
+  versions: readonly T[],
+  activeCharts: readonly ActiveChartRef[],
+  zoneCodes: readonly string[],
+  activeChartId: string | null = null,
+): T | null {
+  const byZone = activeVersionsByZone(versions, activeCharts)
+  for (const code of zoneCodes) {
+    const version = byZone.get(code)
+    if (version) return version
+  }
+  return byZone.get(null) ?? activeVersion(versions, activeChartId)
 }
 
 /** Só `DRAFT` e `VALIDATED` podem ser ativadas (doc-fonte § 13.2; 409 nos demais). */

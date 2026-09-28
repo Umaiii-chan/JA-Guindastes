@@ -5,6 +5,12 @@
 // Erros: 404 → `NOT_FOUND` e 409 → `CONFLICT`, com o `detail` do backend como mensagem; 422 →
 // `VALIDATION`, com cada item do `detail` do FastAPI virando um erro de campo; outro HTTP →
 // `HTTP_ERROR`; rede → `NETWORK_ERROR`; resposta fora do contrato → `INVALID_RESPONSE`.
+//
+// Zonas de giro e peso do gancho (TASK-046 § 3): `rotation_zones` e `hook_block_weight_kg` na
+// criação (só quando informados), no PATCH (lista vazia vai como `null` e remove as zonas) e na
+// resposta (ausentes = sem zonas e sem gancho). 409 `ROTATION_ZONE_IN_USE` e
+// `ZONELESS_LOAD_CHARTS_EXIST` e 422
+// `INVALID_ROTATION_ZONES` vêm com `apiCode`; o 422 das zonas vira erro do campo `rotationZones`.
 
 import type { CatalogGateway } from '../../application/catalog/ports'
 import {
@@ -14,7 +20,15 @@ import {
   type CraneConfiguration,
   type CraneTechnicalSheet,
   type Manufacturer,
+  type RotationZone,
+  ZONELESS_LOAD_CHARTS_EXIST,
+  ZONELESS_LOAD_CHARTS_MESSAGE,
 } from '../../domain/catalog/catalog'
+import {
+  CONFIGURATION_ZONE_ERROR_CODES,
+  detailText,
+  findApiErrorCode,
+} from '../shared/apiErrorCode'
 import {
   ContractViolationError,
   isRecord,
@@ -26,8 +40,12 @@ import {
   readString,
 } from '../shared/readJson'
 import {
+  type ConfigurationCreateDto,
   type ConfigurationUpdateDto,
   configurationPath,
+  INVALID_ROTATION_ZONES,
+  ROTATION_ZONE_IN_USE,
+  toRotationZoneDto,
   type CraneGeometryDto,
   cranePath,
   type CraneUpdateDto,
@@ -104,12 +122,18 @@ export function createCatalogRestClient(options: CatalogRestClientOptions = {}):
       request(craneConfigurationsPath(craneId), undefined, (json) =>
         mapList(json, mapConfiguration),
       ),
-    createConfiguration: (craneId, { name, geometry }) =>
-      request(
-        craneConfigurationsPath(craneId),
-        { name, geometry: geometry && toCraneGeometryDto(geometry) },
-        mapConfiguration,
-      ),
+    createConfiguration: (craneId, { name, geometry, rotationZones, hookBlockWeightKg }) => {
+      // Zonas e gancho só vão quando informados (TASK-046): ausentes valem "sem zonas" e "sem gancho".
+      const body: ConfigurationCreateDto = {
+        name,
+        geometry: geometry && toCraneGeometryDto(geometry),
+        ...(rotationZones !== undefined &&
+          rotationZones.length > 0 && { rotation_zones: rotationZones.map(toRotationZoneDto) }),
+        ...(hookBlockWeightKg !== undefined &&
+          hookBlockWeightKg !== null && { hook_block_weight_kg: hookBlockWeightKg }),
+      }
+      return request(craneConfigurationsPath(craneId), body, mapConfiguration)
+    },
     updateManufacturer: (manufacturerId, name) =>
       request(
         manufacturerPath(manufacturerId),
@@ -124,10 +148,18 @@ export function createCatalogRestClient(options: CatalogRestClientOptions = {}):
         mapCrane,
         'PATCH',
       ),
-    updateConfiguration: (configurationId, { name, geometry }) => {
+    updateConfiguration: (
+      configurationId,
+      { name, geometry, rotationZones, hookBlockWeightKg },
+    ) => {
       const body: ConfigurationUpdateDto = {
         ...(name !== undefined && { name }),
         ...(geometry !== undefined && { geometry: toCraneGeometryDto(geometry) }),
+        // Lista vazia remove as zonas: vai `null` explícito (TASK-046 § 3).
+        ...(rotationZones !== undefined && {
+          rotation_zones: rotationZones.length > 0 ? rotationZones.map(toRotationZoneDto) : null,
+        }),
+        ...(hookBlockWeightKg !== undefined && { hook_block_weight_kg: hookBlockWeightKg }),
       }
       return request(configurationPath(configurationId), body, mapConfiguration, 'PATCH')
     },
@@ -144,17 +176,54 @@ async function readBody(response: Response): Promise<unknown> {
 
 function errorFromResponse(status: number, body: unknown): CatalogRequestError {
   const detail = isRecord(body) ? body.detail : undefined
+  const apiCode = findApiErrorCode(body, CONFIGURATION_ZONE_ERROR_CODES)
+  const message = detailText(body)
   if (status === 422) {
     const fieldErrors = Array.isArray(detail) ? detail.map(toFieldError) : []
+    if (apiCode === INVALID_ROTATION_ZONES) {
+      // Erro das zonas como um todo (cobertura, sobreposição, contagem): vai para o editor de zonas.
+      const zoneMessage =
+        message ??
+        fieldErrors.find((item) => item.field.startsWith('rotationZones'))?.message ??
+        'As zonas precisam cobrir os 360° sem sobreposição, com pelo menos 2 zonas.'
+      return new CatalogRequestError(
+        'VALIDATION',
+        'O backend recusou as zonas de giro (HTTP 422 INVALID_ROTATION_ZONES).',
+        [
+          { field: 'rotationZones', message: zoneMessage },
+          ...fieldErrors.filter((item) => item.field !== 'rotationZones'),
+        ],
+        apiCode,
+      )
+    }
     return new CatalogRequestError(
       'VALIDATION',
       'O backend recusou os dados (HTTP 422). Corrija os campos indicados.',
       fieldErrors,
+      apiCode,
     )
   }
-  const message = typeof detail === 'string' && detail.trim() !== '' ? detail : null
   if (status === 404) {
     return new CatalogRequestError('NOT_FOUND', message ?? 'Não encontrado (HTTP 404).')
+  }
+  if (status === 409 && apiCode === ROTATION_ZONE_IN_USE) {
+    return new CatalogRequestError(
+      'CONFLICT',
+      'Uma zona que já tem tabelas de carga foi removida ou mudou de código (HTTP 409 ' +
+        'ROTATION_ZONE_IN_USE). Mantenha o código dessa zona; o nome e os ângulos podem mudar.' +
+        (message ? ` Detalhe do backend: ${message}` : ''),
+      [],
+      apiCode,
+    )
+  }
+  if (status === 409 && apiCode === ZONELESS_LOAD_CHARTS_EXIST) {
+    return new CatalogRequestError(
+      'CONFLICT',
+      `${ZONELESS_LOAD_CHARTS_MESSAGE} (HTTP 409 ZONELESS_LOAD_CHARTS_EXIST)` +
+        (message ? ` Detalhe do backend: ${message}` : ''),
+      [],
+      apiCode,
+    )
   }
   if (status === 409) {
     return new CatalogRequestError('CONFLICT', message ?? 'Conflito ao gravar (HTTP 409).')
@@ -213,7 +282,26 @@ function mapConfiguration(json: unknown, path = 'response'): CraneConfiguration 
     craneId: readString(record, 'crane_id', path),
     name: readString(record, 'name', path),
     geometry: geometry && mapSheet(geometry, `${path}.geometry`),
+    rotationZones: mapRotationZones(record, path),
+    hookBlockWeightKg: readNullableNumber(record, 'hook_block_weight_kg', path),
   }
+}
+
+/** `rotation_zones` (TASK-046): `null` ou ausente = sem zonas (lista vazia). */
+function mapRotationZones(record: JsonRecord, path: string): readonly RotationZone[] {
+  const value = record.rotation_zones
+  if (value === null || value === undefined) return []
+  if (!Array.isArray(value)) throw new ContractViolationError(`${path}.rotation_zones`, 'lista')
+  return value.map((item, index) => {
+    const zonePath = `${path}.rotation_zones[${index}]`
+    const zone = readRecord(item, zonePath)
+    return {
+      code: readString(zone, 'code', zonePath),
+      name: readString(zone, 'name', zonePath),
+      startDeg: readNumber(zone, 'start_deg', zonePath),
+      endDeg: readNumber(zone, 'end_deg', zonePath),
+    }
+  })
 }
 
 function mapSheet(record: JsonRecord, path: string): CraneTechnicalSheet {

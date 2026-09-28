@@ -13,7 +13,9 @@ import type {
   LoadChartSummary,
   StoredLoadChart,
 } from '../../application/loadChart/ports'
-import { Button, Field, Input, Notice, Panel, useToast } from '../ui'
+import { formatZoneSector } from '../../application/catalog/rotationZones'
+import type { RotationZone } from '../../domain/catalog/catalog'
+import { Button, Field, Input, Notice, Panel, Select, useToast } from '../ui'
 import { Dropzone, type DropzoneStatus } from '../ui/Dropzone'
 import { ImportIssuesTable } from './ImportIssuesTable'
 import styles from './tables.module.css'
@@ -25,10 +27,19 @@ export interface ChartImportPanelProps {
   readonly fileCheck: ChartFileCheckApi
   /** Versões da configuração (sugestão da próxima e conferência de repetidas). */
   readonly versions: readonly LoadChartSummary[]
+  /**
+   * Zonas de giro da configuração (TASK-046). Com zonas, a importação pede a zona da tabela; sem
+   * elas (padrão), não pede e não manda o campo.
+   */
+  readonly zones?: readonly RotationZone[]
   onImported(chart: StoredLoadChart): void
   /** Abre a confirmação de ativação da versão recém-importada. */
   onActivateImported(chart: StoredLoadChart): void
 }
+
+/** Códigos da zona na importação (TASK-046 § 3) que apontam para o campo da zona. */
+const ZONE_REQUIRED_CODE = 'ROTATION_ZONE_REQUIRED'
+const UNKNOWN_ZONE_CODE = 'UNKNOWN_ROTATION_ZONE'
 
 const ACCEPT =
   '.csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -94,19 +105,31 @@ export function ChartImportPanel({
   gateway,
   fileCheck,
   versions,
+  zones = [],
   onImported,
   onActivateImported,
 }: ChartImportPanelProps) {
   const toast = useToast()
   const [versionText, setVersionText] = useState<string | null>(null)
   const [chartIdText, setChartIdText] = useState<string | null>(null)
+  const [zoneCode, setZoneCode] = useState('')
+  /** Recusa da zona pelo backend (422 ROTATION_ZONE_REQUIRED/UNKNOWN_ROTATION_ZONE), no campo. */
+  const [zoneBackendError, setZoneBackendError] = useState<string | null>(null)
   const [touched, setTouched] = useState(false)
   const [importing, setImporting] = useState(false)
   const [failure, setFailure] = useState<LoadChartFailure | null>(null)
   const [imported, setImported] = useState<StoredLoadChart | null>(null)
 
+  const hasZones = zones.length > 0
+  // A zona escolhida precisa existir na lista atual (ela pode mudar no Catálogo).
+  const zone = hasZones ? (zones.find((item) => item.code === zoneCode) ?? null) : null
+  const zoneError = !hasZones
+    ? null
+    : (zoneBackendError ?? (zone === null ? 'Escolha a zona de giro desta tabela.' : null))
   const version = versionText ?? suggestNextVersion(versions)
-  const chartId = chartIdText ?? suggestChartId(configurationId, version)
+  const chartId =
+    chartIdText ??
+    suggestChartId(zone ? `${configurationId}-${zone.code}` : configurationId, version)
   const versionError =
     version.trim() === ''
       ? 'Obrigatório.'
@@ -134,7 +157,7 @@ export function ChartImportPanel({
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setTouched(true)
-    if (!('file' in state) || !fileReady || versionError || chartIdError) return
+    if (!('file' in state) || !fileReady || versionError || chartIdError || zoneError) return
     setImporting(true)
     setFailure(null)
     try {
@@ -144,16 +167,21 @@ export function ChartImportPanel({
         configurationId,
         chartId: chartId.trim(),
         version: version.trim(),
+        ...(zone && { rotationZoneCode: zone.code }),
       })
       if (outcome.kind === 'IMPORTED') {
         toast.show({
           tone: 'ok',
           title: `Versão ${outcome.chart.version} importada`,
-          description: 'Gravada como rascunho (DRAFT). Ative-a para valer na avaliação.',
+          description: zone
+            ? `Gravada como rascunho (DRAFT) na zona ${zone.name}. Ative-a para valer na avaliação dessa zona.`
+            : 'Gravada como rascunho (DRAFT). Ative-a para valer na avaliação.',
         })
         setImported(outcome.chart)
         setVersionText(null)
         setChartIdText(null)
+        // A próxima tabela pede a zona de novo: nada de importar na zona errada por engano.
+        setZoneCode('')
         setTouched(false)
         fileCheck.reset()
         onImported(outcome.chart)
@@ -167,6 +195,9 @@ export function ChartImportPanel({
       }
     } catch (error) {
       const problem = toLoadChartFailure(error)
+      if (problem.code === ZONE_REQUIRED_CODE || problem.code === UNKNOWN_ZONE_CODE) {
+        setZoneBackendError(problem.message)
+      }
       setFailure(problem)
       toast.show({ tone: 'danger', title: 'A importação falhou', description: problem.message })
     } finally {
@@ -202,6 +233,30 @@ export function ChartImportPanel({
           aria-label="Dados da importação"
         >
           <div className={styles.importFields}>
+            {hasZones && (
+              <Field
+                label="Zona de giro"
+                required
+                error={touched || zoneBackendError !== null ? zoneError : undefined}
+                hint="Cada zona tem a sua tabela ativa (ADR-018). Ativar esta versão só muda a zona escolhida."
+                className={styles.importZoneField}
+              >
+                <Select
+                  value={zone?.code ?? ''}
+                  onChange={(event) => {
+                    setZoneCode(event.currentTarget.value)
+                    setZoneBackendError(null)
+                  }}
+                >
+                  <option value="">Escolha a zona…</option>
+                  {zones.map((item) => (
+                    <option key={item.code} value={item.code}>
+                      {item.name} ({formatZoneSector(item)})
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
             <Field
               label="Versão"
               required

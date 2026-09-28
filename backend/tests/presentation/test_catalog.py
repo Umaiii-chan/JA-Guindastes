@@ -484,6 +484,8 @@ def test_patch_configuration_adds_a_sheet_and_renames_together(client: TestClien
         "crane_id": crane_id,
         "name": "Com ficha",
         "geometry": geometry_payload_ficticio(),
+        "rotation_zones": None,
+        "hook_block_weight_kg": None,
     }
 
 

@@ -166,6 +166,14 @@ class CapacityMessage(BaseModel):
         )
 
 
+_ZONE_CODE_DESCRIPTION = (
+    "Zona de giro usada (ADR-018; TASK-046), ou `null` sem zonas; na fronteira, a zona cuja "
+    "tabela deu a menor capacidade (mesmas regras do `rotation_zone_code` da avaliação REST)."
+)
+_HOOK_DESCRIPTION = "Peso do gancho da configuração, em kg (0 se não cadastrado)."
+_COMPARED_DESCRIPTION = "Carga + gancho, em kg: o peso comparado com a capacidade."
+
+
 class EvaluatedPayload(BaseModel):
     """Operação avaliada. "Avaliada" não quer dizer "segura": não há status (PEND-004)."""
 
@@ -173,10 +181,14 @@ class EvaluatedPayload(BaseModel):
     geometry: GeometryMessage
     capacity: CapacityMessage
     utilization_percent: float = Field(
-        description="`carga / capacidade × 100`, sem arredondamento (PEND-002)."
+        description="`compared_weight_kg / capacidade × 100`, sem arredondamento (PEND-002)."
     )
     load_chart_id: str
     load_chart_version: str = Field(description="Versão da tabela usada no cálculo (RN-005).")
+    rotation_zone_code: str | None = Field(description=_ZONE_CODE_DESCRIPTION)
+    rotation_zone_name: str | None = Field(description="Nome da zona, ou `null`.")
+    hook_block_weight_kg: float = Field(description=_HOOK_DESCRIPTION)
+    compared_weight_kg: float = Field(description=_COMPARED_DESCRIPTION)
     reasons: list[str] = Field(description="Sempre vazio numa operação avaliada.")
 
 
@@ -194,6 +206,10 @@ class NotEvaluablePayload(BaseModel):
     load_chart_version: str | None = Field(
         description="`null` se a tabela não chegou a ser consultada (RN-005)."
     )
+    rotation_zone_code: str | None = Field(description=_ZONE_CODE_DESCRIPTION)
+    rotation_zone_name: str | None = Field(description="Nome da zona, ou `null`.")
+    hook_block_weight_kg: float = Field(description=_HOOK_DESCRIPTION)
+    compared_weight_kg: float = Field(description=_COMPARED_DESCRIPTION)
     reasons: list[str] = Field(
         description="Motivos legíveis por máquina, nunca vazio, na ordem das etapas."
     )
@@ -216,6 +232,11 @@ class SimulationEvaluatedMessage(BaseModel):
         cls, sequence: int, evaluation: OperationEvaluation
     ) -> SimulationEvaluatedMessage:
         payload: EvaluatedPayload | NotEvaluablePayload
+        zone = evaluation.rotation_zone
+        zone_code = None if zone is None else zone.code
+        zone_name = None if zone is None else zone.name
+        hook_kg = evaluation.hook_block_weight.kilograms
+        compared_kg = evaluation.compared_weight.kilograms
         match evaluation:
             case EvaluatedOperation():
                 payload = EvaluatedPayload(
@@ -224,6 +245,10 @@ class SimulationEvaluatedMessage(BaseModel):
                     utilization_percent=evaluation.utilization_percent,
                     load_chart_id=evaluation.load_chart_id,
                     load_chart_version=evaluation.load_chart_version,
+                    rotation_zone_code=zone_code,
+                    rotation_zone_name=zone_name,
+                    hook_block_weight_kg=hook_kg,
+                    compared_weight_kg=compared_kg,
                     reasons=[],
                 )
             case NotEvaluableOperation():
@@ -241,6 +266,10 @@ class SimulationEvaluatedMessage(BaseModel):
                     ),
                     load_chart_id=evaluation.load_chart_id,
                     load_chart_version=evaluation.load_chart_version,
+                    rotation_zone_code=zone_code,
+                    rotation_zone_name=zone_name,
+                    hook_block_weight_kg=hook_kg,
+                    compared_weight_kg=compared_kg,
                     reasons=[reason.value for reason in evaluation.reasons],
                 )
         return cls(sequence=sequence, payload=payload)

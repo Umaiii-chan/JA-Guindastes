@@ -41,6 +41,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 
 from app.application.ports.active_load_chart_provider import ActiveLoadChartProvider
+from app.application.ports.configuration_load_rules_provider import (
+    ConfigurationLoadRulesProvider,
+)
 from app.application.ports.crane_geometry_provider import CraneGeometryProvider
 from app.application.use_cases.evaluate_operation import EvaluateOperation
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
@@ -66,6 +69,8 @@ class EvaluationDependencies:
     crane_geometry_provider: CraneGeometryProvider
     active_load_chart_provider: ActiveLoadChartProvider
     load_chart_interpolator: LoadChartInterpolator
+    configuration_load_rules_provider: ConfigurationLoadRulesProvider | None = None
+    """Zonas de giro e peso do gancho (TASK-046); sem ele, sem zonas e sem gancho."""
 
 
 type EvaluateOperationDependency = Callable[[], Iterator[EvaluateOperation]]
@@ -95,6 +100,7 @@ def _as_dependency(
                 crane_geometry_provider=dependencies.crane_geometry_provider,
                 active_load_chart_provider=dependencies.active_load_chart_provider,
                 load_chart_interpolator=dependencies.load_chart_interpolator,
+                configuration_load_rules_provider=dependencies.configuration_load_rules_provider,
             )
         )
     return dependencies

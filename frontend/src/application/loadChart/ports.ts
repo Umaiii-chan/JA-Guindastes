@@ -22,6 +22,8 @@ export interface StoredLoadChart {
   readonly status: LoadChartStatus
   readonly points: readonly LoadChartPoint[]
   readonly sourceFileName: string
+  /** Zona de giro da tabela (ADR-018; TASK-046); `null` numa configuração sem zonas. */
+  readonly rotationZoneCode: string | null
 }
 
 /** Versão de tabela na listagem de uma configuração: a `StoredLoadChart` sem os pontos. */
@@ -32,6 +34,15 @@ export interface LoadChartSummary {
   readonly status: LoadChartStatus
   readonly pointCount: number
   readonly sourceFileName: string
+  /** Zona de giro da tabela (ADR-018; TASK-046); `null` numa configuração sem zonas. */
+  readonly rotationZoneCode: string | null
+}
+
+/** Tabela ativa de uma zona (`active_charts` da listagem; TASK-046). */
+export interface ActiveChartRef {
+  /** `null` = a ativa de uma configuração sem zonas. */
+  readonly rotationZoneCode: string | null
+  readonly chartId: string
 }
 
 /** Tabelas de uma configuração (`GET /configurations/{id}/load-charts`). */
@@ -43,6 +54,11 @@ export interface ConfigurationLoadCharts {
   readonly items: readonly LoadChartSummary[]
   /** A tabela ativa da configuração, se houver (no máximo uma; ADR-009). */
   readonly activeChartId: string | null
+  /**
+   * Uma ativa por zona (ADR-018; `active_charts`). Numa configuração sem zonas, no máximo uma, com
+   * zona `null`. Sem o campo na resposta (backend anterior à TASK-046), vem das tabelas `ACTIVE`.
+   */
+  readonly activeCharts: readonly ActiveChartRef[]
 }
 
 /** Uma inconsistência do relatório de importação (RNF-006; doc-fonte § 13.1). */
@@ -61,6 +77,11 @@ export interface LoadChartImportRequest {
   readonly configurationId: string
   readonly chartId: string
   readonly version: string
+  /**
+   * Zona de giro da tabela (TASK-046): obrigatória quando a configuração tem zonas; ausente ou
+   * `null` numa configuração sem zonas. Só vai na importação (a validação prévia não usa).
+   */
+  readonly rotationZoneCode?: string | null
 }
 
 /** Resultado de uma importação que o backend processou (201 ou 422 com relatório). */

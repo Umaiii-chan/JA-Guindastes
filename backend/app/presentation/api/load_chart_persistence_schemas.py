@@ -10,9 +10,16 @@ from pydantic import BaseModel, Field
 from app.application.ports.load_chart_listing import LoadChartSummary
 from app.application.ports.load_chart_repository import LoadChartSource, StoredLoadChart
 from app.application.use_cases.activate_load_chart import LoadChartActivation
-from app.application.use_cases.list_configuration_load_charts import ConfigurationLoadCharts
+from app.application.use_cases.list_configuration_load_charts import (
+    ActiveLoadChartByZone,
+    ConfigurationLoadCharts,
+)
 from app.domain.entities.load_chart import LoadChartStatus
 from app.presentation.api.load_chart_schemas import LoadChartPointResponse
+
+_ROTATION_ZONE_CODE_DESCRIPTION = (
+    "Zona de giro da tabela (ADR-018; TASK-046), ou `null` numa configuração sem zonas."
+)
 
 
 class LoadChartSourceResponse(BaseModel):
@@ -44,6 +51,7 @@ class LoadChartResponse(BaseModel):
     chart_id: str = Field(description="Id da tabela de carga.")
     version: str = Field(description="Versão da tabela de carga (RN-005).")
     configuration_id: str = Field(description="Configuração do guindaste (RN-001).")
+    rotation_zone_code: str | None = Field(description=_ROTATION_ZONE_CODE_DESCRIPTION)
     status: LoadChartStatus = Field(description="Status da tabela (doc-fonte § 13.2).")
     point_count: int = Field(description="Quantidade de pontos em `points`.")
     points: list[LoadChartPointResponse] = Field(
@@ -59,6 +67,7 @@ class LoadChartResponse(BaseModel):
             chart_id=chart.id,
             version=chart.version,
             configuration_id=chart.configuration_id,
+            rotation_zone_code=chart.rotation_zone_code,
             status=chart.status,
             point_count=len(points),
             points=points,
@@ -72,6 +81,7 @@ class LoadChartSummaryResponse(BaseModel):
     chart_id: str = Field(description="Id da tabela de carga.")
     version: str = Field(description="Versão da tabela de carga (RN-005).")
     configuration_id: str = Field(description="Configuração do guindaste (RN-001).")
+    rotation_zone_code: str | None = Field(description=_ROTATION_ZONE_CODE_DESCRIPTION)
     status: LoadChartStatus = Field(description="Status da tabela (doc-fonte § 13.2).")
     point_count: int = Field(description="Quantidade de pontos da tabela.")
     source: LoadChartSourceResponse = Field(description="Arquivo-fonte da tabela.")
@@ -82,14 +92,28 @@ class LoadChartSummaryResponse(BaseModel):
             chart_id=summary.load_chart_id,
             version=summary.version,
             configuration_id=summary.configuration_id,
+            rotation_zone_code=summary.rotation_zone_code,
             status=summary.status,
             point_count=summary.point_count,
             source=LoadChartSourceResponse.from_source(summary.source),
         )
 
 
+class ActiveChartResponse(BaseModel):
+    """A tabela `ACTIVE` de uma zona de giro (TASK-046)."""
+
+    rotation_zone_code: str | None = Field(
+        description="Zona de giro; `null` para a tabela sem zona (configuração sem zonas)."
+    )
+    chart_id: str = Field(description="Id da tabela `ACTIVE` nessa zona.")
+
+    @classmethod
+    def from_active(cls, active: ActiveLoadChartByZone) -> ActiveChartResponse:
+        return cls(rotation_zone_code=active.rotation_zone_code, chart_id=active.load_chart_id)
+
+
 class ConfigurationLoadChartsResponse(BaseModel):
-    """Tabelas de carga de uma configuração, com a ativa (TASK-044)."""
+    """Tabelas de carga de uma configuração, com as ativas (TASK-044, TASK-046)."""
 
     items: list[LoadChartSummaryResponse] = Field(
         description="Todas as tabelas da configuração, em qualquer status. Ordem: pela versão, da "
@@ -98,7 +122,13 @@ class ConfigurationLoadChartsResponse(BaseModel):
         "importação gravada, então a ordem não é a da importação."
     )
     active_chart_id: str | None = Field(
-        description="Id da tabela `ACTIVE` da configuração, ou `null` se nenhuma está ativa."
+        description="Id da tabela `ACTIVE` **sem zona** da configuração, ou `null` (numa "
+        "configuração com zonas, em geral `null`: use `active_charts`)."
+    )
+    active_charts: list[ActiveChartResponse] = Field(
+        description="Uma entrada por zona com tabela `ACTIVE` (TASK-046): a sem zona primeiro, "
+        "depois as zonas na ordem cadastrada na configuração e, por fim, zonas que não estão "
+        "mais na configuração, pelo código. Zona sem tabela ativa não aparece."
     )
 
     @classmethod
@@ -106,15 +136,20 @@ class ConfigurationLoadChartsResponse(BaseModel):
         return cls(
             items=[LoadChartSummaryResponse.from_summary(item) for item in result.items],
             active_chart_id=result.active_load_chart_id,
+            active_charts=[
+                ActiveChartResponse.from_active(item) for item in result.active_load_charts
+            ],
         )
 
 
 class LoadChartActivationResponse(LoadChartResponse):
-    """Tabela ativada, com o id da tabela que deixou de ser a `ACTIVE` da configuração."""
+    """Tabela ativada (com a zona em `rotation_zone_code`), com o id da tabela que deixou de ser a
+    `ACTIVE` da mesma configuração e zona."""
 
     superseded_chart_id: str | None = Field(
-        description="Id da tabela que era `ACTIVE` na configuração e passou a `SUPERSEDED` na "
-        "mesma transação; `null` se não havia tabela ativa."
+        description="Id da tabela que era `ACTIVE` na mesma configuração e zona de giro e passou a "
+        "`SUPERSEDED` na mesma transação; `null` se não havia tabela ativa nessa zona. As outras "
+        "zonas não mudam."
     )
 
     @classmethod

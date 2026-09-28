@@ -1,9 +1,11 @@
 """Modelos ORM das tabelas de carga e dos pontos (doc-fonte §§ 10.2, 13 e 19; TASK-022).
 
-- `load_charts`: cabeçalho, versão, configuração (RN-001), status (doc-fonte § 13.2) e metadados do
-  arquivo-fonte (RF-008, RNF-005). Uma versão por configuração (`uq_load_charts_configuration_id_
-  version`) e no máximo uma tabela `ACTIVE` por configuração, garantida por índice único parcial
-  (`uq_load_charts_one_active_per_configuration`): a garantia fica no banco, e não só no
+- `load_charts`: cabeçalho, versão, configuração (RN-001), zona de giro (`rotation_zone_code`,
+  nula sem zonas; TASK-046), status (doc-fonte § 13.2) e metadados do arquivo-fonte (RF-008,
+  RNF-005). Uma versão por configuração (`uq_load_charts_configuration_id_version`) e no máximo uma
+  tabela `ACTIVE` por configuração e zona, garantida por índice único parcial sobre
+  `(configuration_id, coalesce(rotation_zone_code, ''))`
+  (`uq_load_charts_one_active_per_configuration_zone`): a garantia fica no banco, e não só no
   repositório, para valer também com gravações concorrentes.
 - `load_chart_points`: um ponto por linha, com a posição original (`position`), porque a
   `LoadChart` aceita pontos repetidos com a mesma capacidade e os mantém como vieram. Os pontos são
@@ -28,8 +30,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.domain.entities.load_chart import LoadChartStatus
 from app.infrastructure.database.base import Base
 
-ONE_ACTIVE_PER_CONFIGURATION_INDEX = "uq_load_charts_one_active_per_configuration"
+ONE_ACTIVE_PER_CONFIGURATION_ZONE_INDEX = "uq_load_charts_one_active_per_configuration_zone"
+"""Uma `ACTIVE` por (configuração, zona de giro) (TASK-046; ADR-018). Substitui o índice
+`uq_load_charts_one_active_per_configuration` da TASK-022."""
 CONFIGURATION_VERSION_CONSTRAINT = "uq_load_charts_configuration_id_version"
+ROTATION_ZONE_CODE_MAX_LENGTH = 32
 
 _STATUS_VALUES = ", ".join(f"'{status.value}'" for status in LoadChartStatus)
 
@@ -42,9 +47,15 @@ class LoadChartModel(Base):
         UniqueConstraint("configuration_id", "version", name=CONFIGURATION_VERSION_CONSTRAINT),
         CheckConstraint(f"status IN ({_STATUS_VALUES})", name="status_valid"),
         CheckConstraint("source_sha256 ~ '^[0-9a-f]{64}$'", name="source_sha256_hex"),
+        CheckConstraint(
+            "rotation_zone_code ~ '^[A-Z0-9_]{1,32}$'", name="rotation_zone_code_format"
+        ),
+        # A zona `NULL` (configuração sem zonas) vira '' no índice: `NULL` não se repete num
+        # índice único, e '' nunca é um código de zona válido (restrição acima).
         Index(
-            ONE_ACTIVE_PER_CONFIGURATION_INDEX,
+            ONE_ACTIVE_PER_CONFIGURATION_ZONE_INDEX,
             "configuration_id",
+            text("coalesce(rotation_zone_code, '')"),
             unique=True,
             postgresql_where=text("status = 'ACTIVE'"),
         ),
@@ -60,6 +71,7 @@ class LoadChartModel(Base):
     source_file_type: Mapped[str] = mapped_column(String, nullable=False)
     source_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     source_uri: Mapped[str | None] = mapped_column(String)
+    rotation_zone_code: Mapped[str | None] = mapped_column(String(ROTATION_ZONE_CODE_MAX_LENGTH))
 
     points: Mapped[list[LoadChartPointModel]] = relationship(
         order_by="LoadChartPointModel.position",

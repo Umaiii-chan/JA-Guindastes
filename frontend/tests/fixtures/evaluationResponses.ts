@@ -112,3 +112,41 @@ export function wsError(sequence: number | null, code = 'INVALID_MESSAGE') {
     },
   }
 }
+
+/**
+ * TASK-046 (ADR-018): avaliado numa zona de giro, com o gancho FICTÍCIO somado à carga. 1500 kg de
+ * carga + 180 kg de gancho = 1680 kg comparados com 2000 kg → 84 %.
+ */
+export const REST_EVALUATED_ZONA = {
+  ...REST_EVALUATED,
+  utilization_percent: 84,
+  rotation_zone_code: 'FRONTAL',
+  rotation_zone_name: 'Frontal FICTÍCIA',
+  hook_block_weight_kg: 180,
+  compared_weight_kg: 1680,
+}
+
+/** TASK-046: zona sem tabela ativa → não avaliável, com a zona informada. */
+export const REST_NOT_EVALUABLE_ZONA = {
+  ...REST_NOT_EVALUABLE,
+  reasons: [{ code: 'ACTIVE_LOAD_CHART_NOT_FOUND', category: 'EVALUATION' }],
+  rotation_zone_code: 'LATERAL_TRASEIRA',
+  rotation_zone_name: 'Lateral e traseira FICTÍCIA',
+  hook_block_weight_kg: 180,
+  compared_weight_kg: 1680,
+}
+
+/** TASK-046: `simulation.evaluated` com zona e parcelas. */
+export function wsEvaluatedZona(sequence: number) {
+  const message = wsEvaluated(sequence, 84)
+  return {
+    ...message,
+    payload: {
+      ...message.payload,
+      rotation_zone_code: 'LATERAL_TRASEIRA',
+      rotation_zone_name: 'Lateral e traseira FICTÍCIA',
+      hook_block_weight_kg: 180,
+      compared_weight_kg: 1680,
+    },
+  }
+}

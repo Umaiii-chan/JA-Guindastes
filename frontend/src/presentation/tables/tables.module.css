@@ -79,6 +79,19 @@
   gap: var(--space-3);
 }
 
+/* Zona de giro (TASK-046): ocupa a linha inteira, acima da versão e do id. */
+.importZoneField {
+  grid-column: 1 / -1;
+}
+
+/* Zona de cada versão na linha do tempo e resumo das ativas por zona (TASK-046). */
+.zoneBadgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
 .importActions {
   display: flex;
   align-items: center;

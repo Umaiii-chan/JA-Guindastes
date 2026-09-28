@@ -73,6 +73,10 @@ describe('cliente REST da avaliação', () => {
       utilizationPercent: 75,
       loadChartId: 'LC-FICTICIO-AVALIACAO-001',
       loadChartVersion: 'FICTICIO-AVALIACAO-v1',
+      rotationZoneCode: null,
+      rotationZoneName: null,
+      hookBlockWeightKg: null,
+      comparedWeightKg: null,
     })
   })
 
@@ -84,6 +88,10 @@ describe('cliente REST da avaliação', () => {
       capacity: null,
       loadChartId: null,
       loadChartVersion: null,
+      rotationZoneCode: null,
+      rotationZoneName: null,
+      hookBlockWeightKg: null,
+      comparedWeightKg: null,
       reasons: [
         { code: 'CRANE_GEOMETRY_NOT_FOUND', category: 'EVALUATION' },
         { code: 'ACTIVE_LOAD_CHART_NOT_FOUND', category: 'EVALUATION' },

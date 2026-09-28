@@ -34,13 +34,43 @@ export interface CraneTechnicalSheet {
   readonly turretRotationMaxDeg: number | null
 }
 
+/**
+ * Zona de giro da configuração (ADR-018; TASK-046). Os ângulos seguem a convenção de ψ do ADR-013
+ * (0° = lança sobre a frente, 90° = lado esquerdo, anti-horário visto de cima), em [0°, 360°): o
+ * setor vai de `startDeg` a `endDeg` no sentido crescente e pode passar por 0° (ex.: 305° → 55°).
+ */
+export interface RotationZone {
+  /** Único na configuração: 1 a 32 caracteres `[A-Z0-9_]`. */
+  readonly code: string
+  readonly name: string
+  readonly startDeg: number
+  readonly endDeg: number
+}
+
 export interface CraneConfiguration {
   readonly id: string
   readonly craneId: string
   readonly name: string
   /** `null` quando a configuração foi cadastrada sem ficha técnica. */
   readonly geometry: CraneTechnicalSheet | null
+  /**
+   * Zonas de giro (ADR-018), cada uma com a sua tabela ativa. Vazia = sem zonas: uma tabela vale
+   * para todo o giro, como antes. Ausente conta como vazia (respostas anteriores à TASK-046).
+   */
+  readonly rotationZones?: readonly RotationZone[]
+  /** Peso do gancho que a tabela considera (kg); `null` ou ausente = não informado (conta como 0). */
+  readonly hookBlockWeightKg?: number | null
 }
+
+/** Códigos de erro do backend para as zonas na configuração (TASK-046 § 3). */
+export const ROTATION_ZONE_IN_USE = 'ROTATION_ZONE_IN_USE'
+export const INVALID_ROTATION_ZONES = 'INVALID_ROTATION_ZONES'
+/** 409 ao pôr zonas numa configuração que já tem tabelas importadas sem zona. */
+export const ZONELESS_LOAD_CHARTS_EXIST = 'ZONELESS_LOAD_CHARTS_EXIST'
+
+/** Texto da tela para `ZONELESS_LOAD_CHARTS_EXIST` (no aviso antes de salvar e no erro do backend). */
+export const ZONELESS_LOAD_CHARTS_MESSAGE =
+  'Esta configuração já tem tabelas importadas sem zona. Crie outra configuração para usar zonas de giro.'
 
 export type CatalogErrorCode =
   'NOT_FOUND' | 'CONFLICT' | 'VALIDATION' | 'HTTP_ERROR' | 'NETWORK_ERROR' | 'INVALID_RESPONSE'
@@ -59,15 +89,22 @@ export interface CatalogFieldError {
 export class CatalogRequestError extends Error {
   readonly code: CatalogErrorCode
   readonly fieldErrors: readonly CatalogFieldError[]
+  /**
+   * Código de erro do backend, quando ele informa um conhecido (TASK-046: `ROTATION_ZONE_IN_USE`,
+   * `INVALID_ROTATION_ZONES`); `null` nos demais.
+   */
+  readonly apiCode: string | null
 
   constructor(
     code: CatalogErrorCode,
     message: string,
     fieldErrors: readonly CatalogFieldError[] = [],
+    apiCode: string | null = null,
   ) {
     super(message)
     this.name = 'CatalogRequestError'
     this.code = code
     this.fieldErrors = fieldErrors
+    this.apiCode = apiCode
   }
 }

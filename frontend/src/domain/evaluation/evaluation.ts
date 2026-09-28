@@ -53,13 +53,26 @@ interface EvaluationCommon {
   readonly loadChartId: string | null
   /** Versão da tabela usada (RN-005); `null` se a tabela não chegou a ser consultada. */
   readonly loadChartVersion: string | null
+  /**
+   * Zona de giro usada (ADR-018; TASK-046), escolhida pelo BACKEND pelo giro ψ (na fronteira, a de
+   * menor capacidade). `null` sem zonas, ou quando o backend não informou.
+   */
+  readonly rotationZoneCode: string | null
+  readonly rotationZoneName: string | null
+  /** Peso do gancho considerado (kg); `null` quando o backend não informou (anterior à TASK-046). */
+  readonly hookBlockWeightKg: number | null
+  /**
+   * Peso comparado com a capacidade: carga + gancho (kg; ADR-018 § 2). A utilização é
+   * `comparedWeightKg / capacidade`. `null` quando o backend não informou.
+   */
+  readonly comparedWeightKg: number | null
 }
 
 /** A tabela suportou o estado e a carga foi comparada. "Avaliado" não quer dizer "seguro" (PEND-004). */
 export interface EvaluatedResult extends EvaluationCommon {
   readonly kind: 'EVALUATED'
   readonly capacity: EvaluationCapacity
-  /** `carga / capacidade × 100`, sem arredondamento (PEND-002). */
+  /** `(carga + gancho) / capacidade × 100`, sem arredondamento (PEND-002; ADR-018 § 2). */
   readonly utilizationPercent: number
 }
 

@@ -2,7 +2,8 @@
 // prop `evaluationStatus` do `CraneViewport`).
 //
 // Não há níveis de alerta definidos (PEND-004): a situação só compara a carga com a capacidade que o
-// BACKEND devolveu, pela utilização (`carga / capacidade × 100`). Nada é calculado aqui (RN-008).
+// BACKEND devolveu, pela utilização (`peso comparado / capacidade × 100`, com peso comparado = carga +
+// gancho desde a TASK-046; ADR-018). Nada é calculado aqui (RN-008).
 //
 // - `ok`      (verde): avaliado e dentro da capacidade (utilização até 100 %);
 // - `over`    (vermelho): avaliado e acima da capacidade (utilização acima de 100 %);

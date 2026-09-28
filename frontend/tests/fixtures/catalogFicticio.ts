@@ -41,6 +41,39 @@ export const SHEET_MINIMA_FICTICIA: CraneTechnicalSheet = {
   turretRotationMaxDeg: null,
 }
 
+/**
+ * Zonas FICTÍCIAS no formato "frontal 110° / lateral e traseira 250°" (ADR-018; TASK-046), como o
+ * backend as devolve. Não vêm de nenhuma tabela real.
+ */
+export const ZONAS_DTO_FICTICIAS = [
+  { code: 'FRONTAL', name: 'Frontal FICTÍCIA', start_deg: 305, end_deg: 55 },
+  { code: 'LATERAL_TRASEIRA', name: 'Lateral e traseira FICTÍCIA', start_deg: 55, end_deg: 305 },
+]
+
+/** As mesmas zonas, com os nomes do frontend. */
+export const ZONAS_FICTICIAS = [
+  { code: 'FRONTAL', name: 'Frontal FICTÍCIA', startDeg: 305, endDeg: 55 },
+  { code: 'LATERAL_TRASEIRA', name: 'Lateral e traseira FICTÍCIA', startDeg: 55, endDeg: 305 },
+]
+
+/** Peso do gancho FICTÍCIO (kg). */
+export const GANCHO_FICTICIO_KG = 180
+
+/** O catálogo FICTÍCIO com a `CFG-A1-FICHA` em duas zonas e com peso do gancho (TASK-046). */
+export function catalogComZonasFicticio(): FakeCatalogData {
+  const data = catalogFicticio()
+  data.configurations = data.configurations.map((row) =>
+    row.id === 'CFG-A1-FICHA'
+      ? {
+          ...row,
+          rotation_zones: ZONAS_DTO_FICTICIAS.map((zone) => ({ ...zone })),
+          hook_block_weight_kg: GANCHO_FICTICIO_KG,
+        }
+      : row,
+  )
+  return data
+}
+
 /** Dois fabricantes, cada um com guindastes, e configurações com e sem ficha. */
 export function catalogFicticio(): FakeCatalogData {
   return {

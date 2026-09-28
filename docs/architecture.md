@@ -58,11 +58,12 @@ que ainda não existem):
 | Domínio — tabela de carga | `LoadChart`, `LoadChartPoint`, quantidades com unidade (`Length`, `Mass`, `Angle`), `CapacityQuery`/`CapacityResult` | `domain/entities/`, `domain/value_objects/` | nada |
 | Domínio — geometria (ADR-013) | `CraneGeometry` (ficha técnica), `OperationalState`, `OperationalGeometry`; `calculate_operational_geometry` (raio, posições do pino, ponta e gancho) | `domain/value_objects/`, `domain/services/geometry_service.py` | nada |
 | Domínio — consulta de capacidade | porta `LoadChartInterpolator`; estratégias `ExactPointLookup` (ponto exato) e `ConservativeTabulatedLookup` (ADR-015, provisória, **a usada na composição**); `utilization.py` | `domain/services/` | nada |
-| Domínio — carga | `Load`, `LoadDimensions`, `LoadCenterOfGravity`, `weight_compared_with_capacity` (ponto único onde a PEND-006 entrará) | `domain/entities/load.py`, `domain/services/compared_load_weight.py` | nada |
-| Aplicação — portas | `CraneGeometryProvider`, `ActiveLoadChartProvider`, `CraneCatalogRepository`, `CraneCatalogListing`, `CraneCatalogEditing` (TASK-044), `CraneCatalogStore` (as três juntas), `LoadChartRepository`, `LoadChartActivationRepository`, `LoadChartListing` (TASK-044), `LoadChartParser`, `FileStoragePort`, `LoadChartFileLimitExceededError` | `application/ports/` | domínio |
+| Domínio — carga | `Load`, `LoadDimensions`, `LoadCenterOfGravity`, `weight_compared_with_capacity` (ponto único do peso comparado: carga + gancho, TASK-046; lingas entram aqui depois) | `domain/entities/load.py`, `domain/services/compared_load_weight.py` | nada |
+| Domínio — zonas de giro (TASK-046) | `RotationZone`, `RotationZones` (cobertura de 360° sem sobreposição, ≥ 2 zonas, códigos únicos; `zones_at(ψ)` com fronteira a ±1e-6°), `LoadChart.rotation_zone_code` | `domain/value_objects/rotation_zone.py` | nada |
+| Aplicação — portas | `CraneGeometryProvider`, `ActiveLoadChartProvider` (por configuração e zona), `ConfigurationLoadRulesProvider` (zonas e gancho, TASK-046), `CraneCatalogRepository`, `CraneCatalogListing`, `CraneCatalogEditing` (TASK-044), `CraneCatalogStore` (as três juntas), `LoadChartRepository`, `LoadChartActivationRepository`, `LoadChartListing` (TASK-044), `LoadChartParser`, `FileStoragePort`, `LoadChartFileLimitExceededError` | `application/ports/` | domínio |
 | Aplicação — casos de uso | `EvaluateOperation` (`execute`, `execute_for_load`), `ManageCraneCatalog` (inclui a edição, TASK-044), `ValidateLoadChartImport`, `ImportLoadChart`, `ActivateLoadChart`, `ListConfigurationLoadCharts` (TASK-044) | `application/use_cases/` | domínio, portas |
 | Infraestrutura — banco | `DatabaseSettings` (`DATABASE_URL`), engine, fábrica de sessões, `Base` e modelos SQLAlchemy | `infrastructure/database/` | aplicação, domínio |
-| Infraestrutura — repositórios | `SqlAlchemyCraneCatalogRepository` (catálogo com edição + `CraneGeometryProvider`), `SqlAlchemyLoadChartRepository` (tabelas + `ActiveLoadChartProvider` + `LoadChartListing`), `SqlAlchemyLoadChartActivationRepository` (troca atômica da `ACTIVE`) | `infrastructure/repositories/` | aplicação, domínio |
+| Infraestrutura — repositórios | `SqlAlchemyCraneCatalogRepository` (catálogo com edição + `CraneGeometryProvider` + `ConfigurationLoadRulesProvider`), `SqlAlchemyLoadChartRepository` (tabelas + `ActiveLoadChartProvider` + `LoadChartListing`), `SqlAlchemyLoadChartActivationRepository` (troca atômica da `ACTIVE`) | `infrastructure/repositories/` | aplicação, domínio |
 | Infraestrutura — storage | `LocalFileStorage`: grava em `<FILE_STORAGE_DIR>/<sha256>`, URI `local://<sha256>`, nunca sobrescreve | `infrastructure/storage/` | aplicação |
 | Infraestrutura — importadores | `CsvLoadChartParser`, `XlsxLoadChartParser` (primeira planilha), `select_load_chart_parser`, limites do XLSX (`xlsx_resource_limits.py`, provisórios, P-008) | `infrastructure/importers/` | aplicação, domínio |
 | Apresentação — REST | `create_app` e os routers: saúde, avaliação, validação de tabela, catálogo (com edição), importação/consulta/ativação, tabelas de uma configuração (lista de rotas no § 4); schemas Pydantic; limite de upload (`upload_limits.py`); handler do 422 para números não finitos | `presentation/api/` | aplicação |
@@ -73,7 +74,7 @@ que ainda não existem):
 | Infraestrutura — usuários e segurança (TASK-038) | `SqlAlchemyUserRepository` (a regra do "último admin ativo" é conferida e gravada na mesma transação, com `SELECT ... FOR UPDATE` nos admins ativos), `SqlAlchemyUserSessionRepository`, `Argon2PasswordHasher` (Argon2id), `InMemoryLoginAttemptLimiter` (5 falhas/15 min por username, por processo) | `infrastructure/repositories/sqlalchemy_user_*.py`, `infrastructure/security/` | aplicação, domínio |
 | Apresentação — autenticação (TASK-038) | cookie de sessão, `CsrfHeaderMiddleware`, `AuthGuards` (sessão e perfil), corpo de erro `{detail, code}`, conferência de origem do WebSocket; routers `/api/v1/auth/*` e `/api/v1/users*` (contrato no ADR-016 § 4); schemas em camelCase | `presentation/api/authorization.py`, `auth.py`, `users.py`, `auth_schemas.py` | aplicação |
 | Composição do login e primeiro admin (TASK-038) | `build_auth` (lê `SESSION_COOKIE_SECURE`) e liga os adapters de autenticação na composição com banco; `python -m app.create_admin` cria o primeiro admin (senha por `ADMIN_PASSWORD` ou `getpass`; idempotente); fora das camadas | `app/auth_composition.py`, `app/create_admin.py` | todas as camadas |
-| Seed da demonstração (TASK-035) | cadastra, pelos casos de uso reais, fabricante, guindaste e configuração FICTÍCIOS com ficha técnica e importa e ativa a tabela FICTÍCIA v1; idempotente (ids fixos `demo-ficticio-*`); fora das camadas, como a raiz de composição | `app/demo_seed.py`, `app/demo_data/` (CSVs FICTÍCIOS v1, v2 e com erros) | todas as camadas |
+| Seed da demonstração (TASK-035, TASK-046) | cadastra, pelos casos de uso reais, fabricante, guindaste e configuração FICTÍCIOS com ficha técnica, zonas de giro `FRONTAL`/`LATERAL_TRASEIRA` e gancho de 200 kg, e importa e ativa uma tabela FICTÍCIA por zona; idempotente (ids fixos `demo-ficticio-*`); fora das camadas, como a raiz de composição | `app/demo_seed.py`, `app/demo_data/` (CSVs FICTÍCIOS v1, lateral/traseira v1, v2 e com erros) | todas as camadas |
 
 Composição (`backend/app/main.py`):
 
@@ -184,10 +185,11 @@ sequenceDiagram
     F->>WS: simulation.state.changed (sequence N, configuration_id, estado, load_weight_kg)
     WS->>WS: tamanho ≤ 8 KiB, JSON sem NaN, validação Pydantic estrita
     WS->>UC: execute (numa thread)
+    UC->>DB: zonas de giro e gancho (ConfigurationLoadRulesProvider)
     UC->>DB: ficha técnica da configuração (CraneGeometryProvider)
     UC->>UC: calculate_operational_geometry (raio, alturas)
-    UC->>DB: tabela ACTIVE da configuração (ActiveLoadChartProvider)
-    UC->>UC: ConservativeTabulatedLookup (capacidade ou motivo) e utilização
+    UC->>DB: tabela ACTIVE da zona de ψ, ou das 2 zonas na fronteira (ActiveLoadChartProvider)
+    UC->>UC: ConservativeTabulatedLookup (menor capacidade) e utilização de carga + gancho
     WS-->>F: simulation.evaluated (sequence N, EVALUATED ou NOT_EVALUABLE com motivos)
     F->>F: descarta a resposta se sequence < último enviado
     F-->>U: capacidade, utilização, raio do backend, ponto usado, tabela e versão
@@ -202,6 +204,12 @@ sequenceDiagram
   `EVALUATION` (ex.: `CRANE_GEOMETRY_NOT_FOUND`, `ACTIVE_LOAD_CHART_NOT_FOUND`, `UTILIZATION_UNDEFINED`),
   `OPERATIONAL_LIMIT` (faixa da ficha técnica violada) e `LOAD_CHART_DOMAIN` (ex.:
   `BOOM_LENGTH_NOT_IN_CHART`, `RADIUS_BELOW_CHART_MIN`, `RADIUS_ABOVE_CHART_MAX`).
+- Zonas de giro e gancho (ADR-018; TASK-046): numa configuração com zonas, ψ escolhe a zona e vale
+  a tabela ativa dela; a ±ε (1e-6°) de uma fronteira, as duas zonas vizinhas são consultadas e vale
+  a **menor** capacidade (se uma delas não tem tabela ativa ou não cobre a consulta, "não
+  avaliável"). O peso comparado é `weight_compared_with_capacity` = carga + gancho. A resposta
+  traz `rotation_zone_code`, `rotation_zone_name`, `hook_block_weight_kg` e `compared_weight_kg`
+  (REST e WebSocket). Sem zonas, uma tabela vale para todo o giro, como antes.
 - Não há `SafetyValidator`, nível de alerta (`WARNING`/`CRITICAL`) nem registro persistente do
   resultado (PEND-004; `SimulationResult` não existe).
 
@@ -245,10 +253,16 @@ sequenceDiagram
 Importação de tabela (TASK-031; doc-fonte § 13, diagrama
 [`07_sequencia_importacao_tabela.png`](produto/diagrams/07_sequencia_importacao_tabela.png)):
 `POST /api/v1/load-charts/import` escolhe o parser pelo nome/tipo do arquivo (CSV ou XLSX com limites),
-valida; inválida → 422 com o relatório e nada gravado; válida → grava o arquivo-fonte no storage
-(conferindo o SHA-256) e a tabela como `DRAFT`. `POST /api/v1/load-charts/{id}/activate` leva
-`DRAFT → VALIDATED → ACTIVE` e rebaixa a `ACTIVE` anterior da configuração para `SUPERSEDED` na
-mesma transação (`SELECT … FOR UPDATE`; interpretação a confirmar, TASK-031 § 8).
+confere a zona de giro (`rotation_zone_code`, TASK-046) contra as zonas da configuração antes de
+ler o arquivo e valida; inválida → 422 com o relatório e nada gravado; válida → grava o
+arquivo-fonte no storage (conferindo o SHA-256) e a tabela como `DRAFT`, com a zona.
+`POST /api/v1/load-charts/{id}/activate` leva `DRAFT → VALIDATED → ACTIVE` e rebaixa a `ACTIVE`
+anterior da **mesma configuração e zona** para `SUPERSEDED` na mesma transação
+(`SELECT … FOR UPDATE`; interpretação a confirmar, TASK-031 § 8).
+
+Erros das zonas de giro (TASK-046): `{"detail": "<mensagem>", "code": "<CÓDIGO>"}`, com
+`422 INVALID_ROTATION_ZONES`, `409 ROTATION_ZONE_IN_USE` e `409 ZONELESS_LOAD_CHARTS_EXIST` no catálogo e `422
+ROTATION_ZONE_REQUIRED`, `UNKNOWN_ROTATION_ZONE` e `ROTATION_ZONE_NOT_ALLOWED` na importação.
 
 Rotas REST (prefixo `/api/v1`; perfis do ADR-016, que só valem com `DATABASE_URL`; "escrita" =
 perfil `ADMIN` e cabeçalho `X-Requested-With: crane-simulator`):
@@ -264,13 +278,13 @@ perfil `ADMIN` e cabeçalho `X-Requested-With: crane-simulator`):
 | `PATCH /manufacturers/{id}` `{name}` | escrita | TASK-044; 200, 404, 422 |
 | `GET/POST /cranes` (filtro `manufacturer_id`), `GET /cranes/{id}` | leitura / escrita | TASK-030 |
 | `PATCH /cranes/{id}` `{model_name}` | escrita | TASK-044; o fabricante não muda |
-| `GET/POST /cranes/{id}/configurations` | leitura / escrita | TASK-030 |
-| `GET /configurations/{id}` | leitura | TASK-030 |
-| `PATCH /configurations/{id}` `{name?, geometry?}` | escrita | TASK-044; ao menos um campo, sem `null`; a ficha substitui a inteira e vale para as próximas avaliações, sem mexer nas tabelas |
-| `GET /configurations/{id}/load-charts` | leitura | TASK-044; `{items, active_chart_id}`, itens sem `points`, da maior versão para a menor (ordem natural; não há data de importação gravada); 404 se a configuração não existe |
-| `POST /load-charts/import` | escrita | TASK-031; exige `FILE_STORAGE_DIR` |
-| `GET /load-charts/{chart_id}` | leitura | TASK-031; exige `FILE_STORAGE_DIR` |
-| `POST /load-charts/{chart_id}/activate` | escrita | TASK-031; exige `FILE_STORAGE_DIR` |
+| `GET/POST /cranes/{id}/configurations` | leitura / escrita | TASK-030; TASK-046: `rotation_zones` e `hook_block_weight_kg` opcionais na criação e na resposta |
+| `GET /configurations/{id}` | leitura | TASK-030; com `rotation_zones` e `hook_block_weight_kg` (TASK-046) |
+| `PATCH /configurations/{id}` `{name?, geometry?, rotation_zones?, hook_block_weight_kg?}` | escrita | TASK-044/046; ao menos um campo; `name` e `geometry` sem `null`; a ficha substitui a inteira; `rotation_zones` substitui a lista (`[]`/`null` remove; zona com tabelas → 409 `ROTATION_ZONE_IN_USE`; zonas numa configuração com tabelas sem zona → 409 `ZONELESS_LOAD_CHARTS_EXIST`); `hook_block_weight_kg: null` apaga; sem mexer nas tabelas |
+| `GET /configurations/{id}/load-charts` | leitura | TASK-044/046; `{items, active_chart_id, active_charts}`, itens sem `points` e com `rotation_zone_code`, da maior versão para a menor (ordem natural; não há data de importação gravada); `active_charts` = uma ativa por zona; `active_chart_id` = a ativa sem zona; 404 se a configuração não existe |
+| `POST /load-charts/import` | escrita | TASK-031; exige `FILE_STORAGE_DIR`; campo `rotation_zone_code` (TASK-046) |
+| `GET /load-charts/{chart_id}` | leitura | TASK-031; exige `FILE_STORAGE_DIR`; com `rotation_zone_code` |
+| `POST /load-charts/{chart_id}/activate` | escrita | TASK-031; exige `FILE_STORAGE_DIR`; substitui só a ativa da mesma zona (TASK-046) |
 
 Nomes de fabricante, guindaste e configuração não são únicos (pendência 2 da TASK-022): nem o
 cadastro nem a edição respondem 409 por nome.
@@ -281,8 +295,9 @@ cadastro nem a edição respondem 409 por nome.
 
 Persistência: SQLAlchemy 2 + psycopg 3 (ADR-014, proposto), configurados em
 `backend/app/infrastructure/database/`; migrations com Alembic (ADR-012) em `backend/alembic/`.
-Duas revisões: `1f4cfaff16e8_criar_catalogo_e_tabelas_de_carga.py` (TASK-022) e
-`7c2e9a4d1b36_criar_usuarios_e_sessoes.py` (TASK-038). Diagrama de classes
+Três revisões: `1f4cfaff16e8_criar_catalogo_e_tabelas_de_carga.py` (TASK-022),
+`7c2e9a4d1b36_criar_usuarios_e_sessoes.py` (TASK-038) e
+`b4e1d7c93a52_zonas_de_giro_e_peso_do_gancho.py` (TASK-046). Diagrama de classes
 planejado: [`05_diagrama_classes_dominio.png`](produto/diagrams/05_diagrama_classes_dominio.png).
 
 Tabelas existentes (todas as chaves são texto; ids de catálogo gerados no servidor como UUID):
@@ -291,8 +306,8 @@ Tabelas existentes (todas as chaves são texto; ids de catálogo gerados no serv
 |----------|--------|--------------|-----------------------|
 | Manufacturer | `manufacturers` | `id`, `name` | nomes não são únicos (pendência TASK-022/030) |
 | Crane | `cranes` | `id`, `manufacturer_id`, `model_name` | FK para `manufacturers`, `ON DELETE RESTRICT` |
-| CraneConfiguration + ficha técnica (ADR-013 C-4) | `crane_configurations` | `id`, `crane_id`, `name`; `boom_pivot_offset_m`, `boom_pivot_height_m`, `boom_length_min_m`/`max_m`, `boom_angle_min_deg`/`max_deg`, `cable_length_min_m` (os 7 juntos ou nenhum); `cable_length_max_m`, `turret_rotation_min_deg`/`max_deg` (opcionais) | FK para `cranes`, `RESTRICT`; `CHECK` de "todos ou nenhum", limites de giro juntos e comprimentos ≥ 0 |
-| LoadChart | `load_charts` | `id`, `configuration_id`, `version`, `status` (`DRAFT`, `VALIDATED`, `ACTIVE`, `SUPERSEDED`, `INVALID`), `source_file_name`, `source_file_type`, `source_sha256`, `source_uri` (opcional) | FK para `crane_configurations`, `RESTRICT`; versão única por configuração (RN-005); **no máximo uma `ACTIVE` por configuração** (índice único parcial) |
+| CraneConfiguration + ficha técnica (ADR-013 C-4) | `crane_configurations` | `id`, `crane_id`, `name`; `boom_pivot_offset_m`, `boom_pivot_height_m`, `boom_length_min_m`/`max_m`, `boom_angle_min_deg`/`max_deg`, `cable_length_min_m` (os 7 juntos ou nenhum); `cable_length_max_m`, `turret_rotation_min_deg`/`max_deg` (opcionais); `rotation_zones` (JSON `[{code, name, start_deg, end_deg}]`, nulo = sem zonas) e `hook_block_weight_kg` (nulo = 0 kg) (TASK-046) | FK para `cranes`, `RESTRICT`; `CHECK` de "todos ou nenhum", limites de giro juntos, comprimentos ≥ 0 e gancho entre 0 e 100 000 kg; a cobertura de 360° das zonas é validada pelo domínio (`RotationZones`) ao gravar e ao ler |
+| LoadChart | `load_charts` | `id`, `configuration_id`, `version`, `status` (`DRAFT`, `VALIDATED`, `ACTIVE`, `SUPERSEDED`, `INVALID`), `rotation_zone_code` (nulo sem zonas; TASK-046), `source_file_name`, `source_file_type`, `source_sha256`, `source_uri` (opcional) | FK para `crane_configurations`, `RESTRICT`; versão única por configuração (RN-005); `rotation_zone_code` em `^[A-Z0-9_]{1,32}$` (`CHECK`); **no máximo uma `ACTIVE` por configuração e zona** (índice único parcial `uq_load_charts_one_active_per_configuration_zone` sobre `(configuration_id, coalesce(rotation_zone_code, ''))`) |
 | LoadChartPoint | `load_chart_points` | `load_chart_id`, `position`, `boom_length_m`, `working_radius_m`, `max_capacity_kg` | PK (`load_chart_id`, `position`); FK `ON DELETE CASCADE`; valores ≥ 0 |
 | User (ADR-016) | `app_user` | `id`, `username` (≤ 64), `display_name`, `role`, `active`, `password_hash` (Argon2id), `created_at` | `username` único e em minúsculas (`CHECK`); `role` em `ADMIN`/`OPERATOR` (`CHECK`) |
 | Sessão de login (ADR-016) | `user_session` | `token_hash` (SHA-256 do token, PK), `user_id`, `created_at`, `expires_at` | FK para `app_user` com `ON DELETE CASCADE`; `token_hash` com 64 dígitos hexadecimais (`CHECK`); índice em `user_id` |
@@ -300,7 +315,9 @@ Tabelas existentes (todas as chaves são texto; ids de catálogo gerados no serv
 Entidades da doc-fonte § 10 e § 19.1 que **não têm tabela** ainda: `Crane3DModel`, `CraneKinematics`
 (o mapeamento de nós existe só no frontend, TASK-026), `Load` (existe só no domínio, TASK-028),
 `Simulation`, `SimulationState`, `SimulationResult`. Os atributos de `CraneConfiguration` que
-selecionam a tabela continuam **PENDENTES** (PEND-005); hoje a configuração tem só nome e ficha técnica.
+selecionam a tabela continuam **PENDENTES** (PEND-005); hoje a configuração tem nome, ficha técnica,
+zonas de giro e peso do gancho (TASK-046). Tabelas sem comprimento de lança (formato do TM 130)
+ainda não são suportadas (`docs/known-gaps.md`).
 
 Arquivos ficam fora do banco (doc-fonte § 19.2): o arquivo-fonte da tabela vai para
 `FILE_STORAGE_DIR`, nomeado pelo SHA-256; o banco guarda nome, tipo, hash e URI.

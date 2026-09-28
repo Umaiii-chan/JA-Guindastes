@@ -13,7 +13,7 @@ import {
   type CraneTechnicalSheet,
   type Manufacturer,
 } from '../../domain/catalog/catalog'
-import type { CatalogGateway, ConfigurationChanges } from './ports'
+import type { CatalogGateway, ConfigurationChanges, NewConfiguration } from './ports'
 
 export type CatalogListStatus = 'idle' | 'loading' | 'loaded' | 'error'
 
@@ -139,9 +139,10 @@ export class CatalogBrowser {
     craneId: string,
     name: string,
     geometry: CraneTechnicalSheet | null,
+    extras: Pick<NewConfiguration, 'rotationZones' | 'hookBlockWeightKg'> = {},
   ): Promise<CatalogMutationResult<CraneConfiguration>> {
     return this.mutate(
-      () => this.gateway.createConfiguration(craneId, { name, geometry }),
+      () => this.gateway.createConfiguration(craneId, { name, geometry, ...extras }),
       async (created) => {
         if (this.state.selectedCraneId !== craneId) return
         await this.loadList('configurations', () => this.gateway.listConfigurations(craneId), true)

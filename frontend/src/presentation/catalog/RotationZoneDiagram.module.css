@@ -1,0 +1,113 @@
+/* Diagrama dos setores das zonas de giro (TASK-046), visto de cima. */
+
+.figure {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: 0;
+  min-width: 0;
+}
+
+.svg {
+  flex: none;
+  overflow: visible;
+}
+
+.base {
+  fill: var(--color-surface-2);
+  stroke: var(--color-border);
+  stroke-width: 0.8;
+}
+
+.sector {
+  --zone-color: var(--color-accent);
+  fill: var(--zone-color);
+  fill-opacity: 0.28;
+  stroke: var(--color-bg);
+  stroke-width: 1.2;
+  transition: fill-opacity var(--duration-fast) ease;
+}
+
+.sector.active {
+  fill-opacity: 0.7;
+}
+
+[data-tone='0'] {
+  --zone-color: var(--color-accent);
+}
+
+[data-tone='1'] {
+  --zone-color: var(--color-status-warning);
+}
+
+[data-tone='2'] {
+  --zone-color: var(--color-status-info);
+}
+
+[data-tone='3'] {
+  --zone-color: var(--color-status-ok);
+}
+
+.sectorLabel {
+  fill: var(--color-text-1);
+  font: var(--font-weight-semibold) 9px var(--font-sans);
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.front {
+  stroke: var(--color-text-2);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
+.axisLabel {
+  fill: var(--color-text-3);
+  font: 7px var(--font-sans);
+  text-anchor: middle;
+}
+
+.pivot {
+  fill: var(--color-text-1);
+}
+
+.legend {
+  min-width: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.legend ol {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legend li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--space-2);
+  align-items: center;
+}
+
+/* A cor vem do `data-tone` do item da legenda (herdada). */
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--zone-color, var(--color-accent));
+  opacity: 0.75;
+  grid-row: span 2;
+}
+
+.legendName {
+  color: var(--color-text-1);
+  overflow-wrap: anywhere;
+}
+
+.legendSector {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}

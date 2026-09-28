@@ -1,12 +1,14 @@
 import { FileSpreadsheet, Grid3x3, Pencil, Settings2, TriangleAlert } from 'lucide-react'
 import { Link } from 'react-router'
 
-import { activeVersion } from '../../application/loadChart/chartVersions'
+import { formatZoneSector } from '../../application/catalog/rotationZones'
+import { activeVersionsByZone, firstActiveVersion } from '../../application/loadChart/chartVersions'
 import type {
   Crane,
   CraneConfiguration,
   CraneTechnicalSheet,
   Manufacturer,
+  RotationZone,
 } from '../../domain/catalog/catalog'
 import { ROUTES } from '../layout/navigation'
 import { formatDegrees, formatMeters } from '../tables/format'
@@ -15,6 +17,7 @@ import type { ChartVersionsState } from '../tables/useChartVersions'
 import type { StoredChartState } from '../tables/useStoredChart'
 import { Badge, Button, buttonClassName, EmptyState, Notice, Panel, SkeletonText } from '../ui'
 import styles from './catalog.module.css'
+import { RotationZoneDiagram } from './RotationZoneDiagram'
 
 export interface ConfigurationDetailProps {
   readonly manufacturer: Manufacturer | null
@@ -84,6 +87,7 @@ export function ConfigurationDetail({
   onEdit,
 }: ConfigurationDetailProps) {
   const sheet = configuration.geometry
+  const zones = configuration.rotationZones ?? []
   return (
     <Panel
       title={configuration.name}
@@ -159,6 +163,15 @@ export function ConfigurationDetail({
               </table>
             </>
           )}
+          <p className={styles.hookLine}>
+            Peso do gancho:{' '}
+            <strong>
+              {configuration.hookBlockWeightKg === null ||
+              configuration.hookBlockWeightKg === undefined
+                ? 'não informado (conta como 0 kg)'
+                : `${configuration.hookBlockWeightKg.toLocaleString('pt-BR')} kg`}
+            </strong>
+          </p>
           <p className={styles.idLine}>
             id <code>{configuration.id}</code>
           </p>
@@ -166,9 +179,10 @@ export function ConfigurationDetail({
 
         <section className={styles.detailSection} aria-labelledby="tabela-ativa">
           <h3 id="tabela-ativa" className={styles.sectionTitle}>
-            Tabela de carga ativa
+            {zones.length > 0 ? 'Zonas de giro e tabelas ativas' : 'Tabela de carga ativa'}
           </h3>
-          <ActiveChart versions={versions} activeChart={activeChart} />
+          {zones.length > 0 && <ZonesWithActiveCharts zones={zones} versions={versions} />}
+          <ActiveChart versions={versions} activeChart={activeChart} zones={zones} />
           <Link
             to={ROUTES.tables}
             className={buttonClassName('secondary', 'sm', styles.tablesLink)}
@@ -182,12 +196,72 @@ export function ConfigurationDetail({
   )
 }
 
+/**
+ * Zonas da configuração (TASK-046) com o setor, o diagrama e a tabela ativa de cada uma
+ * (`active_charts` da listagem).
+ */
+function ZonesWithActiveCharts({
+  zones,
+  versions,
+}: {
+  readonly zones: readonly RotationZone[]
+  readonly versions: ChartVersionsState
+}) {
+  const known = versions.status === 'loaded' || versions.versions.length > 0
+  const byZone = activeVersionsByZone(versions.versions, versions.activeCharts)
+  return (
+    <div className={styles.zonesDetail}>
+      <RotationZoneDiagram zones={zones} size={104} />
+      <table className={styles.zoneTable}>
+        <caption className="visually-hidden">Zonas de giro e a tabela ativa de cada uma</caption>
+        <thead>
+          <tr>
+            <th scope="col">Zona</th>
+            <th scope="col">Setor de ψ</th>
+            <th scope="col">Tabela ativa</th>
+          </tr>
+        </thead>
+        <tbody>
+          {zones.map((zone) => {
+            const active = byZone.get(zone.code)
+            return (
+              <tr key={zone.code}>
+                <th scope="row">
+                  {zone.name}
+                  <span className={styles.zoneCode}>{zone.code}</span>
+                </th>
+                <td className={styles.zoneSector}>{formatZoneSector(zone)}</td>
+                <td>
+                  {active ? (
+                    <>
+                      <Badge tone="ok" variant="solid">
+                        {active.version}
+                      </Badge>{' '}
+                      <span className={styles.activeFile}>{active.sourceFileName}</span>
+                    </>
+                  ) : known ? (
+                    <Badge tone="warning">nenhuma</Badge>
+                  ) : (
+                    '—'
+                  )}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function ActiveChart({
   versions,
   activeChart,
+  zones,
 }: {
   readonly versions: ChartVersionsState
   readonly activeChart: StoredChartState
+  readonly zones: readonly RotationZone[]
 }) {
   if (versions.status === 'loading' && versions.versions.length === 0) {
     return (
@@ -204,7 +278,15 @@ function ActiveChart({
       </Notice>
     )
   }
-  const active = activeVersion(versions.versions, versions.activeChartId)
+  const active = firstActiveVersion(
+    versions.versions,
+    versions.activeCharts,
+    zones.map((zone) => zone.code),
+    versions.activeChartId,
+  )
+  const zoneName = active?.rotationZoneCode
+    ? (zones.find((zone) => zone.code === active.rotationZoneCode)?.name ?? active.rotationZoneCode)
+    : null
   if (!active) {
     return (
       <EmptyState
@@ -227,9 +309,14 @@ function ActiveChart({
         <Badge tone="ok" variant="solid">
           Ativa
         </Badge>
+        {zoneName && <Badge tone="info">zona {zoneName}</Badge>}
         <span className={styles.activeFile}>{active.sourceFileName}</span>
       </p>
-      <StoredChartMatrix state={activeChart} caption={`Tabela ativa ${active.version}`} compact />
+      <StoredChartMatrix
+        state={activeChart}
+        caption={`Tabela ativa ${active.version}${zoneName ? ` da zona ${zoneName}` : ''}`}
+        compact
+      />
     </div>
   )
 }

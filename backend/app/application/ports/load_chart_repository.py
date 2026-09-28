@@ -7,7 +7,9 @@ A tabela é gravada normalizada, com os pontos (ADR-009), e com os metadados do 
 Transições de status: a doc-fonte § 13.2 só sugere o fluxo `DRAFT → VALIDATED → ACTIVE →
 SUPERSEDED` (ou `INVALID`), e quais transições são permitidas não está definido. Por isso
 `change_status` não valida a transição. A única restrição garantida é a pedida na TASK-022: no
-máximo uma tabela `ACTIVE` por configuração. Ativar uma tabela não rebaixa a anterior sozinho
+máximo uma tabela `ACTIVE` por configuração, e, desde a TASK-046 (ADR-018), por configuração **e
+zona de giro** (`LoadChart.rotation_zone_code`; `None` é a zona da configuração sem zonas). Ativar
+uma tabela não rebaixa a anterior sozinho
 (isso seria regra funcional não documentada): quem chama precisa marcar a antiga como `SUPERSEDED`
 antes.
 """
@@ -103,11 +105,16 @@ class LoadChartNotFoundError(LoadChartRepositoryError):
 
 
 class ActiveLoadChartConflictError(LoadChartRepositoryError):
-    """A configuração já tem outra tabela `ACTIVE` (no máximo uma por configuração)."""
+    """A configuração já tem outra tabela `ACTIVE` na mesma zona de giro (no máximo uma por
+    configuração e zona; ADR-018)."""
 
-    def __init__(self, configuration_id: str) -> None:
+    def __init__(self, configuration_id: str, rotation_zone_code: str | None = None) -> None:
         self.configuration_id = configuration_id
-        super().__init__(f"a configuração {configuration_id!r} já tem uma tabela de carga ACTIVE")
+        self.rotation_zone_code = rotation_zone_code
+        zone = "" if rotation_zone_code is None else f" na zona {rotation_zone_code!r}"
+        super().__init__(
+            f"a configuração {configuration_id!r} já tem uma tabela de carga ACTIVE{zone}"
+        )
 
 
 class LoadChartRepository(Protocol):

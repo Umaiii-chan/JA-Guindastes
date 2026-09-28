@@ -15,6 +15,7 @@ import { createScene } from './createScene'
 import { disposeObject3D } from './disposeObject3D'
 import { HookLoad } from './HookLoad'
 import { RadiusIndicator } from './RadiusIndicator'
+import { RotationZoneSectors } from './RotationZoneSectors'
 
 /** Modelo 3D que substitui o guindaste provisório (o GLB da TASK-043), já mapeado para um rig. */
 export interface CraneModelSwap {
@@ -41,6 +42,8 @@ export class CraneSceneContents {
   readonly radiusIndicator: RadiusIndicator
   /** Carga pendurada no gancho e halo de situação (TASK-041). */
   readonly hookLoad: HookLoad
+  /** Setores das zonas de giro no chão (TASK-046); vazio até a UI mandar as zonas. */
+  readonly rotationZones: RotationZoneSectors
   /** Limites e a/h com que a cena foi montada (ficha técnica ou FICTÍCIOS). */
   readonly setup: CraneSetup
 
@@ -56,6 +59,7 @@ export class CraneSceneContents {
     crane: CraneController
     radiusIndicator: RadiusIndicator
     hookLoad: HookLoad
+    rotationZones: RotationZoneSectors
     setup: CraneSetup
   }) {
     this.scene = parts.scene
@@ -65,6 +69,7 @@ export class CraneSceneContents {
     this.crane = new SwitchableCrane(parts.crane)
     this.radiusIndicator = parts.radiusIndicator
     this.hookLoad = parts.hookLoad
+    this.rotationZones = parts.rotationZones
     this.setup = parts.setup
     this.eye = findOperatorEye(parts.rig)
   }
@@ -152,6 +157,12 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
   scene.add(radiusIndicator.root)
   environment.fitShadowToReach(radiusIndicator.reach.maxM)
   const hookLoad = new HookLoad(rig.hook)
+  // Setores das zonas até um pouco além do alcance máximo, para ficarem visíveis sob o anel.
+  const rotationZones = new RotationZoneSectors({
+    innerM: 1.5,
+    outerM: Math.max(radiusIndicator.reach.maxM + 1.5, 6),
+  })
+  scene.add(rotationZones.root)
 
   radiusIndicator.update({
     workingRadiusM: crane.getOperationalGeometry().workingRadiusM,
@@ -164,6 +175,7 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     crane,
     radiusIndicator,
     hookLoad,
+    rotationZones,
     setup,
   })
 }

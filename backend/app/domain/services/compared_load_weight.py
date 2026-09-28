@@ -2,14 +2,21 @@ from app.domain.entities.load import Load
 from app.domain.value_objects.mass import Mass
 
 
-def weight_compared_with_capacity(load: Load) -> Mass:
-    """Peso da carga a comparar com a capacidade da tabela (RF-017; doc-fonte § 14.2).
+def weight_compared_with_capacity(load: Load | Mass, hook_block_weight: Mass | None = None) -> Mass:
+    """Peso a comparar com a capacidade da tabela (RF-017; doc-fonte § 14.2; ADR-018 § 2).
 
-    Hoje é exatamente o peso informado pelo usuário (`load.weight`). Acessórios, moitões, cabos e
-    pesos auxiliares **não** são somados: a composição da "carga bruta" depende da PEND-006, ainda
-    pendente (known-gaps P-005). Quando ela for respondida, a regra muda só aqui.
+    É o ponto único da regra do peso comparado (TASK-028):
 
-    O `EvaluateOperation.execute_for_load` usa esta função (TASK-029); os contratos REST e WebSocket
-    ainda recebem só o peso (`load_weight_kg`) e chamam `execute` com ele.
+    - `load`: a carga (`Load`: vale o peso informado pelo usuário) ou só o peso dela (`Mass`: a
+      entrada dos contratos REST e WebSocket, que recebem só `load_weight_kg`);
+    - `hook_block_weight`: o peso do gancho que a tabela considera, cadastrado na configuração
+      (`hook_block_weight_kg`; `None` = 0). A tabela oficial que inclui o gancho na capacidade pede
+      **carga + gancho** (ADR-018 § 2; PEND-006 respondida para o gancho).
+
+    Lingas e acessórios de içamento ainda **não** entram: serão parcelas futuras, somadas aqui.
+    Sem gancho (`None` ou 0 kg), devolve o próprio peso da carga.
     """
-    return load.weight
+    load_weight = load.weight if isinstance(load, Load) else load
+    if hook_block_weight is None or hook_block_weight.kilograms == 0:
+        return load_weight
+    return Mass(load_weight.kilograms + hook_block_weight.kilograms)

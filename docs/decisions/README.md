@@ -55,3 +55,4 @@ Crie um ADR quando a decisão:
 | [ADR-015](ADR-015-consulta-conservadora-provisoria.md) | Consulta conservadora provisória entre pontos da tabela de carga | Aceito (provisório) | 2026-09-26 |
 | [ADR-016](ADR-016-autenticacao-e-perfis.md) | Autenticação por sessão em cookie e perfis Admin/Operador | Aceito | 2026-09-26 |
 | [ADR-017](ADR-017-navegacao-e-design-system-do-frontend.md) | Navegação por páginas e design system escuro do frontend | Aceito | 2026-09-26 |
+| [ADR-018](ADR-018-zonas-de-giro-e-peso-do-gancho.md) | Tabelas por zona de giro e peso do gancho na comparação | Aceito | 2026-09-27 |

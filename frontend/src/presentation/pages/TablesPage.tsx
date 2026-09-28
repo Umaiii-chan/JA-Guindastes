@@ -3,6 +3,9 @@ import { useState } from 'react'
 
 import {
   activeVersion,
+  activeVersionsByZone,
+  firstActiveVersion,
+  isActiveChart,
   summaryOf,
   toLoadChartFailure,
 } from '../../application/loadChart/chartVersions'
@@ -47,7 +50,7 @@ export function TablesPage({ selection, configuration, gateway, canEdit }: Table
   return (
     <Page
       width="wide"
-      intro="A tabela importada entra como rascunho (DRAFT) e só vale para a avaliação depois de ativada. Ativar uma versão substitui a ativa da mesma configuração."
+      intro="A tabela importada entra como rascunho (DRAFT) e só vale para a avaliação depois de ativada. Ativar uma versão substitui a ativa da mesma configuração; com zonas de giro, só a da mesma zona."
       actions={
         !canEdit && (
           <Badge tone="neutral" icon={<Lock size={12} />}>
@@ -114,9 +117,27 @@ function ChartWorkspace({
   const [target, setTarget] = useState<LoadChartSummary | null>(null)
   const [activating, setActivating] = useState(false)
 
-  const { versions, activeChartId } = versionsApi.state
-  const active = activeVersion(versions, activeChartId)
-  const current = active && active.chartId !== target?.chartId ? active : null
+  const { versions, activeChartId, activeCharts } = versionsApi.state
+  const zones = configuration.rotationZones ?? []
+  const zoneName = (code: string | null) =>
+    code === null ? null : (zones.find((zone) => zone.code === code)?.name ?? code)
+  // Com zonas (TASK-046), uma ativa por zona; a prévia padrão é a da primeira zona com ativa.
+  const active = firstActiveVersion(
+    versions,
+    activeCharts,
+    zones.map((zone) => zone.code),
+    activeChartId,
+  )
+  const isActive = (chartId: string) =>
+    activeCharts.length > 0 ? isActiveChart(chartId, activeCharts) : chartId === active?.chartId
+  // A ativação compara com a ativa da MESMA zona da versão escolhida.
+  const sameZoneActive = target
+    ? activeCharts.length > 0
+      ? (activeVersionsByZone(versions, activeCharts).get(target.rotationZoneCode) ?? null)
+      : activeVersion(versions, activeChartId)
+    : null
+  const current =
+    sameZoneActive && sameZoneActive.chartId !== target?.chartId ? sameZoneActive : null
   const fileState = fileCheck.state
   const filePoints = fileState.status === 'valid' ? fileState.points : null
 
@@ -149,9 +170,12 @@ function ChartWorkspace({
       const result = await gateway.activateChart(target.chartId)
       cache.remember(result.chart)
       const superseded = versions.find((item) => item.chartId === result.supersededChartId)
+      const zone = zoneName(result.chart.rotationZoneCode ?? target.rotationZoneCode)
       toast.show({
         tone: 'ok',
-        title: `Versão ${result.chart.version} ativada`,
+        title: zone
+          ? `Versão ${result.chart.version} ativada na zona ${zone}`
+          : `Versão ${result.chart.version} ativada`,
         description: result.supersededChartId
           ? `A ${superseded?.version ?? result.supersededChartId} passou a Substituída. A capacidade calculada já usa a ${result.chart.version}.`
           : `A capacidade calculada já usa a ${result.chart.version}.`,
@@ -186,6 +210,7 @@ function ChartWorkspace({
               },
             }}
             versions={versions}
+            zones={zones}
             onImported={onImported}
             onActivateImported={openActivation}
           />
@@ -202,7 +227,7 @@ function ChartWorkspace({
             showFile
               ? `Prévia de ${fileState.status === 'valid' ? fileState.file.name : ''} (ainda não gravada)`
               : shownVersion
-                ? `Versão ${shownVersion.version} · ${shownVersion.sourceFileName}`
+                ? `Versão ${shownVersion.version}${zoneName(shownVersion.rotationZoneCode) ? ` · zona ${zoneName(shownVersion.rotationZoneCode)}` : ''} · ${shownVersion.sourceFileName}`
                 : 'Lança × raio, colorida pela capacidade'
           }
           icon={<Grid3x3 size={16} />}
@@ -211,8 +236,12 @@ function ChartWorkspace({
               <Badge tone="info" variant="outline">
                 Prévia
               </Badge>
-            ) : shownVersion && shownVersion.chartId === active?.chartId ? (
-              <Badge tone="ok">Ativa</Badge>
+            ) : shownVersion && isActive(shownVersion.chartId) ? (
+              <Badge tone="ok">
+                {zoneName(shownVersion.rotationZoneCode)
+                  ? `Ativa na zona ${zoneName(shownVersion.rotationZoneCode)}`
+                  : 'Ativa'}
+              </Badge>
             ) : undefined
           }
         >
@@ -244,6 +273,7 @@ function ChartWorkspace({
           state={versionsApi.state}
           canEdit={canEdit}
           previewChartId={showFile ? null : (shownVersion?.chartId ?? null)}
+          zones={zones}
           onPreview={(chartId) => setPreview({ kind: 'version', chartId })}
           onActivate={setTarget}
           onRetry={versionsApi.reload}
@@ -255,6 +285,7 @@ function ChartWorkspace({
         current={current}
         targetPoints={pointsOf(targetChart)}
         currentPoints={pointsOf(currentChart)}
+        zoneName={target ? zoneName(target.rotationZoneCode) : null}
         busy={activating}
         onConfirm={() => void confirmActivation()}
         onCancel={() => setTarget(null)}
