@@ -21,16 +21,13 @@
 - ADR-003..013 aceitos.
 - Concluídas: TASK-001..045 (TASK-044/045 no PR #40: rotas de listagem e edição, documentação da leva D).
 - TASK-046 concluída (PR #42): tabelas por zona de giro e peso do gancho (ADR-018).
+- TASK-047 concluída (PRs #43 e seguinte): visual de manual técnico (ADR-019).
 - Até a leva D: TASK-001..043. Leva D (TASK-038..043, PR #39): login com perfis, design system escuro, páginas, simulador guiado e modelo 3D do caminhão.
 - Até a leva C: TASK-001..037. A leva C (PRs #34 e #35) trouxe as telas de catálogo, importação/ativação e carga, a demo reproduzível (`docs/demo.md`), os testes ponta a ponta e a documentação final. Não há leva planejada depois dela.
 
 ## 2. Tarefas em andamento e seus handoffs
 
-As primeiras tabelas oficiais da Guindastes Ribas chegaram em 2026-09-27 (MD 300L e TM 130). Ficam **fora do git**, em `dados-oficiais/`, e agentes não leem essa pasta. ADR-018 (zonas de giro e peso do gancho) aceito em 2026-09-27.
-
-| Tarefa | Handoff | O que é |
-|--------|---------|---------|
-| TASK-047 | `handoffs/TASK-047.md` | visual de manual técnico (ADR-019, aceito em 2026-09-27): tema claro, acento laranja único, régua de utilização, cena em papel milimetrado |
+Nenhuma. As tabelas oficiais da Guindastes Ribas ficam **fora do git**, em `dados-oficiais/`, e agentes não leem essa pasta. As lacunas e perguntas abertas estão em `docs/known-gaps.md`.
 
 ## 3. Autorizações permanentes da pessoa responsável
 
