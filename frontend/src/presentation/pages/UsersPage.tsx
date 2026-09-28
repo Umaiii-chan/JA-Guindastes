@@ -11,11 +11,11 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { UsersGateway } from '../../application/auth/ports'
-import { AuthRequestError, ROLE_LABEL, type User } from '../../domain/auth/user'
+import { AuthRequestError, ROLE_LABEL, type User, type UserRole } from '../../domain/auth/user'
 import { Page } from '../layout/Page'
 import {
-  Badge,
   Button,
+  cx,
   Dialog,
   EmptyState,
   Field,
@@ -172,33 +172,31 @@ function UsersManager({
 
   const columns: TableColumn<User>[] = [
     {
+      key: 'order',
+      header: 'Nº',
+      width: 44,
+      render: (_user, index) => (
+        <span className={styles.order}>{String(index + 1).padStart(2, '0')}</span>
+      ),
+    },
+    {
       key: 'name',
       header: 'Usuário',
       render: (user) => (
-        <span className={styles.identity}>
-          <span className={styles.avatar} aria-hidden="true">
-            {user.displayName.slice(0, 1).toUpperCase()}
+        <span className={styles.names}>
+          <span className={styles.displayName}>
+            {user.displayName}
+            {user.id === currentUserId && <span className={styles.self}>você</span>}
           </span>
-          <span className={styles.names}>
-            <span className={styles.displayName}>
-              {user.displayName}
-              {user.id === currentUserId && (
-                <Badge tone="info" variant="outline">
-                  você
-                </Badge>
-              )}
-            </span>
-            <span className={styles.username}>@{user.username}</span>
-          </span>
+          <span className={styles.username}>@{user.username}</span>
         </span>
       ),
     },
     {
       key: 'role',
       header: 'Perfil',
-      render: (user) => (
-        <Badge tone={user.role === 'ADMIN' ? 'info' : 'neutral'}>{ROLE_LABEL[user.role]}</Badge>
-      ),
+      width: 120,
+      render: (user) => <RoleSeal role={user.role} />,
     },
     {
       key: 'active',
@@ -284,75 +282,79 @@ function UsersManager({
           {toggleFailure.message}
         </Notice>
       )}
-      <Panel
-        title="Contas"
-        subtitle={
-          list.status === 'loaded'
-            ? `${items.length} ${items.length === 1 ? 'conta' : 'contas'} · ${activeAdmins} ${activeAdmins === 1 ? 'administrador ativo' : 'administradores ativos'}`
-            : 'Carregando…'
-        }
-        stamp="REG. 1"
-        actions={
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={<RefreshCw size={14} />}
-            onClick={reload}
-            disabled={list.status === 'loading'}
-          >
-            Recarregar
-          </Button>
-        }
-        flush
-      >
-        <div className={styles.toolbar}>
-          <Field label="Buscar" className={styles.search}>
-            <Input
-              type="search"
-              placeholder="Nome ou usuário"
-              leadingIcon={<Search size={15} />}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </Field>
-        </div>
-        {list.status === 'error' ? (
-          <EmptyState
-            role="alert"
-            tone="danger"
-            icon={<Users size={24} />}
-            title="Não foi possível ler as contas"
-            description={list.message}
-            action={
-              <Button variant="primary" icon={<RefreshCw size={16} />} onClick={reload}>
-                Tentar de novo
-              </Button>
-            }
-          />
-        ) : (
-          <Table
-            caption="Contas de usuário"
-            columns={columns}
-            rows={filtered}
-            rowKey={(user) => user.id}
-            loading={list.status === 'loading'}
-            className={styles.table}
-            empty={
-              <EmptyState
-                compact
-                tone="neutral"
-                icon={<Search size={22} />}
-                title={query ? 'Nenhuma conta encontrada' : 'Nenhuma conta'}
-                description={
-                  query
-                    ? `Nada corresponde a "${query}".`
-                    : 'Crie a primeira conta pelo botão acima.'
-                }
+      <div className={styles.layout}>
+        <Panel
+          title="Contas"
+          subtitle={
+            list.status === 'loaded'
+              ? `${items.length} ${items.length === 1 ? 'conta' : 'contas'} · ${activeAdmins} ${activeAdmins === 1 ? 'administrador ativo' : 'administradores ativos'}`
+              : 'Carregando…'
+          }
+          stamp="REG. 1"
+          actions={
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={<RefreshCw size={14} />}
+              onClick={reload}
+              disabled={list.status === 'loading'}
+            >
+              Recarregar
+            </Button>
+          }
+          flush
+        >
+          <div className={styles.toolbar}>
+            <Field label="Buscar" className={styles.search}>
+              <Input
+                type="search"
+                placeholder="Nome ou usuário"
+                leadingIcon={<Search size={15} />}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
               />
-            }
-          />
-        )}
-      </Panel>
+            </Field>
+          </div>
+          {list.status === 'error' ? (
+            <EmptyState
+              role="alert"
+              tone="danger"
+              icon={<Users size={24} />}
+              title="Não foi possível ler as contas"
+              description={list.message}
+              action={
+                <Button variant="primary" icon={<RefreshCw size={16} />} onClick={reload}>
+                  Tentar de novo
+                </Button>
+              }
+            />
+          ) : (
+            <Table
+              caption="Contas de usuário"
+              columns={columns}
+              rows={filtered}
+              rowKey={(user) => user.id}
+              loading={list.status === 'loading'}
+              dense
+              className={styles.table}
+              empty={
+                <EmptyState
+                  compact
+                  tone="neutral"
+                  icon={<Search size={22} />}
+                  title={query ? 'Nenhuma conta encontrada' : 'Nenhuma conta'}
+                  description={
+                    query
+                      ? `Nada corresponde a "${query}".`
+                      : 'Crie a primeira conta pelo botão acima.'
+                  }
+                />
+              }
+            />
+          )}
+        </Panel>
+        <ProfilesSheet items={items} loaded={list.status === 'loaded'} />
+      </div>
 
       {target && (
         <UserFormDrawer
@@ -403,5 +405,69 @@ function UsersManager({
         }
       />
     </Page>
+  )
+}
+
+/** Perfil como selo pequeno em contorno (ADR-019): ADMIN ou OPERADOR; o nome inteiro para leitores. */
+function RoleSeal({ role }: { readonly role: UserRole }) {
+  return (
+    <span className={cx(styles.seal, role === 'ADMIN' && styles.sealAdmin)}>
+      <span aria-hidden="true">{role === 'ADMIN' ? 'Admin' : 'Operador'}</span>
+      <span className="visually-hidden">{ROLE_LABEL[role]}</span>
+    </span>
+  )
+}
+
+/**
+ * Quadro dos perfis ao lado da tabela: o que cada perfil pode fazer e quantas contas há em cada
+ * situação. Só leitura; as contagens vêm da mesma lista da tabela.
+ */
+function ProfilesSheet({
+  items,
+  loaded,
+}: {
+  readonly items: readonly User[]
+  readonly loaded: boolean
+}) {
+  const count = (predicate: (user: User) => boolean) =>
+    loaded ? String(items.filter(predicate).length).padStart(2, '0') : '—'
+  const rows = [
+    {
+      key: 'ADMIN',
+      seal: <RoleSeal role="ADMIN" />,
+      text: 'Cadastros, tabelas e usuários.',
+      label: 'Administradores ativos: ',
+      value: count((user) => user.active && user.role === 'ADMIN'),
+    },
+    {
+      key: 'OPERATOR',
+      seal: <RoleSeal role="OPERATOR" />,
+      text: 'Consulta e simulação.',
+      label: 'Operadores ativos: ',
+      value: count((user) => user.active && user.role === 'OPERATOR'),
+    },
+    {
+      key: 'inactive',
+      seal: <span className={cx(styles.seal, styles.sealMuted)}>Inativa</span>,
+      text: 'Não entra mais no simulador; dá para reativar.',
+      label: 'Contas inativas: ',
+      value: count((user) => !user.active),
+    },
+  ]
+  return (
+    <Panel as="aside" title="Perfis de acesso" stamp="REG. 2" className={styles.profiles} flush>
+      <dl className={styles.profileList}>
+        {rows.map((row) => (
+          <div key={row.key}>
+            <dt>{row.seal}</dt>
+            <dd className={styles.profileText}>{row.text}</dd>
+            <dd className={styles.profileCount}>
+              <span className="visually-hidden">{row.label}</span>
+              {row.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </Panel>
   )
 }

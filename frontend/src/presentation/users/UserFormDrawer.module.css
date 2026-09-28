@@ -1,6 +1,56 @@
+/*
+ * Formulário da conta em linhas (ADR-019), como uma ficha de cadastro: rótulo em caixa alta pequena
+ * à esquerda, o campo à direita, filete fino entre as linhas.
+ */
 .form {
   display: grid;
-  gap: var(--space-4);
+}
+
+.form > [role='alert'] {
+  margin: var(--space-3) 0;
+}
+
+.form .row {
+  grid-template-columns: 132px minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--space-4);
+  row-gap: 4px;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Rótulo: primeira caixa do campo; ocupa a coluna da esquerda, na altura do controle. */
+.form .row > :first-child {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  padding-top: 10px;
+}
+
+.form .row > :not(:first-child) {
+  grid-column: 2;
+}
+
+.form .row label {
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-2);
+}
+
+@media (width < 520px) {
+  .form .row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .form .row > :first-child {
+    grid-row: auto;
+    padding-top: 0;
+  }
+
+  .form .row > :not(:first-child) {
+    grid-column: 1;
+  }
 }
 
 .passwordRow {
