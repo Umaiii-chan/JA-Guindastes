@@ -4,12 +4,14 @@ import { NavLink, Outlet, useLocation } from 'react-router'
 
 import { cx, IconButton } from '../ui'
 import styles from './AppShell.module.css'
-import { BrandMark } from './BrandMark'
-import { NAV_ITEMS, type NavItem, navItemFor } from './navigation'
+import { MAIN_SHEET_COUNT, NAV_ITEMS, type NavItem, navItemFor } from './navigation'
+import { Wordmark } from './Wordmark'
 
 const RAIL_STORAGE_KEY = 'ja-guindastes.rail-collapsed'
 /** Abaixo desta largura o trilho começa recolhido (mais espaço para a cena). */
 const AUTO_COLLAPSE_BELOW_PX = 1360
+/** Revisão mostrada no carimbo: a versão da aplicação (package.json). */
+const REVISION = '0.1'
 
 function initialCollapsed(): boolean {
   try {
@@ -19,6 +21,13 @@ function initialCollapsed(): boolean {
     // Sem armazenamento (modo privado, bloqueado): decide pela largura.
   }
   return typeof window !== 'undefined' && window.innerWidth < AUTO_COLLAPSE_BELOW_PX
+}
+
+/** "02/04" para as folhas do índice; só "A1" para as da administração. */
+function sheetLabel(item: NavItem): string {
+  return item.section === 'main'
+    ? `${item.sheet}/${String(MAIN_SHEET_COUNT).padStart(2, '0')}`
+    : item.sheet
 }
 
 export interface AppShellProps {
@@ -35,8 +44,9 @@ export interface AppShellProps {
 const SHOW_ALL = () => true
 
 /**
- * Casca da aplicação (ADR-017 § 1): trilho de navegação recolhível com ícones à esquerda e barra
- * superior com o título da página e o menu do usuário. A página do simulador ocupa a área inteira.
+ * Casca da aplicação (ADR-017 § 1, com o visual do ADR-019): trilho recolhível com o wordmark e o
+ * índice numerado das folhas; barra superior como carimbo de prancha (número, título, folha e
+ * revisão) com a ajuda e o menu do usuário. A página do simulador ocupa a área inteira.
  */
 export function AppShell({
   userMenu,
@@ -60,24 +70,21 @@ export function AppShell({
   const mainItems = visibleItems.filter((item) => item.section === 'main')
   const adminItems = visibleItems.filter((item) => item.section === 'admin')
 
-  const renderItem = (item: (typeof NAV_ITEMS)[number]) => {
-    const Icon = item.icon
-    return (
-      <li key={item.path}>
-        <NavLink
-          to={item.path}
-          end={item.path === '/'}
-          className={({ isActive }) => cx(styles.navLink, isActive && styles.navLinkActive)}
-          title={collapsed ? item.label : undefined}
-        >
-          <span className={styles.navIcon} aria-hidden="true">
-            <Icon size={18} strokeWidth={1.8} />
-          </span>
-          <span className={styles.navLabel}>{item.label}</span>
-        </NavLink>
-      </li>
-    )
-  }
+  const renderItem = (item: NavItem) => (
+    <li key={item.path}>
+      <NavLink
+        to={item.path}
+        end={item.path === '/'}
+        className={({ isActive }) => cx(styles.navLink, isActive && styles.navLinkActive)}
+        title={collapsed ? item.label : undefined}
+      >
+        <span className={styles.navSheet} aria-hidden="true">
+          {item.sheet}
+        </span>
+        <span className={styles.navLabel}>{item.label}</span>
+      </NavLink>
+    </li>
+  )
 
   return (
     <div className={cx(styles.shell, collapsed && styles.collapsed)}>
@@ -86,12 +93,9 @@ export function AppShell({
       </a>
       <nav className={styles.rail} aria-label="Navegação principal">
         <div className={styles.brand}>
-          <BrandMark size={30} />
-          <span className={styles.brandText}>
-            <span className={styles.brandName}>JA Guindastes</span>
-            <span className={styles.brandTagline}>Simulador de carga</span>
-          </span>
+          <Wordmark compact={collapsed} />
         </div>
+        <p className={styles.navSection}>Índice</p>
         <ul className={styles.navList}>{mainItems.map(renderItem)}</ul>
         {adminItems.length > 0 && (
           <>
@@ -102,20 +106,36 @@ export function AppShell({
         <div className={styles.railFooter}>
           <IconButton
             label={collapsed ? 'Expandir menu' : 'Recolher menu'}
-            icon={collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            icon={collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
             tooltip="right"
+            size="sm"
             aria-expanded={!collapsed}
             onClick={() => setCollapsed((value) => !value)}
           />
-          <span className={styles.version}>v0.1 · FICTÍCIO</span>
+          <span className={styles.version}>v{REVISION} · dados fictícios</span>
         </div>
       </nav>
       <div className={styles.main}>
         <header className={styles.topBar}>
+          <span className={styles.titleSheet} aria-hidden="true">
+            {current?.sheet ?? '—'}
+          </span>
           <div className={styles.titles}>
             <h1 className={styles.pageTitle}>{current?.label ?? 'Página não encontrada'}</h1>
             {current && <p className={styles.pageDescription}>{current.description}</p>}
           </div>
+          {current && (
+            <dl className={styles.titleBlock} aria-label="Carimbo da folha">
+              <div className={styles.titleCell}>
+                <dt>Folha</dt>
+                <dd>{sheetLabel(current)}</dd>
+              </div>
+              <div className={styles.titleCell}>
+                <dt>Rev.</dt>
+                <dd>{REVISION}</dd>
+              </div>
+            </dl>
+          )}
           <div className={styles.topBarActions}>
             {topBarActions}
             <div className={styles.userSlot}>{userMenu}</div>

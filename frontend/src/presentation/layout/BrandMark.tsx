@@ -1,4 +1,8 @@
-/** Marca do produto: silhueta de guindaste com lança e cabo, em traço (decorativa). */
+/**
+ * Símbolo do simulador (ADR-019 § 4): triângulo de lança sobre a base, em traço de tinta. Geométrico
+ * e mínimo; nenhuma marca real (nem da Guindastes Ribas, nem de fabricante). Usa `currentColor`, então
+ * herda a tinta do texto. O mesmo desenho está em `public/favicon.svg`.
+ */
 export function BrandMark({ size = 28 }: { readonly size?: number }) {
   return (
     <svg
@@ -9,34 +13,15 @@ export function BrandMark({ size = 28 }: { readonly size?: number }) {
       aria-hidden="true"
       focusable="false"
     >
-      <defs>
-        <linearGradient id="brand-gradient" x1="0" y1="32" x2="32" y2="0">
-          <stop offset="0%" stopColor="#0891b2" />
-          <stop offset="100%" stopColor="#67e8f9" />
-        </linearGradient>
-      </defs>
-      <rect
-        x="1"
-        y="1"
-        width="30"
-        height="30"
-        rx="8"
-        fill="#0d1219"
-        stroke="url(#brand-gradient)"
-      />
-      {/* base e torre */}
-      <path d="M7 25h11" stroke="#a8b5c6" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M10 25v-5h5v5" stroke="#a8b5c6" strokeWidth="1.6" strokeLinejoin="round" />
-      {/* lança */}
-      <path
-        d="M12.5 20 25 8"
-        stroke="url(#brand-gradient)"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-      {/* cabo e gancho */}
-      <path d="M25 8v9" stroke="#67e8f9" strokeWidth="1.2" strokeDasharray="1.6 1.4" />
-      <rect x="22.5" y="17.5" width="5" height="4" rx="0.8" fill="#22d3ee" />
+      {/* base (chassi) */}
+      <rect x="3" y="24" width="15" height="4" fill="currentColor" />
+      {/* lança: a hipotenusa do triângulo, do pé até a ponta */}
+      <path d="M8 24 L27 5" stroke="currentColor" strokeWidth="3" strokeLinecap="square" />
+      {/* cabo e carga: o cateto vertical */}
+      <path d="M27 5 V18" stroke="currentColor" strokeWidth="1.25" />
+      <rect x="24.5" y="18" width="5" height="4" fill="currentColor" />
+      {/* raio: o cateto horizontal, em traço de cota */}
+      <path d="M18 26 H29" stroke="currentColor" strokeWidth="1" strokeDasharray="1.5 1.5" />
     </svg>
   )
 }
