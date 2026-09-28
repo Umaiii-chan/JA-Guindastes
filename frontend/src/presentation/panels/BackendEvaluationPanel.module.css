@@ -66,6 +66,9 @@
 /* Utilização: a linha inteira, sobre um filete. */
 .cellUtilization {
   grid-column: 1 / -1;
+  /* altura fixa: a legenda "acima de 100 %" não empurra a cena quando aparece */
+  min-height: 88px;
+  align-content: center;
   padding-top: var(--space-2);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--color-border);
@@ -229,8 +232,8 @@
 }
 
 .provisionalStamp {
-  display: inline-block;
-  margin-right: 2px;
+  display: table;
+  margin: 0 0 4px 2px;
   padding: 0 4px;
   border: 1.5px solid var(--color-status-warning-text);
   color: var(--color-status-warning-text);

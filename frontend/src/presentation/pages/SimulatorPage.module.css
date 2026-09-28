@@ -76,6 +76,13 @@
   border-top: 1px solid var(--color-border-ink);
 }
 
+/* Telas baixas (ex.: 1280 × 720): a ficha rola por dentro para a cena manter a altura útil. */
+@media (height < 800px) {
+  .result {
+    max-height: 196px;
+  }
+}
+
 .evaluation {
   min-width: 0;
 }
