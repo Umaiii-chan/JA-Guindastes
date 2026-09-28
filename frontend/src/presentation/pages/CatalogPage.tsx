@@ -222,7 +222,7 @@ export function CatalogPage({
           <div className={styles.columns}>
             <CatalogColumn
               title="Fabricantes"
-              icon={<Building2 size={16} />}
+              stamp="01"
               loading={loading}
               highlight={query}
               hasChildren
@@ -268,7 +268,7 @@ export function CatalogPage({
             />
             <CatalogColumn
               title="Guindastes"
-              icon={<Construction size={16} />}
+              stamp="02"
               loading={loading}
               highlight={query}
               hasChildren
@@ -321,7 +321,7 @@ export function CatalogPage({
             />
             <CatalogColumn
               title="Configurações"
-              icon={<Settings2 size={16} />}
+              stamp="03"
               loading={loading}
               highlight={query}
               selectedId={selection.selectedConfigurationId}

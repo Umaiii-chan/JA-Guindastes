@@ -1,39 +1,55 @@
+/*
+ * Selos e situação (ADR-019 § 1): etiqueta retangular com borda de 1 px, caixa alta pequena. A cor
+ * de texto usa a variante que passa AA (`--tone-text`); o preenchimento sólido usa `--tone-fill`.
+ * `info` é tinta: o laranja fica só para ação primária, foco e seleção.
+ */
 .ok {
   --tone: var(--color-status-ok);
+  --tone-text: var(--color-status-ok);
+  --tone-fill: var(--color-status-ok);
   --tone-soft: var(--color-status-ok-soft);
 }
 
 .warning {
   --tone: var(--color-status-warning);
+  --tone-text: var(--color-status-warning-text);
+  --tone-fill: var(--color-status-warning-text);
   --tone-soft: var(--color-status-warning-soft);
 }
 
 .danger {
   --tone: var(--color-status-danger);
   --tone-text: var(--color-status-danger-text);
+  --tone-fill: var(--color-status-danger);
   --tone-soft: var(--color-status-danger-soft);
 }
 
 .neutral {
   --tone: var(--color-status-neutral);
+  --tone-text: var(--color-status-neutral-text);
+  --tone-fill: var(--color-text-2);
   --tone-soft: var(--color-status-neutral-soft);
 }
 
 .info {
-  --tone: var(--color-accent);
-  --tone-soft: var(--color-accent-soft);
+  --tone: var(--color-text-1);
+  --tone-text: var(--color-text-1);
+  --tone-fill: var(--color-text-1);
+  --tone-soft: transparent;
 }
 
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 20px;
-  padding: 0 7px;
+  height: 18px;
+  padding: 0 5px;
   border-radius: var(--radius-xs);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-3xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.06em;
+  font-stretch: var(--font-stretch-condensed);
+  letter-spacing: var(--letter-spacing-caps);
+  line-height: 1;
   text-transform: uppercase;
   white-space: nowrap;
   vertical-align: middle;
@@ -45,53 +61,49 @@
 
 .soft {
   background: var(--tone-soft);
-  color: var(--tone-text, var(--tone));
-  border: 1px solid color-mix(in srgb, var(--tone) 28%, transparent);
-}
-
-.outline {
-  color: var(--tone-text, var(--tone));
-  border: 1px solid color-mix(in srgb, var(--tone) 55%, transparent);
-}
-
-.solid {
-  background: var(--tone);
-  color: var(--color-text-inverse);
+  color: var(--tone-text);
   border: 1px solid var(--tone);
 }
 
+.outline {
+  color: var(--tone-text);
+  border: 1px solid var(--tone);
+}
+
+.solid {
+  background: var(--tone-fill);
+  color: var(--color-text-inverse);
+  border: 1px solid var(--tone-fill);
+}
+
+/* Situação: marca quadrada na cor da situação e o texto ao lado, sem pílula nem brilho. */
 .pill {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--tone-soft);
-  border: 1px solid color-mix(in srgb, var(--tone) 32%, transparent);
-  color: var(--tone-text, var(--tone));
+  color: var(--tone-text);
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
-  transition:
-    background-color var(--duration-base) var(--ease-out),
-    color var(--duration-base) var(--ease-out),
-    border-color var(--duration-base) var(--ease-out);
+  transition: color var(--duration-base) var(--ease-out);
 }
 
 .pill-sm {
-  height: 22px;
-  padding: 0 var(--space-2);
   font-size: var(--font-size-xs);
 }
 
 .pill-md {
-  height: 28px;
-  padding: 0 var(--space-3);
   font-size: var(--font-size-sm);
 }
 
 .pill-lg {
-  height: 34px;
-  padding: 0 var(--space-4);
-  font-size: var(--font-size-md);
+  height: 30px;
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border: 1px solid var(--tone);
+  border-radius: var(--radius-xs);
+  background: var(--tone-soft);
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
 }
 
 .dot {
@@ -99,28 +111,21 @@
   width: 8px;
   height: 8px;
   flex: none;
-  border-radius: 50%;
   background: var(--tone);
-  box-shadow: 0 0 10px var(--tone);
 }
 
-.pulse::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: var(--tone);
-  animation: pulse 1.6s var(--ease-out) infinite;
+.pill-lg .dot {
+  width: 10px;
+  height: 10px;
 }
 
-@keyframes pulse {
-  from {
-    transform: scale(1);
-    opacity: 0.7;
-  }
+/* Em curso (conectando, atualizando): a marca pisca devagar. */
+.pulse {
+  animation: blink 1.2s steps(2, jump-none) infinite;
+}
 
-  to {
-    transform: scale(2.8);
-    opacity: 0;
+@keyframes blink {
+  50% {
+    opacity: 0.25;
   }
 }

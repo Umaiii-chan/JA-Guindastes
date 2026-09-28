@@ -1,4 +1,3 @@
-import { Mouse, Radio } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import type { ConnectionStatus } from '../../domain/evaluation/evaluation'
@@ -22,7 +21,11 @@ const CONNECTION: Record<ConnectionStatus, { tone: Tone; label: string; pulse: b
   closed: { tone: 'neutral', label: 'Conexão fechada', pulse: false },
 }
 
-/** Barra de status do simulador (ADR-017 § 2): conexão WebSocket/REST, atualização e câmera. */
+/**
+ * Barra do quadro da cena (ADR-017 § 2, com o visual do ADR-019): o nome da vista, a conexão
+ * WebSocket/REST, a atualização e as vistas da câmera, em células separadas por filetes, como a faixa
+ * de título de um desenho.
+ */
 export function ConnectionStatusBar({
   connectionStatus,
   transport,
@@ -32,25 +35,27 @@ export function ConnectionStatusBar({
   const connection = CONNECTION[connectionStatus]
   return (
     <div className={styles.bar} role="group" aria-label="Status da conexão e câmera">
-      <StatusPill tone={connection.tone} pulse={connection.pulse} size="sm" live>
-        {connection.label}
-      </StatusPill>
-      <span className={cx(styles.divider, styles.transportDivider)} aria-hidden="true" />
-      <span className={cx(styles.item, styles.transport)}>
-        <Radio size={13} aria-hidden="true" />
+      <span className={cx(styles.cell, styles.title)} aria-hidden="true">
+        Vista 3D
+      </span>
+      <span className={styles.cell}>
+        <StatusPill tone={connection.tone} pulse={connection.pulse} size="sm" live>
+          {connection.label}
+        </StatusPill>
+      </span>
+      <span className={cx(styles.cell, styles.transport)}>
         {transport === null
           ? 'Nenhuma avaliação recebida'
           : `Último resultado por ${transport === 'websocket' ? 'WebSocket' : 'REST'}`}
       </span>
       {pending && (
-        <span className={styles.pending}>
-          <Spinner size={11} /> atualizando…
+        <span className={cx(styles.cell, styles.pending)}>
+          <Spinner size={10} /> atualizando…
         </span>
       )}
-      <span className={cx(styles.divider, styles.hintDivider)} aria-hidden="true" />
+      <span className={styles.spacer} aria-hidden="true" />
       {cameraActions ?? (
-        <span className={cx(styles.item, styles.hint)}>
-          <Mouse size={13} aria-hidden="true" />
+        <span className={cx(styles.cell, styles.hint)}>
           Arraste para girar · role para aproximar
         </span>
       )}

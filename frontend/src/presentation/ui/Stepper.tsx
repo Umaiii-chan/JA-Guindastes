@@ -1,4 +1,4 @@
-import { Check, Lock } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { type ReactNode, useId } from 'react'
 
 import { cx } from './cx'
@@ -15,6 +15,7 @@ export interface StepItem {
   /** Resumo do que foi escolhido, mostrado quando o passo está concluído e recolhido. */
   readonly summary?: ReactNode
   readonly status: StepStatus
+  /** @deprecated Compatibilidade com o ADR-017: o procedimento mostra o número (01, 02, 03). */
   readonly icon?: ReactNode
 }
 
@@ -29,16 +30,24 @@ export interface StepperProps {
   readonly className?: string
 }
 
-const STATUS_TEXT: Record<StepStatus, string> = {
-  pending: 'bloqueado: conclua o passo anterior',
-  current: 'em andamento',
-  complete: 'concluído',
+/** Situação à vista, em caixa alta pequena; o resto só para leitores de tela. */
+const STATUS_TEXT: Record<StepStatus, { visible: string; hidden?: string }> = {
+  pending: { visible: 'bloqueado', hidden: ': conclua o passo anterior' },
+  current: { visible: 'em andamento' },
+  complete: { visible: 'concluído' },
+}
+
+/** Número do passo com dois dígitos, como num procedimento de manual (01, 02, 03). */
+function stepNumber(index: number): string {
+  return String(index + 1).padStart(2, '0')
 }
 
 /**
- * Passos em sequência, na vertical. Cada cabeçalho é um botão: abre o passo se ele estiver liberado
- * (`current` ou `complete`); um passo `pending` fica desabilitado. O passo aberto recebe
- * `aria-current="step"` e mostra o conteúdo logo abaixo.
+ * Procedimento numerado (ADR-019 § 2): 01, 02, 03 sobre um traço vertical que engrossa em tinta nos
+ * passos concluídos e fica laranja no passo atual. O concluído recebe um check simples em tinta. Cada
+ * cabeçalho é um botão: abre o passo se ele estiver liberado (`current` ou `complete`); um passo
+ * `pending` fica desabilitado. O passo aberto recebe `aria-current="step"` e mostra o conteúdo logo
+ * abaixo.
  */
 export function Stepper({
   steps,
@@ -56,6 +65,7 @@ export function Stepper({
         const isActive = step.id === activeId
         const locked = step.status === 'pending'
         const contentId = `${baseId}-${step.id}-content`
+        const status = STATUS_TEXT[step.status]
         return (
           <li
             key={step.id}
@@ -72,18 +82,13 @@ export function Stepper({
               onClick={() => onSelect(step.id)}
             >
               <span className={styles.marker} aria-hidden="true">
-                {step.status === 'complete' ? (
-                  <Check size={14} strokeWidth={3} />
-                ) : locked ? (
-                  <Lock size={12} />
-                ) : (
-                  (step.icon ?? index + 1)
-                )}
+                {stepNumber(index)}
               </span>
               <span className={styles.headings}>
                 <span className={styles.kicker}>
-                  Passo {index + 1}
-                  <span className="visually-hidden"> — {STATUS_TEXT[step.status]}</span>
+                  <span className="visually-hidden">Passo {index + 1} — </span>
+                  {status.visible}
+                  {status.hidden && <span className="visually-hidden">{status.hidden}</span>}
                 </span>
                 <span className={styles.title}>{step.title}</span>
                 {!isActive && step.status === 'complete' && step.summary && (
@@ -93,9 +98,10 @@ export function Stepper({
                   <span className={styles.description}>{step.description}</span>
                 )}
               </span>
-              {!isActive && step.status === 'complete' && (
+              {step.status === 'complete' && (
                 <span className={styles.state} aria-hidden="true">
-                  editar
+                  <Check size={16} strokeWidth={2.25} />
+                  {!isActive && <span className={styles.edit}>editar</span>}
                 </span>
               )}
             </button>

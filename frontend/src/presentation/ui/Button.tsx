@@ -19,7 +19,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly fullWidth?: boolean
 }
 
-/** Botão do design system: primário (ciano), secundário, fantasma ou de perigo. */
+/** Botão do manual técnico: primário (laranja), secundário (contorno), fantasma ou de perigo. */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   {
     variant = 'secondary',

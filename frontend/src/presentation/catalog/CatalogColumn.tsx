@@ -15,7 +15,8 @@ export interface CatalogColumnItem {
 
 export interface CatalogColumnProps {
   readonly title: string
-  readonly icon: ReactNode
+  /** Carimbo da coluna (ex.: "01"). */
+  readonly stamp: string
   readonly items: readonly CatalogColumnItem[]
   readonly selectedId: string | null
   onSelect(id: string): void
@@ -36,7 +37,7 @@ export interface CatalogColumnProps {
  */
 export function CatalogColumn({
   title,
-  icon,
+  stamp,
   items,
   selectedId,
   onSelect,
@@ -64,7 +65,7 @@ export function CatalogColumn({
   return (
     <Panel
       title={title}
-      icon={icon}
+      stamp={stamp}
       flush
       className={styles.column}
       actions={

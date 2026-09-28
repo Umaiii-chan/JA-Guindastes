@@ -14,38 +14,44 @@
 }
 
 .base {
-  fill: var(--color-surface-2);
-  stroke: var(--color-border);
+  fill: var(--color-surface-1);
+  stroke: var(--color-text-1);
   stroke-width: 0.8;
 }
 
+/*
+ * Setores em densidades de tinta (ADR-019): o laranja fica só para a zona atual (`.active`), como o
+ * setor destacado na cena.
+ */
 .sector {
-  --zone-color: var(--color-accent);
+  --zone-color: var(--color-text-1);
+
   fill: var(--zone-color);
-  fill-opacity: 0.28;
-  stroke: var(--color-bg);
-  stroke-width: 1.2;
+  fill-opacity: 0.16;
+  stroke: var(--color-text-1);
+  stroke-width: 0.75;
   transition: fill-opacity var(--duration-fast) ease;
 }
 
 .sector.active {
-  fill-opacity: 0.7;
+  fill: var(--color-accent);
+  fill-opacity: 0.55;
 }
 
 [data-tone='0'] {
-  --zone-color: var(--color-accent);
+  --zone-color: var(--color-text-1);
 }
 
 [data-tone='1'] {
-  --zone-color: var(--color-status-warning);
+  --zone-color: var(--color-text-3);
 }
 
 [data-tone='2'] {
-  --zone-color: var(--color-status-info);
+  --zone-color: var(--color-border-strong);
 }
 
 [data-tone='3'] {
-  --zone-color: var(--color-status-ok);
+  --zone-color: var(--color-border);
 }
 
 .sectorLabel {
@@ -96,9 +102,9 @@
 .swatch {
   width: 10px;
   height: 10px;
-  border-radius: 2px;
-  background: var(--zone-color, var(--color-accent));
-  opacity: 0.75;
+  border: 1px solid var(--color-text-1);
+  background: var(--zone-color, var(--color-text-1));
+  opacity: 0.45;
   grid-row: span 2;
 }
 
