@@ -1,52 +1,69 @@
 .art {
   width: 100%;
   height: auto;
-  max-height: 250px;
-  overflow: visible;
+  color: var(--color-text-1);
 }
 
-.label,
-.labelWarm {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  fill: #34d399;
+.ink {
+  stroke: var(--color-text-1);
+  stroke-width: 1;
 }
 
-.labelWarm {
-  fill: #fbbf24;
+.inkFill {
+  fill: var(--color-text-1);
 }
 
-.ring {
-  animation: ring-dash 18s linear infinite;
+.thin {
+  stroke: var(--color-text-2);
+  stroke-width: 0.75;
 }
 
-.load {
-  transform-origin: 328px 64px;
-  animation: sway 5s var(--ease-in-out) infinite;
-}
-
-.cable {
-  transform-origin: 328px 64px;
-  animation: sway 5s var(--ease-in-out) infinite;
+.body {
+  stroke: var(--color-text-1);
+  stroke-width: 1.25;
+  fill: var(--color-surface-1);
 }
 
 .boom {
-  filter: drop-shadow(0 0 8px rgb(34 211 238 / 0.45));
+  stroke: var(--color-text-1);
+  stroke-width: 1.25;
+  fill: var(--color-surface-3);
 }
 
-@keyframes ring-dash {
-  to {
-    stroke-dashoffset: -240;
-  }
+.pin {
+  stroke: var(--color-text-1);
+  stroke-width: 1.25;
+  fill: var(--color-surface-1);
 }
 
-@keyframes sway {
-  0%,
-  100% {
-    transform: rotate(-1.2deg);
-  }
+/* Linha de centro: traço-ponto. */
+.axis {
+  stroke: var(--color-text-2);
+  stroke-width: 0.75;
+  stroke-dasharray: 10 3 2 3;
+}
 
-  50% {
-    transform: rotate(1.2deg);
-  }
+/* Linha de cota: fina, com setas nas pontas. */
+.dim {
+  stroke: var(--color-text-1);
+  stroke-width: 0.75;
+}
+
+.paper {
+  fill: var(--color-surface-1);
+}
+
+.label {
+  fill: var(--color-text-1);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+}
+
+.note {
+  fill: var(--color-text-2);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }

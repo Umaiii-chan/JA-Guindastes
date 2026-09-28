@@ -1,24 +1,10 @@
-import {
-  ArrowRight,
-  ArrowUpRight,
-  Axis3d,
-  Building2,
-  Construction,
-  Database,
-  FlaskConical,
-  RefreshCw,
-  Settings2,
-  ShieldAlert,
-  Table2,
-  Unplug,
-} from 'lucide-react'
-import type { ReactNode } from 'react'
+import { ArrowRight, Building2, RefreshCw, Unplug } from 'lucide-react'
 import { Link } from 'react-router'
 
 import type { CatalogSummary } from '../../application/catalog/catalogSummary'
 import { ROUTES } from '../layout/navigation'
 import { Page } from '../layout/Page'
-import { Badge, Button, buttonClassName, EmptyState, Notice, Panel, Skeleton } from '../ui'
+import { Badge, Button, buttonClassName, EmptyState, Skeleton } from '../ui'
 import { HeroIllustration } from './HeroIllustration'
 import styles from './HomePage.module.css'
 
@@ -32,146 +18,181 @@ export interface HomePageProps {
   onRetryCatalog(): void
 }
 
-const SHORTCUTS: readonly {
+/** Entradas do índice: cada página do manual, com o número da folha. */
+const INDEX: readonly {
   to: string
+  sheet: string
   title: string
   description: string
-  icon: ReactNode
-  cta: string
 }[] = [
   {
     to: ROUTES.simulator,
+    sheet: '02',
     title: 'Simulador',
     description:
       'Escolha o guindaste, descreva a carga e posicione a lança. O backend devolve capacidade, utilização e raio.',
-    icon: <Axis3d size={20} />,
-    cta: 'Abrir o simulador',
   },
   {
     to: ROUTES.catalog,
+    sheet: '03',
     title: 'Catálogo',
     description:
       'Fabricantes, guindastes e configurações, com a ficha técnica que limita os controles.',
-    icon: <Construction size={20} />,
-    cta: 'Ver o catálogo',
   },
   {
     to: ROUTES.tables,
+    sheet: '04',
     title: 'Tabelas',
     description: 'Importe a tabela de carga (CSV ou XLSX) de uma configuração e ative-a.',
-    icon: <Table2 size={20} />,
-    cta: 'Importar tabela',
   },
 ]
 
 /**
- * Início (ADR-017 § 1): boas-vindas, atalhos, resumo do catálogo e os avisos permanentes (dados
- * FICTÍCIOS, ADR-012; estratégia PROVISÓRIA, ADR-015).
+ * Início (ADR-017 § 1, com o visual do ADR-019): folha assimétrica. À esquerda, a coluna larga com a
+ * abertura, a figura com as cotas e o índice do manual; à direita, a coluna estreita e densa com o
+ * resumo do catálogo em tabela e as notas de rodapé dos avisos permanentes (dados FICTÍCIOS, ADR-012;
+ * estratégia PROVISÓRIA, ADR-015; o backend decide, RN-008).
  */
 export function HomePage({ catalog, onRetryCatalog }: HomePageProps) {
   return (
     <Page width="wide">
-      <section className={styles.hero} aria-labelledby="home-hero-title">
-        <div className={styles.heroText}>
-          <p className={styles.kicker}>
-            <span className={styles.kickerDot} aria-hidden="true" />
-            Simulador web 3D
-          </p>
-          <h2 id="home-hero-title" className={styles.heroTitle}>
-            Simulador de Tabelas de Carga de Guindastes
-          </h2>
-          <p className={styles.heroLead}>
-            Posicione o guindaste na cena 3D e veja, em tempo real, se a carga cabe na capacidade da
-            tabela ativa. O resultado que vale é sempre o do backend.
-          </p>
-          <ol className={styles.flow} aria-label="Como funciona">
-            <li>
-              <span>1</span> Guindaste
-            </li>
-            <li aria-hidden="true" className={styles.flowArrow}>
-              <ArrowRight size={14} />
-            </li>
-            <li>
-              <span>2</span> Carga
-            </li>
-            <li aria-hidden="true" className={styles.flowArrow}>
-              <ArrowRight size={14} />
-            </li>
-            <li>
-              <span>3</span> Posição
-            </li>
-          </ol>
-          <div className={styles.heroActions}>
-            <Link to={ROUTES.simulator} className={buttonClassName('primary', 'lg')}>
-              <Axis3d size={18} aria-hidden="true" />
-              Abrir o simulador
-            </Link>
-            <Link to={ROUTES.catalog} className={buttonClassName('ghost', 'lg')}>
-              Ver o catálogo
-              <ArrowRight size={16} aria-hidden="true" />
-            </Link>
+      <div className={styles.sheet}>
+        <section className={styles.main} aria-labelledby="home-hero-title">
+          <header className={styles.opening}>
+            <div className={styles.openingTitle}>
+              <p className={styles.kicker}>
+                Manual de operação <span aria-hidden="true">·</span> Seção 0
+              </p>
+              <h2 id="home-hero-title" className={styles.title}>
+                Simulador de Tabelas de Carga de Guindastes
+              </h2>
+            </div>
+            <div className={styles.openingText}>
+              <p className={styles.lead}>
+                Posicione o guindaste na cena 3D e veja, em tempo real, se a carga cabe na
+                capacidade da tabela ativa. O resultado que vale é sempre o do backend.<sup>3</sup>
+              </p>
+              <div className={styles.actions}>
+                <Link to={ROUTES.simulator} className={buttonClassName('primary', 'md')}>
+                  Abrir o simulador
+                  <ArrowRight size={16} aria-hidden="true" />
+                </Link>
+                <Link to={ROUTES.catalog} className={buttonClassName('secondary', 'md')}>
+                  Ver o catálogo
+                </Link>
+              </div>
+            </div>
+          </header>
+
+          <figure className={styles.figure}>
+            <HeroIllustration />
+            <span className={styles.stamp} aria-hidden="true">
+              Dados fictícios
+            </span>
+            <figcaption className={styles.figcaption}>
+              <span className={styles.figNumber}>Fig. 1</span>
+              <span>
+                O que o simulador mede: raio de trabalho <b>R</b>, do eixo de giro até a vertical do
+                gancho; inclinação <b>θ</b> e comprimento <b>L</b> da lança.
+              </span>
+            </figcaption>
+          </figure>
+
+          <div className={styles.index}>
+            <div className={styles.indexHeader}>
+              <h3 className={styles.sectionTitle}>Índice</h3>
+              <ol className={styles.flow} aria-label="Como funciona">
+                <li>
+                  <span>01</span> Guindaste
+                </li>
+                <li>
+                  <span>02</span> Carga
+                </li>
+                <li>
+                  <span>03</span> Posição
+                </li>
+              </ol>
+            </div>
+            <nav aria-label="Atalhos">
+              <ol className={styles.indexList}>
+                {INDEX.map((entry, position) => (
+                  <li key={entry.to}>
+                    <Link to={entry.to} className={styles.indexLink}>
+                      <span className={styles.indexNumber} aria-hidden="true">
+                        {position + 1}.0
+                      </span>
+                      <span className={styles.indexText}>
+                        <span className={styles.indexTitle}>{entry.title}</span>
+                        <span className={styles.indexDescription}>{entry.description}</span>
+                      </span>
+                      <span className={styles.indexSheet}>
+                        <span className="visually-hidden">folha </span>
+                        <span aria-hidden="true">Fl. </span>
+                        {entry.sheet}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            </nav>
           </div>
-        </div>
-        <div className={styles.heroArt} aria-hidden="true">
-          <HeroIllustration />
-        </div>
-      </section>
+        </section>
 
-      <nav className={styles.shortcuts} aria-label="Atalhos">
-        {SHORTCUTS.map((shortcut) => (
-          <Link key={shortcut.to} to={shortcut.to} className={styles.shortcut}>
-            <span className={styles.shortcutIcon} aria-hidden="true">
-              {shortcut.icon}
-            </span>
-            <span className={styles.shortcutTitle}>{shortcut.title}</span>
-            <span className={styles.shortcutText}>{shortcut.description}</span>
-            <span className={styles.shortcutCta}>
-              {shortcut.cta}
-              <ArrowUpRight size={14} aria-hidden="true" />
-            </span>
-          </Link>
-        ))}
-      </nav>
+        <aside className={styles.side} aria-label="Resumo e notas">
+          <section className={styles.block} aria-labelledby="home-summary-title">
+            <div className={styles.blockHeader}>
+              <h2 id="home-summary-title" className={styles.sectionTitle}>
+                Resumo do catálogo
+              </h2>
+              {catalog.status !== 'loading' && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={<RefreshCw size={12} />}
+                  onClick={onRetryCatalog}
+                >
+                  Atualizar
+                </Button>
+              )}
+            </div>
+            <p className={styles.blockNote}>Lido do backend agora.</p>
+            <CatalogSummaryView catalog={catalog} onRetry={onRetryCatalog} />
+          </section>
 
-      <div className={styles.columns}>
-        <Panel
-          title="Resumo do catálogo"
-          subtitle="Dados lidos do backend agora"
-          icon={<Database size={16} />}
-          actions={
-            catalog.status !== 'loading' ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                icon={<RefreshCw size={13} />}
-                onClick={onRetryCatalog}
-              >
-                Atualizar
-              </Button>
-            ) : undefined
-          }
-        >
-          <CatalogSummaryView catalog={catalog} onRetry={onRetryCatalog} />
-        </Panel>
-
-        <Panel
-          title="Avisos"
-          subtitle="Valem para toda a aplicação"
-          icon={<ShieldAlert size={16} />}
-        >
-          <Notice tone="warning" title="Dados FICTÍCIOS" icon={<FlaskConical size={16} />}>
-            Guindastes, fichas e tabelas usados até agora são fictícios, até a empresa fornecer os
-            dados oficiais (ADR-012). Não use os valores em operação real.
-          </Notice>
-          <Notice tone="warning" title="Estratégia PROVISÓRIA" icon={<ShieldAlert size={16} />}>
-            A capacidade vem da consulta conservadora: um ponto da tabela, do lado seguro, sem
-            interpolação (ADR-015). Não é o valor definitivo.
-          </Notice>
-          <Notice tone="info" title="O backend decide">
-            A geometria desenhada no navegador é só pré-visualização. Capacidade e utilização são
-            calculadas no backend (RN-008).
-          </Notice>
-        </Panel>
+          <section className={styles.block} aria-labelledby="home-notes-title">
+            <div className={styles.blockHeader}>
+              <h2 id="home-notes-title" className={styles.sectionTitle}>
+                Notas
+              </h2>
+              <span className={styles.blockRef} aria-hidden="true">
+                valem para toda a aplicação
+              </span>
+            </div>
+            <ol className={styles.footnotes}>
+              <li role="note">
+                <strong>Dados FICTÍCIOS</strong>
+                <span>
+                  Guindastes, fichas e tabelas usados até agora são fictícios, até a empresa
+                  fornecer os dados oficiais (ADR-012). Não use os valores em operação real.
+                </span>
+              </li>
+              <li role="note">
+                <strong>Estratégia PROVISÓRIA</strong>
+                <span>
+                  A capacidade vem da consulta conservadora: um ponto da tabela, do lado seguro, sem
+                  interpolação (ADR-015). Não é o valor definitivo.
+                </span>
+              </li>
+              <li role="note">
+                <strong>O backend decide</strong>
+                <span>
+                  A geometria desenhada no navegador é só pré-visualização. Capacidade e utilização
+                  são calculadas no backend (RN-008).
+                </span>
+              </li>
+            </ol>
+          </section>
+        </aside>
       </div>
     </Page>
   )
@@ -192,9 +213,8 @@ function CatalogSummaryView({
         </span>
         {[0, 1, 2].map((index) => (
           <div key={index} className={styles.stat}>
-            <Skeleton width={36} height={36} radius={10} />
-            <Skeleton width="50%" height={26} />
-            <Skeleton width="70%" height={10} />
+            <Skeleton width={36} height={18} />
+            <Skeleton width="45%" height={10} />
           </div>
         ))}
       </div>
@@ -206,7 +226,7 @@ function CatalogSummaryView({
         compact
         tone="danger"
         role="alert"
-        icon={<Unplug size={22} />}
+        icon={<Unplug size={16} />}
         title="Não foi possível ler o catálogo"
         description={
           <>
@@ -215,7 +235,7 @@ function CatalogSummaryView({
           </>
         }
         action={
-          <Button size="sm" icon={<RefreshCw size={13} />} onClick={onRetry}>
+          <Button size="sm" icon={<RefreshCw size={12} />} onClick={onRetry}>
             Tentar de novo
           </Button>
         }
@@ -227,7 +247,7 @@ function CatalogSummaryView({
     return (
       <EmptyState
         compact
-        icon={<Building2 size={22} />}
+        icon={<Building2 size={16} />}
         title="O catálogo está vazio"
         description="Cadastre um fabricante, um guindaste e uma configuração com ficha técnica para simular."
         action={
@@ -245,9 +265,9 @@ function CatalogSummaryView({
   return (
     <div className={styles.summary}>
       <div className={styles.stats} role="list" aria-label="Contagens do catálogo">
-        <Stat icon={<Building2 size={18} />} label="Fabricantes" value={summary.manufacturers} />
-        <Stat icon={<Construction size={18} />} label="Guindastes" value={summary.cranes} />
-        <Stat icon={<Settings2 size={18} />} label="Configurações" value={summary.configurations} />
+        <Stat label="Fabricantes" value={summary.manufacturers} />
+        <Stat label="Guindastes" value={summary.cranes} />
+        <Stat label="Configurações" value={summary.configurations} />
       </div>
       <div className={styles.sheetBar}>
         <div className={styles.sheetBarLabel}>
@@ -269,8 +289,10 @@ function CatalogSummaryView({
         {summary.configurationsWithSheet < summary.configurations && (
           <p className={styles.sheetBarHint}>
             <Badge tone="warning">sem ficha</Badge>
-            {summary.configurations - summary.configurationsWithSheet} configuração(ões) sem ficha
-            técnica: a avaliação delas responde “não avaliável”.
+            <span>
+              {summary.configurations - summary.configurationsWithSheet} configuração(ões) sem ficha
+              técnica: a avaliação delas responde “não avaliável”.
+            </span>
           </p>
         )}
       </div>
@@ -278,20 +300,10 @@ function CatalogSummaryView({
   )
 }
 
-function Stat({
-  icon,
-  label,
-  value,
-}: {
-  readonly icon: ReactNode
-  readonly label: string
-  readonly value: number
-}) {
+/** Linha da tabela de contagens: o número vem primeiro no DOM e o CSS o leva para a direita. */
+function Stat({ label, value }: { readonly label: string; readonly value: number }) {
   return (
     <div className={styles.stat} role="listitem">
-      <span className={styles.statIcon} aria-hidden="true">
-        {icon}
-      </span>
       <span className={styles.statValue}>{value.toLocaleString('pt-BR')}</span>
       <span className={styles.statLabel}>{label}</span>
     </div>
