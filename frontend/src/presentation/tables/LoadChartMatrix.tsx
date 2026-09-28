@@ -7,7 +7,7 @@ import {
 } from '../../application/loadChart/loadChartMatrix'
 import type { LoadChartPoint } from '../../application/loadChart/ports'
 import { cx } from '../ui'
-import { formatKg, formatMeters } from './format'
+import { formatKg, formatMeters, formatNumber } from './format'
 import styles from './LoadChartMatrix.module.css'
 
 export interface LoadChartMatrixProps {
@@ -19,11 +19,22 @@ export interface LoadChartMatrixProps {
   readonly className?: string
 }
 
+/** Número com a unidade num trecho menor (o texto continua "12 m", para leitores e testes). */
+function Meters({ value }: { readonly value: number }) {
+  return (
+    <>
+      {formatNumber(value)}
+      <span className={styles.unit}> m</span>
+    </>
+  )
+}
+
 /**
- * Matriz da tabela de carga como mapa de calor legível: linhas = comprimento da lança, colunas = raio
- * de trabalho, células com a capacidade máxima (kg) em mono tabular e fundo numa escala de um tom só
- * (ciano, do escuro ao claro, em 5 faixas da própria tabela). O número está sempre escrito: a cor só
- * ajuda a ler o padrão. Célula sem ponto na tabela: "—" (a tela não interpola; ADR-009).
+ * Matriz da tabela de carga como a tabela impressa do fabricante (ADR-019): linhas = comprimento da
+ * lança, colunas = raio de trabalho, capacidade máxima (kg) em mono tabular alinhada à direita, entre
+ * filetes. O fundo é um mapa de calor sóbrio, 5 tons de uma rampa de cinza-quente sobre o papel (das
+ * 5 faixas da própria tabela), e o peso da tinta sobe com a capacidade. O número está sempre escrito:
+ * o tom só ajuda a ler o padrão. Célula sem ponto na tabela: "—" (a tela não interpola; ADR-009).
  */
 export function LoadChartMatrix({
   points,
@@ -46,12 +57,15 @@ export function LoadChartMatrix({
           <thead>
             <tr>
               <th scope="col" className={styles.corner}>
-                <span className={styles.cornerRow}>Lança ↓</span>
-                <span className={styles.cornerCol}>Raio →</span>
+                <svg className={styles.cornerRule} aria-hidden="true" preserveAspectRatio="none">
+                  <line x1="0" y1="0" x2="100%" y2="100%" />
+                </svg>
+                <span className={styles.cornerCol}>Raio</span>
+                <span className={styles.cornerRow}>Lança</span>
               </th>
               {matrix.radiiM.map((radius) => (
                 <th key={radius} scope="col" className={styles.colHead}>
-                  {formatMeters(radius)}
+                  <Meters value={radius} />
                 </th>
               ))}
             </tr>
@@ -60,7 +74,7 @@ export function LoadChartMatrix({
             {matrix.boomLengthsM.map((boom, row) => (
               <tr key={boom}>
                 <th scope="row" className={styles.rowHead}>
-                  {formatMeters(boom)}
+                  <Meters value={boom} />
                 </th>
                 {matrix.cells[row].map((value, column) => {
                   const radius = matrix.radiiM[column]
@@ -93,7 +107,9 @@ export function LoadChartMatrix({
         </table>
       </div>
       <figcaption className={styles.legend}>
-        <span className={styles.legendTitle}>Capacidade máxima (kg)</span>
+        <span className={styles.legendTitle}>
+          Capacidade máx.<span className={styles.legendUnit}>kg</span>
+        </span>
         <ol className={styles.legendScale} aria-label="Legenda de cores da capacidade">
           {ranges.map((range) => (
             <li key={range.band} className={styles.legendItem}>
@@ -108,6 +124,14 @@ export function LoadChartMatrix({
             </li>
           ))}
         </ol>
+        {!compact && (
+          <span className={styles.legendMissing}>
+            <span className={styles.missingSwatch} aria-hidden="true">
+              —
+            </span>
+            sem ponto (não interpola)
+          </span>
+        )}
         <span className={styles.legendMeta}>
           {matrix.pointCount} pontos · {matrix.boomLengthsM.length} lanças × {matrix.radiiM.length}{' '}
           raios · mín. {formatKg(matrix.minCapacityKg)} · máx. {formatKg(matrix.maxCapacityKg)}
