@@ -1,4 +1,4 @@
-import { FileSpreadsheet, Grid3x3, Pencil, Settings2, TriangleAlert } from 'lucide-react'
+import { FileSpreadsheet, Grid3x3, Pencil, TriangleAlert } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { formatZoneSector } from '../../application/catalog/rotationZones'
@@ -92,7 +92,7 @@ export function ConfigurationDetail({
     <Panel
       title={configuration.name}
       subtitle={[manufacturer?.name, crane?.modelName].filter(Boolean).join(' › ')}
-      icon={<Settings2 size={16} />}
+      stamp="FICHA"
       className={styles.detail}
       actions={
         <>

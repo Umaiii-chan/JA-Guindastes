@@ -68,7 +68,7 @@ export function UsersPage({ mode, gateway, currentUserId }: UsersPageProps) {
   if (mode === 'disabled') {
     return (
       <Page width="narrow">
-        <Panel title="Usuários" icon={<Users size={16} />}>
+        <Panel title="Usuários">
           <EmptyState
             icon={<DatabaseZap size={24} />}
             tone="warning"
@@ -291,7 +291,7 @@ function UsersManager({
             ? `${items.length} ${items.length === 1 ? 'conta' : 'contas'} · ${activeAdmins} ${activeAdmins === 1 ? 'administrador ativo' : 'administradores ativos'}`
             : 'Carregando…'
         }
-        icon={<Users size={16} />}
+        stamp="REG. 1"
         actions={
           <Button
             size="sm"

@@ -43,7 +43,7 @@ export function VersionTimeline({
     <Panel
       title="Versões"
       subtitle="Da maior versão para a menor"
-      icon={<History size={16} />}
+      stamp="REV."
       actions={
         <>
           {count > 0 && <Badge tone="neutral">{count}</Badge>}

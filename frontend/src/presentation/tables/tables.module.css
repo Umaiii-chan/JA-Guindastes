@@ -57,7 +57,7 @@
 .consequences code {
   font-family: var(--font-mono);
   font-size: 0.92em;
-  color: var(--color-accent-strong);
+  color: var(--color-text-1);
   overflow-wrap: anywhere;
 }
 
@@ -110,8 +110,8 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px solid color-mix(in srgb, var(--color-status-ok) 40%, transparent);
+  border: 1px solid var(--color-status-ok);
+  border-left-width: 3px;
   background: var(--color-status-ok-soft);
   color: var(--color-text-1);
   font-size: var(--font-size-sm);
@@ -178,20 +178,15 @@
   list-style: none;
 }
 
+/* Traço vertical da revisão: fino, em tinta clara (como o histórico de revisões de uma prancha). */
 .timeline::before {
   content: '';
   position: absolute;
-  top: 10px;
-  bottom: 10px;
+  top: 14px;
+  bottom: 14px;
   left: 6px;
-  width: 2px;
-  border-radius: 2px;
-  background: linear-gradient(
-    180deg,
-    var(--color-border-strong),
-    var(--color-border) 80%,
-    transparent
-  );
+  width: 0;
+  border-left: 1px solid var(--color-border-strong);
 }
 
 .timelineItem {
@@ -214,46 +209,35 @@
   --marker: var(--color-status-ok);
 }
 
+/* Marcador quadrado; cheio na versão ativa. */
 .timelineMarker {
   position: relative;
   z-index: 1;
-  width: 14px;
-  height: 14px;
-  margin-top: 12px;
-  border-radius: 50%;
+  width: 13px;
+  height: 13px;
+  margin-top: 14px;
   background: var(--color-surface-1);
-  border: 2px solid var(--marker);
+  border: 1px solid var(--marker);
 }
 
 .timelineActive .timelineMarker {
   background: var(--marker);
-  box-shadow:
-    0 0 0 4px color-mix(in srgb, var(--marker) 22%, transparent),
-    0 0 14px var(--marker);
 }
 
 .timelineCard {
   display: grid;
   gap: var(--space-2);
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-2);
-  transition:
-    border-color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-base) var(--ease-out);
+  padding: var(--space-3) 0 var(--space-3);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .timelineItem[data-status='SUPERSEDED'] .timelineCard {
-  background: color-mix(in srgb, var(--color-surface-2) 60%, transparent);
+  color: var(--color-text-2);
 }
 
 .timelineActive .timelineCard {
-  border-color: color-mix(in srgb, var(--color-status-ok) 55%, transparent);
-  background:
-    radial-gradient(120% 120% at 0% 0%, var(--color-status-ok-soft), transparent 60%),
-    var(--color-surface-2);
-  box-shadow: 0 10px 28px -14px color-mix(in srgb, var(--color-status-ok) 70%, transparent);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--color-status-ok);
 }
 
 .timelineHead {
@@ -338,9 +322,8 @@
   display: grid;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-2);
+  border-top: 1px solid var(--color-border-ink);
+  border-bottom: 1px solid var(--color-border-ink);
 }
 
 .comparisonTitle {
@@ -384,6 +367,5 @@
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(4px);
   }
 }

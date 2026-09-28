@@ -46,11 +46,22 @@
 
 /* ── Colunas mestre-detalhe ──────────────────────────────────────────────── */
 
+/* As três colunas numa folha só, separadas por filetes verticais (não três caixas). */
 .columns {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-4);
   align-items: stretch;
+  border: 1px solid var(--color-border-ink);
+  background: var(--color-surface-1);
+}
+
+.columns .column {
+  border: 0;
+  border-radius: 0;
+}
+
+.columns .column + .column {
+  border-left: 1px solid var(--color-border-ink);
 }
 
 @media (width < 960px) {
@@ -69,12 +80,15 @@
 
 .list {
   display: grid;
-  gap: 2px;
   max-height: 340px;
   overflow: auto;
   margin: 0;
-  padding: var(--space-2);
+  padding: 0;
   list-style: none;
+}
+
+.list > li {
+  border-bottom: 1px solid var(--color-border);
 }
 
 .item {
@@ -83,46 +97,42 @@
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
+  border: 0;
   background: transparent;
   color: var(--color-text-1);
   text-align: left;
   cursor: pointer;
-  transition:
-    background-color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
-.item:hover {
-  background: var(--color-surface-2);
+.item:hover .itemLabel {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
 .item:focus-visible {
-  outline: none;
-  box-shadow: var(--shadow-focus);
+  outline-offset: -2px;
 }
 
+/* Item selecionado: fundo de papel, peso e o filete laranja à esquerda. */
 .itemSelected {
-  background: var(--color-accent-soft);
-  border-color: rgb(34 211 238 / 0.35);
+  background: var(--color-bg);
 }
 
 .itemSelected::before {
   content: '';
   position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: -1px;
+  top: 0;
+  bottom: 0;
+  left: 0;
   width: 3px;
-  border-radius: 0 3px 3px 0;
   background: var(--color-accent);
-  box-shadow: 0 0 10px var(--color-accent-glow);
 }
 
-.itemSelected:hover {
-  background: var(--color-accent-soft);
+.itemSelected .itemLabel {
+  font-weight: var(--font-weight-semibold);
 }
 
 .itemText {
@@ -157,14 +167,13 @@
 }
 
 .itemSelected .itemChevron {
-  color: var(--color-accent);
+  color: var(--color-text-1);
   transform: translateX(2px);
 }
 
 .mark {
   padding: 0 1px;
-  border-radius: 3px;
-  background: rgb(34 211 238 / 0.28);
+  background: rgb(217 72 15 / 0.18);
   color: var(--color-text-1);
 }
 
@@ -229,12 +238,9 @@
 .pivotTile {
   display: grid;
   gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background:
-    radial-gradient(140% 120% at 0% 0%, var(--color-accent-softer), transparent 60%),
-    var(--color-surface-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border-ink);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .pivotTile dt {
@@ -258,12 +264,11 @@
   height: 20px;
   margin-right: 4px;
   padding: 0 4px;
-  border-radius: var(--radius-xs);
-  background: var(--color-accent-soft);
-  color: var(--color-accent-strong);
+  border: 1px solid var(--color-text-1);
+  color: var(--color-text-1);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
 }
 
 .limits {
@@ -369,7 +374,7 @@
 .check input {
   width: 16px;
   height: 16px;
-  accent-color: var(--color-accent);
+  accent-color: var(--color-accent-ink);
 }
 
 .bullets {
@@ -405,8 +410,7 @@
   min-width: 0;
   margin: 0;
   padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
 }
 
 .zonesLegend {
