@@ -123,4 +123,37 @@ tinta na matriz). Depois do aviso, nada mais nesses arquivos.
 
 ## Cena 3D
 
-<!-- A preencher pelo agente da cena. -->
+Branches `task/TASK-047-visual-cena` e `task/TASK-047-visual-cena-2`, integradas pela sessão principal.
+Só mexem em `src/three/**` e `tests/three/**`; a API do `CraneViewport` não mudou.
+
+- **Ambiente** (`addEnvironment.ts`):
+  - saíram o domo do céu, a névoa e o `sky`;
+  - fundo e chão em papel `#f4f1ea`: o chão é `MeshBasicMaterial` sem tone mapping, e um `ShadowMaterial` recebe a sombra;
+  - grade milimetrada (1 m `#cfcab9`, 5 m `#b3ac98`) que acompanha a câmera e vai até perto do horizonte;
+  - eixos em traço e ponto.
+- **Luz:** `NeutralToneMapping` no lugar do ACES. Hemisférica 0xffffff/0xe6e0d2 a 1,5; sol a 2,1 com sombra PCF 2048² e raio 5; preenchimento a 0,6. Sombra de tinta com opacidade 0,14.
+- **Paleta** (`palette.ts`):
+  - `PAPER_INK` novo;
+  - `STATUS_COLORS` igual ao ADR-019;
+  - `SCENE_COLORS`: carga `#e2dccd` e linha de 5 m `#b3ac98`, os dois únicos valores fora dos tokens;
+  - `statusCssColor` e `toCssHex` com a mesma assinatura.
+- **Anel e zonas:**
+  - anel de 0,1 m na cor da situação;
+  - linha radial e arcos de alcance tracejados em tinta;
+  - setores com preenchimento de 0,02 (0,05 na zona atual) e arco de 0,55 (1 na atual), com a zona atual em laranja;
+  - halo com mistura normal, sem aditiva.
+- **Rótulos** (`sceneLabels.ts`): cota em Plex Mono (`LABEL_FONT_FAMILY = 'IBM Plex Mono'`) com sublinhado e linha de chamada. A zona atual tem sublinhado laranja e texto em tinta, porque o laranja em 10 px não passa no AA. `data-scene-label`, `data-active` e o texto continuam iguais.
+- **Enquadramento** (`cameraPresets.ts`):
+  - `fitDistance`/`fitCentered` pelo FOV e pela proporção;
+  - o conjunto enquadrado é o chassi, o anel, a ponta da lança e o gancho;
+  - perspectiva a 13° de inclinação e 40° de azimute; quadros em coluna (proporção < 1,1) sobem até +17°;
+  - ao redimensionar, reenquadra enquanto a pessoa não mexe na órbita;
+  - em 16:9, o anel ocupa cerca de 50 % da largura, porque a lança limita; a constante `PERSPECTIVE_FILL` controla isso.
+- **Escala gráfica** (`scaleBar.ts`): 5 m no canto inferior esquerdo, medida no alvo da órbita; troca para 2 m ou 20 m fora de 40 a 220 px.
+- **Constante aproximada:** `CARRIER_FOOTPRINT`, medida no GLB. Se o modelo trocar, é preciso rever.
+- **Capturas:** `docs/assets/screenshots/cena-3d/*` em 1280×720 e `-900x900`.
+
+### Verificação na integração (sessão principal)
+
+- **Frontend na branch integrada:** lint, format, typecheck e build passaram; `npm test` deu 710 passed e 1 skipped.
+- **E2E completo com backend real:** stack do Docker Compose com a imagem do frontend reconstruída desta branch, `E2E_BACKEND=1`, admin local e seed FICTÍCIO. Resultado: **21 passed, 1 skipped**.
