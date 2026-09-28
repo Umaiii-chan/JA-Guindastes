@@ -38,9 +38,10 @@ pendentes com a Guindastes Ribas: ver [`docs/business-rules.md`](docs/business-r
 
 ### Capturas
 
-Feitas com dados FICTÍCIOS. As do Início e do simulador são da TASK-039 e ainda mostram a cena
-**anterior** à TASK-041, sem o modelo do caminhão. As da cena escura com o modelo foram feitas com a
-cena montada à parte, fora das páginas.
+Feitas com dados FICTÍCIOS, no visual de manual técnico do ADR-019 (TASK-047): papel e tinta,
+filetes finos e o acento laranja só na ação e na seleção. As do Início e do simulador já mostram a
+cena clara de prancha técnica, com a grade milimetrada. As de `cena-3d/` foram feitas com a cena
+montada à parte, fora das páginas.
 
 | Tela | Arquivo |
 |------|---------|
@@ -51,8 +52,9 @@ cena montada à parte, fora das páginas.
 | Cena escura, acima da capacidade, vista de topo | [`cena-3d/over-topo.png`](docs/assets/screenshots/cena-3d/over-topo.png) |
 | Modelo do guindaste com a lança estendida | [`modelo-3d/05-lanca-estendida.png`](docs/assets/screenshots/modelo-3d/05-lanca-estendida.png) |
 
-As demais ficam em `docs/assets/screenshots/`: Início e simulador em 1280×720, as cinco
-situações/câmeras em `cena-3d/` e as oito poses do modelo em `modelo-3d/`.
+As demais ficam em `docs/assets/screenshots/`: Início e simulador em 1280×720, o simulador no
+passo 1 (`simulador-inicio-1440x900.png`), as situações e câmeras da cena em `cena-3d/` e as oito
+poses do modelo em `modelo-3d/`.
 
 ## Stack
 
