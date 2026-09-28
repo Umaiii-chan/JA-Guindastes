@@ -20,6 +20,7 @@
 - Backend: esqueleto com gates, núcleo de domínio da tabela de carga (sem interpolação), importação CSV provisória (TASK-010) e geometria operacional do ADR-013 (TASK-014). Frontend: esqueleto e PoC Three.js com guindaste provisório (TASK-013).
 - ADR-003..013 aceitos.
 - Concluídas: TASK-001..045 (TASK-044/045 no PR #40: rotas de listagem e edição, documentação da leva D).
+- TASK-046 concluída (PR #42): tabelas por zona de giro e peso do gancho (ADR-018).
 - Até a leva D: TASK-001..043. Leva D (TASK-038..043, PR #39): login com perfis, design system escuro, páginas, simulador guiado e modelo 3D do caminhão.
 - Até a leva C: TASK-001..037. A leva C (PRs #34 e #35) trouxe as telas de catálogo, importação/ativação e carga, a demo reproduzível (`docs/demo.md`), os testes ponta a ponta e a documentação final. Não há leva planejada depois dela.
 
@@ -29,7 +30,6 @@ As primeiras tabelas oficiais da Guindastes Ribas chegaram em 2026-09-27 (MD 300
 
 | Tarefa | Handoff | O que é |
 |--------|---------|---------|
-| TASK-046 | `handoffs/TASK-046.md` | tabelas por zona de giro, peso do gancho na comparação, editor de zonas e setores na cena (PR #42) |
 | TASK-047 | `handoffs/TASK-047.md` | visual de manual técnico (ADR-019, aceito em 2026-09-27): tema claro, acento laranja único, régua de utilização, cena em papel milimetrado |
 
 ## 3. Autorizações permanentes da pessoa responsável

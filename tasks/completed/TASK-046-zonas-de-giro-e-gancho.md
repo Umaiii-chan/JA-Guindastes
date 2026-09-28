@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-27 por pessoa responsável (tabelas oficiais do MD 300L, via orquestrador) |
 | **Iniciada em** | 2026-09-27 |
@@ -136,3 +136,5 @@ A migration deve voltar (`downgrade`) sem perder as tabelas sem zona.
 
 - Banco e Docker não rodam localmente (o WSL está quebrado): integração e E2E só no CI.
 - A ficha técnica oficial do MD 300L (a, h) não veio nos PDFs.
+
+> Movida para `completed/` em 2026-09-27 pela autorização permanente da pessoa responsável (revisão independente dispensada).
