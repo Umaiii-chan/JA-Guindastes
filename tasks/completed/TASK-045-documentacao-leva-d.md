@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | média |
 | **Criada em** | 2026-09-26 por Anderson Sehnem (pedido via orquestrador, depois do merge da leva D) |
 | **Iniciada em** | 2026-09-26 |
@@ -110,3 +110,5 @@ paralelo e altera a lista de rotas de `docs/architecture.md`; esta tarefa não m
 - O que foi entregue (2–3 linhas):
 - O que ficou de fora e virou tarefa nova: TASK-...
 - Aprendizados para o template/docs:
+
+> Movida para `completed/` em 2026-09-26 pela autorização permanente da pessoa responsável (revisão independente dispensada).
