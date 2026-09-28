@@ -1,0 +1,64 @@
+/* Figura cotada de a e h (ficha da configuração): traço de tinta de desenho técnico. */
+
+.figure {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.ground {
+  stroke: var(--ink);
+  stroke-width: 0.9;
+}
+
+.body {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 0.6;
+}
+
+.boom {
+  stroke: var(--ink);
+  stroke-width: 3.2;
+  stroke-linecap: butt;
+}
+
+.pin {
+  fill: var(--paper-raised);
+  stroke: var(--ink);
+  stroke-width: 0.9;
+}
+
+.axis {
+  stroke: var(--ink-2);
+  stroke-width: 0.5;
+  stroke-dasharray: 8 2 1.4 2;
+}
+
+.extension {
+  stroke: var(--ink-3);
+  stroke-width: 0.4;
+}
+
+.dimension {
+  stroke: var(--ink);
+  stroke-width: 0.55;
+}
+
+.arrowHead {
+  fill: var(--ink);
+}
+
+.dimLabel {
+  fill: var(--ink);
+  font: italic var(--font-weight-semibold) 8px var(--font-mono);
+  text-anchor: middle;
+}
+
+.note {
+  fill: var(--ink-3);
+  font: 5px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-anchor: end;
+}
