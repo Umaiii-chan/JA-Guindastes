@@ -17,7 +17,6 @@ import { formatZoneSector } from '../../application/catalog/rotationZones'
 import type { RotationZone } from '../../domain/catalog/catalog'
 import { Button, Field, Input, Notice, Panel, Select, useToast } from '../ui'
 import { Dropzone, type DropzoneStatus } from '../ui/Dropzone'
-import { ImportIssuesTable } from './ImportIssuesTable'
 import styles from './tables.module.css'
 import type { ChartFileCheckApi, ChartFileState } from './useChartFileCheck'
 
@@ -76,7 +75,7 @@ function dropzoneText(state: ChartFileState): { title?: string; description: str
     case 'valid':
       return {
         title: state.file.name,
-        description: `Válido: ${state.points.length} pontos, prontos para importar. Confira a matriz abaixo.`,
+        description: `Válido: ${state.points.length} pontos, prontos para importar. Confira a prévia da matriz.`,
       }
     case 'unverified':
       return {
@@ -86,7 +85,7 @@ function dropzoneText(state: ChartFileState): { title?: string; description: str
     case 'invalid':
       return {
         title: state.file.name,
-        description: `${state.issues.length} ${state.issues.length === 1 ? 'problema encontrado' : 'problemas encontrados'}. Veja o relatório abaixo.`,
+        description: `${state.issues.length} ${state.issues.length === 1 ? 'problema encontrado' : 'problemas encontrados'}. Veja o relatório de erros.`,
       }
     case 'error':
       return {
@@ -97,8 +96,9 @@ function dropzoneText(state: ChartFileState): { title?: string; description: str
 }
 
 /**
- * Importação (CA-2): área de arrastar e soltar com validação prévia, id e versão da tabela, relatório
- * de erros com linha e coluna, e a importação como rascunho (DRAFT).
+ * Importação (CA-2): área de arrastar e soltar com validação prévia, id e versão da tabela e a
+ * importação como rascunho (DRAFT). O relatório de erros com linha e coluna fica na coluna larga da
+ * página (`ImportIssuesTable`), ao lado desta ordem de importação.
  */
 export function ChartImportPanel({
   configurationId,
@@ -208,7 +208,7 @@ export function ChartImportPanel({
   return (
     <Panel
       title="Importar tabela"
-      subtitle="Arraste o arquivo, confira a prévia e importe como rascunho"
+      subtitle="Arraste o arquivo, confira a prévia e grave como rascunho"
       stamp="IMP."
     >
       <div className={styles.importBody}>
@@ -220,11 +220,8 @@ export function ChartImportPanel({
           description={text.description}
           disabled={importing}
           onFiles={onFiles}
+          className={styles.dropzone}
         />
-
-        {state.status === 'invalid' && (
-          <ImportIssuesTable issues={state.issues} fileName={state.file.name} />
-        )}
 
         <form
           className={styles.importForm}
