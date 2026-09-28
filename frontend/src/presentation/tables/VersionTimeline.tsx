@@ -86,13 +86,15 @@ function TimelineBody({
 }: VersionTimelineProps) {
   if (state.status === 'idle') {
     return (
-      <EmptyState
-        compact
-        tone="neutral"
-        icon={<History size={22} />}
-        title="Escolha uma configuração"
-        description="As versões aparecem aqui depois de escolher fabricante, guindaste e configuração."
-      />
+      <div className={styles.registerEmpty}>
+        <EmptyState
+          compact
+          tone="neutral"
+          icon={<History size={22} />}
+          title="Escolha uma configuração"
+          description="As versões aparecem aqui depois de escolher fabricante, guindaste e configuração."
+        />
+      </div>
     )
   }
   if (state.status === 'loading' && state.versions.length === 0) {
@@ -110,34 +112,38 @@ function TimelineBody({
   }
   if (state.status === 'error') {
     return (
-      <EmptyState
-        compact
-        tone="danger"
-        role="alert"
-        icon={<TriangleAlert size={22} />}
-        title="Não foi possível ler as versões"
-        description={state.error}
-        action={
-          <Button size="sm" icon={<RefreshCw size={14} />} onClick={onRetry}>
-            Tentar de novo
-          </Button>
-        }
-      />
+      <div className={styles.registerEmpty}>
+        <EmptyState
+          compact
+          tone="danger"
+          role="alert"
+          icon={<TriangleAlert size={22} />}
+          title="Não foi possível ler as versões"
+          description={state.error}
+          action={
+            <Button size="sm" icon={<RefreshCw size={14} />} onClick={onRetry}>
+              Tentar de novo
+            </Button>
+          }
+        />
+      </div>
     )
   }
   if (state.versions.length === 0) {
     return (
-      <EmptyState
-        compact
-        tone="neutral"
-        icon={<History size={22} />}
-        title="Nenhuma versão importada"
-        description={
-          canEdit
-            ? 'Esta configuração ainda não tem tabela de carga. Importe a primeira ao lado.'
-            : 'Esta configuração ainda não tem tabela de carga.'
-        }
-      />
+      <div className={styles.registerEmpty}>
+        <EmptyState
+          compact
+          tone="neutral"
+          icon={<History size={22} />}
+          title="Nenhuma versão importada"
+          description={
+            canEdit
+              ? 'Esta configuração ainda não tem tabela de carga. Importe a primeira ao lado.'
+              : 'Esta configuração ainda não tem tabela de carga.'
+          }
+        />
+      </div>
     )
   }
 

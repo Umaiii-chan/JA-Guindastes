@@ -6,7 +6,7 @@
 
 .tablesLayout {
   display: grid;
-  grid-template-columns: minmax(300px, 344px) minmax(0, 1fr);
+  grid-template-columns: minmax(296px, 320px) minmax(0, 1fr);
   grid-template-rows: auto 1fr;
   grid-template-areas:
     'side main'
@@ -210,13 +210,18 @@
 
 /* Colunas: REV. | (ZONA) | STATUS | ARQUIVO · TABELA | PTS. | ações. */
 .register {
-  --register-columns: 76px 104px minmax(0, 1fr) 36px 206px;
+  --register-columns: 68px 104px minmax(0, 1fr) 36px 226px;
   --register-areas: 'rev status file pts act' 'rev status chart pts act';
 }
 
 .registerZones {
-  --register-columns: 76px minmax(0, 1fr) 104px minmax(0, 1.35fr) 36px 206px;
+  --register-columns: 68px minmax(0, 1fr) 104px minmax(0, 1.4fr) 36px 226px;
   --register-areas: 'rev zone status file pts act' 'rev zone status chart pts act';
+}
+
+/* Vazio, erro e "escolha a configuração" dentro da folha sem margem do registro. */
+.registerEmpty {
+  padding: var(--space-4);
 }
 
 /* Ativas por zona, numa linha de resumo acima do registro. */
@@ -269,7 +274,7 @@
   grid-template-columns: var(--register-columns);
   grid-template-areas: var(--register-areas);
   align-items: center;
-  column-gap: var(--space-3);
+  column-gap: 10px;
   padding: 0 var(--space-3) 0 var(--space-4);
 }
 

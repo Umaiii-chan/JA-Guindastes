@@ -26,7 +26,8 @@ export function PivotFigure({ offsetM, className }: PivotFigureProps) {
   const pivotX = AXIS + Math.sign(offsetM) * OFFSET
   const hasOffset = offsetM !== 0
   const dimX = Math.min(pivotX, AXIS) - 16
-  const boomEnd = { x: pivotX + 58, y: PIVOT_Y - 30 }
+  // Trecho da lança, sempre dentro do quadro (a positivo põe o pino mais à direita).
+  const boomEnd = { x: Math.min(pivotX + 58, 162), y: PIVOT_Y - 30 }
 
   return (
     <svg

@@ -74,6 +74,9 @@ export function CatalogColumn({
         <>
           {!loading && (
             <span className={styles.columnCount}>
+              <span className={styles.columnCountLabel} aria-hidden="true">
+                Qtd.
+              </span>
               <span className="visually-hidden">Itens na lista: </span>
               {String(items.length).padStart(2, '0')}
             </span>

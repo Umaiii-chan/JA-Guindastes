@@ -108,7 +108,17 @@
   flex: 1;
 }
 
-/* Contagem da coluna: mono, com dois dígitos, sem caixa. */
+/* Contagem da coluna: "QTD." e o número em mono, com dois dígitos, sem caixa. */
+.columnCountLabel {
+  margin-right: 4px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+
 .columnCount {
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
