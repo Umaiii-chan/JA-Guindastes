@@ -1,14 +1,21 @@
 /*
- * Fontes locais (ADR-017 § 4), sem CDN. Só o subconjunto latino e o eixo de peso (variável): cobre o
- * português e mantém o pacote pequeno. Caracteres fora dele caem na fonte do sistema.
+ * Fontes locais (ADR-019 § 3), sem CDN, licença OFL: IBM Plex Sans e IBM Plex Mono via @fontsource.
+ * Só o subconjunto latino, que cobre o português; caracteres fora dele caem na fonte do sistema.
+ *
+ * - Plex Sans: um arquivo variável com os eixos de peso (100–700) e largura (75–100 %). A largura
+ *   condensada é a do wordmark e dos rótulos de carimbo (`--font-stretch-condensed`).
+ * - Plex Mono: só os pesos usados, 400 (tabelas, cotas) e 500 (números grandes). O corpo proíbe a
+ *   síntese de negrito (`font-synthesis-weight: none` em global.css), então um 600 pedido em mono cai
+ *   no 500 em vez de ganhar um negrito falso.
  */
 
 @font-face {
-  font-family: 'Inter Variable';
+  font-family: 'IBM Plex Sans Variable';
   font-style: normal;
   font-display: swap;
-  font-weight: 100 900;
-  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2')
+  font-weight: 100 700;
+  font-stretch: 75% 100%;
+  src: url('@fontsource-variable/ibm-plex-sans/files/ibm-plex-sans-latin-standard-normal.woff2')
     format('woff2-variations');
   unicode-range:
     U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
@@ -16,12 +23,22 @@
 }
 
 @font-face {
-  font-family: 'JetBrains Mono Variable';
+  font-family: 'IBM Plex Mono';
   font-style: normal;
   font-display: swap;
-  font-weight: 100 800;
-  src: url('@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2')
-    format('woff2-variations');
+  font-weight: 400;
+  src: url('@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url('@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2') format('woff2');
   unicode-range:
     U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
     U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
