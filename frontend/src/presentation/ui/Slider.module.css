@@ -19,6 +19,13 @@
   color: var(--color-text-1);
 }
 
+.icon {
+  display: inline-grid;
+  margin-right: 6px;
+  vertical-align: -2px;
+  color: var(--color-text-3);
+}
+
 .value {
   min-width: 7ch;
   font-size: var(--font-size-lg);

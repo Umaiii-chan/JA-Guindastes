@@ -26,6 +26,8 @@ export interface GaugeProps {
   readonly caption?: string
   readonly fractionDigits?: number
   readonly className?: string
+  /** @deprecated Compatibilidade com o medidor circular do ADR-017; a régua ocupa a largura dada. */
+  readonly size?: number
 }
 
 /** Parte da largura ocupada pela escala de 0 a `max`; o resto é a zona de "excede". */

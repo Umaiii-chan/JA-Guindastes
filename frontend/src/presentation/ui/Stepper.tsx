@@ -15,6 +15,8 @@ export interface StepItem {
   /** Resumo do que foi escolhido, mostrado quando o passo está concluído e recolhido. */
   readonly summary?: ReactNode
   readonly status: StepStatus
+  /** @deprecated Compatibilidade com o ADR-017: o procedimento mostra o número (01, 02, 03). */
+  readonly icon?: ReactNode
 }
 
 export interface StepperProps {

@@ -16,6 +16,8 @@ export interface SliderProps {
   readonly onChange: (value: number) => void
   /** Observação sob o controle (ex.: limite FICTÍCIO). */
   readonly note?: ReactNode
+  /** @deprecated Compatibilidade com o ADR-017: ícone pequeno antes do rótulo. O ADR-019 dispensa. */
+  readonly icon?: ReactNode
   readonly id?: string
   readonly className?: string
 }
@@ -49,6 +51,7 @@ export function Slider({
   format = String,
   onChange,
   note,
+  icon,
   id,
   className,
 }: SliderProps) {
@@ -62,6 +65,11 @@ export function Slider({
     <div className={cx(styles.slider, (disabled || unavailable) && styles.disabled, className)}>
       <div className={styles.header}>
         <label htmlFor={inputId} className={styles.label}>
+          {icon && (
+            <span className={styles.icon} aria-hidden="true">
+              {icon}
+            </span>
+          )}
           {label}
         </label>
         <output htmlFor={inputId} className={styles.value}>

@@ -22,6 +22,13 @@ export interface PanelProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
   readonly flush?: boolean
   /** Rodapé da folha, separado por um filete. */
   readonly footer?: ReactNode
+  /**
+   * @deprecated Compatibilidade com o ADR-017: o ícone vai para a célula do carimbo quando não há
+   * `stamp`. Prefira `stamp` (ADR-019 evita ícones decorativos).
+   */
+  readonly icon?: ReactNode
+  /** @deprecated Compatibilidade com o ADR-017: não há mais vidro; as duas variantes são a folha. */
+  readonly variant?: 'glass' | 'solid'
 }
 
 /**
@@ -37,17 +44,21 @@ export function Panel({
   headingLevel = 2,
   flush = false,
   footer,
+  icon,
+  variant = 'solid',
   className,
   children,
   ...rest
 }: PanelProps) {
   const titleId = `${useId()}-title`
   const Heading = headingLevel === 2 ? 'h2' : 'h3'
-  const hasHeader = title !== undefined || actions !== undefined || stamp !== undefined
+  const corner = stamp ?? icon
+  const hasHeader = title !== undefined || actions !== undefined || corner !== undefined
 
   return (
     <Element
       className={cx(styles.panel, className)}
+      data-variant={variant}
       aria-labelledby={title !== undefined && !rest['aria-label'] ? titleId : undefined}
       {...rest}
     >
@@ -62,9 +73,9 @@ export function Panel({
             {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
           </div>
           {actions && <div className={styles.actions}>{actions}</div>}
-          {stamp !== undefined && (
+          {corner !== undefined && (
             <span className={styles.stamp} aria-hidden="true">
-              {stamp}
+              {corner}
             </span>
           )}
         </header>
