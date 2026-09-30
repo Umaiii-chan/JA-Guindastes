@@ -63,7 +63,7 @@ pois o upgrade WebSocket através desse rewrite não faz parte do contrato docum
 | Arquivo                                                | Tipo de mudança | Verificado? |
 | ------------------------------------------------------ | --------------- | ----------- |
 | `render.yaml`                                          | criar           | sim         |
-| `frontend/vercel.mjs`                                  | criar           | sim         |
+| `frontend/vercel.json`                                 | criar           | sim         |
 | `frontend/src/app/useEvaluationSession.ts`             | alterar         | sim         |
 | `backend/app/infrastructure/database/config.py`        | alterar         | sim         |
 | `backend/tests/infrastructure/database/test_config.py` | alterar         | sim         |
@@ -80,8 +80,7 @@ pois o upgrade WebSocket através desse rewrite não faz parte do contrato docum
 - Depende de contas Render e Vercel conectadas ao GitHub.
 - O filesystem gratuito é efêmero: arquivos importados somem em reinícios, hibernações e redeploys.
 - O PostgreSQL gratuito expira após 30 dias e não tem backup; criar menos de 30 dias antes da banca.
-- A URL pública do backend só existe depois do primeiro Blueprint; ela precisa ser cadastrada na
-  variável `RENDER_API_ORIGIN` da Vercel.
+- A URL pública do backend precisa coincidir com o `destination` de `frontend/vercel.json`.
 
 ## 7. Teste manual
 
