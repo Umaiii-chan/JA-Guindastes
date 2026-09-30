@@ -237,6 +237,8 @@ Variáveis em uso (TASK-011, 018, 027, 031, 035, 036, 038, 040):
 | `BACKEND_PORT`, `FRONTEND_PORT` | `docker-compose.yml` | não (padrões `8000` e `8080`) | portas do host para a API e o frontend dos containers, só em `127.0.0.1` |
 | `BACKEND_DATABASE_URL` | `docker-compose.yml` | não | `DATABASE_URL` usada dentro do container do backend; vazia = montada com `POSTGRES_*` e o host `postgres`; preencha só se a senha tiver caracteres especiais de URL (já codificada) |
 | `API_UPSTREAM` | nginx do frontend (`frontend/nginx.conf.template`) | fixa no `docker-compose.yml` (`http://backend:8000`) | destino do proxy de `/api/`; não vai no `.env` |
+| `RENDER_API_ORIGIN` | `frontend/vercel.mjs`, durante o build da Vercel | sim, na Vercel | origem HTTPS pública do backend Render, sem caminho; nunca é embutida como segredo e não deve terminar em `/` |
+| `VITE_EVALUATION_TRANSPORT` | composição da avaliação no frontend | não (padrão `websocket`) | `websocket` ou `rest`; `npm run build:vercel` fixa `rest` porque o proxy externo da Vercel é usado para a API REST |
 | `REQUIRE_INTEGRATION_DB` | testes de integração do backend | não; `1` no CI | com `1`, teste de integração sem banco falha em vez de pular |
 | `UPDATE_EXAMPLE_GLB` | `frontend/tests/three/loaders/exampleModel.test.ts` | não | com `1`, regenera o GLB de exemplo (§ 3) |
 | `E2E_BASE_URL` | `frontend/e2e/playwright.config.ts` | não | sem ela, o Playwright sobe `vite preview` em `127.0.0.1:4173`; com ela (CI: `http://127.0.0.1:8080`), usa o frontend já servido |

@@ -1,0 +1,37 @@
+# Infraestrutura gratuita da demonstração (ADR-021, TASK-049).
+services:
+  - type: web
+    name: ja-guindastes-api
+    runtime: docker
+    plan: free
+    region: virginia
+    branch: development
+    autoDeployTrigger: checksPass
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    dockerCommand: sh ./scripts/render-start.sh
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ja-guindastes-db
+          property: connectionString
+      - key: FILE_STORAGE_DIR
+        value: /data/load-charts
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: ADMIN_USERNAME
+        value: admin-apresentacao
+      - key: ADMIN_DISPLAY_NAME
+        value: Administrador da apresentação
+      - key: ADMIN_PASSWORD
+        sync: false
+databases:
+  - name: ja-guindastes-db
+    plan: free
+    region: virginia
+    postgresMajorVersion: "18"
+    databaseName: ja_guindastes
+    user: ja_guindastes
+    diskSizeGB: 1
+    ipAllowList: []

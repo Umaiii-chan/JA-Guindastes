@@ -76,6 +76,24 @@ describe('EvaluationSession', () => {
   })
 
   describe('debounce', () => {
+    it('usa somente REST quando o canal em tempo real não foi configurado', async () => {
+      const { calls, evaluator } = fakeOneShot()
+      const session = new EvaluationSession({
+        oneShotEvaluator: evaluator,
+        debounce: { waitMs: WAIT_MS, maxWaitMs: MAX_WAIT_MS },
+      })
+
+      session.start()
+      session.update(FICTICIO_INPUT)
+      vi.advanceTimersByTime(WAIT_MS)
+
+      expect(session.getState().connectionStatus).toBe('closed')
+      expect(calls).toHaveLength(1)
+      calls[0].resolve(mapEvaluationResponse(REST_NOT_EVALUABLE))
+      await Promise.resolve()
+      expect(session.getState()).toMatchObject({ transport: 'rest', pending: false })
+    })
+
     it('mudanças seguidas em menos que o intervalo enviam só o último estado', () => {
       const { factory, session } = connectedSetup()
 

@@ -16,6 +16,7 @@ DATABASE_URL_ENV_VAR = "DATABASE_URL"
 # PostgreSQL (ADR-007) com o driver psycopg 3. Com o esquema genérico "postgresql://" o SQLAlchemy
 # escolheria outro driver, que não está instalado; exigir o nome completo dá um erro claro na hora.
 SUPPORTED_DRIVERNAME = "postgresql+psycopg"
+GENERIC_POSTGRESQL_DRIVERNAME = "postgresql"
 
 _HOW_TO_CONFIGURE = (
     "Copie .env.example para .env, preencha os valores locais e exporte as variáveis no shell "
@@ -53,7 +54,11 @@ class DatabaseSettings:
                 f"{SUPPORTED_DRIVERNAME}://<usuario>:<senha>@<host>:<porta>/<banco>."
             ) from None
 
-        if url.drivername != SUPPORTED_DRIVERNAME:
+        # O Render fornece `connectionString` com o esquema genérico `postgresql://`. Normalizamos
+        # explicitamente para o único driver instalado, sem alterar usuário, senha, host ou query.
+        if url.drivername == GENERIC_POSTGRESQL_DRIVERNAME:
+            url = url.set(drivername=SUPPORTED_DRIVERNAME)
+        elif url.drivername != SUPPORTED_DRIVERNAME:
             raise DatabaseConfigurationError(
                 f"{DATABASE_URL_ENV_VAR} deve começar com '{SUPPORTED_DRIVERNAME}://' "
                 f"(PostgreSQL com psycopg 3, ADR-007); recebido '{url.drivername}://'."

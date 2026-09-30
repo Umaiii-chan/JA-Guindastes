@@ -42,6 +42,15 @@ def test_valid_url_is_parsed() -> None:
     assert settings.url.database == "banco_ficticio"
 
 
+def test_generic_postgresql_url_from_managed_provider_uses_psycopg() -> None:
+    generic_url = URL_FICTICIA.replace("postgresql+psycopg://", "postgresql://")
+
+    settings = DatabaseSettings.from_environment({DATABASE_URL_ENV_VAR: generic_url})
+
+    assert settings.url.drivername == "postgresql+psycopg"
+    assert settings.url.password == SENHA_FICTICIA
+
+
 def test_unparseable_url_raises_without_echoing_the_value() -> None:
     invalid = f"isto-nao-e-uma-url-{SENHA_FICTICIA}"
 
@@ -56,7 +65,6 @@ def test_unparseable_url_raises_without_echoing_the_value() -> None:
 @pytest.mark.parametrize(
     "url",
     [
-        f"postgresql://usuario_ficticio:{SENHA_FICTICIA}@localhost:5432/banco_ficticio",
         f"postgresql+psycopg2://usuario_ficticio:{SENHA_FICTICIA}@localhost/banco_ficticio",
         "sqlite:///banco_ficticio.db",
     ],
