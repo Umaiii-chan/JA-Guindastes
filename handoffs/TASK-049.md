@@ -16,7 +16,8 @@
 - Removido `diskSizeGB` do PostgreSQL porque o plano gratuito do Render define o disco
   automaticamente e rejeita a configuração explícita.
 - O backend normaliza a URL `postgresql://` do Render para `postgresql+psycopg`.
-- Criado `frontend/vercel.mjs` com proxy `/api/*`, fallback da SPA e validação HTTPS.
+- Criado `frontend/vercel.json` com destinos explícitos para o proxy `/api/*` e o fallback da SPA,
+  evitando a rejeição da Vercel por `destination` ausente.
 - A build Vercel usa REST; o WebSocket continua como padrão local.
 - Criado ADR-020 e runbook com custo, implantação e teste de fumaça.
 
@@ -24,7 +25,7 @@
 
 - `.env.example`, `render.yaml`, `backend/Dockerfile`, `backend/scripts/render-start.sh`
 - configuração e testes do banco; composição e testes da avaliação no frontend
-- `frontend/package.json`, `frontend/vercel.mjs`
+- `frontend/package.json`, `frontend/vercel.json`
 - arquitetura, guia de desenvolvimento, lacunas, ADR-020 e runbook de deploy
 - tarefa e este handoff
 
@@ -35,6 +36,7 @@
 - Frontend: ESLint, tipagem e build passaram; 716 testes passaram e 1 pulou.
 - Configuração Vercel, script Render, YAML, diff e estrutura passaram.
 - Correção do Blueprint gratuito: `diskSizeGB` ausente e `git diff --check` passou.
+- Correção Vercel: os dois rewrites têm `destination`; JSON validado e build Vite passou.
 - `scripts/check-structure.sh`: 0 erros e 1 aviso por tarefas paralelas.
 
 ## 4. Decisões tomadas e por quê
@@ -50,7 +52,7 @@
 
 ## 6. Pendências / decisões necessárias
 
-- Depois do merge, informar `ADMIN_PASSWORD` no Render e `RENDER_API_ORIGIN` na Vercel.
+- Depois do merge, informar `ADMIN_PASSWORD` no Render e confirmar a URL pública da API.
 
 ## 7. Próximo passo
 

@@ -24,11 +24,11 @@ Na inicialização, migrations, seed FICTÍCIO e admin são executados de forma 
 ## 2. Preparar a Vercel
 
 1. Importe o mesmo repositório e escolha `frontend` como **Root Directory**.
-2. Em Environment Variables, crie `RENDER_API_ORIGIN` com a origem copiada do Render para
-   Production, Preview e Development.
+2. Confirme que a URL do backend é `https://ja-guindastes-api.onrender.com`. Se o Render atribuiu
+   outra URL, atualize o primeiro `destination` de `frontend/vercel.json` antes de publicar.
 3. Selecione a branch `development` para a demonstração e publique.
 
-`frontend/vercel.mjs` usa `npm run build:vercel`, encaminha `/api/*` ao Render e devolve as demais
+`frontend/vercel.json` usa `npm run build:vercel`, encaminha `/api/*` ao Render e devolve as demais
 rotas ao `index.html`. Essa build desliga o WebSocket e usa o fallback REST existente.
 
 ## 3. Teste de fumaça
