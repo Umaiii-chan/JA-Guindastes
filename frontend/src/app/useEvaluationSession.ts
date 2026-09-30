@@ -8,6 +8,7 @@ import {
   EvaluationSession,
   type EvaluationSessionState,
 } from '../application/evaluation/EvaluationSession'
+import type { RealtimeHandlers } from '../application/evaluation/ports'
 import { createEvaluationRestClient } from '../infrastructure/api/evaluationRestClient'
 import {
   EvaluationSocket,
@@ -15,12 +16,30 @@ import {
 } from '../infrastructure/websocket/evaluationSocket'
 
 function createBrowserEvaluationSession(): EvaluationSession {
-  const url = evaluationWebSocketUrl(window.location)
+  const transport = evaluationTransportFromEnvironment(import.meta.env.VITE_EVALUATION_TRANSPORT)
+  const createRealtimeChannel =
+    transport === 'websocket'
+      ? (handlers: RealtimeHandlers) =>
+          new EvaluationSocket(
+            {
+              url: evaluationWebSocketUrl(window.location),
+              createWebSocket: (target) => new WebSocket(target),
+            },
+            handlers,
+          )
+      : undefined
   return new EvaluationSession({
-    createRealtimeChannel: (handlers) =>
-      new EvaluationSocket({ url, createWebSocket: (target) => new WebSocket(target) }, handlers),
+    createRealtimeChannel,
     oneShotEvaluator: createEvaluationRestClient(),
   })
+}
+
+export function evaluationTransportFromEnvironment(
+  value: string | undefined,
+): 'websocket' | 'rest' {
+  if (value === undefined || value === '' || value === 'websocket') return 'websocket'
+  if (value === 'rest') return 'rest'
+  throw new Error("VITE_EVALUATION_TRANSPORT deve ser 'websocket' ou 'rest'.")
 }
 
 export function useEvaluationSession(): {

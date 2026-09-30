@@ -57,3 +57,4 @@ Crie um ADR quando a decisão:
 | [ADR-017](ADR-017-navegacao-e-design-system-do-frontend.md) | Navegação por páginas e design system escuro do frontend | Aceito | 2026-09-26 |
 | [ADR-018](ADR-018-zonas-de-giro-e-peso-do-gancho.md) | Tabelas por zona de giro e peso do gancho na comparação | Aceito | 2026-09-27 |
 | [ADR-019](ADR-019-visual-manual-tecnico.md) | Linguagem visual de manual técnico (substitui o tema escuro do ADR-017 §§ 3–4) | Aceito | 2026-09-27 |
+| [ADR-020](ADR-020-deploy-render-vercel.md) | Render para dados e API; Vercel para o frontend | Aceito | 2026-09-30 |

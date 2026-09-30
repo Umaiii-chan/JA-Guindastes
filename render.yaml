@@ -1,0 +1,45 @@
+# Infraestrutura da demonstração (ADR-020, TASK-049).
+# Custos-base em 2026-09-30: web 0.5c-512mb US$ 7/mês, Postgres 0.1c-256mb
+# US$ 6/mês e disco de 1 GB US$ 0,25/mês. A cobrança é da conta Render.
+services:
+  - type: web
+    name: ja-guindastes-api
+    runtime: docker
+    plan: 0.5c-512mb
+    region: virginia
+    branch: development
+    autoDeployTrigger: checksPass
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    dockerCommand: sh ./scripts/render-start.sh
+    preDeployCommand: alembic upgrade head
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ja-guindastes-db
+          property: connectionString
+      - key: FILE_STORAGE_DIR
+        value: /data/load-charts
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: ADMIN_USERNAME
+        value: admin-apresentacao
+      - key: ADMIN_DISPLAY_NAME
+        value: Administrador da apresentação
+      - key: ADMIN_PASSWORD
+        sync: false
+    disk:
+      name: load-chart-files
+      mountPath: /data/load-charts
+      sizeGB: 1
+
+databases:
+  - name: ja-guindastes-db
+    plan: 0.1c-256mb
+    region: virginia
+    postgresMajorVersion: "18"
+    databaseName: ja_guindastes
+    user: ja_guindastes
+    diskSizeGB: 1
+    ipAllowList: []

@@ -39,7 +39,8 @@ export interface EvaluationSessionState {
 }
 
 export interface EvaluationSessionOptions {
-  readonly createRealtimeChannel: RealtimeChannelFactory
+  /** Ausente em implantações que usam somente REST (por exemplo, o frontend na Vercel). */
+  readonly createRealtimeChannel?: RealtimeChannelFactory
   readonly oneShotEvaluator: OneShotEvaluator
   readonly debounce?: DebounceOptions
 }
@@ -91,6 +92,10 @@ export class EvaluationSession {
     if (this.channel) return
     this.generation += 1
     const generation = this.generation
+    if (!this.options.createRealtimeChannel) {
+      this.setState({ connectionStatus: 'closed' })
+      return
+    }
     this.channel = this.options.createRealtimeChannel({
       onStatusChange: (status) => {
         if (generation === this.generation) this.handleStatusChange(status)

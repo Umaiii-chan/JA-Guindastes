@@ -48,6 +48,7 @@ COPY --from=builder /app/.venv /app/.venv
 COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini ./
+COPY scripts ./scripts
 
 # UID numérico (usuário "app" criado acima): o runtime consegue verificar que não é root (hadolint DL3066).
 USER 10001:10001
@@ -57,8 +58,8 @@ EXPOSE 8000
 # Rota de saúde da TASK-029 (TASK-035). Responde 200 enquanto o processo atende, mesmo com o banco
 # DOWN (o campo `database` é informativo; pendência 1 do handoff da TASK-029).
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 \
-    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"]
+    CMD ["python", "-c", "import os, urllib.request; urllib.request.urlopen(f\"http://127.0.0.1:{os.environ.get('PORT', '8000')}/api/v1/health\", timeout=3)"]
 
 # API completa = raiz de composição app.main:app (TASK-019). 0.0.0.0 só dentro do container; a porta
 # publicada no host fica em 127.0.0.1 (docker-compose.yml).
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

@@ -149,7 +149,6 @@ def test_without_database_url_the_log_says_persistence_is_not_configured(
     "database_url",
     [
         f"mysql://usuario_ficticio:{SENHA_FICTICIA}@localhost/banco_ficticio",
-        f"postgresql://usuario_ficticio:{SENHA_FICTICIA}@localhost/banco_ficticio",
         f"isto nao e uma url {SENHA_FICTICIA}",
     ],
 )

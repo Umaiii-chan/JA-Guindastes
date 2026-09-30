@@ -6,7 +6,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Última revisão | 2026-09-26 (TASK-045, estado com a leva D — TASK-038..043 — e a TASK-044 integradas) |
+| Última revisão | 2026-09-30 (TASK-049, implantação de demonstração) |
 
 ---
 
@@ -176,3 +176,9 @@ Histórico do que saiu das seções acima.
 | TASK-046 § 8 item 1 | Dar zonas de giro a uma configuração que já tem tabelas **sem zona**: **recusado** com `409 ZONELESS_LOAD_CHARTS_EXIST` (decisão da pessoa responsável em chat). O `detail` pede para criar outra configuração ou tratar essas tabelas antes. Vale no `PATCH` quando a configuração passa de "sem zonas" para "com zonas" e há tabela com `rotation_zone_code` nulo; nada é gravado. Remover todas as zonas de uma configuração com tabelas com zona continua em `409 ROTATION_ZONE_IN_USE` | 2026-09-27 | TASK-046 |
 | TASK-046 § 8 item 2 | Fronteira entre zonas em que uma delas não tem tabela ativa ou não cobre a consulta: **"não avaliável"** (lado seguro), como já estava implementado (decisão da pessoa responsável em chat) | 2026-09-27 | TASK-046 |
 | PEND-006 / P-005 (parte) | Composição do peso comparado: **carga + gancho** quando a tabela inclui o gancho (tabela oficial do MD 300L, "incluindo peso do gancho principal"; escolha da pessoa responsável em chat, "Carga + gancho ≤ capacidade"; ADR-018 § 2). Implementado: `hook_block_weight_kg` na configuração (0 a 100 000 kg; `null` = 0), somado em `weight_compared_with_capacity`, e as parcelas `hook_block_weight_kg` e `compared_weight_kg` na avaliação REST e WebSocket. Lingas e acessórios continuam abertos (P-005) | 2026-09-27 | TASK-046 |
+## 7. Limitação da implantação de demonstração (TASK-049)
+
+- A build da Vercel avalia por REST e não usa o WebSocket. O WebSocket continua disponível no
+  Docker Compose e no backend Render, mas não é encaminhado pelo rewrite externo adotado.
+- O disco persistente do Render restringe o backend a uma instância e introduz alguns segundos de
+  indisponibilidade durante redeploys.
