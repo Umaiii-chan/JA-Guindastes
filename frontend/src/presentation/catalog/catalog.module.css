@@ -1,18 +1,22 @@
-/* Página Catálogo (TASK-042). */
+/*
+ * Página Catálogo (TASK-042) no visual de manual técnico (ADR-019): o mestre-detalhe é um índice de
+ * fichas (três colunas de larguras diferentes numa folha só, listas com filetes e contagens em mono)
+ * e a configuração escolhida abre a folha de especificações.
+ */
 
-/* ── Barra de busca e totais ─────────────────────────────────────────────── */
+/* ── Busca e totais ──────────────────────────────────────────────────────── */
 
 .toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-3) var(--space-5);
+  gap: var(--space-3) var(--space-6);
   flex-wrap: wrap;
 }
 
 .search {
   position: relative;
-  flex: 1 1 360px;
-  max-width: 520px;
+  flex: 1 1 340px;
+  max-width: 480px;
 }
 
 .searchClear {
@@ -22,34 +26,55 @@
   transform: translateY(-50%);
 }
 
+/* Totais como a linha de resumo de um índice: número em mono, rótulo em caixa alta pequena. */
 .totals {
   display: flex;
-  gap: var(--space-4);
-  margin: 0;
+  margin: 0 0 0 auto;
   padding: 0;
   list-style: none;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
   color: var(--color-text-2);
+}
+
+.totals li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0 var(--space-4);
+  border-left: 1px solid var(--color-border);
+}
+
+.totals li:first-child {
+  border-left: 0;
 }
 
 .totals strong {
   font-family: var(--font-mono);
+  font-size: var(--font-size-lg);
   font-variant-numeric: tabular-nums;
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0;
   color: var(--color-text-1);
 }
 
 .refreshing {
-  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
   color: var(--color-text-3);
 }
 
-/* ── Colunas mestre-detalhe ──────────────────────────────────────────────── */
+/* ── Índice de fichas ────────────────────────────────────────────────────── */
 
-/* As três colunas numa folha só, separadas por filetes verticais (não três caixas). */
+/*
+ * Três colunas numa folha só, separadas por filetes verticais em tinta. Larguras diferentes: os
+ * fabricantes são poucos e curtos, as configurações têm os nomes longos.
+ */
 .columns {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 0.8fr) minmax(0, 1.3fr);
   align-items: stretch;
   border: 1px solid var(--color-border-ink);
   background: var(--color-surface-1);
@@ -68,42 +93,83 @@
   .columns {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .columns .column + .column {
+    border-left: 0;
+    border-top: 1px solid var(--color-border-ink);
+  }
 }
 
 .column {
-  min-height: 280px;
+  min-height: 212px;
 }
 
 .column > div:last-child {
   flex: 1;
 }
 
+/* Contagem da coluna: "QTD." e o número em mono, com dois dígitos, sem caixa. */
+.columnCountLabel {
+  margin-right: 4px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+
+.columnCount {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-2);
+}
+
 .list {
   display: grid;
-  max-height: 340px;
+  max-height: 320px;
   overflow: auto;
   margin: 0;
   padding: 0;
   list-style: none;
+  counter-reset: ficha;
 }
 
 .list > li {
   border-bottom: 1px solid var(--color-border);
+  counter-increment: ficha;
 }
 
 .item {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  column-gap: var(--space-2);
   width: 100%;
-  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
+  padding: 9px var(--space-3) 9px var(--space-4);
   border: 0;
   background: transparent;
   color: var(--color-text-1);
   text-align: left;
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+/* Número de ordem da ficha, como no índice de um manual. Gerado: fica fora do texto do botão. */
+.item::after {
+  content: counter(ficha, decimal-leading-zero);
+  grid-column: 1;
+  grid-row: 1;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-3);
+}
+
+.item:hover {
+  background: var(--color-bg);
 }
 
 .item:hover .itemLabel {
@@ -116,7 +182,7 @@
   outline-offset: -2px;
 }
 
-/* Item selecionado: fundo de papel, peso e o filete laranja à esquerda. */
+/* Selecionado: o traço laranja à esquerda, o número e o nome em tinta cheia. */
 .itemSelected {
   background: var(--color-bg);
 }
@@ -124,11 +190,16 @@
 .itemSelected::before {
   content: '';
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: -1px;
+  bottom: -1px;
   left: 0;
   width: 3px;
   background: var(--color-accent);
+}
+
+.itemSelected::after {
+  color: var(--color-accent-ink);
+  font-weight: var(--font-weight-semibold);
 }
 
 .itemSelected .itemLabel {
@@ -136,9 +207,9 @@
 }
 
 .itemText {
+  grid-column: 2;
   display: grid;
-  gap: 1px;
-  flex: 1;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -151,9 +222,10 @@
 }
 
 .itemMeta {
+  font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
-  color: var(--color-text-3);
   font-variant-numeric: tabular-nums;
+  color: var(--color-text-3);
 }
 
 .itemSelected .itemMeta {
@@ -161,20 +233,32 @@
 }
 
 .itemChevron {
+  grid-column: 4;
+  align-self: center;
   flex: none;
   color: var(--color-text-3);
-  transition: transform var(--duration-fast) var(--ease-out);
+  opacity: 0;
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.item:hover .itemChevron {
+  opacity: 1;
 }
 
 .itemSelected .itemChevron {
-  color: var(--color-text-1);
+  opacity: 1;
+  color: var(--color-accent-ink);
   transform: translateX(2px);
 }
 
 .mark {
   padding: 0 1px;
-  background: rgb(217 72 15 / 0.18);
+  background: var(--color-accent-soft);
   color: var(--color-text-1);
+  text-decoration: underline 1px var(--color-accent);
+  text-underline-offset: 2px;
 }
 
 .columnSkeleton {
@@ -195,80 +279,181 @@
   padding: var(--space-2);
 }
 
-/* ── Detalhe da configuração ─────────────────────────────────────────────── */
+/* ── Folha de especificações da configuração ─────────────────────────────── */
 
 .detail {
+  border-color: var(--color-border-ink);
   animation: rise var(--duration-base) var(--ease-out);
 }
 
+/* Carimbo "FICHA / REV." em duas linhas. */
+.stampLines {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.stampLines > :first-child {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-wide);
+  color: var(--color-text-1);
+}
+
+.stampLines > :last-child {
+  text-transform: none;
+}
+
+/* Duas seções de alturas e densidades diferentes: a ficha densa à esquerda, zonas e tabela à direita. */
 .detailGrid {
   display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-  gap: var(--space-6);
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 0;
+  margin: calc(var(--space-4) * -1);
+}
+
+.detailSection {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.chartSection {
+  border-left: 1px solid var(--color-border);
 }
 
 @media (width < 1080px) {
   .detailGrid {
     grid-template-columns: minmax(0, 1fr);
   }
-}
 
-.detailSection {
-  display: grid;
-  align-content: start;
-  gap: var(--space-3);
-  min-width: 0;
+  .chartSection {
+    border-left: 0;
+    border-top: 1px solid var(--color-border);
+  }
 }
 
 .sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
-  color: var(--color-text-3);
+  color: var(--color-text-1);
 }
 
-.pivot {
+.sectionNo {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--color-border-ink);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3xs);
+  letter-spacing: 0;
+}
+
+/* a e h: figura cotada à esquerda, valores à direita. */
+.geometry {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: minmax(150px, 1.05fr) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-4);
+  padding-bottom: var(--space-1);
+}
+
+.pivotFigure {
+  max-width: 240px;
+}
+
+/* Linha de especificação: rótulo em caixa alta pequena, valor em mono; filete fino entre as linhas. */
+.spec {
+  display: grid;
   margin: 0;
+  border-top: 1px solid var(--color-border-ink);
 }
 
-.pivotTile {
+.spec > div {
   display: grid;
-  gap: var(--space-1);
-  padding: var(--space-3) 0;
-  border-top: 1px solid var(--color-border-ink);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: 7px 0;
   border-bottom: 1px solid var(--color-border);
 }
 
-.pivotTile dt {
+.spec dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-2);
+}
+
+.spec dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--color-text-1);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.spec dd code {
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   color: var(--color-text-2);
 }
 
-.pivotTile dd {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-1);
+/* a e h em corpo maior: são as duas medidas que a ficha existe para dar. */
+.specLarge > div {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  padding: var(--space-2) 0 var(--space-3);
+}
+
+.specLarge dd {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  text-align: left;
+}
+
+.specNote {
+  font-family: var(--font-sans) !important;
+  font-size: var(--font-size-xs) !important;
+  color: var(--color-text-2) !important;
+  white-space: normal !important;
 }
 
 .symbol {
   display: inline-grid;
   place-items: center;
-  min-width: 20px;
-  height: 20px;
+  flex: none;
   margin-right: 4px;
-  padding: 0 4px;
+  vertical-align: middle;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 3px;
   border: 1px solid var(--color-text-1);
   color: var(--color-text-1);
   font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .limits {
@@ -279,50 +464,47 @@
 
 .limits th,
 .limits td {
-  padding: var(--space-2) var(--space-1);
+  padding: 7px 0;
   border-bottom: 1px solid var(--color-border);
   text-align: left;
 }
 
 .limits thead th {
-  font-size: var(--font-size-2xs);
+  padding-top: 0;
+  border-bottom: 1px solid var(--color-border-ink);
+  font-size: var(--font-size-3xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
-  color: var(--color-text-3);
+  color: var(--color-text-1);
 }
 
 .limits tbody th {
-  font-weight: var(--font-weight-regular);
+  white-space: nowrap;
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
   color: var(--color-text-2);
 }
 
-.limits tbody tr:last-child > * {
-  border-bottom: 0;
+.limits td + td {
+  padding-left: var(--space-4);
 }
 
 .num {
   text-align: right !important;
   font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums slashed-zero;
   color: var(--color-text-1);
   white-space: nowrap;
-}
-
-.idLine {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-3);
-}
-
-.idLine code {
-  font-family: var(--font-mono);
-  color: var(--color-text-2);
 }
 
 .tablesLink {
   justify-self: start;
 }
 
+/* Tabela ativa: linha de carimbo e a matriz compacta. */
 .activeChart {
   display: grid;
   gap: var(--space-3);
@@ -333,17 +515,30 @@
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-ink);
+}
+
+.activeLabel {
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-2);
 }
 
 .activeVersion {
   font-family: var(--font-mono);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
 }
 
 .activeFile {
-  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
   color: var(--color-text-3);
+  overflow-wrap: anywhere;
 }
 
 /* ── Drawer ──────────────────────────────────────────────────────────────── */
@@ -471,57 +666,133 @@
   }
 }
 
-/* Zonas no detalhe da configuração, com a tabela ativa de cada uma (TASK-046). */
+/* ── Zonas no detalhe da configuração (TASK-046) ─────────────────────────── */
+
+/* Transferidor à esquerda, a tabela das zonas à direita. */
 .zonesDetail {
   display: grid;
-  gap: var(--space-3);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-5);
+}
+
+@media (width < 640px) {
+  .zonesDetail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.zoneFigure {
+  padding: var(--space-2) var(--space-3) 0;
 }
 
 .zoneTable {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--font-size-sm);
+  counter-reset: zona;
+  table-layout: fixed;
 }
 
 .zoneTable th,
 .zoneTable td {
-  padding: var(--space-2) var(--space-2);
+  padding: 7px var(--space-2);
   border-bottom: 1px solid var(--color-border);
   text-align: left;
   vertical-align: top;
 }
 
-.zoneTable thead th {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-3);
+.zoneTable thead th:nth-child(1) {
+  width: 38%;
 }
 
-.zoneTable tbody tr:last-child > * {
-  border-bottom: 0;
+.zoneTable thead th:nth-child(2) {
+  width: 30%;
+}
+
+.zoneTable thead th {
+  padding-top: 0;
+  border-bottom: 1px solid var(--color-border-ink);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-1);
+}
+
+.zoneTable tbody tr {
+  counter-increment: zona;
+}
+
+.zoneTable tbody th {
+  position: relative;
+  padding-left: 30px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-1);
+}
+
+/* Número de chamada da zona, o mesmo do transferidor. Gerado: fica fora do texto da linha. */
+.zoneTable tbody th::before {
+  content: counter(zona);
+  position: absolute;
+  top: 7px;
+  left: var(--space-1);
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--ink);
+}
+
+/* Zona destacada (a da matriz abaixo, ou a da linha sob o ponteiro): traço e chamada em laranja. */
+.zoneRowSelected > th {
+  position: relative;
+}
+
+.zoneRowSelected > th::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  left: 0;
+  width: 3px;
+  background: var(--color-accent);
+}
+
+.zoneRowSelected > th::before {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--paper-raised);
 }
 
 .zoneCode {
   display: block;
   font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-regular);
   color: var(--color-text-3);
+}
+
+/* Arquivo da ativa numa linha só, cortado com reticências (o nome inteiro fica no `title`). */
+.zoneFile {
+  display: block;
+  max-width: 100%;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .zoneSector {
   font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.hookLine {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-2);
-}
-
-.hookLine strong {
-  color: var(--color-text-1);
-  font-variant-numeric: tabular-nums;
 }
 
 @keyframes rise {

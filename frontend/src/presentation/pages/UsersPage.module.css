@@ -1,52 +1,66 @@
+/*
+ * Usuários (TASK-040) no visual de manual técnico (ADR-019): a tabela densa das contas, entre
+ * filetes, e ao lado o quadro estreito dos perfis de acesso.
+ */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (width < 1080px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .toolbar {
   display: flex;
   align-items: flex-end;
   gap: var(--space-3);
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-ink);
 }
 
 .search {
-  width: min(340px, 100%);
+  width: min(320px, 100%);
 }
 
 .table {
   border: 0;
-  border-top: 0;
   background: transparent;
 }
 
-.identity {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.avatar {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 0;
-  background: transparent;
-  border: 1px solid var(--color-text-1);
-  color: var(--color-text-2);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+.order {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-3);
 }
 
 .names {
   display: grid;
+  gap: 1px;
   line-height: 1.25;
 }
 
 .displayName {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-2);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-1);
+}
+
+/* A própria conta: marca curta em caixa alta, no acento (é a seleção implícita da página). */
+.self {
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-accent-ink);
 }
 
 .username {
@@ -55,8 +69,81 @@
   color: var(--color-text-3);
 }
 
+/* Selo de perfil: contorno fino, caixa alta pequena e condensada. ADMIN em tinta cheia. */
+.seal {
+  display: inline-grid;
+  place-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border: 1px solid var(--color-border-strong);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  font-stretch: var(--font-stretch-condensed);
+  letter-spacing: var(--letter-spacing-caps);
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-text-2);
+}
+
+.sealAdmin {
+  padding: 0 5px;
+  border: 3px double var(--color-text-1);
+  color: var(--color-text-1);
+}
+
+.sealMuted {
+  border-style: dashed;
+  color: var(--color-text-3);
+}
+
 .actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: var(--space-1);
+}
+
+/* ── Quadro dos perfis ───────────────────────────────────────────────────── */
+
+.profileList {
+  display: grid;
+  margin: 0;
+}
+
+.profileList > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'seal count'
+    'text count';
+  gap: 6px var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.profileList > div:last-child {
+  border-bottom: 0;
+}
+
+.profileList dt {
+  grid-area: seal;
+}
+
+.profileText {
+  grid-area: text;
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.profileCount {
+  grid-area: count;
+  align-self: center;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--color-text-1);
 }

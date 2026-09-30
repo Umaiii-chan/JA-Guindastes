@@ -157,3 +157,24 @@ Só mexem em `src/three/**` e `tests/three/**`; a API do `CraneViewport` não mu
 
 - **Frontend na branch integrada:** lint, format, typecheck e build passaram; `npm test` deu 710 passed e 1 skipped.
 - **E2E completo com backend real:** stack do Docker Compose com a imagem do frontend reconstruída desta branch, `E2E_BACKEND=1`, admin local e seed FICTÍCIO. Resultado: **21 passed, 1 skipped**.
+
+## Refinamento de Catálogo, Tabelas e Usuários (branch `task/TASK-047-visual-paginas`, PR seguinte ao #43)
+
+- **Catálogo:**
+  - índice de fichas em colunas de 0,95, 0,8 e 1,3 fr, com o número de ordem por contador CSS, "QTD. 03" e o selecionado com traço laranja;
+  - a ficha é uma folha de especificações com carimbo "FICHA / Rev." e a figura cotada `catalog/PivotFigure.tsx` (a e h, sem escala, `aria-hidden`);
+  - `RotationZoneDiagram` como transferidor (marcas a cada 10°, hachura, só a zona destacada em laranja), com as props `legend` e `activeCode`.
+- **Tabelas:**
+  - duas colunas: seleção e importação na estreita; registro de revisões, relatório de erros e matriz na larga;
+  - o relatório de erros é renderizado pela `TablesPage`, com o mesmo dado;
+  - o registro continua `<ol>`/`<li>`, e a ativa leva o carimbo "EM VIGOR";
+  - sem coluna DATA, porque a listagem não expõe a data de importação (P-020: ordem por versão);
+  - matriz como tabela impressa, com mapa de calor em cinza-quente e legenda;
+  - ativação no estilo de ordem de alteração.
+- **Usuários:** tabela densa com a coluna Nº e sem avatar; selo ADMIN/OPERADOR; quadro "Perfis de acesso" só de leitura; Drawer em linhas.
+- **Dependência frágil de estrutura:**
+  - `tables.module.css` usa `.importBody .dropzone > button` (o botão como filho direto do `Dropzone`);
+  - `.form .row > :first-child` supõe que o rótulo é o primeiro filho do `Field`;
+  - quem mudar a estrutura desses componentes precisa rever os dois estilos.
+- **Capturas novas:** `catalogo-1440x900`, `catalogo-ficha-zonas-1440x900`, `tabelas-1440x900`, `tabelas-ativacao-1440x900`, `tabelas-relatorio-de-erros-1440x900` e `usuarios-1440x900`. Também `zonas/catalogo-editor-zonas*.png` refeitas.
+- **Gates do agente:** 710 testes passaram e 1 foi pulado; E2E sem backend com 11 passados e 11 pulados; nenhum teste mudou.

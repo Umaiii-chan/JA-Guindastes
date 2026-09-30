@@ -1,9 +1,9 @@
-import { ArrowDownRight, ArrowUpRight, Power } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Equal, Power } from 'lucide-react'
 import { useMemo } from 'react'
 
 import { compareLoadCharts } from '../../application/loadChart/chartComparison'
 import type { LoadChartPoint, LoadChartSummary } from '../../application/loadChart/ports'
-import { Button, Dialog, Notice } from '../ui'
+import { Button, Dialog } from '../ui'
 import { formatNumber } from './format'
 import styles from './tables.module.css'
 
@@ -25,7 +25,8 @@ export interface ActivationDialogProps {
 /**
  * Confirmação da ativação (CA-3). Explica a consequência: a capacidade calculada da configuração
  * passa a vir da versão nova, e a ativa hoje vira SUPERSEDED. Com os pontos das duas, compara os
- * pontos comuns (sem interpolar).
+ * pontos comuns (sem interpolar). No visual de manual técnico (ADR-019), tem a forma de uma ordem de
+ * alteração: o quadro "de → para", o efeito numerado e a nota de rodapé FICTÍCIO/PROVISÓRIO.
  */
 export function ActivationDialog({
   target,
@@ -68,7 +69,47 @@ export function ActivationDialog({
     >
       {target && (
         <div className={styles.dialogBody}>
-          <ul className={styles.consequences}>
+          {/* Cabeçalho da ordem de alteração: de qual versão para qual, em qual zona. */}
+          <div className={styles.orderSheet}>
+            <p className={styles.orderHead}>
+              <span>Ordem de alteração</span>
+              <code>{target.configurationId}</code>
+            </p>
+            <table className={styles.order}>
+              <caption className="visually-hidden">Versão ativa antes e depois</caption>
+              <tbody>
+                <tr>
+                  <th scope="row">De</th>
+                  <td>
+                    {current ? (
+                      <>
+                        <span className={styles.orderVersion}>{current.version}</span>{' '}
+                        <span className={styles.orderMeta}>passa a Substituída</span>
+                      </>
+                    ) : (
+                      <span className={styles.orderMeta}>nenhuma ativa</span>
+                    )}
+                  </td>
+                </tr>
+                <tr className={styles.orderTo}>
+                  <th scope="row">Para</th>
+                  <td>
+                    <span className={styles.orderVersion}>{target.version}</span>{' '}
+                    <span className={styles.orderMeta}>{target.pointCount} pontos</span>
+                  </td>
+                </tr>
+                {zoneName && (
+                  <tr>
+                    <th scope="row">Zona</th>
+                    <td>{zoneName}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <p className={styles.orderSection}>Efeito</p>
+          <ol className={styles.consequences}>
             <li>
               A capacidade máxima que o simulador compara com a carga passa a vir da{' '}
               <strong>{target.version}</strong> (<code>{target.chartId}</code>, {target.pointCount}{' '}
@@ -89,7 +130,7 @@ export function ActivationDialog({
               )}
             </li>
             {zoneName && <li>As tabelas ativas das outras zonas não mudam.</li>}
-          </ul>
+          </ol>
           {comparison && comparison.common > 0 && (
             <div
               className={styles.comparison}
@@ -116,6 +157,7 @@ export function ActivationDialog({
                     ` (até +${formatNumber(comparison.largestRisePercent, 1)} %)`}
                 </li>
                 <li data-trend="same">
+                  <Equal size={15} aria-hidden="true" />
                   <strong>{comparison.unchanged}</strong> ficam iguais
                 </li>
               </ul>
@@ -127,9 +169,9 @@ export function ActivationDialog({
               )}
             </div>
           )}
-          <Notice tone="warning" compact>
+          <p className={styles.footnote}>
             Tabelas de demonstração são FICTÍCIAS e a estratégia de cálculo é PROVISÓRIA (ADR-015).
-          </Notice>
+          </p>
         </div>
       )}
     </Dialog>

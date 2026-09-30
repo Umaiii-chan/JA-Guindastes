@@ -48,6 +48,11 @@ montada à parte, fora das páginas.
 | Início (1440×900) | [`inicio-1440x900.png`](docs/assets/screenshots/inicio-1440x900.png) |
 | Simulador guiado, dentro da capacidade (1440×900) | [`simulador-1440x900.png`](docs/assets/screenshots/simulador-1440x900.png) |
 | Simulador guiado, acima da capacidade | [`simulador-acima-da-capacidade-1440x900.png`](docs/assets/screenshots/simulador-acima-da-capacidade-1440x900.png) |
+| Catálogo: índice de fichas e folha de especificações (1440×900) | [`catalogo-1440x900.png`](docs/assets/screenshots/catalogo-1440x900.png) |
+| Catálogo: ficha com as zonas de giro | [`catalogo-ficha-zonas-1440x900.png`](docs/assets/screenshots/catalogo-ficha-zonas-1440x900.png) |
+| Tabelas: registro de revisões e matriz impressa (1440×900) | [`tabelas-1440x900.png`](docs/assets/screenshots/tabelas-1440x900.png) |
+| Tabelas: ativação como ordem de alteração | [`tabelas-ativacao-1440x900.png`](docs/assets/screenshots/tabelas-ativacao-1440x900.png) |
+| Usuários (1440×900) | [`usuarios-1440x900.png`](docs/assets/screenshots/usuarios-1440x900.png) |
 | Cena clara (prancha técnica) com o modelo, carga dentro da capacidade | [`cena-3d/dentro-perspectiva.png`](docs/assets/screenshots/cena-3d/dentro-perspectiva.png) |
 | Cena clara com as zonas de giro, acima da capacidade, vista de topo | [`cena-3d/zonas-topo.png`](docs/assets/screenshots/cena-3d/zonas-topo.png) |
 | Modelo do guindaste com a lança estendida | [`modelo-3d/05-lanca-estendida.png`](docs/assets/screenshots/modelo-3d/05-lanca-estendida.png) |

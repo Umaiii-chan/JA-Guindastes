@@ -1,9 +1,12 @@
-/* Diagrama dos setores das zonas de giro (TASK-046), visto de cima. */
+/*
+ * Diagrama das zonas de giro (TASK-046) como transferidor em traço de tinta (ADR-019): papel, filetes
+ * de 1 px, hachura alternada para separar as zonas e o laranja só na zona destacada.
+ */
 
 .figure {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-5);
   margin: 0;
   min-width: 0;
 }
@@ -14,69 +17,93 @@
 }
 
 .base {
-  fill: var(--color-surface-1);
-  stroke: var(--color-text-1);
-  stroke-width: 0.8;
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 0.9;
 }
 
-/*
- * Setores em densidades de tinta (ADR-019): o laranja fica só para a zona atual (`.active`), como o
- * setor destacado na cena.
- */
+.centerLine {
+  stroke: var(--ink-3);
+  stroke-width: 0.35;
+  stroke-dasharray: 6 1.6 1 1.6;
+}
+
+.tick {
+  stroke: var(--ink-3);
+  stroke-width: 0.4;
+}
+
+.tickMajor {
+  stroke: var(--ink);
+  stroke-width: 0.6;
+}
+
 .sector {
-  --zone-color: var(--color-text-1);
-
-  fill: var(--zone-color);
-  fill-opacity: 0.16;
-  stroke: var(--color-text-1);
-  stroke-width: 0.75;
-  transition: fill-opacity var(--duration-fast) ease;
+  stroke: none;
+  transition: fill-opacity var(--duration-fast) var(--ease-out);
 }
 
+.hatchLine {
+  stroke: var(--ink-2);
+  stroke-width: 0.45;
+}
+
+/* Zona destacada: fundo laranja bem leve e o arco em traço laranja. */
 .sector.active {
-  fill: var(--color-accent);
-  fill-opacity: 0.55;
+  fill: var(--color-accent-soft);
 }
 
-[data-tone='0'] {
-  --zone-color: var(--color-text-1);
+.activeArc {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2.6;
+  stroke-linecap: butt;
 }
 
-[data-tone='1'] {
-  --zone-color: var(--color-text-3);
+.edge {
+  stroke: var(--ink);
+  stroke-width: 0.6;
 }
 
-[data-tone='2'] {
-  --zone-color: var(--color-border-strong);
+.callout circle {
+  fill: var(--paper-raised);
+  stroke: var(--ink);
+  stroke-width: 0.6;
 }
 
-[data-tone='3'] {
-  --zone-color: var(--color-border);
-}
-
-.sectorLabel {
-  fill: var(--color-text-1);
-  font: var(--font-weight-semibold) 9px var(--font-sans);
+.callout text {
+  fill: var(--ink);
+  font: var(--font-weight-semibold) 6.4px var(--font-mono);
   text-anchor: middle;
   dominant-baseline: middle;
 }
 
-.front {
-  stroke: var(--color-text-2);
-  stroke-width: 1;
-  stroke-dasharray: 2 2;
+.calloutActive circle {
+  fill: var(--color-accent);
+  stroke: var(--color-accent);
 }
 
-.axisLabel {
-  fill: var(--color-text-3);
-  font: 7px var(--font-sans);
-  text-anchor: middle;
+.calloutActive text {
+  fill: var(--paper-raised);
 }
 
 .pivot {
-  fill: var(--color-text-1);
+  fill: var(--ink);
 }
 
+.front {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 0.7;
+}
+
+.axisLabel {
+  fill: var(--ink-2);
+  font: 5.4px var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+/* Legenda: número de chamada, nome e setor em mono, entre filetes. */
 .legend {
   min-width: 0;
   font-size: var(--font-size-xs);
@@ -85,27 +112,39 @@
 
 .legend ol {
   display: grid;
-  gap: var(--space-1);
   margin: 0;
   padding: 0;
   list-style: none;
+  border-top: 1px solid var(--color-border-ink);
 }
 
 .legend li {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: 18px minmax(0, 1fr);
   column-gap: var(--space-2);
-  align-items: center;
+  align-items: baseline;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--color-border);
 }
 
-/* A cor vem do `data-tone` do item da legenda (herdada). */
-.swatch {
-  width: 10px;
-  height: 10px;
-  border: 1px solid var(--color-text-1);
-  background: var(--zone-color, var(--color-text-1));
-  opacity: 0.45;
+.legendIndex {
   grid-row: span 2;
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--ink);
+}
+
+.legendActive .legendIndex {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--paper-raised);
 }
 
 .legendName {
@@ -115,5 +154,6 @@
 
 .legendSector {
   font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
   font-variant-numeric: tabular-nums;
 }

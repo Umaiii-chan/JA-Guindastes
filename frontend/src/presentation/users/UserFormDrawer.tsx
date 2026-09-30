@@ -97,6 +97,7 @@ export function UserFormDrawer({
 
   return (
     <Drawer
+      width={480}
       open
       onClose={onClose}
       title={editing ? 'Editar usuário' : 'Novo usuário'}
@@ -129,6 +130,7 @@ export function UserFormDrawer({
           </Notice>
         )}
         <Field
+          className={styles.row}
           label="Nome de usuário"
           required={!editing}
           error={errors.username}
@@ -144,7 +146,7 @@ export function UserFormDrawer({
             onChange={(event) => set('username', event.target.value)}
           />
         </Field>
-        <Field label="Nome de exibição" required error={errors.displayName}>
+        <Field label="Nome de exibição" required error={errors.displayName} className={styles.row}>
           <Input
             name="displayName"
             autoComplete="off"
@@ -153,6 +155,7 @@ export function UserFormDrawer({
           />
         </Field>
         <Field
+          className={styles.row}
           label="Perfil"
           required
           error={errors.role}
@@ -176,6 +179,7 @@ export function UserFormDrawer({
           </Select>
         </Field>
         <Field
+          className={styles.row}
           label={editing ? 'Nova senha' : 'Senha'}
           required={!editing}
           error={errors.password}

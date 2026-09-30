@@ -23,6 +23,7 @@ import {
 } from '../panels/CatalogSelectionPanel'
 import { ActivationDialog } from '../tables/ActivationDialog'
 import { ChartImportPanel } from '../tables/ChartImportPanel'
+import { ImportIssuesTable } from '../tables/ImportIssuesTable'
 import { LoadChartMatrix } from '../tables/LoadChartMatrix'
 import { StoredChartMatrix } from '../tables/StoredChartMatrix'
 import styles from '../tables/tables.module.css'
@@ -45,6 +46,9 @@ export interface TablesPageProps {
  * Tabelas de carga (ADR-017 § 1; TASK-042 e TASK-044): escolha da configuração, importação por
  * arrastar e soltar com validação prévia, prévia da matriz colorida por capacidade, linha do tempo das
  * versões (lida do backend) e ativação confirmada.
+ *
+ * Folha assimétrica (ADR-019): a coluna estreita tem o procedimento (escolher, importar); a larga, o
+ * que se lê (o registro de revisões, o relatório de erros e a matriz).
  */
 export function TablesPage({ selection, configuration, gateway, canEdit }: TablesPageProps) {
   return (
@@ -64,27 +68,23 @@ export function TablesPage({ selection, configuration, gateway, canEdit }: Table
           <CatalogSelectionPanel {...selection} />
         </div>
         {configuration === null ? (
-          <>
-            <div className={styles.mainColumn}>
-              <Panel title="Tabela de carga" stamp="TAB. —">
-                <EmptyState
-                  icon={<Settings2 size={24} />}
-                  title="Escolha a configuração"
-                  description="Cada tabela de carga pertence a uma configuração do guindaste (RN-001). Escolha fabricante, guindaste e configuração ao lado para importar e ver as versões."
-                />
-              </Panel>
-            </div>
-            <div className={styles.timelineColumn}>
-              <VersionTimeline
-                state={IDLE_CHART_VERSIONS}
-                canEdit={false}
-                previewChartId={null}
-                onPreview={() => undefined}
-                onActivate={() => undefined}
-                onRetry={() => undefined}
+          <div className={styles.mainColumn}>
+            <VersionTimeline
+              state={IDLE_CHART_VERSIONS}
+              canEdit={false}
+              previewChartId={null}
+              onPreview={() => undefined}
+              onActivate={() => undefined}
+              onRetry={() => undefined}
+            />
+            <Panel title="Tabela de carga" stamp="TAB. —">
+              <EmptyState
+                icon={<Settings2 size={24} />}
+                title="Escolha a configuração"
+                description="Cada tabela de carga pertence a uma configuração do guindaste (RN-001). Escolha fabricante, guindaste e configuração ao lado para importar e ver as versões."
               />
-            </div>
-          </>
+            </Panel>
+          </div>
         ) : (
           <ChartWorkspace
             key={configuration.id}
@@ -197,7 +197,7 @@ function ChartWorkspace({
 
   return (
     <>
-      <div className={styles.mainColumn}>
+      <div className={styles.importColumn}>
         {canEdit ? (
           <ChartImportPanel
             configurationId={configuration.id}
@@ -220,6 +220,29 @@ function ChartWorkspace({
             a matriz de cada uma.
           </Notice>
         )}
+      </div>
+
+      <div className={styles.mainColumn}>
+        <VersionTimeline
+          state={versionsApi.state}
+          canEdit={canEdit}
+          previewChartId={showFile ? null : (shownVersion?.chartId ?? null)}
+          zones={zones}
+          onPreview={(chartId) => setPreview({ kind: 'version', chartId })}
+          onActivate={setTarget}
+          onRetry={versionsApi.reload}
+        />
+
+        {fileState.status === 'invalid' && (
+          <Panel
+            title="Relatório de erros"
+            subtitle="O arquivo não foi gravado"
+            stamp="ERR."
+            className={styles.reportPanel}
+          >
+            <ImportIssuesTable issues={fileState.issues} fileName={fileState.file.name} />
+          </Panel>
+        )}
 
         <Panel
           title="Matriz da tabela"
@@ -228,9 +251,9 @@ function ChartWorkspace({
               ? `Prévia de ${fileState.status === 'valid' ? fileState.file.name : ''} (ainda não gravada)`
               : shownVersion
                 ? `Versão ${shownVersion.version}${zoneName(shownVersion.rotationZoneCode) ? ` · zona ${zoneName(shownVersion.rotationZoneCode)}` : ''} · ${shownVersion.sourceFileName}`
-                : 'Lança × raio, colorida pela capacidade'
+                : 'Lança × raio, capacidade máxima em kg'
           }
-          stamp="TAB. 1"
+          stamp={showFile ? 'PRÉVIA' : shownVersion ? `TAB. ${shownVersion.version}` : 'TAB. —'}
           actions={
             showFile ? (
               <Badge tone="info" variant="outline">
@@ -244,40 +267,31 @@ function ChartWorkspace({
               </Badge>
             ) : undefined
           }
+          flush
         >
-          {showFile && filePoints ? (
-            <LoadChartMatrix
-              points={filePoints}
-              caption={`Prévia de ${fileState.status === 'valid' ? fileState.file.name : 'arquivo'}`}
-            />
-          ) : shownVersion ? (
-            <StoredChartMatrix state={shownChart} caption={`Versão ${shownVersion.version}`} />
-          ) : (
-            <EmptyState
-              compact
-              tone="neutral"
-              icon={<Grid3x3 size={22} />}
-              title="Nada para mostrar ainda"
-              description={
-                canEdit
-                  ? 'Solte um CSV válido acima para ver a prévia, ou escolha uma versão na linha do tempo.'
-                  : 'Escolha uma versão na linha do tempo para ver a matriz.'
-              }
-            />
-          )}
+          <div className={styles.matrixSheet}>
+            {showFile && filePoints ? (
+              <LoadChartMatrix
+                points={filePoints}
+                caption={`Prévia de ${fileState.status === 'valid' ? fileState.file.name : 'arquivo'}`}
+              />
+            ) : shownVersion ? (
+              <StoredChartMatrix state={shownChart} caption={`Versão ${shownVersion.version}`} />
+            ) : (
+              <EmptyState
+                compact
+                tone="neutral"
+                icon={<Grid3x3 size={22} />}
+                title="Nada para mostrar ainda"
+                description={
+                  canEdit
+                    ? 'Solte um CSV válido ao lado para ver a prévia, ou escolha uma versão no registro de revisões.'
+                    : 'Escolha uma versão no registro de revisões para ver a matriz.'
+                }
+              />
+            )}
+          </div>
         </Panel>
-      </div>
-
-      <div className={styles.timelineColumn}>
-        <VersionTimeline
-          state={versionsApi.state}
-          canEdit={canEdit}
-          previewChartId={showFile ? null : (shownVersion?.chartId ?? null)}
-          zones={zones}
-          onPreview={(chartId) => setPreview({ kind: 'version', chartId })}
-          onActivate={setTarget}
-          onRetry={versionsApi.reload}
-        />
       </div>
 
       <ActivationDialog

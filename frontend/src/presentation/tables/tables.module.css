@@ -1,19 +1,23 @@
-/* Página Tabelas de carga (TASK-042). */
+/*
+ * Página Tabelas de carga (TASK-042) no visual de manual técnico (ADR-019). Folha assimétrica: coluna
+ * estreita com o procedimento (escolher a configuração, importar) e coluna larga com o que se lê (o
+ * registro de revisões, o relatório de erros e a matriz).
+ */
 
 .tablesLayout {
   display: grid;
-  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  grid-template-columns: minmax(296px, 320px) minmax(0, 1fr);
   grid-template-rows: auto 1fr;
   grid-template-areas:
     'side main'
-    'timeline main';
-  gap: var(--space-4);
+    'import main';
+  gap: var(--space-4) var(--space-5);
   align-items: start;
 }
 
 .sideColumn,
-.mainColumn,
-.timelineColumn {
+.importColumn,
+.mainColumn {
   display: grid;
   gap: var(--space-4);
   min-width: 0;
@@ -23,12 +27,12 @@
   grid-area: side;
 }
 
-.mainColumn {
-  grid-area: main;
+.importColumn {
+  grid-area: import;
 }
 
-.timelineColumn {
-  grid-area: timeline;
+.mainColumn {
+  grid-area: main;
 }
 
 @media (width < 1080px) {
@@ -37,8 +41,8 @@
     grid-template-rows: none;
     grid-template-areas:
       'side'
-      'main'
-      'timeline';
+      'import'
+      'main';
   }
 }
 
@@ -54,50 +58,55 @@
 .code,
 .report code,
 .timelineMeta code,
-.consequences code {
+.consequences code,
+.order code {
   font-family: var(--font-mono);
   font-size: 0.92em;
   color: var(--color-text-1);
   overflow-wrap: anywhere;
 }
 
-/* ── Importação ──────────────────────────────────────────────────────────── */
+/* ── Importação (coluna estreita) ────────────────────────────────────────── */
 
 .importBody {
   display: grid;
   gap: var(--space-4);
 }
 
+/* Na coluna estreita, a área de soltar empilha: ícone e texto em cima, o botão embaixo. */
+.importBody .dropzone {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.importBody .dropzone > button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+/* Formulário em linhas, como os campos de uma ordem de serviço. */
 .importForm {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
 }
 
 .importFields {
   display: grid;
-  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
 }
 
-/* Zona de giro (TASK-046): ocupa a linha inteira, acima da versão e do id. */
 .importZoneField {
   grid-column: 1 / -1;
 }
 
-/* Zona de cada versão na linha do tempo e resumo das ativas por zona (TASK-046). */
-.zoneBadgeRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  margin-bottom: var(--space-3);
-}
-
 .importActions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  flex-wrap: wrap;
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
 }
 
 .importHint {
@@ -105,40 +114,38 @@
   color: var(--color-text-2);
 }
 
+/* Gravada como rascunho: filete verde à esquerda, sem caixa colorida. */
 .importedBanner {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-status-ok);
-  border-left-width: 3px;
-  background: var(--color-status-ok-soft);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) 0 var(--space-3) var(--space-3);
+  border-left: 3px solid var(--color-status-ok);
   color: var(--color-text-1);
   font-size: var(--font-size-sm);
   animation: rise var(--duration-base) var(--ease-out);
 }
 
 .importedBanner > svg {
-  flex: none;
+  margin-top: 1px;
   color: var(--color-status-ok);
 }
 
-.importedBanner > p {
-  flex: 1;
-}
-
-@media (width < 640px) {
-  .importFields {
-    grid-template-columns: 1fr;
-  }
+.importedBanner > button {
+  grid-column: 2;
+  justify-self: start;
 }
 
 /* ── Relatório de erros ──────────────────────────────────────────────────── */
 
+.reportPanel {
+  border-color: var(--color-status-danger);
+  animation: rise var(--duration-base) var(--ease-out);
+}
+
 .report {
   display: grid;
-  gap: var(--space-2);
-  animation: rise var(--duration-base) var(--ease-out);
+  gap: var(--space-3);
 }
 
 .reportSummary {
@@ -156,7 +163,17 @@
 }
 
 .reportSummary strong {
-  color: var(--color-status-danger);
+  color: var(--color-status-danger-text);
+}
+
+/* A tabela do relatório leva o filete vermelho no topo e o número da linha em vermelho. */
+.report table {
+  border-top: 2px solid var(--color-status-danger);
+}
+
+.report tbody td:first-child {
+  color: var(--color-status-danger-text);
+  font-weight: var(--font-weight-semibold);
 }
 
 .issueMessage {
@@ -167,84 +184,165 @@
   flex-wrap: wrap;
 }
 
-/* ── Linha do tempo ──────────────────────────────────────────────────────── */
+/* ── Matriz de ponta a ponta na folha ────────────────────────────────────── */
+
+/*
+ * A matriz ocupa a largura inteira da folha, como a tabela impressa; a legenda e os estados de
+ * carregando, erro e vazio ganham a margem de volta.
+ */
+.matrixSheet > figure {
+  gap: 0;
+}
+
+.matrixSheet > figure > figcaption {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+.matrixSheet > figure > [role='group'] {
+  border-top: 0;
+}
+
+.matrixSheet > :not(figure) {
+  margin: var(--space-4);
+}
+
+/* ── Registro de revisões ────────────────────────────────────────────────── */
+
+/* Colunas: REV. | (ZONA) | STATUS | ARQUIVO · TABELA | PTS. | ações. */
+.register {
+  --register-columns: 68px 104px minmax(0, 1fr) 36px 226px;
+  --register-areas: 'rev status file pts act' 'rev status chart pts act';
+}
+
+.registerZones {
+  --register-columns: 68px minmax(0, 1fr) 104px minmax(0, 1.4fr) 36px 226px;
+  --register-areas: 'rev zone status file pts act' 'rev zone status chart pts act';
+}
+
+/* Vazio, erro e "escolha a configuração" dentro da folha sem margem do registro. */
+.registerEmpty {
+  padding: var(--space-4);
+}
+
+/* Ativas por zona, numa linha de resumo acima do registro. */
+.inForce {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.inForceLabel {
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-2);
+}
+
+.zoneBadgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-xs);
+}
+
+.inForceZone {
+  color: var(--color-text-2);
+}
+
+.inForceVersion {
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-status-ok);
+}
+
+.inForceMissing .inForceVersion {
+  font-family: var(--font-sans);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-status-warning-text);
+}
+
+.registerRow {
+  display: grid;
+  grid-template-columns: var(--register-columns);
+  grid-template-areas: var(--register-areas);
+  align-items: center;
+  column-gap: 10px;
+  padding: 0 var(--space-3) 0 var(--space-4);
+}
+
+.registerHead {
+  grid-template-areas: none;
+  height: 30px;
+  border-bottom: 1px solid var(--color-border-ink);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-1);
+}
+
+.registerNum {
+  text-align: right;
+}
 
 .timeline {
-  position: relative;
   display: grid;
-  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-/* Traço vertical da revisão: fino, em tinta clara (como o histórico de revisões de uma prancha). */
-.timeline::before {
-  content: '';
-  position: absolute;
-  top: 14px;
-  bottom: 14px;
-  left: 6px;
-  width: 0;
-  border-left: 1px solid var(--color-border-strong);
+.timelineItem {
+  position: relative;
+  row-gap: 2px;
+  min-height: 52px;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
-.timelineItem {
-  --marker: var(--color-status-info);
-  position: relative;
-  display: grid;
-  grid-template-columns: 14px minmax(0, 1fr);
-  gap: var(--space-3);
+.timelineItem:last-child {
+  border-bottom: 0;
+}
+
+.timelineItem:hover {
+  background: var(--color-bg);
 }
 
 .timelineItem[data-status='SUPERSEDED'] {
-  --marker: var(--color-status-neutral);
-}
-
-.timelineItem[data-status='INVALID'] {
-  --marker: var(--color-status-danger);
-}
-
-.timelineItem[data-status='ACTIVE'] {
-  --marker: var(--color-status-ok);
-}
-
-/* Marcador quadrado; cheio na versão ativa. */
-.timelineMarker {
-  position: relative;
-  z-index: 1;
-  width: 13px;
-  height: 13px;
-  margin-top: 14px;
-  background: var(--color-surface-1);
-  border: 1px solid var(--marker);
-}
-
-.timelineActive .timelineMarker {
-  background: var(--marker);
-}
-
-.timelineCard {
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-3) 0 var(--space-3);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.timelineItem[data-status='SUPERSEDED'] .timelineCard {
   color: var(--color-text-2);
 }
 
-.timelineActive .timelineCard {
-  padding-left: var(--space-3);
-  border-left: 2px solid var(--color-status-ok);
+/* A linha cuja matriz está na prévia: o traço laranja do selecionado. */
+.timelinePreview {
+  background: var(--color-bg);
 }
 
-.timelineHead {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
+.timelinePreview::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  left: 0;
+  width: 3px;
+  background: var(--color-accent);
+}
+
+/* REV.: o número da versão e, na ativa, o carimbo logo abaixo. */
+.revCell {
+  grid-area: rev;
+  display: grid;
+  justify-items: start;
+  gap: 5px;
 }
 
 .version {
@@ -254,64 +352,252 @@
   color: var(--color-text-1);
 }
 
-.activeHint {
-  font-size: var(--font-size-2xs);
-  letter-spacing: var(--letter-spacing-caps);
-  text-transform: uppercase;
+.timelineItem[data-status='SUPERSEDED'] .version {
+  color: var(--color-text-2);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--color-text-3);
+}
+
+.cellStatus {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Carimbo da versão em vigor: tinta verde, filete duplo, levemente torto como um carimbo de mão. */
+.seal {
+  display: inline-grid;
+  place-items: center;
+  height: 18px;
+  padding: 0 4px;
+  border: 3px double var(--color-status-ok);
   color: var(--color-status-ok);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transform: rotate(-3deg);
+  animation: stamp var(--duration-slow) var(--ease-out);
 }
 
-.timelineMeta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-1) var(--space-3);
-  margin: 0;
-  font-size: var(--font-size-xs);
-}
-
-.timelineMeta dt {
-  color: var(--color-text-3);
+/* As células do registro vêm de um `dl` sem caixa própria: cada `dd` ocupa a sua coluna. */
+.timelineMeta,
+.timelineMeta > div {
+  display: contents;
 }
 
 .timelineMeta dd {
   margin: 0;
+  min-width: 0;
+}
+
+/* Códigos do registro sem caixa: é uma linha de tabela, não um trecho de código no texto. */
+.timelineMeta code {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.metaZone {
+  grid-area: zone;
+  font-size: var(--font-size-sm);
   color: var(--color-text-1);
-  overflow-wrap: anywhere;
+}
+
+.metaZone code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-3);
+}
+
+.metaFile {
+  grid-area: file;
+  align-self: end;
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metaChart {
+  grid-area: chart;
+  align-self: start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metaChart code {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-3);
+}
+
+.metaPoints {
+  grid-area: pts;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .timelineActions {
+  grid-area: act;
   display: flex;
-  gap: var(--space-2);
   flex-wrap: wrap;
+  gap: var(--space-1);
 }
 
 .timelineSkeleton {
   display: grid;
   gap: var(--space-4);
-  padding: var(--space-2) 0;
+  padding: var(--space-4);
 }
 
 .timelineSkeletonItem {
   display: grid;
-  grid-template-columns: 14px 1fr;
+  grid-template-columns: 48px 1fr;
   align-items: center;
   gap: var(--space-3);
 }
 
-/* ── Dialog de ativação ──────────────────────────────────────────────────── */
+@media (width < 760px) {
+  .register,
+  .registerZones {
+    --register-columns: 56px minmax(0, 1fr) auto;
+    --register-areas: 'rev status pts' 'rev zone zone' 'rev file file' 'rev chart chart'
+      'act act act';
+  }
+
+  .registerHead {
+    display: none;
+  }
+}
+
+/* ── Dialog de ativação: ordem de alteração ──────────────────────────────── */
 
 .dialogBody {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-3);
   font-size: var(--font-size-sm);
   color: var(--color-text-2);
 }
 
+.orderSheet {
+  display: grid;
+}
+
+.order {
+  width: 100%;
+  border-collapse: collapse;
+  border-top: 2px solid var(--color-border-ink);
+  border-bottom: 1px solid var(--color-border-ink);
+}
+
+.orderHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-wide);
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--color-text-1);
+}
+
+.orderHead code {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-text-2);
+}
+
+.order th,
+.order td {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: baseline;
+}
+
+.order tr:last-child > * {
+  border-bottom: 0;
+}
+
+.order th {
+  width: 72px;
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-2);
+}
+
+.order td {
+  color: var(--color-text-1);
+}
+
+.orderVersion {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-1);
+}
+
+/* A versão nova é o que se está escolhendo: o número leva o acento. */
+.orderTo .orderVersion {
+  color: var(--color-accent-ink);
+}
+
+.orderMeta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.orderSection {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-1);
+}
+
+/* Efeito numerado 01, 02, 03, como os itens de uma ordem de alteração. */
 .consequences {
   display: grid;
   gap: var(--space-2);
   margin: 0;
-  padding-left: var(--space-5);
+  padding: 0;
+  list-style: none;
+  counter-reset: efeito;
+}
+
+.consequences li {
+  position: relative;
+  padding-left: 28px;
+  counter-increment: efeito;
+}
+
+.consequences li::before {
+  content: counter(efeito, decimal-leading-zero);
+  position: absolute;
+  top: 2px;
+  left: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-3);
 }
 
 .consequences strong {
@@ -321,33 +607,46 @@
 .comparison {
   display: grid;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  margin-top: var(--space-1);
+}
+
+.comparisonTitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.comparisonList {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
   border-top: 1px solid var(--color-border-ink);
   border-bottom: 1px solid var(--color-border-ink);
 }
 
-.comparisonTitle {
-  color: var(--color-text-1);
-}
-
-.comparisonList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 .comparisonList li {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+
+.comparisonList li + li {
+  border-left: 1px solid var(--color-border);
+}
+
+.comparisonList li svg {
+  margin-right: 4px;
+  vertical-align: -2px;
 }
 
 .comparisonList li strong {
   font-family: var(--font-mono);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
   color: var(--color-text-1);
 }
 
@@ -359,13 +658,37 @@
   color: var(--color-status-ok);
 }
 
+.comparisonList li[data-trend='same'] svg {
+  color: var(--color-text-3);
+}
+
 .comparisonNote {
   font-size: var(--font-size-xs);
   color: var(--color-text-3);
 }
 
+/* Aviso FICTÍCIO/PROVISÓRIO como nota de rodapé, não como caixa. */
+.footnote {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-2);
+}
+
+.footnote::before {
+  content: '* ';
+  font-family: var(--font-mono);
+}
+
 @keyframes rise {
   from {
     opacity: 0;
+  }
+}
+
+@keyframes stamp {
+  from {
+    opacity: 0;
+    transform: rotate(-3deg) scale(1.25);
   }
 }

@@ -1,7 +1,7 @@
 import { ChevronRight } from 'lucide-react'
 import { type KeyboardEvent, type ReactNode, useRef } from 'react'
 
-import { Badge, cx, EmptyState, Panel, Skeleton } from '../ui'
+import { cx, EmptyState, Panel, Skeleton } from '../ui'
 import styles from './catalog.module.css'
 
 export interface CatalogColumnItem {
@@ -32,8 +32,10 @@ export interface CatalogColumnProps {
 }
 
 /**
- * Uma coluna da navegação mestre-detalhe (fabricante → guindaste → configuração). Cada item é um
- * botão com `aria-current` no escolhido; setas para cima e para baixo, Home e End movem o foco.
+ * Uma coluna do índice de fichas (fabricante → guindaste → configuração; ADR-019): lista com
+ * filetes, número de ordem e contagens em mono, e o item escolhido marcado pelo traço laranja à
+ * esquerda. Cada item é um botão com `aria-current` no escolhido; setas para cima e para baixo, Home
+ * e End movem o foco.
  */
 export function CatalogColumn({
   title,
@@ -70,7 +72,15 @@ export function CatalogColumn({
       className={styles.column}
       actions={
         <>
-          {!loading && <Badge tone="neutral">{items.length}</Badge>}
+          {!loading && (
+            <span className={styles.columnCount}>
+              <span className={styles.columnCountLabel} aria-hidden="true">
+                Qtd.
+              </span>
+              <span className="visually-hidden">Itens na lista: </span>
+              {String(items.length).padStart(2, '0')}
+            </span>
+          )}
           {actions}
         </>
       }

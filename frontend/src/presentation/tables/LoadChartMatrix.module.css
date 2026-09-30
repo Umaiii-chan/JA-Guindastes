@@ -1,15 +1,18 @@
 /*
- * Matriz lança × raio como tabela de ficha técnica (ADR-019): filetes finos entre as células e uma
- * escala sequencial de densidade de TINTA, do papel (menor capacidade) à tinta (maior). Nada de
- * laranja: o acento fica para ação e seleção. Texto em tinta nas três primeiras faixas e em papel nas
- * duas últimas, para manter o contraste AA.
+ * Matriz lança × raio como a tabela impressa do fabricante (ADR-019): filete grosso no topo e no pé,
+ * cabeçalho em caixa alta, números em mono tabular à direita e filetes finos entre as células.
+ *
+ * Mapa de calor sóbrio: 5 tons de uma rampa de cinza-quente (tinta sobre o papel), do quase papel
+ * (menor capacidade) ao cinza médio (maior), e o peso da fonte subindo junto. Nada de arco-íris nem de
+ * laranja: o acento fica para a ação e a seleção. O texto é sempre tinta; no tom mais escuro o
+ * contraste ainda passa de 7:1.
  */
 .figure {
-  --band-0: color-mix(in oklab, var(--ink) 5%, var(--paper-raised));
-  --band-1: color-mix(in oklab, var(--ink) 14%, var(--paper-raised));
-  --band-2: color-mix(in oklab, var(--ink) 27%, var(--paper-raised));
-  --band-3: color-mix(in oklab, var(--ink) 62%, var(--paper-raised));
-  --band-4: color-mix(in oklab, var(--ink) 88%, var(--paper-raised));
+  --band-0: color-mix(in oklab, var(--ink) 3%, var(--paper-raised));
+  --band-1: color-mix(in oklab, var(--ink) 9%, var(--paper-raised));
+  --band-2: color-mix(in oklab, var(--ink) 16%, var(--paper-raised));
+  --band-3: color-mix(in oklab, var(--ink) 25%, var(--paper-raised));
+  --band-4: color-mix(in oklab, var(--ink) 36%, var(--paper-raised));
 
   display: grid;
   gap: var(--space-3);
@@ -20,8 +23,8 @@
 .scroll {
   overflow: auto;
   max-height: 460px;
-  border-top: 1px solid var(--color-border-ink);
-  border-bottom: 1px solid var(--color-border-ink);
+  border-top: 2px solid var(--color-border-ink);
+  border-bottom: 2px solid var(--color-border-ink);
   background: var(--color-surface-1);
 }
 
@@ -44,34 +47,48 @@
   position: sticky;
   z-index: 1;
   background: var(--color-surface-1);
-  color: var(--color-text-2);
-  font-weight: var(--font-weight-regular);
+  color: var(--color-text-1);
+  font-weight: var(--font-weight-medium);
   white-space: nowrap;
+}
+
+.unit {
+  margin-left: 1px;
+  font-size: 0.82em;
+  color: var(--color-text-3);
 }
 
 .colHead {
   top: 0;
-  padding: var(--space-2) var(--space-2);
+  height: 40px;
+  padding: 0 var(--space-2) 5px;
+  vertical-align: bottom;
   text-align: right;
   border-bottom: 1px solid var(--color-border-ink);
   box-shadow: 0 1px 0 var(--color-border-ink);
 }
 
+.colHead + .colHead {
+  border-left: 1px solid var(--color-border);
+}
+
 .rowHead {
   left: 0;
-  padding: 0 var(--space-3) 0 var(--space-2);
+  padding: 0 var(--space-3);
   text-align: right;
   border-right: 1px solid var(--color-border-ink);
   border-bottom: 1px solid var(--color-border);
-  color: var(--color-text-1) !important;
+  box-shadow: 1px 0 0 var(--color-border-ink);
 }
 
+/* Canto com a diagonal da tabela impressa: "Raio" em cima à direita, "Lança" embaixo à esquerda. */
 .corner {
   top: 0;
   left: 0;
   z-index: 2 !important;
-  padding: var(--space-1) var(--space-2);
-  text-align: left;
+  min-width: 86px;
+  height: 40px;
+  padding: 0;
   font-family: var(--font-sans);
   font-size: var(--font-size-3xs);
   font-weight: var(--font-weight-semibold) !important;
@@ -80,33 +97,69 @@
   color: var(--color-text-2) !important;
   border-bottom: 1px solid var(--color-border-ink);
   border-right: 1px solid var(--color-border-ink);
+  box-shadow:
+    0 1px 0 var(--color-border-ink),
+    1px 0 0 var(--color-border-ink);
 }
 
-.cornerRow,
-.cornerCol {
-  display: block;
+.cornerRule {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cornerRule line {
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.cornerCol,
+.cornerRow {
+  position: absolute;
+  line-height: 1;
 }
 
 .cornerCol {
-  text-align: right;
+  top: 6px;
+  right: 8px;
+}
+
+.cornerRow {
+  bottom: 6px;
+  left: 8px;
 }
 
 .cell {
-  min-width: 64px;
-  padding: 6px var(--space-2);
-  border: 1px solid var(--color-surface-1);
+  min-width: 56px;
+  height: 30px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--color-surface-1);
+  border-left: 1px solid var(--color-surface-1);
   text-align: right;
   color: var(--color-text-1);
 }
 
 .compact .cell {
-  min-width: 54px;
-  padding: 4px 6px;
+  min-width: 52px;
+  height: 26px;
+  padding: 0 var(--space-2);
+}
+
+.compact .colHead {
+  height: 38px;
+  padding: 0 var(--space-2) 4px;
+}
+
+.compact .corner {
+  min-width: 84px;
+  height: 38px;
 }
 
 .cell:hover {
   outline: 1px solid var(--color-text-1);
-  outline-offset: -2px;
+  outline-offset: -1px;
 }
 
 .missing {
@@ -117,53 +170,61 @@
 
 .band0 {
   background: var(--band-0);
+  font-weight: var(--font-weight-regular);
 }
 
 .band1 {
   background: var(--band-1);
+  font-weight: var(--font-weight-regular);
 }
 
 .band2 {
   background: var(--band-2);
+  font-weight: var(--font-weight-medium);
 }
 
 .band3 {
   background: var(--band-3);
-  color: var(--color-text-inverse);
+  font-weight: var(--font-weight-medium);
 }
 
 .band4 {
   background: var(--band-4);
-  color: var(--color-text-inverse);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
 }
 
-.band3:hover,
-.band4:hover {
-  outline-color: var(--color-text-inverse);
-}
+/* ── Legenda ─────────────────────────────────────────────────────────────── */
 
 .legend {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: var(--space-2) var(--space-4);
+  gap: var(--space-2) var(--space-5);
   font-size: var(--font-size-xs);
   color: var(--color-text-2);
 }
 
 .legendTitle {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 2px;
   font-size: var(--font-size-3xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
   color: var(--color-text-1);
-  padding-bottom: 2px;
+}
+
+.legendUnit {
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-text-3);
 }
 
 .legendScale {
   display: flex;
-  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -172,8 +233,6 @@
 
 .legendItem {
   display: grid;
-  justify-items: stretch;
-  gap: 0;
 }
 
 .legendItem + .legendItem {
@@ -182,12 +241,13 @@
 
 .swatch {
   display: block;
-  width: 76px;
-  height: 8px;
+  width: 72px;
+  height: 10px;
 }
 
 .compact .swatch {
-  width: 34px;
+  width: 28px;
+  height: 8px;
 }
 
 .legendRange {
@@ -196,13 +256,32 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-3xs);
   font-variant-numeric: tabular-nums;
-  color: var(--color-text-2);
+  color: var(--color-text-1);
   white-space: nowrap;
   text-align: center;
 }
 
+.legendMissing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 2px;
+  font-size: var(--font-size-2xs);
+}
+
+.missingSwatch {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 16px;
+  border: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+  color: var(--color-text-3);
+}
+
 .legendMeta {
   margin-left: auto;
+  padding-bottom: 2px;
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--color-text-2);

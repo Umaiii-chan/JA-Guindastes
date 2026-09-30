@@ -15,7 +15,7 @@ import type { ChartVersionsState } from './useChartVersions'
 export interface VersionTimelineProps {
   readonly state: ChartVersionsState
   readonly canEdit: boolean
-  /** Tabela cuja matriz está na prévia (destaca o botão "Ver matriz"). */
+  /** Tabela cuja matriz está na prévia (marcada como a linha escolhida). */
   readonly previewChartId: string | null
   /** Zonas de giro da configuração (TASK-046), para mostrar a zona de cada versão pelo nome. */
   readonly zones?: readonly RotationZone[]
@@ -25,9 +25,11 @@ export interface VersionTimelineProps {
 }
 
 /**
- * Linha do tempo das versões da configuração (RN-005), na ordem do backend (versão da maior para a
- * menor; não há data de importação), com a ativa (`active_chart_id`) em destaque. A lista vem de
- * `GET /configurations/{id}/load-charts` (TASK-044).
+ * Versões da configuração (RN-005) como o registro de revisões de uma prancha (ADR-019): uma linha por
+ * versão, na ordem do backend (da maior para a menor), com as colunas REV., ZONA, STATUS, ARQUIVO e
+ * PTS. A ativa (`active_charts`/`active_chart_id`) leva o carimbo "EM VIGOR"; a linha cuja matriz está
+ * na prévia leva o traço laranja. Não há coluna de data: a listagem do backend
+ * (`GET /configurations/{id}/load-charts`, TASK-044) não informa quando cada versão foi importada.
  */
 export function VersionTimeline({
   state,
@@ -41,21 +43,23 @@ export function VersionTimeline({
   const count = state.versions.length
   return (
     <Panel
-      title="Versões"
-      subtitle="Da maior versão para a menor"
+      title="Registro de revisões"
+      subtitle={
+        count > 0
+          ? `${count} ${count === 1 ? 'versão' : 'versões'}, da maior para a menor`
+          : 'Da maior versão para a menor'
+      }
       stamp="REV."
+      flush
       actions={
-        <>
-          {count > 0 && <Badge tone="neutral">{count}</Badge>}
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<RefreshCw size={14} />}
-            onClick={onRetry}
-            disabled={state.status === 'loading' || state.status === 'idle'}
-            aria-label="Atualizar as versões"
-          />
-        </>
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={<RefreshCw size={14} />}
+          onClick={onRetry}
+          disabled={state.status === 'loading' || state.status === 'idle'}
+          aria-label="Atualizar as versões"
+        />
       }
     >
       <TimelineBody
@@ -82,13 +86,15 @@ function TimelineBody({
 }: VersionTimelineProps) {
   if (state.status === 'idle') {
     return (
-      <EmptyState
-        compact
-        tone="neutral"
-        icon={<History size={22} />}
-        title="Escolha uma configuração"
-        description="As versões aparecem aqui depois de escolher fabricante, guindaste e configuração."
-      />
+      <div className={styles.registerEmpty}>
+        <EmptyState
+          compact
+          tone="neutral"
+          icon={<History size={22} />}
+          title="Escolha uma configuração"
+          description="As versões aparecem aqui depois de escolher fabricante, guindaste e configuração."
+        />
+      </div>
     )
   }
   if (state.status === 'loading' && state.versions.length === 0) {
@@ -97,7 +103,7 @@ function TimelineBody({
         <span className="visually-hidden">Carregando as versões…</span>
         {[0, 1, 2].map((index) => (
           <div key={index} className={styles.timelineSkeletonItem}>
-            <Skeleton circle width={14} height={14} />
+            <Skeleton width={36} height={14} />
             <Skeleton width="70%" height={14} />
           </div>
         ))}
@@ -106,57 +112,75 @@ function TimelineBody({
   }
   if (state.status === 'error') {
     return (
-      <EmptyState
-        compact
-        tone="danger"
-        role="alert"
-        icon={<TriangleAlert size={22} />}
-        title="Não foi possível ler as versões"
-        description={state.error}
-        action={
-          <Button size="sm" icon={<RefreshCw size={14} />} onClick={onRetry}>
-            Tentar de novo
-          </Button>
-        }
-      />
+      <div className={styles.registerEmpty}>
+        <EmptyState
+          compact
+          tone="danger"
+          role="alert"
+          icon={<TriangleAlert size={22} />}
+          title="Não foi possível ler as versões"
+          description={state.error}
+          action={
+            <Button size="sm" icon={<RefreshCw size={14} />} onClick={onRetry}>
+              Tentar de novo
+            </Button>
+          }
+        />
+      </div>
     )
   }
   if (state.versions.length === 0) {
     return (
-      <EmptyState
-        compact
-        tone="neutral"
-        icon={<History size={22} />}
-        title="Nenhuma versão importada"
-        description={
-          canEdit
-            ? 'Esta configuração ainda não tem tabela de carga. Importe a primeira ao lado.'
-            : 'Esta configuração ainda não tem tabela de carga.'
-        }
-      />
+      <div className={styles.registerEmpty}>
+        <EmptyState
+          compact
+          tone="neutral"
+          icon={<History size={22} />}
+          title="Nenhuma versão importada"
+          description={
+            canEdit
+              ? 'Esta configuração ainda não tem tabela de carga. Importe a primeira ao lado.'
+              : 'Esta configuração ainda não tem tabela de carga.'
+          }
+        />
+      </div>
     )
   }
 
+  const hasZones = zones.length > 0
   const zoneName = (code: string | null) =>
     code === null ? null : (zones.find((zone) => zone.code === code)?.name ?? code)
   const activeByZone = activeVersionsByZone(state.versions, state.activeCharts)
 
   return (
-    <>
-      {zones.length > 0 && (
-        <ul className={styles.zoneBadgeRow} aria-label="Tabela ativa por zona">
-          {zones.map((zone) => {
-            const active = activeByZone.get(zone.code)
-            return (
-              <li key={zone.code}>
-                <Badge tone={active ? 'ok' : 'warning'} variant="soft">
-                  {zone.name}: {active ? active.version : 'nenhuma ativa'}
-                </Badge>
-              </li>
-            )
-          })}
-        </ul>
+    <div className={cx(styles.register, hasZones && styles.registerZones)}>
+      {hasZones && (
+        <div className={styles.inForce}>
+          <span className={styles.inForceLabel}>Em vigor por zona</span>
+          <ul className={styles.zoneBadgeRow} aria-label="Tabela ativa por zona">
+            {zones.map((zone) => {
+              const active = activeByZone.get(zone.code)
+              return (
+                <li key={zone.code} className={cx(!active && styles.inForceMissing)}>
+                  <span className={styles.inForceZone}>{zone.name}:</span>{' '}
+                  <span className={styles.inForceVersion}>
+                    {active ? active.version : 'nenhuma ativa'}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
       )}
+      {/* Cabeçalho visual das colunas; cada célula da linha repete o rótulo para leitores de tela. */}
+      <div className={cx(styles.registerRow, styles.registerHead)} aria-hidden="true">
+        <span>Rev.</span>
+        {hasZones && <span>Zona</span>}
+        <span>Status</span>
+        <span>Arquivo · tabela</span>
+        <span className={styles.registerNum}>Pts.</span>
+        <span />
+      </div>
       <ol
         className={styles.timeline}
         aria-label="Linha do tempo das versões"
@@ -175,76 +199,85 @@ function TimelineBody({
           return (
             <li
               key={version.chartId}
-              className={cx(styles.timelineItem, active && styles.timelineActive)}
+              className={cx(
+                styles.registerRow,
+                styles.timelineItem,
+                active && styles.timelineActive,
+                previewing && styles.timelinePreview,
+              )}
               data-status={version.status}
               aria-current={active ? 'true' : undefined}
             >
-              <span className={styles.timelineMarker} aria-hidden="true" />
-              <div className={styles.timelineCard}>
-                <div className={styles.timelineHead}>
-                  <span className={styles.version}>{version.version}</span>
-                  <Badge
-                    tone={CHART_STATUS_TONE[version.status]}
-                    variant={active ? 'solid' : 'soft'}
-                  >
-                    {CHART_STATUS_LABEL[version.status]}
-                  </Badge>
-                  {active && (
-                    <span className={styles.activeHint}>
-                      {zone ? `vale para a avaliação na zona ${zone}` : 'vale para a avaliação'}
-                    </span>
-                  )}
-                </div>
-                <dl className={styles.timelineMeta}>
-                  {zone && (
-                    <div>
-                      <dt>Zona</dt>
-                      <dd>
-                        {zone} <code>{version.rotationZoneCode}</code>
-                      </dd>
-                    </div>
-                  )}
+              <span className={styles.revCell}>
+                <span className={styles.version}>{version.version}</span>
+                {active && (
+                  <span className={styles.seal} aria-hidden="true">
+                    Em vigor
+                  </span>
+                )}
+              </span>
+              <span className={styles.cellStatus}>
+                <Badge tone={CHART_STATUS_TONE[version.status]} variant="outline">
+                  {CHART_STATUS_LABEL[version.status]}
+                </Badge>
+                {active && (
+                  <span className={cx(styles.activeHint, 'visually-hidden')}>
+                    {zone ? `vale para a avaliação na zona ${zone}` : 'vale para a avaliação'}
+                  </span>
+                )}
+              </span>
+              {/* As células vêm de um `dl` sem caixa própria: cada `dd` ocupa a sua coluna. */}
+              <dl className={styles.timelineMeta}>
+                {zone && (
                   <div>
-                    <dt>Tabela</dt>
-                    <dd>
-                      <code>{version.chartId}</code>
+                    <dt className="visually-hidden">Zona</dt>
+                    <dd className={styles.metaZone}>
+                      {zone} <code>{version.rotationZoneCode}</code>
                     </dd>
                   </div>
-                  <div>
-                    <dt>Arquivo</dt>
-                    <dd>{version.sourceFileName}</dd>
-                  </div>
-                  <div>
-                    <dt>Pontos</dt>
-                    <dd className={styles.mono}>{version.pointCount}</dd>
-                  </div>
-                </dl>
-                <div className={styles.timelineActions}>
+                )}
+                <div>
+                  <dt className="visually-hidden">Arquivo</dt>
+                  <dd className={styles.metaFile} title={version.sourceFileName}>
+                    {version.sourceFileName}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="visually-hidden">Tabela</dt>
+                  <dd className={styles.metaChart}>
+                    <code>{version.chartId}</code>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="visually-hidden">Pontos</dt>
+                  <dd className={styles.metaPoints}>{version.pointCount}</dd>
+                </div>
+              </dl>
+              <span className={styles.timelineActions}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={<Eye size={14} />}
+                  aria-pressed={previewing}
+                  onClick={() => onPreview(version.chartId)}
+                >
+                  Ver matriz
+                </Button>
+                {canEdit && isActivatable(version.status) && (
                   <Button
                     size="sm"
-                    variant={previewing ? 'secondary' : 'ghost'}
-                    icon={<Eye size={14} />}
-                    aria-pressed={previewing}
-                    onClick={() => onPreview(version.chartId)}
+                    variant="primary"
+                    icon={<Power size={14} />}
+                    onClick={() => onActivate(version)}
                   >
-                    Ver matriz
+                    Ativar {version.version}
                   </Button>
-                  {canEdit && isActivatable(version.status) && (
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      icon={<Power size={14} />}
-                      onClick={() => onActivate(version)}
-                    >
-                      Ativar {version.version}
-                    </Button>
-                  )}
-                </div>
-              </div>
+                )}
+              </span>
             </li>
           )
         })}
       </ol>
-    </>
+    </div>
   )
 }

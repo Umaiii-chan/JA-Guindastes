@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | in-progress |
+| **Status** | completed |
 | **Prioridade** | alta |
 | **Criada em** | 2026-09-27 por pessoa responsável ("mais cara de feito por humano", via orquestrador) |
 | **Iniciada em** | 2026-09-27 |
@@ -70,3 +70,5 @@ Aplicar o ADR-019 em todo o frontend e na cena 3D. O comportamento não muda; mu
 - `backend/**`;
 - ADRs, `handoffs/current.md` e `docs/business-rules.md`;
 - ler `dados-oficiais/`.
+
+> Movida para `completed/` em 2026-09-27 pela autorização permanente da pessoa responsável (revisão independente dispensada), junto com o refinamento das páginas.
