@@ -1,4 +1,4 @@
-# TASK-049 â€” implantar demonstraÃ§Ã£o no Render e na Vercel
+# TASK-049 — implantar demonstração no Render e na Vercel
 
 | Campo                 | Valor                                                            |
 | --------------------- | ---------------------------------------------------------------- |
@@ -6,64 +6,64 @@
 | **Prioridade**        | alta                                                             |
 | **Criada em**         | 2026-09-30 por Anderson Sehnem                                   |
 | **Iniciada em**       | 2026-09-30                                                       |
-| **ConcluÃ­da em**      | â€”                                                                |
+| **Concluída em**      | —                                                                |
 | **Branch**            | `task/TASK-049-deploy-render-vercel` (a partir de `development`) |
-| **PR**                | â€”                                                                |
+| **PR**                | —                                                                |
 | **Requisitos**        | RNF-001, RNF-004, RNF-005                                        |
-| **Regras de negÃ³cio** | nenhuma nova                                                     |
+| **Regras de negócio** | nenhuma nova                                                     |
 | **Estimativa**        | M                                                                |
 
 ---
 
 ## 1. Objetivo
 
-Disponibilizar a demonstraÃ§Ã£o web por uma URL pÃºblica da Vercel, com o backend FastAPI, PostgreSQL
-e arquivos importados hospedados no Render, pronta para ser acessada durante a apresentaÃ§Ã£o.
+Disponibilizar a demonstração web por uma URL pública da Vercel, com o backend FastAPI, PostgreSQL
+e arquivos importados hospedados no Render, pronta para ser acessada durante a apresentação.
 
 ## 2. Contexto
 
-A pessoa responsÃ¡vel escolheu Render + Vercel em chat em 2026-09-30. A aplicaÃ§Ã£o jÃ¡ funciona em
-Docker Compose, mas o job de deploy Ã© apenas um placeholder e nÃ£o hÃ¡ manifests dessas plataformas.
-O frontend usa cookie de sessÃ£o `SameSite=Strict` e URLs relativas; por isso a API REST serÃ¡ exposta
-sob `/api` no domÃ­nio da Vercel por rewrite externo. A demonstraÃ§Ã£o usarÃ¡ REST para as avaliaÃ§Ãµes,
-pois o upgrade WebSocket atravÃ©s desse rewrite nÃ£o faz parte do contrato documentado da Vercel.
+A pessoa responsável escolheu Render + Vercel em chat em 2026-09-30. A aplicação já funciona em
+Docker Compose, mas o job de deploy é apenas um placeholder e não há manifests dessas plataformas.
+O frontend usa cookie de sessão `SameSite=Strict` e URLs relativas; por isso a API REST será exposta
+sob `/api` no domínio da Vercel por rewrite externo. A demonstração usará REST para as avaliações,
+pois o upgrade WebSocket através desse rewrite não faz parte do contrato documentado da Vercel.
 
-## 3. CritÃ©rios de aceite
+## 3. Critérios de aceite
 
-- [x] **CA-1** â€” Dado o Blueprint, quando validado, entÃ£o ele define backend Docker, PostgreSQL,
-      migrations, seed FICTÃCIO, admin inicial e armazenamento persistente sem credenciais no git.
-- [x] **CA-2** â€” Dado o frontend publicado na Vercel, quando uma rota `/api/*` Ã© chamada, entÃ£o ela Ã©
+- [x] **CA-1** — Dado o Blueprint, quando validado, então ele define backend Docker e PostgreSQL
+      gratuitos, migrations, seed FICTÍCIO e admin inicial sem credenciais no git.
+- [x] **CA-2** — Dado o frontend publicado na Vercel, quando uma rota `/api/*` é chamada, então ela é
       encaminhada ao backend do Render e rotas da SPA voltam ao `index.html`.
-- [x] **CA-3** â€” Dada a build de apresentaÃ§Ã£o, quando o simulador avalia uma operaÃ§Ã£o, entÃ£o usa o
-      fallback REST sem iniciar reconexÃµes WebSocket pelo proxy da Vercel.
-- [x] **CA-4** â€” A documentaÃ§Ã£o descreve criaÃ§Ã£o dos recursos, variÃ¡veis, custos/limitaÃ§Ãµes e teste de
-      fumaÃ§a, sem valores secretos.
-- [x] **CA-5** â€” Testes, lint, formataÃ§Ã£o, tipagem, build e verificaÃ§Ã£o estrutural passam.
-- [ ] **CA-6** â€” A implantaÃ§Ã£o real fornece URLs pÃºblicas e o fluxo de login + avaliaÃ§Ã£o Ã© testado.
+- [x] **CA-3** — Dada a build de apresentação, quando o simulador avalia uma operação, então usa o
+      fallback REST sem iniciar reconexões WebSocket pelo proxy da Vercel.
+- [x] **CA-4** — A documentação descreve criação dos recursos, variáveis, custos/limitações e teste de
+      fumaça, sem valores secretos.
+- [x] **CA-5** — Testes, lint, formatação, tipagem, build e verificação estrutural passam.
+- [ ] **CA-6** — A implantação real fornece URLs públicas e o fluxo de login + avaliação é testado.
 
 ## 4. Escopo
 
 ### Dentro do escopo
 
-- Blueprint do Render para API, banco e disco persistente.
-- ConfiguraÃ§Ã£o da Vercel para o Vite e o proxy REST.
+- Blueprint do Render gratuito para API e banco, com filesystem efêmero documentado.
+- Configuração da Vercel para o Vite e o proxy REST.
 - Compatibilidade do backend com a URL PostgreSQL fornecida pelo Render.
-- Modo REST explÃ­cito para a build hospedada na Vercel.
-- Runbook de implantaÃ§Ã£o, operaÃ§Ã£o e teste de fumaÃ§a.
+- Modo REST explícito para a build hospedada na Vercel.
+- Runbook de implantação, operação e teste de fumaça.
 
 ### Fora do escopo
 
-- DomÃ­nio prÃ³prio, observabilidade avanÃ§ada e alta disponibilidade.
-- PromoÃ§Ã£o das branches `homologation` e `production`.
-- AlteraÃ§Ã£o das regras de cÃ¡lculo ou uso de dados oficiais.
-- WebSocket atravÃ©s da Vercel.
+- Domínio próprio, observabilidade avançada e alta disponibilidade.
+- Promoção das branches `homologation` e `production`.
+- Alteração das regras de cálculo ou uso de dados oficiais.
+- WebSocket através da Vercel.
 
 ## 5. Arquivos provavelmente afetados
 
-| Arquivo                                                | Tipo de mudanÃ§a | Verificado? |
+| Arquivo                                                | Tipo de mudança | Verificado? |
 | ------------------------------------------------------ | --------------- | ----------- |
 | `render.yaml`                                          | criar           | sim         |
-| `frontend/vercel.ts`                                   | criar           | sim         |
+| `frontend/vercel.mjs`                                  | criar           | sim         |
 | `frontend/src/app/useEvaluationSession.ts`             | alterar         | sim         |
 | `backend/app/infrastructure/database/config.py`        | alterar         | sim         |
 | `backend/tests/infrastructure/database/test_config.py` | alterar         | sim         |
@@ -73,25 +73,24 @@ pois o upgrade WebSocket atravÃ©s desse rewrite nÃ£o faz parte do contrato d
 | `docs/development-guide.md`                            | alterar         | sim         |
 | `docs/known-gaps.md`                                   | alterar         | sim         |
 | `docs/decisions/ADR-020-deploy-render-vercel.md`       | criar           | sim         |
+| `docs/decisions/ADR-021-plano-gratuito-render.md`      | criar           | sim         |
 
-## 6. Riscos e dependÃªncias
+## 6. Riscos e dependências
 
 - Depende de contas Render e Vercel conectadas ao GitHub.
-- O disco persistente exige serviÃ§o web pago no Render; sem ele, arquivos importados somem em
-  reinÃ­cios e redeploys.
-- O PostgreSQL gratuito expira apÃ³s 30 dias e nÃ£o tem backup; para a apresentaÃ§Ã£o, usar banco pago
-  ou recriar os dados FICTÃCIOS antes do evento.
-- A URL pÃºblica do backend sÃ³ existe depois do primeiro Blueprint; ela precisa ser cadastrada na
-  variÃ¡vel `RENDER_API_ORIGIN` da Vercel.
+- O filesystem gratuito é efêmero: arquivos importados somem em reinícios, hibernações e redeploys.
+- O PostgreSQL gratuito expira após 30 dias e não tem backup; criar menos de 30 dias antes da banca.
+- A URL pública do backend só existe depois do primeiro Blueprint; ela precisa ser cadastrada na
+  variável `RENDER_API_ORIGIN` da Vercel.
 
 ## 7. Teste manual
 
-1. Abrir a URL da Vercel em janela anÃ´nima.
+1. Abrir a URL da Vercel em janela anônima.
 2. Entrar com o admin configurado no Render.
-3. Abrir o Simulador, escolher a configuraÃ§Ã£o FICTÃCIA, informar uma carga e aguardar o resultado.
-4. Abrir CatÃ¡logo e Tabelas e confirmar que os dados FICTÃCIOS do seed aparecem.
+3. Abrir o Simulador, escolher a configuração FICTÍCIA, informar uma carga e aguardar o resultado.
+4. Abrir Catálogo e Tabelas e confirmar que os dados FICTÍCIOS do seed aparecem.
 5. Conferir no DevTools que os pedidos usam `https://<projeto>.vercel.app/api/...`.
-   **Esperado:** login persiste, avaliaÃ§Ã£o REST responde e nÃ£o hÃ¡ tentativas de WebSocket.
+   **Esperado:** login persiste, avaliação REST responde e não há tentativas de WebSocket.
 
 ---
 
@@ -99,31 +98,31 @@ pois o upgrade WebSocket atravÃ©s desse rewrite nÃ£o faz parte do contrato d
 
 | #   | Passo                                             | Arquivos               | Como verificar          | Feito |
 | --- | ------------------------------------------------- | ---------------------- | ----------------------- | ----- |
-| 1   | Registrar decisÃ£o e contrato de implantaÃ§Ã£o       | tarefa, ADR, docs      | revisÃ£o + estrutura     | [x]   |
-| 2   | Criar Blueprint e compatibilidade da URL do banco | `render.yaml`, backend | pytest + validaÃ§Ã£o YAML | [x]   |
-| 3   | Criar configuraÃ§Ã£o Vercel e modo REST             | frontend               | testes + build          | [x]   |
+| 1   | Registrar decisão e contrato de implantação       | tarefa, ADR, docs      | revisão + estrutura     | [x]   |
+| 2   | Criar Blueprint e compatibilidade da URL do banco | `render.yaml`, backend | pytest + validação YAML | [x]   |
+| 3   | Criar configuração Vercel e modo REST             | frontend               | testes + build          | [x]   |
 | 4   | Documentar e validar localmente                   | docs, handoff          | gates do projeto        | [x]   |
-| 5   | Provisionar, configurar e testar as URLs pÃºblicas | Render, Vercel         | teste de fumaÃ§a manual  | [ ]   |
+| 5   | Provisionar, configurar e testar as URLs públicas | Render, Vercel         | teste de fumaça manual  | [ ]   |
 
-**AnÃ¡lise de impacto:**
+**Análise de impacto:**
 
-- AutenticaÃ§Ã£o depende do rewrite manter o navegador na origem da Vercel.
-- ImportaÃ§Ã£o depende do disco em `/data/load-charts`.
-- NÃ£o hÃ¡ regra de negÃ³cio nova; a mudanÃ§a Ã© operacional e de transporte do frontend.
-- A escolha Render + Vercel foi feita pela pessoa responsÃ¡vel em 2026-09-30.
+- Autenticação depende do rewrite manter o navegador na origem da Vercel.
+- Importação depende do disco em `/data/load-charts`.
+- Não há regra de negócio nova; a mudança é operacional e de transporte do frontend.
+- A escolha Render + Vercel foi feita pela pessoa responsável em 2026-09-30.
 
-## 9. CenÃ¡rios de teste
+## 9. Cenários de teste
 
-| CenÃ¡rio                                            | CritÃ©rio   | Tipo       | Arquivo de teste                                       | Status          |
+| Cenário                                            | Critério   | Tipo       | Arquivo de teste                                       | Status          |
 | -------------------------------------------------- | ---------- | ---------- | ------------------------------------------------------ | --------------- |
-| normaliza `postgresql://` do Render para psycopg 3 | CA-1       | unitÃ¡rio   | `backend/tests/infrastructure/database/test_config.py` | vermelho        |
-| preserva rejeiÃ§Ã£o de drivers incompatÃ­veis         | CA-1       | unitÃ¡rio   | mesmo arquivo                                          | verde existente |
-| seleciona sessÃ£o REST na build da Vercel           | CA-3       | unitÃ¡rio   | teste novo em `frontend/tests/app/`                    | vermelho        |
-| manifests contÃªm rotas e referÃªncias esperadas     | CA-1, CA-2 | estrutural | script/check manual                                    | pendente        |
+| normaliza `postgresql://` do Render para psycopg 3 | CA-1       | unitário   | `backend/tests/infrastructure/database/test_config.py` | vermelho        |
+| preserva rejeição de drivers incompatíveis         | CA-1       | unitário   | mesmo arquivo                                          | verde existente |
+| seleciona sessão REST na build da Vercel           | CA-3       | unitário   | teste novo em `frontend/tests/app/`                    | vermelho        |
+| manifests contêm rotas e referências esperadas     | CA-1, CA-2 | estrutural | script/check manual                                    | pendente        |
 
-## 10. Parecer da revisÃ£o
+## 10. Parecer da revisão
 
-**Resultado:** pendente â€” deve ser feito por outra pessoa ou agente.
+**Resultado:** pendente — deve ser feito por outra pessoa ou agente.
 
 ## 11. Encerramento
 

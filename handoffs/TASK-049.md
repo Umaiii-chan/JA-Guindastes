@@ -1,17 +1,18 @@
 ﻿# Handoff — TASK-049 — deploy Render + Vercel
 
-| Campo | Valor |
-|-------|-------|
-| **Data/hora** | 2026-09-30 (UTC-3, Brasília) |
-| **Tarefa** | `tasks/in-progress/TASK-049-deploy-render-vercel.md` |
-| **Etapa concluída** | implementação local; provisionamento e fumaça públicos pendentes |
-| **Papel exercido** | Planejador + Engenheiro de testes + Implementador |
-| **Ferramenta/agente** | Codex (GPT-6) |
-| **Branch** | `task/TASK-049-deploy-render-vercel` |
+| Campo                 | Valor                                                            |
+| --------------------- | ---------------------------------------------------------------- |
+| **Data/hora**         | 2026-09-30 (UTC-3, Brasília)                                     |
+| **Tarefa**            | `tasks/in-progress/TASK-049-deploy-render-vercel.md`             |
+| **Etapa concluída**   | implementação local; provisionamento e fumaça públicos pendentes |
+| **Papel exercido**    | Planejador + Engenheiro de testes + Implementador                |
+| **Ferramenta/agente** | Codex (GPT-6)                                                    |
+| **Branch**            | `task/TASK-049-deploy-render-vercel`                             |
 
 ## 1. O que foi feito
 
-- Criado `render.yaml` com API Docker paga, PostgreSQL 18, disco persistente, migrations, seed FICTÍCIO e admin inicial.
+- Criado `render.yaml` com API Docker e PostgreSQL 18 gratuitos, filesystem efêmero, migrations,
+  seed FICTÍCIO e admin inicial.
 - O backend normaliza a URL `postgresql://` do Render para `postgresql+psycopg`.
 - Criado `frontend/vercel.mjs` com proxy `/api/*`, fallback da SPA e validação HTTPS.
 - A build Vercel usa REST; o WebSocket continua como padrão local.
@@ -36,16 +37,16 @@
 ## 4. Decisões tomadas e por quê
 
 - Rewrite REST de mesma origem preserva o cookie `SameSite=Strict` e evita mudanças de CORS.
-- Plano Render: web US$ 7/mês + Postgres US$ 6/mês + disco 1 GB US$ 0,25/mês, conforme preços oficiais de 2026-09-30.
+- A pessoa responsável escolheu os planos gratuitos do Render em 2026-09-30; ADR-021 substitui a
+  parte paga do ADR-020.
 
 ## 5. O que não foi feito e por quê
 
-- Recursos não provisionados: o Blueprint cria cobrança e depende do merge em `development`.
+- Recursos não provisionados: dependem do merge em `development` e do acesso às contas.
 - Docker e integração PostgreSQL não foram executados localmente.
 
 ## 6. Pendências / decisões necessárias
 
-- Aprovar a cobrança aproximada de US$ 13,25/mês no Render.
 - Depois do merge, informar `ADMIN_PASSWORD` no Render e `RENDER_API_ORIGIN` na Vercel.
 
 ## 7. Próximo passo

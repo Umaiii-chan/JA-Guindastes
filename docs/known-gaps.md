@@ -180,5 +180,5 @@ Histórico do que saiu das seções acima.
 
 - A build da Vercel avalia por REST e não usa o WebSocket. O WebSocket continua disponível no
   Docker Compose e no backend Render, mas não é encaminhado pelo rewrite externo adotado.
-- O disco persistente do Render restringe o backend a uma instância e introduz alguns segundos de
-  indisponibilidade durante redeploys.
+- No Render gratuito, o backend hiberna após 15 minutos ocioso e pode levar cerca de um minuto para
+  acordar; o filesystem é efêmero e o PostgreSQL expira 30 dias após a criação.

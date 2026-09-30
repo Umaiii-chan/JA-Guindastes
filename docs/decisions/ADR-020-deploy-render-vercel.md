@@ -2,7 +2,7 @@
 
 | Campo                  | Valor                                                   |
 | ---------------------- | ------------------------------------------------------- |
-| **Status**             | Aceito                                                  |
+| **Status**             | Substituído por ADR-021                                 |
 | **Data**               | 2026-09-30                                              |
 | **Autor**              | agente Codex, registrando decisão da pessoa responsável |
 | **Decisores**          | Anderson Sehnem, em chat em 2026-09-30                  |

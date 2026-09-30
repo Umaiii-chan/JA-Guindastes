@@ -5,8 +5,9 @@ set -eu
 : "${ADMIN_PASSWORD:?ADMIN_PASSWORD precisa estar definida no Render}"
 : "${FILE_STORAGE_DIR:?FILE_STORAGE_DIR precisa estar definida no Render}"
 
-# O seed e a criação do admin são idempotentes. Eles rodam no processo da aplicação porque o
-# pre-deploy do Render não tem acesso ao disco persistente que guarda os arquivos importados.
+# O plano gratuito não oferece pre-deploy. Migrations, seed e admin são idempotentes e rodam antes
+# da API em cada inicialização, inclusive depois de o serviço acordar do modo ocioso.
+alembic upgrade head
 python -m app.demo_seed
 python -m app.create_admin \
   --username "$ADMIN_USERNAME" \

@@ -2,16 +2,13 @@
 
 ## Custo e tempo esperados
 
-Configuração manual: cerca de 20–35 minutos depois do merge. O primeiro build pode levar mais alguns
-minutos. O Blueprint usa a menor configuração paga que mantém os arquivos importados:
+Configuração manual: cerca de 20–35 minutos depois do merge. O Blueprint usa os planos gratuitos do
+Render para o backend e o PostgreSQL; a Vercel pode usar o plano Hobby. O custo previsto é zero,
+sujeito aos limites das duas contas.
 
-- Render web `0.5c-512mb`: US$ 7/mês;
-- Render Postgres `0.1c-256mb`: US$ 6/mês;
-- disco persistente de 1 GB: US$ 0,25/mês;
-- Vercel Hobby: sem custo para esta demonstração, sujeito aos limites da conta.
-
-Confira os valores no painel antes de confirmar a criação. A cobrança do Render é proporcional ao
-tempo de uso do compute; o disco é cobrado à parte.
+No Render gratuito, o backend hiberna depois de 15 minutos sem tráfego e pode levar cerca de um
+minuto para acordar. O banco expira 30 dias após a criação e não tem backup. Crie os recursos menos
+de 30 dias antes da apresentação.
 
 ## 1. Preparar o Render
 
@@ -21,8 +18,8 @@ tempo de uso do compute; o disco é cobrado à parte.
 4. Confirme os três recursos e aguarde o backend ficar `Live`.
 5. Copie a origem exibida, por exemplo `https://ja-guindastes-api.onrender.com`, sem `/` no fim.
 
-O Blueprint aplica migrations antes do deploy. Na inicialização, o seed FICTÍCIO e o admin são
-criados de forma idempotente. `ADMIN_USERNAME` começa como `admin-apresentacao`.
+Na inicialização, migrations, seed FICTÍCIO e admin são executados de forma idempotente.
+`ADMIN_USERNAME` começa como `admin-apresentacao`.
 
 ## 2. Preparar a Vercel
 
@@ -42,8 +39,8 @@ rotas ao `index.html`. Essa build desliga o WebSocket e usa o fallback REST exis
 4. No Simulador, selecione a configuração de demonstração, informe a carga e aguarde a avaliação.
 5. No DevTools, confirme pedidos REST em `/api/v1/evaluations` e ausência de tentativas WebSocket.
 
-Faça esse teste no dia anterior e 30 minutos antes da apresentação. Guarde também a demo local como
-plano de contingência.
+Faça esse teste no dia anterior. No dia da apresentação, abra a aplicação 15 minutos antes e acesse
+`/api/v1/health` periodicamente para evitar a hibernação. Guarde a demo local como contingência.
 
 ## 4. Operação e segurança
 
@@ -51,6 +48,7 @@ plano de contingência.
   idempotente não altera senha de usuário existente.
 - Não grave senha, URL interna do banco ou tokens no repositório ou na Vercel.
 - O banco não aceita conexões públicas (`ipAllowList: []`).
-- O disco limita o backend a uma instância e causa alguns segundos de indisponibilidade no redeploy.
-- Para parar custos depois da banca, suspenda ou exclua os recursos no Render após exportar o que
-  precisar. A promoção para `homologation` ou `production` continua sendo decisão da pessoa responsável.
+- O filesystem é efêmero: arquivos importados somem em reinícios, hibernações e redeploys. Os pontos
+  estruturados no PostgreSQL continuam enquanto o banco gratuito existir; mantenha a planilha local.
+- Depois da banca, exclua os recursos que não forem mais necessários. A promoção para
+  `homologation` ou `production` continua sendo decisão da pessoa responsável.
