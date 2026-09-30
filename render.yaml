@@ -33,5 +33,4 @@ databases:
     postgresMajorVersion: "18"
     databaseName: ja_guindastes
     user: ja_guindastes
-    diskSizeGB: 1
     ipAllowList: []

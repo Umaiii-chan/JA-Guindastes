@@ -13,6 +13,8 @@
 
 - Criado `render.yaml` com API Docker e PostgreSQL 18 gratuitos, filesystem efêmero, migrations,
   seed FICTÍCIO e admin inicial.
+- Removido `diskSizeGB` do PostgreSQL porque o plano gratuito do Render define o disco
+  automaticamente e rejeita a configuração explícita.
 - O backend normaliza a URL `postgresql://` do Render para `postgresql+psycopg`.
 - Criado `frontend/vercel.mjs` com proxy `/api/*`, fallback da SPA e validação HTTPS.
 - A build Vercel usa REST; o WebSocket continua como padrão local.
@@ -32,6 +34,7 @@
 - Backend completo sem integração chegou a 96% sem outra falha, mas não encerrou e foi interrompido.
 - Frontend: ESLint, tipagem e build passaram; 716 testes passaram e 1 pulou.
 - Configuração Vercel, script Render, YAML, diff e estrutura passaram.
+- Correção do Blueprint gratuito: `diskSizeGB` ausente e `git diff --check` passou.
 - `scripts/check-structure.sh`: 0 erros e 1 aviso por tarefas paralelas.
 
 ## 4. Decisões tomadas e por quê
