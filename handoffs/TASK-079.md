@@ -1,0 +1,28 @@
+# Handoff — TASK-079 — implementação
+
+| Campo | Valor |
+|-------|-------|
+| **Data** | 2026-10-14 |
+| **Tarefa** | `tasks/in-progress/TASK-079-provedor-openai.md` |
+| **Etapa concluída** | implementação |
+| **Papel exercido** | Implementador |
+| **Ferramenta/agente** | Claude Code (subagente) |
+| **Branch** | `task/TASK-079-provedor-openai` (a partir de `anderson/leva-f/integracao-2`, rebaseada em `anderson/development`) |
+| **ADR** | `docs/decisions/ADR-040-provedor-openai-com-reserva.md` |
+
+## O que foi feito
+
+- `backend/app/infrastructure/ai/openai_provider.py` (`OpenAiProvider`, `to_openai_schema`) e `fallback_provider.py` (`FallbackLlmProvider`).
+- `backend/app/ai_composition.py`: `AI_PROVIDER`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_FALLBACK_MODELS`; Gemini intacto.
+- `.env.example`, `render.yaml` (`sync: false`), `docker-compose.yml`, ADR-040 e índice de ADRs.
+- Testes: `tests/infrastructure/test_openai_provider.py`, `tests/test_ai_composition.py` (transporte falso, sem rede).
+
+## Não feito
+
+- Nenhuma chamada real à OpenAI (sem chave no ambiente; chaves do `.env` não foram lidas). Ver "Testes a escrever depois" na tarefa.
+- Frontend sem mudança: `ModelNote` já mostra `model` da resposta.
+- Gates: pytest dos testes de IA e config, ruff, mypy e lint-imports passaram (saídas na conversa); suíte completa e frontend NÃO EXECUTADOS.
+
+## Próximo passo
+
+Revisor (outra sessão/ferramenta): revisar o diff; a pessoa responsável configura `OPENAI_API_KEY` no Render e testa uma vez.

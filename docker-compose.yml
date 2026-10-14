@@ -55,6 +55,10 @@ services:
       # stack em HTTP local (http://127.0.0.1:8080), nunca em produção. Vem do .env.
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       # Assistente de IA (TASK-076; ADR-039). Vêm do .env; sem GEMINI_API_KEY a IA fica desligada.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      OPENAI_FALLBACK_MODELS: ${OPENAI_FALLBACK_MODELS:-}
+      AI_PROVIDER: ${AI_PROVIDER:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-}
       GEMINI_FALLBACK_MODELS: ${GEMINI_FALLBACK_MODELS:-}
