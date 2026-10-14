@@ -4,6 +4,8 @@ Pedido: dependendo da carga, recomendar o modelo de guindaste (ou dois, se preci
 do guindaste, planejar a trajetória (coletar e levar à entrega) e ter modo passo a passo.
 Decisão: `docs/decisions/ADR-038-planejamento-da-operacao.md`.
 
+## Critérios de aceite
+
 - [x] **CA-1** — Serviço de domínio puro `backend/app/domain/services/planning/`: grade de posições de 2 m
       ao redor da coleta e da entrega (até o maior raio da tabela), descartando as posições sobre
       obstáculos, com inclinação ou solo fora do limite.

@@ -2,6 +2,8 @@
 
 Decisão: [ADR-039](../../docs/decisions/ADR-039-assistente-de-ia-gemini.md). Regras: RN-004 e RN-008 (a IA nunca decide capacidade, utilização nem segurança; só explica números já calculados).
 
+## Critérios de aceite
+
 - [x] **CA-1** — `GET /api/v1/ai/status` responde `{enabled, model, fallback_models, usage_limit_per_hour}`; sem `GEMINI_API_KEY`, `enabled=false` e as demais rotas não existem; a tela esconde tudo do assistente.
 - [x] **CA-2** — `POST /ai/scenario-from-text`: JSON estruturado do Gemini (`responseMimeType` e `responseSchema`), validado pelo mesmo domínio dos cenários salvos e convertido em `ScenarioSpec` + carga + `cargo` e `delivery`; o usuário vê a prévia e só então aplica.
 - [x] **CA-3** — `POST /ai/explain-recommendation`, `POST /ai/lift-report` (o backend avalia de novo o estado; a tabela de números é montada por código) e `POST /ai/review-recording` (indicadores calculados por código).

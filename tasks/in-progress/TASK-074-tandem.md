@@ -4,6 +4,8 @@ Pedido: levantar com dois guindastes uma carga que um só não levanta. Regra (R
 guindaste usa no máximo 75 % da própria capacidade, e a carga se divide pela posição dos pontos de
 içamento em relação ao centro de gravidade (alavanca). Os dois se movem sincronizados.
 
+## Critérios de aceite
+
 - [x] **CA-1** — Serviço de domínio da divisão da carga (`peso × distância do outro ponto ao CG ÷ distância entre os pontos`).
 - [x] **CA-2** — `POST /evaluations/tandem` reaproveita a avaliação de cada guindaste, com a parte dele mais o gancho, e o fator 0,75 sobre a capacidade efetiva; `tandem_ok` só com os dois OK; alertas em pt-BR.
 - [x] **CA-3** — Cenário com `cranes?` (guindastes adicionais) e `cargo?`; o editor tem "Adicionar guindaste" (fabricante, guindaste, configuração), posicionar e girar.
