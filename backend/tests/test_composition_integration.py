@@ -169,9 +169,11 @@ def test_rest_evaluates_a_configuration_stored_by_the_repositories(
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "EVALUATED"
-    assert body["capacity"]["maximum_capacity_kg"] == 2000.0
-    assert body["capacity"]["strategy"] == "CONSERVATIVE_PROVISIONAL"
-    assert body["utilization_percent"] == 75.0
+    # ADR-030: R ≈ 18,82 m fica entre 11,5 m (5000 kg) e 21,5 m (2000 kg), interpolado.
+    capacity = 5000.0 - 3000.0 * (body["geometry"]["working_radius_m"] - 11.5) / 10.0
+    assert body["capacity"]["maximum_capacity_kg"] == pytest.approx(capacity)
+    assert body["capacity"]["strategy"] == "LINEAR_INTERPOLATION_PROVISIONAL"
+    assert body["utilization_percent"] == pytest.approx(1500.0 / capacity * 100.0)
     assert body["load_chart_id"] == stored.load_chart_id
     assert body["load_chart_version"] == stored.load_chart_version
     assert body["reasons"] == []
