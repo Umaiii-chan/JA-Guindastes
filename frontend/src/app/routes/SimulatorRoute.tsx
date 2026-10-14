@@ -7,6 +7,7 @@ import { Link } from 'react-router'
 
 import { selectedConfiguration as findSelectedConfiguration } from '../../application/catalog/CatalogBrowser'
 import { evaluationStatus } from '../../application/evaluation/evaluationStatus'
+import type { RecordingFrame, RecordingSnapshot } from '../../application/recording/recording'
 import { validateLoadForm, loadWeightTextForEvaluation } from '../../application/load/loadForm'
 import { guidedStepStatuses, resolveActiveStep } from '../../application/simulator/guidedSteps'
 import { RETRACTED_OUTRIGGERS, type OutriggerState } from '../../domain/crane/outriggers'
@@ -34,14 +35,17 @@ import {
 import { CollisionAlerts } from '../../presentation/simulator/CollisionAlerts'
 import { ConnectionStatusBar } from '../../presentation/simulator/ConnectionStatusBar'
 import { OperatingAreaToggle } from '../../presentation/simulator/OperatingAreaToggle'
+import { RecordingPanel } from '../../presentation/simulator/RecordingPanel'
 import { GuidedStepsPanel } from '../../presentation/simulator/GuidedStepsPanel'
 import { buttonClassName, EmptyState } from '../../presentation/ui'
 import { FICTITIOUS_MAX_LEVELING_DEG } from '../../three/crane/OutriggerController'
 import type { CraneCommands, CraneState } from '../../three/crane/types'
+import { useAuth } from '../auth/authContext'
 import { useCatalog } from '../catalog/catalogContext'
 import { chooseCraneSetup } from '../craneSetup'
 import { buildEvaluationInput } from '../evaluationInput'
 import { sceneRotationZoneCode } from '../sceneRotationZone'
+import { useSimulationRecording } from '../simulator/useSimulationRecording'
 import { useSimulatorDraft } from '../simulator/simulatorDraft'
 import { useCollisionState } from '../simulator/useCollisionState'
 import { useEvaluationSession } from '../useEvaluationSession'
@@ -103,14 +107,48 @@ export function SimulatorRoute() {
   )
   const { input } = evaluationInput
 
+  // Gravação e reprodução (TASK-057). Com um quadro gravado na tela (`playbackFrame`), o simulador
+  // fica travado e nada é reavaliado: a cena e o resultado mostram o quadro (RN-008).
+  const { user: authUser } = useAuth()
+  const evaluationIsCurrent = evaluation.error === null && !evaluation.pending
+  // O retrato só entra no gravador quando muda de verdade (comparado por conteúdo).
+  const snapshot: RecordingSnapshot | null =
+    crane && input
+      ? {
+          crane: crane.state,
+          configurationId: input.configurationId,
+          loadWeightKg: input.loadWeightKg,
+          evaluation: evaluationIsCurrent ? evaluation.result : null,
+        }
+      : null
+  // Reprodução: cada quadro vira a pose aplicada na cena, sem avaliar (RN-008).
+  const craneCommands = crane?.commands
+  const applyFrame = useCallback(
+    (frame: RecordingFrame) => {
+      if (!craneCommands) return
+      craneCommands.setTurretRotation(frame.crane.turretRotationDeg)
+      craneCommands.setBoomAngle(frame.crane.boomAngleDeg)
+      craneCommands.setBoomLength(frame.crane.boomLengthM)
+      craneCommands.setCableLength(frame.crane.cableLengthM)
+      setCrane(bindCrane(craneCommands))
+    },
+    [craneCommands],
+  )
+  const recording = useSimulationRecording({ snapshot, onFrame: applyFrame })
+  const { playbackFrame } = recording
+  const locked = playbackFrame !== null
+  const shownResult = playbackFrame ? playbackFrame.evaluation : evaluation.result
+
   // A cada mudança dos sliders ou dos campos, o estado vai ao backend (com debounce na sessão).
   // As dependências são os campos do estado, não o objeto `input`, que é recriado a cada render.
   useEffect(() => {
+    if (locked) return
     if (input) session.update(input)
     else session.clear()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     session,
+    locked,
     input?.configurationId,
     input?.boomLengthM,
     input?.boomAngleDeg,
@@ -156,7 +194,11 @@ export function SimulatorRoute() {
 
   // Situação na cena (TASK-041): só com resultado do backend válido para o estado atual.
   const sceneStatus = evaluationStatus(
-    evaluationInput.problem === null && evaluation.error === null ? evaluation.result : null,
+    playbackFrame
+      ? playbackFrame.evaluation
+      : evaluationInput.problem === null && evaluation.error === null
+        ? evaluation.result
+        : null,
   )
   // Zonas de giro no chão (TASK-046). A zona destacada é a do backend quando o resultado vale para o
   // estado atual (sem nada a caminho); senão, a prévia pelo giro ψ, só para desenho (RN-008).
@@ -164,9 +206,10 @@ export function SimulatorRoute() {
   const activeZoneCode = sceneRotationZoneCode({
     zones: rotationZones,
     turretRotationDeg: crane?.state.turretRotationDeg ?? null,
-    result: evaluation.result,
+    result: shownResult,
     resultIsCurrent:
-      evaluationInput.problem === null && evaluation.error === null && !evaluation.pending,
+      locked ||
+      (evaluationInput.problem === null && evaluation.error === null && !evaluation.pending),
   })
   // Área de operação (TASK-055): só lança e carga mudam a grade; ψ e R não entram.
   const operatingArea = useOperatingArea({
@@ -225,28 +268,35 @@ export function SimulatorRoute() {
           summaries={{ crane: craneSummary, load: loadSummary, position: positionSummary }}
           content={{
             crane: (
-              <CatalogSelectionPanel
-                embedded
-                manufacturers={catalogState.manufacturers}
-                cranes={catalogState.cranes}
-                configurations={catalogState.configurations}
-                selectedManufacturerId={catalogState.selectedManufacturerId}
-                selectedCraneId={catalogState.selectedCraneId}
-                selectedConfigurationId={catalogState.selectedConfigurationId}
-                onSelectManufacturer={(id) => void catalog.selectManufacturer(id)}
-                onSelectCrane={(id) => void catalog.selectCrane(id)}
-                onSelectConfiguration={(id) => catalog.selectConfiguration(id)}
-                onRetry={() => void catalog.loadManufacturers()}
-                emptyAction={
-                  <Link to={ROUTES.catalog} className={buttonClassName('secondary', 'sm')}>
-                    <Link2 size={13} aria-hidden="true" />
-                    Cadastrar no Catálogo
-                  </Link>
-                }
-              />
+              <fieldset disabled={locked} className="recording-lock">
+                <CatalogSelectionPanel
+                  embedded
+                  manufacturers={catalogState.manufacturers}
+                  cranes={catalogState.cranes}
+                  configurations={catalogState.configurations}
+                  selectedManufacturerId={catalogState.selectedManufacturerId}
+                  selectedCraneId={catalogState.selectedCraneId}
+                  selectedConfigurationId={catalogState.selectedConfigurationId}
+                  onSelectManufacturer={(id) => void catalog.selectManufacturer(id)}
+                  onSelectCrane={(id) => void catalog.selectCrane(id)}
+                  onSelectConfiguration={(id) => catalog.selectConfiguration(id)}
+                  onRetry={() => void catalog.loadManufacturers()}
+                  emptyAction={
+                    <Link to={ROUTES.catalog} className={buttonClassName('secondary', 'sm')}>
+                      <Link2 size={13} aria-hidden="true" />
+                      Cadastrar no Catálogo
+                    </Link>
+                  }
+                />
+              </fieldset>
             ),
-            load: <LoadPanel values={load} onChange={setLoad} />,
+            load: (
+              <fieldset disabled={locked} className="recording-lock">
+                <LoadPanel values={load} onChange={setLoad} />
+              </fieldset>
+            ),
             position: (
+              <fieldset disabled={locked} className="recording-lock">
               <div style={{ display: 'grid', gap: 'var(--space-5)' }}>
                 <CraneControlPanel
                   limits={crane?.commands.limits ?? null}
@@ -261,6 +311,7 @@ export function SimulatorRoute() {
                   onChange={setOutriggers}
                 />
               </div>
+              </fieldset>
             ),
           }}
         />
@@ -269,12 +320,12 @@ export function SimulatorRoute() {
         <>
           <CollisionAlerts collision={collision} />
           <BackendEvaluationPanel
-            result={evaluation.result}
-            error={evaluation.error}
-            pending={evaluation.pending}
+            result={shownResult}
+            error={locked ? null : evaluation.error}
+            pending={locked ? false : evaluation.pending}
             transport={evaluation.transport}
-            inputProblem={evaluationInput.problem}
-            loadWeightKg={input?.loadWeightKg ?? null}
+            inputProblem={locked ? null : evaluationInput.problem}
+            loadWeightKg={playbackFrame ? playbackFrame.loadWeightKg : (input?.loadWeightKg ?? null)}
             slow={evaluation.slow}
           />
         </>
@@ -284,6 +335,14 @@ export function SimulatorRoute() {
           geometry={crane?.geometry ?? null}
           parameters={crane?.commands.geometryParameters ?? null}
           parametersFromSheet={craneSetup.fromSheet}
+        />
+      }
+      recording={
+        <RecordingPanel
+          controller={recording}
+          canDelete={(authorUserId) =>
+            authUser !== null && (authUser.id === authorUserId || authUser.role === 'ADMIN')
+          }
         />
       }
       statusBar={

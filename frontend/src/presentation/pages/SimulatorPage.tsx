@@ -15,6 +15,8 @@ export interface SimulatorPageProps {
   readonly statusBar: ReactNode
   /** Acessórios de içamento (TASK-056): sob os passos, trocáveis a qualquer momento. */
   readonly accessories?: ReactNode
+  /** Faixa de gravação e reprodução (TASK-057), sob a faixa de título. */
+  readonly recording?: ReactNode
 }
 
 /**
@@ -30,6 +32,7 @@ export function SimulatorPage({
   geometry,
   statusBar,
   accessories,
+  recording,
 }: SimulatorPageProps) {
   return (
     <div className={styles.stage}>
@@ -38,7 +41,10 @@ export function SimulatorPage({
         {accessories && <div className={styles.accessories}>{accessories}</div>}
       </div>
       <div className={styles.drawing}>
-        {statusBar}
+        <div>
+          {statusBar}
+          {recording}
+        </div>
         <div className={styles.scene}>
           {viewport}
           <span className={styles.corners} aria-hidden="true" />
