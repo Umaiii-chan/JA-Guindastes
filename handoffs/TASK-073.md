@@ -56,7 +56,7 @@ aditivas (`SimulatorRoute`, `SimulatorPage`, `CraneViewport`, `mountCraneScene`,
 | frontend: `npm run typecheck` | passou | `tsc -b && tsc -p e2e` |
 | frontend: `npm test` | passou | 94 arquivos, 871 testes (1 pulado) |
 | frontend: `npm run build` | passou | |
-| frontend: `npm run e2e` | E2E_RESULT | modo sem banco: os testes com banco pulam |
+| frontend: `npm run e2e` | passou | 16 passaram, 11 pulados (os que precisam do banco); inclui `cargoDelivery.spec.ts` |
 | backend: `ruff check`, `ruff format --check`, `mypy app`, `lint-imports` | passou | |
 | backend: `pytest` (sem `test_create_admin::...invalid_database_url...`) | passou | os de integração pulam sem Postgres |
 
