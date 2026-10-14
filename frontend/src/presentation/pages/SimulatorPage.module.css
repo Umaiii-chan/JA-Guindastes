@@ -113,7 +113,7 @@
 
 .drawing {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) max-content;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
   border: 1px solid var(--color-border-ink);
@@ -163,19 +163,32 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 250px);
   min-width: 0;
-  /* Só a altura do conteúdo (TASK-082): sem espaço reservado vazio. A cena fica com todo o resto
-     da prancha; se o conteúdo passar do teto, a ficha rola por dentro. */
-  height: auto;
-  max-height: 42vh;
+  /* Altura FIXA e compacta (TASK-078/082): a ficha nunca muda de altura com o conteúdo; o que
+     passar rola por dentro. Os avisos de colisão ficam sobre a cena, fora desta ficha. */
+  height: 222px;
   overflow-y: auto;
   border-top: 1px solid var(--color-border-ink);
 }
 
-/* Telas baixas (ex.: 1280 × 720): a ficha rola por dentro, para a cena manter a altura útil. */
+/* Telas baixas (ex.: 1280 × 720): a ficha fica menor e rola por dentro. */
 @media (height < 800px) {
   .result {
-    max-height: 196px;
+    height: 196px;
   }
+}
+
+/* Avisos sobrepostos à parte de baixo da cena: fora do fluxo, não mudam a altura dela. */
+.overlay {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.overlay > * {
+  pointer-events: auto;
 }
 
 .evaluation {

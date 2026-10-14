@@ -695,6 +695,7 @@ export function SimulatorRoute() {
     <>
       <SimulatorPage
         viewport={viewport}
+        sceneOverlay={<CollisionAlerts collision={collision} />}
         steps={
           <GuidedStepsPanel
             statuses={statuses}
@@ -808,7 +809,6 @@ export function SimulatorRoute() {
         }
         result={
           <>
-            <CollisionAlerts collision={collision} />
             {tandemActive && tandemEngaged ? (
               <TandemHud
                 result={tandemEvaluation.result}
