@@ -9,7 +9,9 @@
 // - `DELETE /scenarios/{id}` → 204; 403; 404.
 
 import {
+  type CargoPlacement,
   type CranePlacement,
+  type ExtraCrane,
   type Obstacle,
   type ScenarioSpec,
   SOIL_KINDS,
@@ -86,6 +88,28 @@ export function toScenarioSpecDto(spec: ScenarioSpec): Record<string, unknown> {
       : {}),
     ...(spec.wind
       ? { wind: { speed_ms: spec.wind.speedMs, direction_deg: spec.wind.directionDeg } }
+      : {}),
+    ...(spec.cranes && spec.cranes.length > 0
+      ? {
+          cranes: spec.cranes.map((extra) => ({
+            id: extra.id,
+            configuration_id: extra.configurationId,
+            placement: {
+              x: extra.placement.x,
+              z: extra.placement.z,
+              heading_deg: extra.placement.headingDeg,
+            },
+          })),
+        }
+      : {}),
+    ...(spec.cargo
+      ? {
+          cargo: {
+            x: spec.cargo.x,
+            z: spec.cargo.z,
+            rotation_y_deg: spec.cargo.rotationYDeg,
+          },
+        }
       : {}),
   }
 }
@@ -184,6 +208,38 @@ export function mapScenarioSpec(json: unknown, path: string): ScenarioSpec {
         }
       : {}),
     ...(record.wind != null ? { wind: mapWind(record.wind, `${path}.wind`) } : {}),
+    // Campos da TASK-074 (e a carga, da TASK-073): ausentes nos cenários salvos antes deles.
+    ...(Array.isArray(record.cranes) && record.cranes.length > 0
+      ? {
+          cranes: record.cranes.map((item, index) =>
+            mapExtraCrane(item, `${path}.cranes[${index}]`),
+          ),
+        }
+      : {}),
+    ...(record.cargo != null ? { cargo: mapCargo(record.cargo, `${path}.cargo`) } : {}),
+  }
+}
+
+function mapExtraCrane(json: unknown, path: string): ExtraCrane {
+  const record = readRecord(json, path)
+  const placement = readRecord(record.placement, `${path}.placement`)
+  return {
+    id: readString(record, 'id', path),
+    configurationId: readString(record, 'configuration_id', path),
+    placement: {
+      x: readNumber(placement, 'x', `${path}.placement`),
+      z: readNumber(placement, 'z', `${path}.placement`),
+      headingDeg: readNumber(placement, 'heading_deg', `${path}.placement`),
+    },
+  }
+}
+
+function mapCargo(json: unknown, path: string): CargoPlacement {
+  const record = readRecord(json, path)
+  return {
+    x: readNumber(record, 'x', path),
+    z: readNumber(record, 'z', path),
+    rotationYDeg: readNumber(record, 'rotation_y_deg', path),
   }
 }
 

@@ -36,7 +36,7 @@ export function EditEnvironmentToggle({
 
 const TOOLS: readonly { readonly id: EditorTool; readonly label: string; readonly hint: string }[] =
   [
-    { id: 'select', label: 'Selecionar', hint: 'Clique num obstáculo ou no guindaste para mover' },
+    { id: 'select', label: 'Selecionar', hint: 'Clique num obstáculo ou num guindaste para mover' },
     { id: 'add-box', label: 'Caixa', hint: 'Clique no chão para colocar uma caixa' },
     { id: 'add-cylinder', label: 'Cilindro', hint: 'Clique no chão para colocar um cilindro' },
     {
@@ -82,6 +82,10 @@ export interface EnvironmentEditorToolbarProps {
   readonly canUndo: boolean
   onUndo(): void
   onDone(): void
+  /** Abre a escolha de um guindaste adicional do catálogo (TASK-074). */
+  onAddCrane(): void
+  /** Falso quando o cenário já tem o máximo de guindaste adicionais. */
+  readonly canAddCrane: boolean
 }
 
 /**
@@ -109,6 +113,19 @@ export function EnvironmentEditorToolbar(props: EnvironmentEditorToolbarProps) {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          className={styles.action}
+          disabled={!props.canAddCrane}
+          title={
+            props.canAddCrane
+              ? 'Escolha um guindaste do catálogo e posicione-o no cenário'
+              : 'O cenário já tem o máximo de guindastes'
+          }
+          onClick={props.onAddCrane}
+        >
+          Adicionar guindaste
+        </button>
         <div className={styles.spacer} />
         <button
           type="button"

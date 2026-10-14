@@ -133,6 +133,8 @@ export function createCatalogRestClient(options: CatalogRestClientOptions = {}):
       request(craneConfigurationsPath(craneId), undefined, (json) =>
         mapList(json, mapConfiguration),
       ),
+    getConfiguration: (configurationId) =>
+      request(configurationPath(configurationId), undefined, mapConfiguration),
     createConfiguration: (craneId, { name, geometry, rotationZones, hookBlockWeightKg }) => {
       // Zonas e gancho só vão quando informados (TASK-046): ausentes valem "sem zonas" e "sem gancho".
       const body: ConfigurationCreateDto = {

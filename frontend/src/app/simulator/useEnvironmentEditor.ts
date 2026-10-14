@@ -11,6 +11,8 @@ import {
   CRANE_SELECTION_ID,
   type EditorTool,
   type EditorTransformMode,
+  extraCraneIdOf,
+  extraCraneSelectionId,
 } from '../../three/scene/SceneEditor'
 import { useScenario } from '../scenario/scenarioContext'
 
@@ -32,16 +34,39 @@ export function useEnvironmentEditor() {
 
   const selectedObstacle =
     selectedId === null ? undefined : spec.obstacles.find((obstacle) => obstacle.id === selectedId)
+  const selectedExtraId = extraCraneIdOf(selectedId)
+  const selectedExtraIndex =
+    selectedExtraId === null ? -1 : (spec.cranes ?? []).findIndex((c) => c.id === selectedExtraId)
   const selectedLabel =
-    selectedId === CRANE_SELECTION_ID ? 'Guindaste' : (selectedObstacle?.label ?? null)
-  const canDelete = selectedObstacle !== undefined
+    selectedId === CRANE_SELECTION_ID
+      ? 'Guindaste 1'
+      : selectedExtraIndex >= 0
+        ? `Guindaste ${selectedExtraIndex + 2}`
+        : (selectedObstacle?.label ?? null)
+  const canDelete = selectedObstacle !== undefined || selectedExtraIndex >= 0
 
   const deleteSelected = useCallback(() => {
     if (selectedId === null || selectedId === CRANE_SELECTION_ID) return
+    const extraId = extraCraneIdOf(selectedId)
     checkpoint()
-    setSpec(removeObstacle(getSpec(), selectedId))
+    if (extraId !== null) {
+      const current = getSpec()
+      const cranes = (current.cranes ?? []).filter((item) => item.id !== extraId)
+      setSpec({ ...current, cranes })
+    } else {
+      setSpec(removeObstacle(getSpec(), selectedId))
+    }
     setSelectedId(null)
   }, [selectedId, checkpoint, setSpec, getSpec])
+
+  /** Seleciona o guindaste adicional recém criado, para a pessoa já poder arrastá-lo. */
+  const selectExtraCrane = useCallback(
+    (id: string) => {
+      setTool('select')
+      setSelectedId(extraCraneSelectionId(id))
+    },
+    [setTool, setSelectedId],
+  )
 
   const toggle = useCallback(() => {
     setActive((current) => !current)
@@ -134,6 +159,7 @@ export function useEnvironmentEditor() {
     selectedLabel,
     canDelete,
     deleteSelected,
+    selectExtraCrane,
     changeWind,
     canUndo,
     undo,

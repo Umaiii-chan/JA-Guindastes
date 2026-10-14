@@ -31,6 +31,15 @@ import {
 } from '../accessories/AccessoryChain'
 import { buildCraneScene } from './buildCraneScene'
 import { disposeObject3D } from './disposeObject3D'
+import {
+  type ExtraCraneInput,
+  PRIMARY_CRANE_ID,
+  type ReleaseResult,
+  type TandemSceneConfig,
+  type TandemSceneFrame,
+} from './MultiCrane'
+import { EMPTY_SCENARIO } from '../../domain/environment/environment'
+import type { EngageResult } from '../../domain/tandem/tandem'
 import type { LoadDimensions } from './loadBox'
 import type { OperatingArea } from '../../domain/evaluation/operatingArea'
 import type { SceneRotationZone } from './RotationZoneSectors'
@@ -67,6 +76,13 @@ export interface MountCraneSceneOptions {
   readonly loadAccessoryModel?: AccessoryModelLoader | null
   /** Avisado quando o modelo de um acessório chega (`true`) ou não pôde ser carregado (`false`). */
   readonly onAccessoryModelResult?: (accessoryId: string, loaded: boolean) => void
+  /**
+   * Avisado com os comandos de cada guindaste adicional (TASK-074) quando a lista muda (chamado
+   * também com o mapa vazio). Os comandos de um id continuam os mesmos depois da troca do modelo.
+   */
+  readonly onExtraCranesChange?: (commands: ReadonlyMap<string, CraneCommands>) => void
+  /** Avisado a cada quadro do tandem engatado, e com `null` quando ele é desfeito (TASK-074). */
+  readonly onTandemFrame?: (frame: TandemSceneFrame | null) => void
 }
 
 /** Opções de `setCameraPreset`. */
@@ -125,6 +141,29 @@ export interface CraneSceneHandle {
    * cena. `null` desliga. A cena só devolve as mudanças por `callbacks`; o cenário fica na UI.
    */
   setEditor(editor: { config: SceneEditorConfig; callbacks: SceneEditorCallbacks } | null): void
+  /**
+   * Guindastes adicionais do cenário (TASK-074; ADR-037), cada um com o próprio rig completo (o mesmo
+   * modelo 3D) e comandos, posicionado e girado pelo cenário. Lista vazia remove todos.
+   */
+  setExtraCranes(cranes: readonly ExtraCraneInput[]): void
+  /** Comandos de um guindaste adicional, ou `undefined` se ele não existe. */
+  getExtraCrane(id: string): CraneCommands | undefined
+  /**
+   * Carga do tandem apoiada no chão, com os dois pontos de içamento marcados; o guindaste
+   * `followerId` é o que acompanha. `null` desliga o tandem (e desengata, se estiver engatado).
+   */
+  setTandemCargo(config: TandemSceneConfig | null): void
+  /**
+   * Engata os dois ganchos nos pontos de içamento e liga o movimento sincronizado: os comandos do
+   * guindaste principal passam a levar também o outro e a carga. `null` sem tandem configurado;
+   * se um guindaste não alcança o ponto dele, o resultado diz qual e nada muda.
+   */
+  engageTandem(): EngageResult | null
+  /** Solta a carga (só apoiada no chão) e volta a comandar os guindastes separadamente. */
+  releaseTandem(): ReleaseResult
+  /** Cor da situação do guindaste adicional (o gancho dele) e da carga içada em tandem. */
+  setExtraEvaluationStatus(id: string, status: EvaluationStatus): void
+  setTandemEvaluationStatus(status: EvaluationStatus): void
   /** Para o laço de renderização e libera renderer, controles, geometrias e materiais. Idempotente. */
   dispose(): void
 }
@@ -254,8 +293,9 @@ export function mountCraneScene(
       fovDeg: camera.fov,
     })
     // As predefinições enquadram o guindaste na origem; com o cenário, o conjunto se desloca com ele
-    // (só a posição: o rumo do chassi não gira a câmera).
-    const { x, y, z } = contents.craneAnchor.position
+    // (só a posição: o rumo do chassi não gira a câmera). Com mais guindastes, vale o centro deles.
+    const { x, y, z } =
+      contents.multi.extraCount > 0 ? contents.multi.centroid() : contents.craneAnchor.position
     if (x === 0 && y === 0 && z === 0) return view
     const shift = (v: { x: number; y: number; z: number }) => ({
       x: v.x + x,
@@ -326,7 +366,9 @@ export function mountCraneScene(
   })
 
   const renderFrame = (): void => {
-    const outriggersMoved = outriggers.update(performance.now())
+    const now = performance.now()
+    const extrasMoved = contents.multi.update(now)
+    const outriggersMoved = outriggers.update(now) || extrasMoved
     const craneChanged = syncWithCrane() || outriggersMoved
     const moving = transition !== null
     if (transition) {
@@ -356,26 +398,38 @@ export function mountCraneScene(
   document.addEventListener('visibilitychange', onVisibilityChange)
   if (!document.hidden) renderer.setAnimationLoop(renderFrame)
 
-  // Colisões (TASK-053): a guarda corta comandos que levariam a carga a colidir e avisa a UI.
+  // Colisões (TASK-053): a guarda corta comandos que levariam a carga a colidir e avisa a UI. Com
+  // outros guindastes (TASK-074), a guarda do principal também confere os outros e a carga do tandem.
   let collisionKey = collisionStateKey(NO_COLLISION)
-  collisions.setListener((state) => {
+  const reportCollision = (state: CollisionState): void => {
     invalidate()
     const key = collisionStateKey(state)
     if (key === collisionKey) return
     collisionKey = key
     options.onCollisionChange?.(state)
-  })
-  crane.setCollisionGuard(collisions)
+  }
+  collisions.setListener(reportCollision)
+  crane.setCollisionGuard(contents.multi.guardFor(PRIMARY_CRANE_ID, collisions))
   options.onCollisionChange?.(collisions.state)
 
   // Modelo 3D: carrega em segundo plano; enquanto isso, o provisório fica na cena.
   const modelAbort = new AbortController()
   const loadModel = options.loadModel === undefined ? loadDefaultCraneModel : options.loadModel
+  contents.multi.configure({
+    invalidate,
+    loadModel: loadModel ?? null,
+    signal: modelAbort.signal,
+    reducedMotion: prefersReducedMotion(),
+    onCollision: reportCollision,
+    onExtrasChange: (commands) => options.onExtraCranesChange?.(commands),
+    onTandemFrame: (frame) => options.onTandemFrame?.(frame),
+  })
   if (loadModel) {
     void upgradeCraneModel(contents, loadModel, { signal: modelAbort.signal }).then((result) => {
       outriggers.reapply()
       invalidate()
       crane.revalidate()
+      contents.multi.onPrimaryModelChanged()
       options.onModelResult?.(result)
     })
   }
@@ -429,6 +483,7 @@ export function mountCraneScene(
     setScenario(scenario) {
       if (disposed) return
       contents.setScenario(scenario)
+      contents.multi.setScenario(scenario ?? EMPTY_SCENARIO)
       editor?.refresh()
       if (followedPreset && !transition) jumpTo(presetView(followedPreset))
       invalidate()
@@ -468,6 +523,35 @@ export function mountCraneScene(
       )
       editor?.refresh()
       invalidate()
+    },
+    setExtraCranes(cranes) {
+      if (disposed) return
+      contents.multi.setExtras(cranes)
+      editor?.refresh()
+      if (followedPreset && !transition) jumpTo(presetView(followedPreset))
+    },
+    getExtraCrane(id) {
+      return contents.multi.getExtra(id)?.crane
+    },
+    setTandemCargo(config) {
+      if (disposed) return
+      contents.multi.setTandemCargo(config)
+    },
+    engageTandem() {
+      if (disposed) return null
+      return contents.multi.engage()
+    },
+    releaseTandem() {
+      if (disposed) return { released: false, reason: 'not-engaged' }
+      return contents.multi.release()
+    },
+    setExtraEvaluationStatus(id, status) {
+      if (disposed) return
+      contents.multi.setStatus(id, normalizeEvaluationStatus(status))
+    },
+    setTandemEvaluationStatus(status) {
+      if (disposed) return
+      contents.multi.setCargoStatus(normalizeEvaluationStatus(status))
     },
     setEditor(next) {
       if (disposed) return
@@ -511,6 +595,7 @@ export function mountCraneScene(
       labelRenderer.domElement.remove()
       scaleBar.element.remove()
       crane.setCollisionGuard(null)
+      contents.multi.dispose()
       collisions.dispose()
       hookLoad.dispose()
       disposeObject3D(scene)

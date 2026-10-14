@@ -39,6 +39,20 @@ export type EditorTransformMode = 'translate' | 'rotate' | 'scale'
 /** Id da seleção quando o objeto escolhido é o guindaste. */
 export const CRANE_SELECTION_ID = 'crane'
 
+/** Prefixo da seleção de um guindaste adicional (TASK-074): `extra:<id>`. */
+export const EXTRA_CRANE_SELECTION_PREFIX = 'extra:'
+
+export function extraCraneSelectionId(id: string): string {
+  return `${EXTRA_CRANE_SELECTION_PREFIX}${id}`
+}
+
+/** Id do guindaste adicional numa seleção, ou `null` se a seleção é outra coisa. */
+export function extraCraneIdOf(selectionId: string | null): string | null {
+  return selectionId?.startsWith(EXTRA_CRANE_SELECTION_PREFIX)
+    ? selectionId.slice(EXTRA_CRANE_SELECTION_PREFIX.length)
+    : null
+}
+
 export interface SceneEditorConfig {
   readonly tool: EditorTool
   readonly transformMode: EditorTransformMode
@@ -224,7 +238,21 @@ export class SceneEditor {
       return
     }
     let target: Object3D | undefined
-    if (config.selectedId === CRANE_SELECTION_ID) {
+    const extraId = extraCraneIdOf(config.selectedId)
+    if (extraId !== null) {
+      const placement = this.callbacks?.getSpec().cranes?.find((item) => item.id === extraId)
+      const extra = this.deps.contents.multi.getExtra(extraId)
+      if (placement && extra) {
+        this.pivot.position.set(
+          placement.placement.x,
+          extra.anchor.position.y,
+          placement.placement.z,
+        )
+        this.pivot.rotation.set(0, (placement.placement.headingDeg * Math.PI) / 180, 0)
+        this.pivot.scale.set(1, 1, 1)
+        target = this.pivot
+      }
+    } else if (config.selectedId === CRANE_SELECTION_ID) {
       const { x, z, headingDeg } = this.callbacks?.getSpec().crane ?? { x: 0, z: 0, headingDeg: 0 }
       const anchor = this.deps.contents.craneAnchor
       this.pivot.position.set(x, anchor.position.y, z)
@@ -238,7 +266,7 @@ export class SceneEditor {
       this.transform.detach()
       return
     }
-    const crane = config.selectedId === CRANE_SELECTION_ID
+    const crane = config.selectedId === CRANE_SELECTION_ID || extraId !== null
     // O guindaste só anda e gira; escala só vale para obstáculos.
     const mode = crane && config.transformMode === 'scale' ? 'translate' : config.transformMode
     this.transform.setMode(mode)
@@ -259,6 +287,18 @@ export class SceneEditor {
     if (!object || !config || !callbacks) return
     const spec = callbacks.getSpec()
     const { contents } = this.deps
+    const extraId = extraCraneIdOf(config.selectedId)
+    if (extraId !== null) {
+      const placement = {
+        x: round2(object.position.x),
+        z: round2(object.position.z),
+        headingDeg: yawDeg(object),
+      }
+      object.position.y = contents.environment.heightAt(placement.x, placement.z)
+      contents.multi.previewPlacement(extraId, placement)
+      this.deps.invalidate()
+      return
+    }
     if (config.selectedId === CRANE_SELECTION_ID) {
       const crane = {
         x: round2(object.position.x),
@@ -285,6 +325,25 @@ export class SceneEditor {
     const callbacks = this.callbacks
     if (!object || !config || !callbacks) return
     const spec = callbacks.getSpec()
+    const committedExtraId = extraCraneIdOf(config.selectedId)
+    if (committedExtraId !== null) {
+      callbacks.onChange({
+        ...spec,
+        cranes: (spec.cranes ?? []).map((item) =>
+          item.id === committedExtraId
+            ? {
+                ...item,
+                placement: {
+                  x: round2(object.position.x),
+                  z: round2(object.position.z),
+                  headingDeg: yawDeg(object),
+                },
+              }
+            : item,
+        ),
+      })
+      return
+    }
     if (config.selectedId === CRANE_SELECTION_ID) {
       callbacks.onChange({
         ...spec,
@@ -429,8 +488,20 @@ export class SceneEditor {
     const { contents } = this.deps
     const obstacleHit = this.raycaster.intersectObjects(contents.obstacles.root.children, true)[0]
     const craneHit = this.raycaster.intersectObject(contents.rig.base, true)[0]
+    const extraHits = contents.multi
+      .allExtras()
+      .map((extra) => ({ extra, hit: this.raycaster.intersectObject(extra.anchor, true)[0] }))
+      .filter((item) => item.hit !== undefined)
+      .sort((a, b) => (a.hit?.distance ?? 0) - (b.hit?.distance ?? 0))
+    const extraHit = extraHits[0]
     let selected: string | null = null
-    if (obstacleHit && (!craneHit || obstacleHit.distance <= craneHit.distance)) {
+    if (
+      extraHit?.hit &&
+      (!craneHit || extraHit.hit.distance < craneHit.distance) &&
+      (!obstacleHit || extraHit.hit.distance < obstacleHit.distance)
+    ) {
+      selected = extraCraneSelectionId(extraHit.extra.id)
+    } else if (obstacleHit && (!craneHit || obstacleHit.distance <= craneHit.distance)) {
       let node: Object3D | null = obstacleHit.object
       while (node && node.userData.obstacleId === undefined) node = node.parent
       selected = node ? (node.userData.obstacleId as string) : null

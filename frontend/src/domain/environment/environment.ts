@@ -60,6 +60,23 @@ export interface CranePlacement {
   readonly headingDeg: number
 }
 
+/** Guindaste adicional do cenário (TASK-074): configuração do catálogo e posição. O principal é `crane`. */
+export interface ExtraCrane {
+  readonly id: string
+  readonly configurationId: string
+  readonly placement: CranePlacement
+}
+
+/** Máximo de guindastes adicionais (backend). */
+export const MAX_EXTRA_CRANES = 3
+
+/** Carga posicionada no chão: centro em (x, z) e giro em torno de Y; medidas e peso vêm do passo Carga. */
+export interface CargoPlacement {
+  readonly x: number
+  readonly z: number
+  readonly rotationYDeg: number
+}
+
 export const DEFAULT_CRANE_PLACEMENT: CranePlacement = { x: 0, z: 0, headingDeg: 0 }
 
 /** Tipo de solo (TASK-066): rocha, compactado, argiloso ou aterro solto. */
@@ -94,6 +111,10 @@ export interface ScenarioSpec {
   readonly soilZones?: readonly SoilZone[]
   /** Vento (TASK-066); ausente = sem vento. */
   readonly wind?: WindSpec
+  /** Guindastes adicionais (TASK-074); ausente = só o principal. */
+  readonly cranes?: readonly ExtraCrane[]
+  /** Carga posicionada no chão (contrato da TASK-073); ausente = ainda não posicionada. */
+  readonly cargo?: CargoPlacement
 }
 
 export const EMPTY_SCENARIO: ScenarioSpec = {

@@ -50,6 +50,8 @@ export interface CatalogGateway {
   /** `limits` (TASK-051): só os limites que mudam; ausente mantém os atuais. */
   updateCrane(craneId: string, modelName: string, limits?: Partial<CraneLimits>): Promise<Crane>
   listConfigurations(craneId: string): Promise<readonly CraneConfiguration[]>
+  /** Uma configuração pelo id (os guindastes adicionais do cenário guardam só o id; TASK-074). */
+  getConfiguration(configurationId: string): Promise<CraneConfiguration>
   createConfiguration(craneId: string, configuration: NewConfiguration): Promise<CraneConfiguration>
   updateConfiguration(
     configurationId: string,
