@@ -185,3 +185,13 @@
   min-width: 0;
   border-left: 1px solid var(--color-border-ink);
 }
+
+/* Campos estáveis (TASK-078): a ficha nunca invade a coluna da geometria. */
+.evaluation {
+  overflow-x: clip;
+}
+
+.geometry {
+  position: relative;
+  background: var(--color-surface-1);
+}

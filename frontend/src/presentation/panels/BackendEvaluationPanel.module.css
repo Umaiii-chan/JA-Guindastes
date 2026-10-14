@@ -280,3 +280,84 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-1);
 }
+
+/* ── Campos estáveis (TASK-078): nada muda de largura nem de altura durante a simulação ─────── */
+
+.header {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.title {
+  flex: none;
+}
+
+/* "atualizando…" e "Avaliado" sempre ocupam o lugar; só a visibilidade muda. */
+.pending {
+  flex: none;
+  min-width: 11ch;
+  white-space: nowrap;
+}
+
+.kind {
+  flex: none;
+  min-width: 8ch;
+  text-align: right;
+}
+
+/* Selos do cabeçalho: base fixa, encolhem com reticências em vez de empurrar o vizinho. */
+.headerPill {
+  flex: 0 1 var(--pill-basis, 12.5rem);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.headerPill > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.riskPill {
+  --pill-basis: 16rem;
+}
+
+.statusPill {
+  --pill-basis: 12.5rem;
+}
+
+/* Reserva do selo de risco quando ainda não há valor: só o espaço, sem desenhar nada. */
+span.riskPill {
+  display: block;
+  height: 30px;
+  visibility: hidden;
+}
+
+.metric dd {
+  min-height: 1.5em;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.keyMetrics .metric {
+  min-width: 9ch;
+}
+
+/* Alertas de segurança: altura fixa e rolagem por dentro. */
+.alertsBox {
+  height: 56px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Linhas dos detalhes da consulta: altura limitada, rolagem por dentro. */
+.rows {
+  max-height: 148px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.row dd {
+  min-width: 8ch;
+  white-space: nowrap;
+}
