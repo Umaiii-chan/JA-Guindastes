@@ -40,6 +40,8 @@ from app.demo_seed import (
     DEMO_SEED_IDS,
     DEMO_SIDE_REAR_ZONE,
     EXIT_CONFIGURATION_ERROR,
+    LEGACY_DEMO_CONFIGURATION_NAME,
+    LEGACY_DEMO_CRANE_MODEL_NAME,
     LEGACY_DEMO_PIVOT_OFFSET_M,
     DemoSeedError,
     DemoSeedResult,
@@ -234,7 +236,7 @@ def test_zonas_e_gancho_ficticios_da_demonstracao() -> None:
         (DEMO_SIDE_REAR_ZONE, 55.0, 305.0),
     ]
     assert [zone.span_deg for zone in zones.zones] == pytest.approx([110.0, 250.0])
-    assert all("FICTÍCIA" in zone.name for zone in zones.zones)
+    assert [zone.name for zone in zones.zones] == ["Frontal", "Lateral e traseira"]
     assert DEMO_HOOK_BLOCK_WEIGHT_KG == GANCHO_FICTICIO_KG
 
 
@@ -458,7 +460,7 @@ def test_linha_de_comando_com_url_invalida_nao_repete_a_url(tmp_path: Path) -> N
     assert "nao-e-url-segredo" not in out.getvalue()
 
 
-def test_ficha_anterior_a_task_069_e_migrada_para_a_do_modelo_novo(demo: Demo) -> None:
+def test_ficha_e_nomes_anteriores_a_task_069_sao_migrados(demo: Demo) -> None:
     # Banco semeado antes da TASK-069 (ex.: Render): a ficha tinha a = −1,56 m. O seed troca só a
     # ficha, sem falhar na subida do serviço.
     demo.seed()
@@ -466,9 +468,13 @@ def test_ficha_anterior_a_task_069_e_migrada_para_a_do_modelo_novo(demo: Demo) -
     assert configuration is not None
     legacy = replace(
         configuration,
+        name=LEGACY_DEMO_CONFIGURATION_NAME,
         geometry=replace(configuration.geometry, boom_pivot_offset_m=LEGACY_DEMO_PIVOT_OFFSET_M),
     )
     demo.catalog.update_configuration(legacy)
+    crane = demo.catalog.get_crane(DEMO_SEED_IDS.crane_id)
+    assert crane is not None
+    demo.catalog.update_crane(replace(crane, model_name=LEGACY_DEMO_CRANE_MODEL_NAME))
 
     result = demo.seed()
 
@@ -477,3 +483,8 @@ def test_ficha_anterior_a_task_069_e_migrada_para_a_do_modelo_novo(demo: Demo) -
     migrated = demo.catalog.get_configuration(DEMO_SEED_IDS.configuration_id)
     assert migrated is not None
     assert migrated.geometry == build_demo_crane_geometry()
+    assert migrated.name == DEMO_CONFIGURATION_NAME
+    assert ("guindaste", SeedAction.RENAMED) in steps
+    renamed_crane = demo.catalog.get_crane(DEMO_SEED_IDS.crane_id)
+    assert renamed_crane is not None
+    assert renamed_crane.model_name == DEMO_CRANE_MODEL_NAME

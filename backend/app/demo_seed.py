@@ -105,9 +105,18 @@ DEMO_LOAD_CHART_V2_FILE = DEMO_DATA_DIR / "tabela_carga_ficticia_demo_v2.csv"
 DEMO_LOAD_CHART_WITH_ERRORS_FILE = DEMO_DATA_DIR / "tabela_carga_ficticia_demo_com_erros.csv"
 """Tabela FICTÍCIA com inconsistências, para mostrar o relatório de erros no roteiro."""
 
-DEMO_MANUFACTURER_NAME = "Fabricante Demonstração FICTÍCIO"
-DEMO_CRANE_MODEL_NAME = "Guindaste Demonstração FICTÍCIO"
-DEMO_CONFIGURATION_NAME = "Configuração Demonstração FICTÍCIA"
+DEMO_MANUFACTURER_NAME = "Fabricante de Demonstração"
+DEMO_CRANE_MODEL_NAME = "Guindaste Telescópico 80 t"
+DEMO_CONFIGURATION_NAME = "Configuração padrão"
+
+# Nomes anteriores à TASK-069; o seed troca pelos atuais num banco já semeado (Render, Docker).
+LEGACY_DEMO_MANUFACTURER_NAME = "Fabricante Demonstração FICTÍCIO"
+LEGACY_DEMO_CRANE_MODEL_NAME = "Guindaste Demonstração FICTÍCIO"
+LEGACY_DEMO_CONFIGURATION_NAME = "Configuração Demonstração FICTÍCIA"
+LEGACY_DEMO_ZONE_NAMES = {
+    "Frontal FICTÍCIA": "Frontal",
+    "Lateral e traseira FICTÍCIA": "Lateral e traseira",
+}
 DEMO_LOAD_CHART_VERSION = "demo-ficticia-v1"
 DEMO_LOAD_CHART_SIDE_REAR_VERSION = "demo-ficticia-lateral-traseira-v1"
 
@@ -149,8 +158,8 @@ def build_demo_rotation_zones() -> RotationZones:
     """
     return RotationZones(
         zones=(
-            RotationZone(DEMO_FRONT_ZONE, "Frontal FICTÍCIA", 305.0, 55.0),
-            RotationZone(DEMO_SIDE_REAR_ZONE, "Lateral e traseira FICTÍCIA", 55.0, 305.0),
+            RotationZone(DEMO_FRONT_ZONE, "Frontal", 305.0, 55.0),
+            RotationZone(DEMO_SIDE_REAR_ZONE, "Lateral e traseira", 55.0, 305.0),
         )
     )
 
@@ -199,7 +208,8 @@ class SeedAction(StrEnum):
     ALREADY_EXISTS = "já existia; nada alterado"
     ACTIVATED = "ativada"
     ALREADY_ACTIVE = "já estava ativa; nada alterado"
-    UPDATED = "atualizada (ficha do modelo 3D novo)"
+    UPDATED = "atualizada (ficha e nomes atuais)"
+    RENAMED = "renomeado (nome atual)"
     SUPERSEDED_KEPT = "está SUPERSEDED (outra versão foi ativada); não reativada"
 
 
@@ -319,7 +329,11 @@ def _seed_accessory(accessories: AccessoryRepository, accessory: Accessory) -> S
 
 def _seed_manufacturer(catalog: CraneCatalogStore, ids: DemoSeedIds) -> SeedStep:
     entity = "fabricante"
-    if catalog.get_manufacturer(ids.manufacturer_id) is not None:
+    existing = catalog.get_manufacturer(ids.manufacturer_id)
+    if existing is not None:
+        if existing.name == LEGACY_DEMO_MANUFACTURER_NAME:
+            catalog.update_manufacturer(replace(existing, name=DEMO_MANUFACTURER_NAME))
+            return SeedStep(entity, ids.manufacturer_id, SeedAction.RENAMED)
         return SeedStep(entity, ids.manufacturer_id, SeedAction.ALREADY_EXISTS)
     ManageCraneCatalog(catalog, id_generator=lambda: ids.manufacturer_id).create_manufacturer(
         DEMO_MANUFACTURER_NAME
@@ -336,11 +350,25 @@ def _seed_crane(catalog: CraneCatalogStore, ids: DemoSeedIds) -> SeedStep:
                 f"o guindaste {ids.crane_id!r} já existe, mas é de outro fabricante "
                 f"({existing.manufacturer_id!r}); o seed não sobrescreve cadastros"
             )
+        if existing.model_name == LEGACY_DEMO_CRANE_MODEL_NAME:
+            catalog.update_crane(replace(existing, model_name=DEMO_CRANE_MODEL_NAME))
+            return SeedStep(entity, ids.crane_id, SeedAction.RENAMED)
         return SeedStep(entity, ids.crane_id, SeedAction.ALREADY_EXISTS)
     ManageCraneCatalog(catalog, id_generator=lambda: ids.crane_id).create_crane(
         ids.manufacturer_id, DEMO_CRANE_MODEL_NAME
     )
     return SeedStep(entity, ids.crane_id, SeedAction.CREATED)
+
+
+def _rename_legacy_zones(zones: RotationZones) -> RotationZones:
+    """As mesmas zonas, com os nomes antigos da demonstração trocados pelos atuais."""
+    return replace(
+        zones,
+        zones=tuple(
+            replace(zone, name=LEGACY_DEMO_ZONE_NAMES.get(zone.name, zone.name))
+            for zone in zones.zones
+        ),
+    )
 
 
 LEGACY_DEMO_PIVOT_OFFSET_M = -1.56
@@ -353,11 +381,26 @@ def _seed_configuration(catalog: CraneCatalogStore, ids: DemoSeedIds) -> SeedSte
     legacy_geometry = replace(
         build_demo_crane_geometry(), boom_pivot_offset_m=LEGACY_DEMO_PIVOT_OFFSET_M
     )
-    if existing is not None and existing.geometry == legacy_geometry:
-        # Banco semeado antes da TASK-069 (Render, Docker local): só a ficha muda, para o modelo
-        # 3D novo. Nada mais é sobrescrito.
-        catalog.update_configuration(replace(existing, geometry=build_demo_crane_geometry()))
-        return SeedStep(entity, ids.configuration_id, SeedAction.UPDATED)
+    if existing is not None and existing.crane_id == ids.crane_id:
+        # Banco semeado antes da TASK-069 (Render, Docker local): troca só a ficha antiga, os nomes
+        # antigos e os nomes antigos das zonas. Nada mais é sobrescrito.
+        migrated = existing
+        if migrated.geometry == legacy_geometry:
+            migrated = replace(migrated, geometry=build_demo_crane_geometry())
+        if migrated.name == LEGACY_DEMO_CONFIGURATION_NAME:
+            migrated = replace(migrated, name=DEMO_CONFIGURATION_NAME)
+        if migrated.rotation_zones is not None:
+            renamed = _rename_legacy_zones(migrated.rotation_zones)
+            if renamed != migrated.rotation_zones:
+                migrated = replace(migrated, rotation_zones=renamed)
+        if migrated != existing:
+            catalog.update_configuration(migrated)
+            existing = migrated
+            updated = True
+        else:
+            updated = False
+    else:
+        updated = False
     if existing is not None:
         if (
             existing.crane_id != ids.crane_id
@@ -371,7 +414,11 @@ def _seed_configuration(catalog: CraneCatalogStore, ids: DemoSeedIds) -> SeedSte
                 "sobrescreve cadastros (os valores do roteiro dependem dos dados FICTÍCIOS de "
                 "demonstração). Banco semeado antes da TASK-046? Recrie o banco (docs/demo.md)"
             )
-        return SeedStep(entity, ids.configuration_id, SeedAction.ALREADY_EXISTS)
+        return SeedStep(
+            entity,
+            ids.configuration_id,
+            SeedAction.UPDATED if updated else SeedAction.ALREADY_EXISTS,
+        )
     ManageCraneCatalog(catalog, id_generator=lambda: ids.configuration_id).create_configuration(
         ids.crane_id,
         DEMO_CONFIGURATION_NAME,
