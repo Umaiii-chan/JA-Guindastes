@@ -1,5 +1,6 @@
-import { Group, MathUtils, Mesh, type Object3D, type Scene } from 'three'
+import { Group, Mesh, type Object3D, Quaternion, type Scene, Vector3 } from 'three'
 
+import { craneAttitude } from '../../domain/environment/craneAttitude'
 import { EMPTY_SCENARIO, type ScenarioSpec } from '../../domain/environment/environment'
 import type { Vec3 } from '../camera/cameraPresets'
 import { CraneController, type CraneRig } from '../crane/CraneController'
@@ -20,6 +21,8 @@ import { ObstacleMeshes } from './ObstacleMeshes'
 import { RadiusIndicator } from './RadiusIndicator'
 import { RotationZoneSectors } from './RotationZoneSectors'
 import { SceneCollisions } from './SceneCollisions'
+import { SoilOverlay } from './SoilOverlay'
+import { WindArrow } from './WindArrow'
 
 /** Modelo 3D que substitui o guindaste provisório (o GLB da TASK-043), já mapeado para um rig. */
 export interface CraneModelSwap {
@@ -61,11 +64,17 @@ export class CraneSceneContents {
   readonly craneAnchor: Group
   /** Obstáculos do cenário (TASK-052). */
   readonly obstacles: ObstacleMeshes
+  /** Zonas de solo pintadas (TASK-066). */
+  readonly soil: SoilOverlay
+  /** Seta do vento (TASK-066). */
+  readonly wind: WindArrow
 
   private currentRig: CraneRig
   private currentRoot: Object3D
   private eye: Vec3 | null
   private modelInUse = false
+  private appliedScenario: ScenarioSpec | null = null
+  private levelingDeg = 0
 
   constructor(parts: {
     scene: Scene
@@ -80,6 +89,8 @@ export class CraneSceneContents {
     setup: CraneSetup
     craneAnchor: Group
     obstacles: ObstacleMeshes
+    soil: SoilOverlay
+    wind: WindArrow
   }) {
     this.scene = parts.scene
     this.environment = parts.environment
@@ -94,6 +105,8 @@ export class CraneSceneContents {
     this.setup = parts.setup
     this.craneAnchor = parts.craneAnchor
     this.obstacles = parts.obstacles
+    this.soil = parts.soil
+    this.wind = parts.wind
     this.eye = findOperatorEye(parts.rig)
   }
 
@@ -137,20 +150,53 @@ export class CraneSceneContents {
   }
 
   /**
-   * Aplica o cenário (TASK-052; ADR-023): terreno, obstáculos e posição do guindaste. `null` volta ao
-   * cenário vazio (o plano de sempre, guindaste na origem). O guindaste assenta em
-   * `terrainHeightAt` no eixo de giro; o rumo gira o conjunto em torno do eixo Y (anti-horário visto
-   * de cima; 0 = chassi como modelado, frente em +Z).
+   * Aplica o cenário (TASK-052; ADR-023; TASK-066): terreno, obstáculos, solo, vento e posição do
+   * guindaste. `null` volta ao cenário vazio (o plano de sempre, guindaste na origem). O guindaste
+   * assenta na altura do terreno sob o eixo de giro e se inclina pelo plano das quatro sapatas, menos
+   * o que os macacos compensam (`setLevelingDeg`); o rumo gira o conjunto em torno do eixo Y
+   * (anti-horário visto de cima; 0 = chassi como modelado, frente em +Z). Só refaz o que mudou
+   * (comparação por referência), para o editor poder chamar a cada movimento do mouse.
    */
   setScenario(scenario: ScenarioSpec | null): void {
     const spec = scenario ?? EMPTY_SCENARIO
-    this.environment.setTerrain(spec.terrain)
-    this.obstacles.setObstacles(spec.obstacles, (x, z) => this.environment.heightAt(x, z))
+    const previous = this.appliedScenario
+    const terrainChanged = previous === null || spec.terrain !== previous.terrain
+    if (terrainChanged) this.environment.setTerrain(spec.terrain)
+    const heightAt = (x: number, z: number) => this.environment.heightAt(x, z)
+    if (terrainChanged || spec.obstacles !== previous?.obstacles) {
+      this.obstacles.setObstacles(spec.obstacles, heightAt)
+    }
+    if (terrainChanged || spec.soilZones !== previous?.soilZones) {
+      this.soil.setZones(spec.soilZones ?? [], heightAt)
+    }
+    this.appliedScenario = spec
+    this.applyCraneAttitude(spec)
+  }
+
+  /**
+   * Correção de nível dos macacos (graus; 0 sem patolas apoiadas): a inclinação do terreno sob as
+   * sapatas que ela cobre some do modelo, e o resto continua aparecendo.
+   */
+  setLevelingDeg(levelingDeg: number): void {
+    const next = Math.max(0, levelingDeg)
+    if (next === this.levelingDeg) return
+    this.levelingDeg = next
+    if (this.appliedScenario) this.applyCraneAttitude(this.appliedScenario)
+  }
+
+  private applyCraneAttitude(spec: ScenarioSpec): void {
     const { x, z, headingDeg } = spec.crane
-    const y = this.environment.heightAt(x, z)
-    this.craneAnchor.position.set(x, y, z)
-    this.craneAnchor.rotation.y = MathUtils.degToRad(headingDeg)
-    this.environment.followCrane(x, y, z)
+    const attitude = craneAttitude(spec.terrain, spec.crane, this.levelingDeg)
+    const yaw = new Quaternion().setFromAxisAngle(
+      new Vector3(0, 1, 0),
+      (headingDeg * Math.PI) / 180,
+    )
+    const normal = new Vector3(attitude.normal.x, attitude.normal.y, attitude.normal.z)
+    const tilt = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), normal)
+    this.craneAnchor.position.set(x, attitude.groundY, z)
+    this.craneAnchor.quaternion.copy(yaw.multiply(tilt))
+    this.environment.followCrane(x, attitude.groundY, z)
+    this.wind.setWind(spec.wind, { x, y: attitude.groundY, z })
   }
 }
 
@@ -213,6 +259,10 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
   scene.add(operatingArea.root)
   const obstacles = new ObstacleMeshes()
   scene.add(obstacles.root)
+  const soil = new SoilOverlay()
+  scene.add(soil.root)
+  const wind = new WindArrow()
+  scene.add(wind.root)
 
   radiusIndicator.update({
     workingRadiusM: crane.getOperationalGeometry().workingRadiusM,
@@ -231,5 +281,7 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     setup,
     craneAnchor,
     obstacles,
+    soil,
+    wind,
   })
 }

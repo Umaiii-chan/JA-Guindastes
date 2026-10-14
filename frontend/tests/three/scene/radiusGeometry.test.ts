@@ -29,11 +29,11 @@ describe('radiusGeometry', () => {
   })
 
   it('calcula o alcance mínimo e máximo pela fórmula (1) nas pontas das faixas (FICTÍCIOS da PoC)', () => {
-    // a = −1,56 m; L de 12 a 22 m; θ de 0° a 80°. R_min = −1,56 + 12·cos 80° = 0,523778 (awk, 6 casas);
-    // R_max = −1,56 + 22·cos 0° = 20,44.
+    // a = 0,46 m; L de 12 a 22 m; θ de 0° a 80°. R_min = 0,46 + 12·cos 80° = 2,543778 (awk, 6 casas);
+    // R_max = 0,46 + 22·cos 0° = 22,46.
     const reach = computeReachRange(PROVISIONAL_CRANE_LIMITS, PROVISIONAL_CRANE_GEOMETRY)
-    expectClose(reach.minM, 0.523778, 1e-6)
-    expectClose(reach.maxM, 20.44, 1e-9)
+    expectClose(reach.minM, 2.543778, 1e-6)
+    expectClose(reach.maxM, 22.46, 1e-9)
   })
 
   it('usa cos θ = 1 quando a faixa de θ passa por 0° e limita os raios a ≥ 0 (C-5)', () => {

@@ -8,7 +8,7 @@ Cadastra, pelos casos de uso e repositórios existentes:
 
 1. fabricante, guindaste e configuração FICTÍCIOS (`ManageCraneCatalog`, TASK-030), com a ficha
    técnica compatível com o modelo 3D ilustrativo do guindaste sobre caminhão
-   (`frontend/public/models/guindaste-caminhao.glb`, TASK-043): a = −1,56 m, h = 3,3 m e as
+   (`frontend/public/models/guindaste-80t.glb`, TASK-069): a = 0,46 m, h = 3,3 m e as
    faixas dos sliders (lança 12–22 m, inclinação 0–80°, cabo 1–15 m, giro contínuo). Desde a
    TASK-046 (ADR-018), a configuração tem duas zonas de giro FICTÍCIAS, `FRONTAL` (305° a 55°) e
    `LATERAL_TRASEIRA` (55° a 305°), no formato "frontal 110° + lateral e traseira 250°", e um peso
@@ -40,7 +40,7 @@ app.demo_seed"` (ver `docs/demo.md`).
 import os
 import sys
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
 from typing import TextIO
@@ -105,9 +105,18 @@ DEMO_LOAD_CHART_V2_FILE = DEMO_DATA_DIR / "tabela_carga_ficticia_demo_v2.csv"
 DEMO_LOAD_CHART_WITH_ERRORS_FILE = DEMO_DATA_DIR / "tabela_carga_ficticia_demo_com_erros.csv"
 """Tabela FICTÍCIA com inconsistências, para mostrar o relatório de erros no roteiro."""
 
-DEMO_MANUFACTURER_NAME = "Fabricante Demonstração FICTÍCIO"
-DEMO_CRANE_MODEL_NAME = "Guindaste Demonstração FICTÍCIO"
-DEMO_CONFIGURATION_NAME = "Configuração Demonstração FICTÍCIA"
+DEMO_MANUFACTURER_NAME = "Fabricante de Demonstração"
+DEMO_CRANE_MODEL_NAME = "Guindaste Telescópico 80 t"
+DEMO_CONFIGURATION_NAME = "Configuração padrão"
+
+# Nomes anteriores à TASK-069; o seed troca pelos atuais num banco já semeado (Render, Docker).
+LEGACY_DEMO_MANUFACTURER_NAME = "Fabricante Demonstração FICTÍCIO"
+LEGACY_DEMO_CRANE_MODEL_NAME = "Guindaste Demonstração FICTÍCIO"
+LEGACY_DEMO_CONFIGURATION_NAME = "Configuração Demonstração FICTÍCIA"
+LEGACY_DEMO_ZONE_NAMES = {
+    "Frontal FICTÍCIA": "Frontal",
+    "Lateral e traseira FICTÍCIA": "Lateral e traseira",
+}
 DEMO_LOAD_CHART_VERSION = "demo-ficticia-v1"
 DEMO_LOAD_CHART_SIDE_REAR_VERSION = "demo-ficticia-lateral-traseira-v1"
 
@@ -149,8 +158,8 @@ def build_demo_rotation_zones() -> RotationZones:
     """
     return RotationZones(
         zones=(
-            RotationZone(DEMO_FRONT_ZONE, "Frontal FICTÍCIA", 305.0, 55.0),
-            RotationZone(DEMO_SIDE_REAR_ZONE, "Lateral e traseira FICTÍCIA", 55.0, 305.0),
+            RotationZone(DEMO_FRONT_ZONE, "Frontal", 305.0, 55.0),
+            RotationZone(DEMO_SIDE_REAR_ZONE, "Lateral e traseira", 55.0, 305.0),
         )
     )
 
@@ -173,15 +182,15 @@ class DemoLoadChart:
 def build_demo_crane_geometry() -> CraneGeometry:
     """Ficha técnica FICTÍCIA, coerente com o modelo 3D ilustrativo do guindaste sobre caminhão.
 
-    a = −1,56 m (pino atrás do eixo de giro) é o valor do GLB ilustrativo
+    a = 0,46 m (pino à frente do eixo de giro) é o valor do modelo 3D do guindaste 80 t
     (`TRUCK_CRANE_MODEL_MEASUREMENTS` em `frontend/src/three/loaders/loadTruckCraneModel.ts`,
-    TASK-043), para o gancho desenhado coincidir com o G calculado. Até a TASK-043, era −1,2 m.
+    TASK-069), para o gancho desenhado coincidir com o G calculado. Antes, era −1,56 m (TASK-043).
     h = 3,3 m, lança 12–22 m, inclinação 0–80°, cabo 1–15 m: as mesmas faixas de
     `PROVISIONAL_CRANE_LIMITS` (`frontend/src/three/crane/provisionalCraneSpec.ts`). O slider de
     giro vai de −180° a 180° (volta inteira), então o giro é contínuo: sem limites (ADR-013 C-4).
     """
     return CraneGeometry(
-        boom_pivot_offset_m=-1.56,
+        boom_pivot_offset_m=0.46,
         boom_pivot_height=Length(3.3),
         boom_length_min=Length(12.0),
         boom_length_max=Length(22.0),
@@ -199,6 +208,8 @@ class SeedAction(StrEnum):
     ALREADY_EXISTS = "já existia; nada alterado"
     ACTIVATED = "ativada"
     ALREADY_ACTIVE = "já estava ativa; nada alterado"
+    UPDATED = "atualizada (ficha e nomes atuais)"
+    RENAMED = "renomeado (nome atual)"
     SUPERSEDED_KEPT = "está SUPERSEDED (outra versão foi ativada); não reativada"
 
 
@@ -318,7 +329,11 @@ def _seed_accessory(accessories: AccessoryRepository, accessory: Accessory) -> S
 
 def _seed_manufacturer(catalog: CraneCatalogStore, ids: DemoSeedIds) -> SeedStep:
     entity = "fabricante"
-    if catalog.get_manufacturer(ids.manufacturer_id) is not None:
+    existing = catalog.get_manufacturer(ids.manufacturer_id)
+    if existing is not None:
+        if existing.name == LEGACY_DEMO_MANUFACTURER_NAME:
+            catalog.update_manufacturer(replace(existing, name=DEMO_MANUFACTURER_NAME))
+            return SeedStep(entity, ids.manufacturer_id, SeedAction.RENAMED)
         return SeedStep(entity, ids.manufacturer_id, SeedAction.ALREADY_EXISTS)
     ManageCraneCatalog(catalog, id_generator=lambda: ids.manufacturer_id).create_manufacturer(
         DEMO_MANUFACTURER_NAME
@@ -335,6 +350,9 @@ def _seed_crane(catalog: CraneCatalogStore, ids: DemoSeedIds) -> SeedStep:
                 f"o guindaste {ids.crane_id!r} já existe, mas é de outro fabricante "
                 f"({existing.manufacturer_id!r}); o seed não sobrescreve cadastros"
             )
+        if existing.model_name == LEGACY_DEMO_CRANE_MODEL_NAME:
+            catalog.update_crane(replace(existing, model_name=DEMO_CRANE_MODEL_NAME))
+            return SeedStep(entity, ids.crane_id, SeedAction.RENAMED)
         return SeedStep(entity, ids.crane_id, SeedAction.ALREADY_EXISTS)
     ManageCraneCatalog(catalog, id_generator=lambda: ids.crane_id).create_crane(
         ids.manufacturer_id, DEMO_CRANE_MODEL_NAME
@@ -342,9 +360,47 @@ def _seed_crane(catalog: CraneCatalogStore, ids: DemoSeedIds) -> SeedStep:
     return SeedStep(entity, ids.crane_id, SeedAction.CREATED)
 
 
+def _rename_legacy_zones(zones: RotationZones) -> RotationZones:
+    """As mesmas zonas, com os nomes antigos da demonstração trocados pelos atuais."""
+    return replace(
+        zones,
+        zones=tuple(
+            replace(zone, name=LEGACY_DEMO_ZONE_NAMES.get(zone.name, zone.name))
+            for zone in zones.zones
+        ),
+    )
+
+
+LEGACY_DEMO_PIVOT_OFFSET_M = -1.56
+"""Ficha de demonstração anterior à TASK-069 (modelo 3D antigo); o seed migra para a atual."""
+
+
 def _seed_configuration(catalog: CraneCatalogStore, ids: DemoSeedIds) -> SeedStep:
     entity = "configuração"
     existing = catalog.get_configuration(ids.configuration_id)
+    legacy_geometry = replace(
+        build_demo_crane_geometry(), boom_pivot_offset_m=LEGACY_DEMO_PIVOT_OFFSET_M
+    )
+    if existing is not None and existing.crane_id == ids.crane_id:
+        # Banco semeado antes da TASK-069 (Render, Docker local): troca só a ficha antiga, os nomes
+        # antigos e os nomes antigos das zonas. Nada mais é sobrescrito.
+        migrated = existing
+        if migrated.geometry == legacy_geometry:
+            migrated = replace(migrated, geometry=build_demo_crane_geometry())
+        if migrated.name == LEGACY_DEMO_CONFIGURATION_NAME:
+            migrated = replace(migrated, name=DEMO_CONFIGURATION_NAME)
+        if migrated.rotation_zones is not None:
+            renamed = _rename_legacy_zones(migrated.rotation_zones)
+            if renamed != migrated.rotation_zones:
+                migrated = replace(migrated, rotation_zones=renamed)
+        if migrated != existing:
+            catalog.update_configuration(migrated)
+            existing = migrated
+            updated = True
+        else:
+            updated = False
+    else:
+        updated = False
     if existing is not None:
         if (
             existing.crane_id != ids.crane_id
@@ -358,7 +414,11 @@ def _seed_configuration(catalog: CraneCatalogStore, ids: DemoSeedIds) -> SeedSte
                 "sobrescreve cadastros (os valores do roteiro dependem dos dados FICTÍCIOS de "
                 "demonstração). Banco semeado antes da TASK-046? Recrie o banco (docs/demo.md)"
             )
-        return SeedStep(entity, ids.configuration_id, SeedAction.ALREADY_EXISTS)
+        return SeedStep(
+            entity,
+            ids.configuration_id,
+            SeedAction.UPDATED if updated else SeedAction.ALREADY_EXISTS,
+        )
     ManageCraneCatalog(catalog, id_generator=lambda: ids.configuration_id).create_configuration(
         ids.crane_id,
         DEMO_CONFIGURATION_NAME,

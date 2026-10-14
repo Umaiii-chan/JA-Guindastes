@@ -80,7 +80,7 @@ export function chooseCraneSetup(configuration: CraneConfiguration | null): Cran
       },
     },
     fromSheet: true,
-    notice: `Limites e parâmetros a/h da ficha técnica de "${configuration.name}". Guindaste 3D provisório; sem cálculo de capacidade no navegador.`,
+    notice: `Limites da ficha técnica de "${configuration.name}".`,
     notes,
   }
 }

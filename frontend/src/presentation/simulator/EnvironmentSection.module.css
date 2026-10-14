@@ -1,11 +1,9 @@
-/* Seção "Ambiente" abaixo dos passos: folha recolhível com o mesmo carimbo do cabeçalho. */
+/* Seção recolhível da coluna (acessórios, ambiente): folha com o mesmo carimbo do cabeçalho. */
 .section {
   display: flex;
   flex-direction: column;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
-  max-height: 60%;
-  margin-top: var(--space-3);
   border: 1px solid var(--color-border-ink);
   background: var(--color-surface-1);
   overflow: hidden;
@@ -59,6 +57,8 @@
 
 .body {
   min-height: 0;
+  /* Rolagem própria: aberta, a seção não empurra as outras para fora da tela. */
+  max-height: min(55vh, 520px);
   padding: var(--space-3) var(--space-4) var(--space-4);
   border-top: 1px solid var(--color-border-ink);
   overflow-y: auto;

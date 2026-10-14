@@ -26,6 +26,11 @@ import { AccessoryPanel } from '../../presentation/panels/AccessoryPanel'
 import { BackendEvaluationPanel } from '../../presentation/panels/BackendEvaluationPanel'
 import { CatalogSelectionPanel } from '../../presentation/panels/CatalogSelectionPanel'
 import { EnvironmentPanel } from '../../presentation/panels/EnvironmentPanel'
+import {
+  soilKindsUnderShoes,
+  windSpeedForEvaluation,
+} from '../../application/environment/editorOps'
+import { obstacleConflictIds } from '../../application/environment/obstacleConflicts'
 import { environmentSummary } from '../../application/environment/scenarioEditing'
 import {
   type CraneControlKey,
@@ -42,6 +47,10 @@ import { CollisionAlerts } from '../../presentation/simulator/CollisionAlerts'
 import { ConnectionStatusBar } from '../../presentation/simulator/ConnectionStatusBar'
 import { OperatingAreaToggle } from '../../presentation/simulator/OperatingAreaToggle'
 import { RecordingPanel } from '../../presentation/simulator/RecordingPanel'
+import {
+  EditEnvironmentToggle,
+  EnvironmentEditorToolbar,
+} from '../../presentation/simulator/EnvironmentEditorToolbar'
 import { EnvironmentSection } from '../../presentation/simulator/EnvironmentSection'
 import { GuidedStepsPanel } from '../../presentation/simulator/GuidedStepsPanel'
 import { buttonClassName, EmptyState } from '../../presentation/ui'
@@ -57,6 +66,7 @@ import { sceneRotationZoneCode } from '../sceneRotationZone'
 import { useSimulationRecording } from '../simulator/useSimulationRecording'
 import { useSimulatorDraft } from '../simulator/simulatorDraft'
 import { useCollisionState } from '../simulator/useCollisionState'
+import { useEnvironmentEditor } from '../simulator/useEnvironmentEditor'
 import { useAccessoryCatalog } from '../useAccessoryCatalog'
 import { useEvaluationSession } from '../useEvaluationSession'
 import { useOperatingArea } from '../useOperatingArea'
@@ -95,6 +105,7 @@ export function SimulatorRoute() {
   const { catalog, state: catalogState } = useCatalog()
   const { collision, onCollisionChange } = useCollisionState()
   const scenario = useScenario()
+  const editor = useEnvironmentEditor()
   const auth = useAuth()
   // Só o autor ou um admin atualiza e apaga um cenário (ADR-016; ADR-023); o backend confere de novo.
   const canEditScenario = (item: ScenarioSummary) =>
@@ -116,6 +127,19 @@ export function SimulatorRoute() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const craneSetup = useMemo(() => chooseCraneSetup(selectedConfiguration), [setupKey])
 
+  // Solo sob as sapatas, vento e obstáculos em conflito vão ao backend só quando existem (TASK-066).
+  const conflicts = obstacleConflictIds(
+    scenario.spec,
+    crane?.geometry.workingRadiusM ?? null,
+    collision,
+  )
+  const scenarioExtras = {
+    soilKinds: soilKindsUnderShoes(scenario.spec),
+    windSpeedMs: windSpeedForEvaluation(scenario.spec),
+    obstacleConflicts: conflicts,
+  }
+  const scenarioExtrasKey = JSON.stringify(scenarioExtras)
+
   const loadWeightText = loadWeightTextForEvaluation(load)
   const validLoad = validateLoadForm(load).load
   const evaluationInput = buildEvaluationInput(
@@ -125,6 +149,7 @@ export function SimulatorRoute() {
     { extensionPercent: outriggers.extensionPercent, jacksSet: outriggers.jacksSet },
     accessoryIds,
     scenario.groundSlopeDeg,
+    scenarioExtras,
   )
   const accessoryKey = accessoryIds.join('|')
   const { input } = evaluationInput
@@ -192,6 +217,7 @@ export function SimulatorRoute() {
     input?.outriggers?.extensionPercent,
     input?.outriggers?.jacksSet,
     input?.groundSlopeDeg,
+    scenarioExtrasKey,
   ])
 
   const handleCraneChange = useCallback((commands: CraneCommands | null) => {
@@ -315,6 +341,7 @@ export function SimulatorRoute() {
         scenario={
           playbackFrame ? (recording.player.recording?.scenario ?? scenario.spec) : scenario.spec
         }
+        editor={editor.viewportEditor}
       />
     </SceneErrorBoundary>
   )
@@ -444,6 +471,30 @@ export function SimulatorRoute() {
           />
         </EnvironmentSection>
       }
+      editorToolbar={
+        editor.active ? (
+          <EnvironmentEditorToolbar
+            tool={editor.tool}
+            onToolChange={editor.changeTool}
+            transformMode={editor.transformMode}
+            onTransformModeChange={editor.setTransformMode}
+            brush={editor.brush}
+            onBrushChange={editor.setBrush}
+            soilKind={editor.soilKind}
+            onSoilKindChange={editor.setSoilKind}
+            lowerTerrain={editor.lowerTerrain}
+            onLowerTerrainChange={editor.setLowerTerrain}
+            wind={scenario.spec.wind}
+            onWindChange={editor.changeWind}
+            selectedLabel={editor.selectedLabel}
+            canDelete={editor.canDelete}
+            onDelete={editor.deleteSelected}
+            canUndo={editor.canUndo}
+            onUndo={editor.undo}
+            onDone={editor.done}
+          />
+        ) : undefined
+      }
       statusBar={
         <ConnectionStatusBar
           connectionStatus={evaluation.connectionStatus}
@@ -452,6 +503,7 @@ export function SimulatorRoute() {
           slow={evaluation.slow}
           cameraActions={
             <>
+              <EditEnvironmentToggle active={editor.active} onToggle={editor.toggle} />
               <OperatingAreaToggle
                 enabled={operatingAreaEnabled}
                 onToggle={setOperatingAreaEnabled}

@@ -1,4 +1,4 @@
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, ChevronDown } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import {
@@ -8,6 +8,7 @@ import {
   type GuidedStepStatuses,
   nextStep,
 } from '../../application/simulator/guidedSteps'
+import { useSectionOpen } from './useSectionOpen'
 import { Button, type StepItem, Stepper } from '../ui'
 import styles from './GuidedStepsPanel.module.css'
 
@@ -50,6 +51,8 @@ export function GuidedStepsPanel({
   summaries = {},
 }: GuidedStepsPanelProps) {
   const done = completedStepCount(statuses)
+  // Recolhível (TASK-066): com o procedimento aberto, as outras seções continuam ao alcance.
+  const [open, setOpen] = useSectionOpen('guided', true)
   const steps: StepItem[] = GUIDED_STEPS.map((id) => ({
     id,
     title: STEP_TEXT[id].title,
@@ -63,6 +66,16 @@ export function GuidedStepsPanel({
   return (
     <section className={styles.panel} aria-labelledby="guided-steps-title">
       <header className={styles.header}>
+        <button
+          type="button"
+          className={styles.toggle}
+          aria-expanded={open}
+          aria-controls="guided-steps-body"
+          aria-label={open ? 'Recolher a simulação guiada' : 'Expandir a simulação guiada'}
+          onClick={() => setOpen(!open)}
+        >
+          <ChevronDown size={14} aria-hidden="true" data-open={open || undefined} />
+        </button>
         <div className={styles.headings}>
           <h2 id="guided-steps-title" className={styles.title}>
             Simulação guiada
@@ -89,7 +102,7 @@ export function GuidedStepsPanel({
           ))}
         </div>
       </header>
-      <div className={styles.scroll}>
+      <div className={styles.scroll} id="guided-steps-body" hidden={!open}>
         <Stepper
           steps={steps}
           activeId={activeStep}

@@ -6,6 +6,7 @@ import {
   type CranePlacement,
   type Obstacle,
   type ScenarioSpec,
+  type SoilKind,
   type TerrainFeature,
   type TerrainSpec,
   terrainSlopeUnderFootprintDeg,
@@ -33,6 +34,14 @@ export const FEATURE_KIND_LABELS: Readonly<Record<TerrainFeature['kind'], string
   pit: 'Depressão',
   plateau: 'Platô',
   ramp: 'Rampa',
+  flatten: 'Nivelamento',
+}
+
+export const SOIL_KIND_LABELS: Readonly<Record<SoilKind, string>> = {
+  rock: 'Rochoso',
+  compacted: 'Compactado',
+  clay: 'Argiloso',
+  loose_fill: 'Aterro solto',
 }
 
 export const OBSTACLE_KIND_LABELS: Readonly<Record<Obstacle['kind'], string>> = {
@@ -192,13 +201,24 @@ export function withCranePlacement(
 export function environmentSummary(spec: ScenarioSpec): string {
   const features = spec.terrain.features.length
   const sloped = spec.terrain.slopeXPercent !== 0 || spec.terrain.slopeZPercent !== 0
-  if (!sloped && features === 0 && spec.obstacles.length === 0)
+  if (
+    !sloped &&
+    features === 0 &&
+    spec.obstacles.length === 0 &&
+    !spec.soilZones?.length &&
+    !(spec.wind && spec.wind.speedMs > 0)
+  )
     return 'Terreno plano, sem obstáculos'
+  const soil = spec.soilZones?.length ?? 0
   const parts = [
     sloped ? 'terreno inclinado' : null,
     features > 0 ? `${features} ${features === 1 ? 'feição' : 'feições'}` : null,
     spec.obstacles.length > 0
       ? `${spec.obstacles.length} ${spec.obstacles.length === 1 ? 'obstáculo' : 'obstáculos'}`
+      : null,
+    soil > 0 ? `${soil} ${soil === 1 ? 'área de solo' : 'áreas de solo'}` : null,
+    spec.wind && spec.wind.speedMs > 0
+      ? `vento ${spec.wind.speedMs.toLocaleString('pt-BR')} m/s`
       : null,
   ]
   return parts.filter(Boolean).join(' · ')

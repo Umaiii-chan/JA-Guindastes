@@ -15,6 +15,13 @@ import {
 } from '../../three/scene/mountCraneScene'
 import type { EvaluationStatus } from '../../three/scene/palette'
 import type { SceneRotationZone } from '../../three/scene/RotationZoneSectors'
+import type { SceneEditorCallbacks, SceneEditorConfig } from '../../three/scene/SceneEditor'
+
+/** Editor 3D do ambiente ligado à cena (TASK-066); `null` ou ausente = desligado. */
+export interface CraneViewportEditor {
+  readonly config: SceneEditorConfig
+  readonly callbacks: SceneEditorCallbacks
+}
 
 /** API imperativa do viewport (via `ref`), para ações pontuais como os botões de câmera. */
 export interface CraneViewportHandle {
@@ -77,6 +84,8 @@ interface CraneViewportProps {
   accessories?: readonly SceneAccessory[] | null
   /** Avisado quando o modelo 3D de um acessório chega (`true`) ou não pôde ser carregado (`false`). */
   onAccessoryModelResult?: (accessoryId: string, loaded: boolean) => void
+  /** Editor 3D do ambiente (TASK-066). Não remonta a cena. */
+  editor?: CraneViewportEditor | null
   /** API imperativa (`CraneViewportHandle`). */
   ref?: Ref<CraneViewportHandle>
 }
@@ -100,6 +109,7 @@ export function CraneViewport({
   operatingArea = null,
   accessories = null,
   onAccessoryModelResult,
+  editor = null,
   ref,
 }: CraneViewportProps) {
   const canvasHostRef = useRef<HTMLDivElement>(null)
@@ -117,6 +127,7 @@ export function CraneViewport({
   const outriggersRef = useRef(outriggers)
   const accessoriesRef = useRef<readonly SceneAccessory[]>(accessories ?? [])
   const accessoryResultRef = useRef(onAccessoryModelResult)
+  const editorRef = useRef(editor)
 
   useImperativeHandle(
     ref,
@@ -151,6 +162,7 @@ export function CraneViewport({
     const preset = cameraPresetRef.current
     if (preset) handle.setCameraPreset(preset, { animate: false })
     appliedPresetRef.current = preset
+    if (editorRef.current) handle.setEditor(editorRef.current)
     onCraneChange(handle.crane)
 
     return () => {
@@ -159,6 +171,11 @@ export function CraneViewport({
       handle.dispose()
     }
   }, [setup, onCraneChange])
+
+  useEffect(() => {
+    editorRef.current = editor
+    sceneRef.current?.setEditor(editor)
+  }, [editor])
 
   useEffect(() => {
     accessoryResultRef.current = onAccessoryModelResult

@@ -4,6 +4,8 @@
 // para um formato único. O frontend não calcula capacidade nem utilização: só mostra o que o backend
 // devolveu (RN-008). Não há nível de alerta (normal/atenção/crítico): está pendente (PEND-004).
 
+import type { SoilKind } from '../environment/environment'
+
 /** Estado operacional e carga enviados ao backend, em unidades internas (RN-006; ADR-013 C-2). */
 export interface EvaluationInput {
   /** Configuração do guindaste avaliada (RN-001). */
@@ -29,7 +31,6 @@ export interface EvaluationInput {
 }
 
 /** Tipos de solo sob as sapatas (RN-015). */
-export type SoilKind = 'rock' | 'compacted' | 'clay' | 'loose_fill'
 
 /** Estado das patolas enviado ao backend (TASK-054). */
 export interface OutriggerInput {

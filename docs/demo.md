@@ -24,7 +24,7 @@ nada.
 | Fabricante | `demo-ficticio-fabricante` | "Fabricante Demonstração FICTÍCIO" |
 | Guindaste | `demo-ficticio-guindaste` | "Guindaste Demonstração FICTÍCIO" |
 | Configuração | `demo-ficticio-configuracao` | "Configuração Demonstração FICTÍCIA" |
-| Ficha técnica | — | a = −1,56 m; h = 3,3 m; lança 12–22 m; inclinação 0–80°; cabo 1–15 m; giro contínuo — coerente com o modelo 3D ilustrativo `guindaste-caminhao.glb` (TASK-043; até então, a = −1,2 m) |
+| Ficha técnica | — | a = 0,46 m; h = 3,3 m; lança 12–22 m; inclinação 0–80°; cabo 1–15 m; giro contínuo — coerente com o modelo 3D `guindaste-80t.glb` (TASK-069) |
 | Zonas de giro (TASK-046) | — | `FRONTAL` "Frontal FICTÍCIA", de 305° a 55° (110°), e `LATERAL_TRASEIRA` "Lateral e traseira FICTÍCIA", de 55° a 305° (250°) |
 | Peso do gancho (TASK-046) | — | 200 kg: a avaliação compara **carga + 200 kg** com a capacidade |
 | Tabela de carga, zona `FRONTAL` | `demo-ficticio-tabela-v1` | versão `demo-ficticia-v1`, 27 pontos, lanças de 12, 17 e 22 m, **ACTIVE** |
@@ -188,17 +188,21 @@ pt-BR):
 
 | Cenário | Giro | Lança | Inclinação | Raio (backend) | Zona | Resultado | Capacidade admissível | Ponto tabelado usado | Utilização |
 |---------|------|-------|------------|----------------|------|-----------|-----------------------|----------------------|------------|
-| A — pose inicial | 0° | 12,0 m | 35° | 8,27 m | `FRONTAL` | Avaliado | 4 200 kg | 12 m × 10 m | 76,19 % |
-| B — lança mais alta | 0° | 12,0 m | 60° | 4,44 m | `FRONTAL` | Avaliado | 7 000 kg | 12 m × 6 m | 45,71 % |
-| C — lança estendida | 0° | 22,0 m | 35° | 16,46 m | `FRONTAL` | Avaliado | 1 500 kg | 22 m × 18 m | 213,33 % |
-| D — lança entre colunas | 0° | 17,5 m | 35° | 12,78 m | `FRONTAL` | Avaliado (coluna de 22 m, ADR-029) | 2 400 kg | 22 m × 14 m | 133,33 % |
-| E — raio abaixo da tabela | 0° | 12,0 m | 80° | 0,52 m | `FRONTAL` | Não avaliável: `RADIUS_BELOW_CHART_MIN` | — | — | — |
-| F — giro para trás | 180° | 12,0 m | 35° | 8,27 m | `LATERAL_TRASEIRA` | Avaliado | 3 360 kg | 12 m × 10 m | 95,24 % |
-| G — giro na fronteira | 55° | 12,0 m | 35° | 8,27 m | `LATERAL_TRASEIRA` | Avaliado | 3 360 kg | 12 m × 10 m | 95,24 % |
+| A — pose inicial | 0° | 12,0 m | 35° | 10,29 m | `FRONTAL` | Avaliado | 3 800 kg | 12 m × 11 m | 84,21 % |
+| B — lança mais alta | 0° | 12,0 m | 60° | 6,46 m | `FRONTAL` | Avaliado | 5 500 kg | 12 m × 8 m | 58,18 % |
+| C — lança estendida | 0° | 22,0 m | 35° | 18,48 m | `FRONTAL` | Avaliado | 1 200 kg | 22 m × 20 m | 266,67 % |
+| D — lança entre colunas | 0° | 17,5 m | 35° | 14,80 m | `FRONTAL` | Avaliado (coluna de 22 m) | 1 900 kg | 22 m × 16 m | 168,42 % |
+| E — raio acima da tabela | 0° | 22,0 m | 0° | 22,46 m | `FRONTAL` | Não avaliável: `RADIUS_ABOVE_CHART_MAX` | — | — | — |
+| F — giro para trás | 180° | 12,0 m | 35° | 10,29 m | `LATERAL_TRASEIRA` | Avaliado | 3 040 kg | 12 m × 11 m | 105,26 % |
+| G — giro na fronteira | 55° | 12,0 m | 35° | 10,29 m | `LATERAL_TRASEIRA` | Avaliado | 3 040 kg | 12 m × 11 m | 105,26 % |
+
+Desde a TASK-069, a ficha de demonstração tem a = 0,46 m (eixo de giro real do modelo 3D). Os
+valores acima são os da leitura conservadora da tabela (`tests/test_demo_seed.py`); o simulador
+interpola entre os pontos (ADR-030) e mostra capacidades um pouco maiores entre eles.
 
 Como ler:
 
-- raio = a + L·cos θ (ADR-013), com a = −1,56 m; ex.: A → −1,56 + 12·cos 35° ≈ 8,27 m;
+- raio = a + L·cos θ (ADR-013), com a = 0,46 m; ex.: A → 0,46 + 12·cos 35° ≈ 10,29 m;
 - entre dois raios tabelados vale a **menor** capacidade dos dois vizinhos (ADR-015): em A, 8,27 m
   fica entre 8 m (5 500 kg) e 10 m (4 200 kg) → 4 200 kg;
 - o peso comparado é **carga + gancho** (ADR-018 § 2): 3 000 + 200 = 3 200 kg; em A, utilização =

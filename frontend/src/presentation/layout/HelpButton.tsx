@@ -61,6 +61,21 @@ export function HelpButton() {
             </dd>
           </div>
         </dl>
+        <p className={styles.credit}>
+          Modelo 3D do guindaste:{' '}
+          <a
+            href="https://sketchfab.com/3d-models/80-ton-hydraulic-crane-oilfield-completions-27cbfdf2ef094d6283aa634ad6fb45c6"
+            target="_blank"
+            rel="noreferrer"
+          >
+            80-Ton Hydraulic Crane | Oilfield Completions
+          </a>
+          , de awilliams1337,{' '}
+          <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">
+            CC BY 4.0
+          </a>
+          .
+        </p>
       </Dialog>
     </>
   )

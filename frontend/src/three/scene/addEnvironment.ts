@@ -14,7 +14,9 @@ import {
   type Scene,
   ShaderMaterial,
   ShadowMaterial,
-  type Vector3,
+  Plane,
+  type Raycaster,
+  Vector3,
 } from 'three'
 
 import { type TerrainSpec, terrainHeightAt } from '../../domain/environment/environment'
@@ -83,6 +85,11 @@ export interface SceneEnvironment {
   setTerrain(terrain: TerrainSpec | null): void
   /** Altura do terreno em (x, z); 0 sem terreno. */
   heightAt(x: number, z: number): number
+  /**
+   * Ponto do chão (terreno com relevo ou plano y = 0) onde o raio encosta; `null` se não encosta
+   * (TASK-066: o editor converte cliques em posições do chão).
+   */
+  pickGround(raycaster: Raycaster): Vector3 | null
   /** Leva o sol e a sombra para perto do guindaste, que pode estar longe da origem. */
   followCrane(x: number, y: number, z: number): void
 }
@@ -193,6 +200,8 @@ void main() {
   #include <colorspace_fragment>
 }
 `
+
+const FLAT_PLANE = new Plane(new Vector3(0, 1, 0), 0)
 
 /** Adiciona fundo, luzes, chão, sombra e grade à cena. O chão fica no plano y = 0. */
 export function addEnvironment(scene: Scene): SceneEnvironment {
@@ -328,6 +337,17 @@ export function addEnvironment(scene: Scene): SceneEnvironment {
       ground.position.y = (geometry.boundingBox?.min.y ?? 0) - GROUND_CLEARANCE_M
       grid.visible = false
       groundShadow.visible = false
+    },
+    pickGround(raycaster) {
+      if (currentTerrain !== null) {
+        const hit = raycaster.intersectObjects(
+          terrainGroup.children.filter((child) => child instanceof Mesh),
+          false,
+        )[0]
+        if (hit) return hit.point.clone()
+      }
+      const point = new Vector3()
+      return raycaster.ray.intersectPlane(FLAT_PLANE, point) ? point : null
     },
     heightAt(x: number, z: number) {
       return currentTerrain === null ? 0 : terrainHeightAt(currentTerrain, x, z)

@@ -134,10 +134,10 @@ Em desenvolvimento, o Vite encaminha `/api` (inclusive WebSocket) para `http://l
 O build divide o pacote em arquivos (`react`, `three-core`, `three`, `three-addons` e a aplicação;
 TASK-036), todos carregados na abertura da página; o `three-addons` inclui o `GLTFLoader` e o
 `CSS2DRenderer`. O modelo do guindaste sobre caminhão fica em
-`frontend/public/models/guindaste-caminhao.glb` (1,81 MiB, cerca de 103 mil triângulos, TASK-043) e é
-baixado uma vez por página. Ele é gerado a partir do FBX do CGTrader, que fica fora do Git, pelo script
-`frontend/scripts/convert-crane-model.mjs`, e é ilustrativo: as medidas de cálculo vêm da ficha
-técnica (RN-003). O GLB de exemplo FICTÍCIO do guindaste provisório fica em `assets/example-models/`.
+`frontend/public/models/guindaste-80t.glb` (4,3 MB, TASK-064/069; modelo CC BY 4.0, créditos em
+`frontend/public/models/CREDITS.md`) e é baixado uma vez por página. Ele é gerado do GLB original do
+Sketchfab, que fica fora do Git, pelo script `frontend/scripts/convert-crane-80t.mjs`, e é ilustrativo:
+as medidas de cálculo vêm da ficha técnica (RN-003). O GLB de exemplo FICTÍCIO do guindaste provisório fica em `assets/example-models/`.
 
 ---
 
@@ -332,7 +332,7 @@ Sem integração com sistemas externos em tempo de execução no MVP. As entrada
 |------------|---------|-----------|--------------|-------------------------------|---------------------|
 | Importação de tabela de carga | entrada | upload multipart REST: `POST /api/v1/load-charts/validate` (CSV, sem gravar) e `POST /api/v1/load-charts/import` (CSV/XLSX, grava) | com banco, sessão: qualquer perfil valida, só `ADMIN` importa (ADR-016) | `backend/app/infrastructure/importers/`, `backend/app/presentation/api/load_charts.py` e `load_chart_persistence.py` | relatório de inconsistências; tabela inválida não é gravada (RNF-006); 413 acima de 1 MiB ou dos limites do XLSX; 415 para formato não reconhecido |
 | Arquivo-fonte da tabela | saída (disco local) | sistema de arquivos | — | `backend/app/infrastructure/storage/local_file_storage.py` | conteúdo diferente com o mesmo hash → erro de integridade, sem sobrescrever |
-| Modelo 3D | entrada | GLB estático servido pelo frontend (`/models/guindaste-caminhao.glb`) e lido no navegador (`loadGltf`, `loadTruckCraneModel`); convertido fora do runtime do FBX do CGTrader (licença confirmada pela pessoa responsável para versionar e distribuir o derivado; registrada nos `extras` do GLB); **sem upload nem storage no backend** | — | `frontend/src/three/loaders/`, `frontend/src/three/crane/craneKinematics.ts`, `frontend/scripts/convert-crane-model.mjs` | erros de arquivo e de mapeamento no relatório (`errors`), calibração em `warnings`; na cena, falha → fica o guindaste provisório, com aviso no console |
+| Modelo 3D | entrada | GLB estático servido pelo frontend (`/models/guindaste-80t.glb`, TASK-064; ADR-031) e lido no navegador (`loadGltf`, `loadTruckCraneModel`); convertido fora do runtime do FBX do CGTrader (licença confirmada pela pessoa responsável para versionar e distribuir o derivado; registrada nos `extras` do GLB); **sem upload nem storage no backend** | — | `frontend/src/three/loaders/`, `frontend/src/three/crane/craneKinematics.ts`, `frontend/scripts/convert-crane-model.mjs` | erros de arquivo e de mapeamento no relatório (`errors`), calibração em `warnings`; na cena, falha → fica o guindaste provisório, com aviso no console |
 
 ---
 

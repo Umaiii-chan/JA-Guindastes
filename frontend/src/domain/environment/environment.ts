@@ -13,13 +13,16 @@ export interface TerrainFeature {
    * - `pit` (depressão): a mesma forma, para baixo;
    * - `plateau` (platô): topo plano até 60 % do raio, descendo em cossenoide até o raio;
    * - `ramp` (rampa): retângulo de comprimento `2 × radiusM` na direção `directionDeg` e largura
-   *   `widthM`, subindo de 0 a `heightM` no sentido da direção; zero fora dele.
+   *   `widthM`, subindo de 0 a `heightM` no sentido da direção; zero fora dele;
+   * - `flatten` (aplainar; TASK-066): leva o terreno já somado até o nível absoluto `heightM`, por
+   *   inteiro até 60 % do raio e caindo em cossenoide até o raio. Vale na ordem da lista: só mexe no
+   *   que as feições anteriores e o plano inclinado produziram.
    */
-  readonly kind: 'mound' | 'pit' | 'plateau' | 'ramp'
+  readonly kind: 'mound' | 'pit' | 'plateau' | 'ramp' | 'flatten'
   readonly centerX: number
   readonly centerZ: number
   readonly radiusM: number
-  /** Sempre >= 0; o sinal vem do tipo (`pit` desce). */
+  /** Sempre >= 0; o sinal vem do tipo (`pit` desce). Em `flatten` é o nível absoluto (pode ser < 0). */
   readonly heightM: number
   /** Só `ramp`: direção da subida, em graus a partir de +X, anti-horário visto de cima. */
   readonly directionDeg?: number
@@ -59,11 +62,38 @@ export interface CranePlacement {
 
 export const DEFAULT_CRANE_PLACEMENT: CranePlacement = { x: 0, z: 0, headingDeg: 0 }
 
+/** Tipo de solo (TASK-066): rocha, compactado, argiloso ou aterro solto. */
+export type SoilKind = 'rock' | 'compacted' | 'clay' | 'loose_fill'
+
+export const SOIL_KINDS: readonly SoilKind[] = ['rock', 'compacted', 'clay', 'loose_fill']
+
+/** Solo padrão fora das zonas pintadas. */
+export const DEFAULT_SOIL: SoilKind = 'compacted'
+
+/** Círculo de solo pintado no chão; a zona mais recente da lista vale onde houver sobreposição. */
+export interface SoilZone {
+  readonly id: string
+  readonly kind: SoilKind
+  readonly centerX: number
+  readonly centerZ: number
+  readonly radiusM: number
+}
+
+/** Vento: velocidade (m/s) e direção para onde sopra (graus a partir de +X, anti-horário visto de cima). */
+export interface WindSpec {
+  readonly speedMs: number
+  readonly directionDeg: number
+}
+
 /** Cenário completo, como é salvo (TASK-052) e copiado na gravação (TASK-057). */
 export interface ScenarioSpec {
   readonly terrain: TerrainSpec
   readonly obstacles: readonly Obstacle[]
   readonly crane: CranePlacement
+  /** Zonas de solo pintadas (TASK-066); ausente = tudo `compacted`. */
+  readonly soilZones?: readonly SoilZone[]
+  /** Vento (TASK-066); ausente = sem vento. */
+  readonly wind?: WindSpec
 }
 
 export const EMPTY_SCENARIO: ScenarioSpec = {
@@ -80,6 +110,13 @@ function cosineBump(distance: number, radius: number): number {
   return (1 + Math.cos((Math.PI * distance) / radius)) / 2
 }
 
+/** Peso 0..1 do platô: 1 até 60 % do raio, descendo em cossenoide até o raio. */
+function plateauWeight(distance: number, radius: number): number {
+  const top = radius * PLATEAU_TOP
+  if (distance <= top) return 1
+  return cosineBump(distance - top, radius - top)
+}
+
 function featureHeight(feature: TerrainFeature, x: number, z: number): number {
   const dx = x - feature.centerX
   const dz = z - feature.centerZ
@@ -89,12 +126,11 @@ function featureHeight(feature: TerrainFeature, x: number, z: number): number {
       return height * cosineBump(Math.hypot(dx, dz), feature.radiusM)
     case 'pit':
       return -height * cosineBump(Math.hypot(dx, dz), feature.radiusM)
-    case 'plateau': {
-      const distance = Math.hypot(dx, dz)
-      const top = feature.radiusM * PLATEAU_TOP
-      if (distance <= top) return height
-      return height * cosineBump(distance - top, feature.radiusM - top)
-    }
+    case 'plateau':
+      return height * plateauWeight(Math.hypot(dx, dz), feature.radiusM)
+    case 'flatten':
+      // Tratado em `terrainHeightAt` (não é aditivo).
+      return 0
     case 'ramp': {
       const angle = (feature.directionDeg ?? 0) * DEG
       const along = dx * Math.cos(angle) - dz * Math.sin(angle)
@@ -110,7 +146,17 @@ function featureHeight(feature: TerrainFeature, x: number, z: number): number {
 /** Altura do terreno (m) no ponto (x, z) do chão. */
 export function terrainHeightAt(spec: TerrainSpec, x: number, z: number): number {
   let height = (spec.slopeXPercent / 100) * x + (spec.slopeZPercent / 100) * z
-  for (const feature of spec.features) height += featureHeight(feature, x, z)
+  for (const feature of spec.features) {
+    if (feature.kind === 'flatten') {
+      const weight = plateauWeight(
+        Math.hypot(x - feature.centerX, z - feature.centerZ),
+        feature.radiusM,
+      )
+      height += (feature.heightM - height) * weight
+    } else {
+      height += featureHeight(feature, x, z)
+    }
+  }
   return height
 }
 
@@ -149,4 +195,14 @@ export function terrainSlopeUnderFootprintDeg(
   const gradAlong = (frontLeft + frontRight - rearLeft - rearRight) / 2 / (2 * halfLengthM)
   const gradAcross = (frontRight + rearRight - frontLeft - rearLeft) / 2 / (2 * halfWidthM)
   return Math.atan(Math.hypot(gradAlong, gradAcross)) / DEG
+}
+
+/** Solo no ponto (x, z): a zona pintada mais recente que o contém, senão `compacted` (TASK-066). */
+export function soilAt(spec: ScenarioSpec, x: number, z: number): SoilKind {
+  const zones = spec.soilZones ?? []
+  for (let index = zones.length - 1; index >= 0; index -= 1) {
+    const zone = zones[index]
+    if (zone && Math.hypot(x - zone.centerX, z - zone.centerZ) <= zone.radiusM) return zone.kind
+  }
+  return DEFAULT_SOIL
 }

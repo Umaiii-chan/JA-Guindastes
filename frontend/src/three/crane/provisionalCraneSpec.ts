@@ -36,7 +36,7 @@ export const PROVISIONAL_CRANE_LIMITS: CraneLimits = {
  * ficha técnica cadastrada no backend, nunca do modelo 3D (RN-003).
  */
 export const PROVISIONAL_CRANE_GEOMETRY: CraneGeometryParameters = {
-  boomPivotOffsetM: -1.56,
+  boomPivotOffsetM: 0.46,
   boomPivotHeightM: 3.3,
 }
 

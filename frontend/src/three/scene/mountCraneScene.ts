@@ -17,6 +17,7 @@ import {
 } from '../controls/createOrbitControls'
 import type { OutriggerState } from '../../domain/crane/outriggers'
 import { OutriggerController } from '../crane/OutriggerController'
+import { TRUCK_CRANE_OUTRIGGER_TRAVEL_M } from '../loaders/loadTruckCraneModel'
 import type { CraneCommands, CraneSetup, CraneState } from '../crane/types'
 import {
   type CollisionState,
@@ -34,6 +35,7 @@ import type { LoadDimensions } from './loadBox'
 import type { OperatingArea } from '../../domain/evaluation/operatingArea'
 import type { SceneRotationZone } from './RotationZoneSectors'
 import { type EvaluationStatus, normalizeEvaluationStatus, statusCssColor } from './palette'
+import { type SceneEditorCallbacks, type SceneEditorConfig, SceneEditor } from './SceneEditor'
 import { createScaleBar, pixelsPerMeter } from './scaleBar'
 import { createRadiusLabel, createZoneLabelElement, paintZoneLabel } from './sceneLabels'
 import {
@@ -118,6 +120,11 @@ export interface CraneSceneHandle {
    * `crane-outrigger-*` que o modelo 3D tiver; sem eles, não desenha nada.
    */
   setOutriggers(state: OutriggerState): void
+  /**
+   * Editor 3D do ambiente (TASK-066; ADR-032): liga as ferramentas de arrasto, pincel e pintura na
+   * cena. `null` desliga. A cena só devolve as mudanças por `callbacks`; o cenário fica na UI.
+   */
+  setEditor(editor: { config: SceneEditorConfig; callbacks: SceneEditorCallbacks } | null): void
   /** Para o laço de renderização e libera renderer, controles, geometrias e materiais. Idempotente. */
   dispose(): void
 }
@@ -314,6 +321,7 @@ export function mountCraneScene(
   const outriggers = new OutriggerController({
     getRoot: () => contents.rig.base,
     invalidate,
+    beamTravelM: TRUCK_CRANE_OUTRIGGER_TRAVEL_M,
     reducedMotion: prefersReducedMotion(),
   })
 
@@ -372,6 +380,8 @@ export function mountCraneScene(
     })
   }
 
+  let editor: SceneEditor | null = null
+
   const handle: CraneSceneHandle = {
     crane,
     setEvaluationStatus(status) {
@@ -415,6 +425,7 @@ export function mountCraneScene(
     setScenario(scenario) {
       if (disposed) return
       contents.setScenario(scenario)
+      editor?.refresh()
       if (followedPreset && !transition) jumpTo(presetView(followedPreset))
       invalidate()
     },
@@ -447,6 +458,33 @@ export function mountCraneScene(
     setOutriggers(state) {
       if (disposed) return
       outriggers.setState(state)
+      // Com os macacos apoiados, a inclinação do terreno até a correção deles some do modelo.
+      contents.setLevelingDeg(
+        state.jacksSet ? Math.min(Math.max(0, state.levelingDeg), outriggers.maxLevelingDeg) : 0,
+      )
+      editor?.refresh()
+      invalidate()
+    },
+    setEditor(next) {
+      if (disposed) return
+      // Editando, a câmera não volta sozinha ao enquadramento da predefinição.
+      if (next) followedPreset = null
+      if (!next) {
+        editor?.dispose()
+        editor = null
+        invalidate()
+        return
+      }
+      editor ??= new SceneEditor({
+        scene,
+        camera,
+        domElement: renderer.domElement,
+        container,
+        controls,
+        contents,
+        invalidate,
+      })
+      editor.configure(next.config, next.callbacks)
     },
     dispose() {
       if (disposed) return
@@ -456,6 +494,8 @@ export function mountCraneScene(
       renderer.setAnimationLoop(null)
       document.removeEventListener('visibilitychange', onVisibilityChange)
       resizeObserver.disconnect()
+      editor?.dispose()
+      editor = null
       controls.removeEventListener('start', cancelTransition)
       controls.dispose()
       label.removeFromParent()
