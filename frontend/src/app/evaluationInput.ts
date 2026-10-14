@@ -15,6 +15,8 @@ export function buildEvaluationInput(
   loadWeightText: string,
   outriggers?: OutriggerInput,
   accessoryIds: readonly string[] = [],
+  /** Inclinação do terreno sob o guindaste (TASK-052); `undefined` com terreno plano. */
+  groundSlopeDeg?: number,
 ): EvaluationInputResult {
   if (craneState === null) return { input: null, problem: 'Aguardando a cena 3D.' }
   const trimmedId = configurationId.trim()
@@ -40,6 +42,7 @@ export function buildEvaluationInput(
       ...(outriggers ? { outriggers } : {}),
       // Só vai ao backend com acessórios escolhidos (TASK-056; RN-014).
       ...(accessoryIds.length > 0 ? { accessoryIds } : {}),
+      ...(groundSlopeDeg === undefined ? {} : { groundSlopeDeg }),
     },
     problem: null,
   }

@@ -17,6 +17,8 @@ export interface SimulatorPageProps {
   readonly accessories?: ReactNode
   /** Faixa de gravação e reprodução (TASK-057), sob a faixa de título. */
   readonly recording?: ReactNode
+  /** Seção "Ambiente" (TASK-052), recolhida, abaixo dos passos. */
+  readonly environment?: ReactNode
 }
 
 /**
@@ -33,12 +35,14 @@ export function SimulatorPage({
   statusBar,
   accessories,
   recording,
+  environment,
 }: SimulatorPageProps) {
   return (
     <div className={styles.stage}>
       <div className={styles.procedure}>
         {steps}
         {accessories && <div className={styles.accessories}>{accessories}</div>}
+        {environment}
       </div>
       <div className={styles.drawing}>
         <div>

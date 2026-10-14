@@ -56,7 +56,7 @@ interface CraneViewportProps {
    * Cenário (terreno, obstáculos e posição do guindaste) usado nas colisões da carga (TASK-053; só os
    * dados: o desenho é da TASK-052). Sem ele, chão plano e guindaste na origem. Não remonta a cena.
    */
-  scenario?: ScenarioSpec
+  scenario?: ScenarioSpec | null
   /** Recebe o estado de colisão da carga quando ele muda (TASK-053; RN-012). Não remonta a cena. */
   onCollisionChange?: (state: CollisionState) => void
   /**
@@ -147,6 +147,7 @@ export function CraneViewport({
     handle.setActiveRotationZone(activeZoneRef.current)
     if (outriggersRef.current) handle.setOutriggers(outriggersRef.current)
     handle.setOperatingArea(operatingAreaRef.current)
+    handle.setScenario(scenarioRef.current ?? null)
     const preset = cameraPresetRef.current
     if (preset) handle.setCameraPreset(preset, { animate: false })
     appliedPresetRef.current = preset
@@ -202,7 +203,9 @@ export function CraneViewport({
   }, [onCollisionChange])
 
   useEffect(() => {
+    // TASK-052 desenha o cenário; TASK-053 usa os mesmos dados para colidir.
     scenarioRef.current = scenario
+    sceneRef.current?.setScenario(scenario ?? null)
     if (scenario) sceneRef.current?.setEnvironment(scenario)
   }, [scenario])
 

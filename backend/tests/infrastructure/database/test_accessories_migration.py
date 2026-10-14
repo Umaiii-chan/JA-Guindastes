@@ -9,7 +9,7 @@ from tests.infrastructure.database.test_catalog_load_chart_migration import (
     _run_alembic,
 )
 
-PREVIOUS = "b4e1d7c93a52"
+PREVIOUS = "d3a8f1c25e70"
 TASK_056 = "03845e55f0a8"
 
 

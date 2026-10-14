@@ -10,7 +10,7 @@ integra encadeia 051 → 052 → 056 → 057 trocando só o `down_revision`.
 Descida: remove a tabela `accessories` (os acessórios cadastrados se perdem).
 
 Revision ID: 03845e55f0a8
-Revises: b4e1d7c93a52
+Revises: d3a8f1c25e70
 Create Date: 2026-10-14 12:00:00.000000
 
 """
@@ -22,7 +22,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "03845e55f0a8"
-down_revision: str | Sequence[str] | None = "b4e1d7c93a52"
+down_revision: str | Sequence[str] | None = "d3a8f1c25e70"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

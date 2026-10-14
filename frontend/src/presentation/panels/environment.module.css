@@ -1,0 +1,90 @@
+/* Painel "Ambiente" do simulador (TASK-052): seções com filete, itens em ficha, campos densos. */
+
+.panel {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.section {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-ink);
+}
+
+.heading {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.status {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+/* Feição ou obstáculo: ficha com filete, legenda e botão de remover no canto. */
+.item {
+  position: relative;
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+}
+
+.itemLegend {
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.itemId {
+  font-family: var(--font-mono);
+  color: var(--color-text-3);
+}
+
+.itemRemove {
+  position: absolute;
+  top: calc(var(--space-2) * -1);
+  right: var(--space-2);
+  background: var(--color-surface-1);
+}
+
+.fineprint {
+  font-size: var(--font-size-2xs);
+  line-height: 1.5;
+  color: var(--color-text-2);
+}

@@ -75,6 +75,9 @@ from app.infrastructure.repositories.sqlalchemy_crane_catalog_repository import 
 from app.infrastructure.repositories.sqlalchemy_load_chart_repository import (
     SqlAlchemyLoadChartRepository,
 )
+from app.infrastructure.repositories.sqlalchemy_scenario_repository import (
+    SqlAlchemyScenarioRepository,
+)
 from app.infrastructure.repositories.sqlalchemy_simulation_recording_repository import (
     SqlAlchemySimulationRecordingRepository,
 )
@@ -287,6 +290,8 @@ def create_database_app(engine: Engine, environ: Mapping[str, str] | None = None
         auth=build_auth(engine, environ),
         # Gravações de simulação (TASK-057): mesmo engine.
         simulation_recordings=SqlAlchemySimulationRecordingRepository(session_factory),
+        # Cenários com terreno e obstáculos (TASK-052): mesmo engine; exigem a autenticação.
+        scenario_repository=SqlAlchemyScenarioRepository(session_factory),
         on_shutdown=engine.dispose,
     )
 

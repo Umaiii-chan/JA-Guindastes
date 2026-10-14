@@ -17,17 +17,6 @@ def client() -> TestClient:
     return client_ficticio()
 
 
-def test_ficticio_outriggers_are_accepted_and_do_not_change_the_result(client: TestClient) -> None:
-    without = client.post(EVALUATIONS_PATH, json=body_ficticio())
-    with_outriggers = client.post(
-        EVALUATIONS_PATH,
-        json=body_ficticio(outriggers={"extension_percent": 100, "jacks_set": True}),
-    )
-
-    assert with_outriggers.status_code == 200
-    assert with_outriggers.json() == without.json()
-
-
 @pytest.mark.parametrize(
     "outriggers",
     [

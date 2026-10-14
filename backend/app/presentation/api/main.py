@@ -21,6 +21,7 @@ from app.application.ports.accessory_repository import AccessoryRepository
 from app.application.ports.crane_catalog_listing import CraneCatalogStore
 from app.application.ports.load_chart_listing import LoadChartListing
 from app.application.ports.load_chart_parser import LoadChartParser
+from app.application.ports.scenario_repository import ScenarioRepository
 from app.application.ports.simulation_recording_repository import SimulationRecordingRepository
 from app.application.use_cases.authentication import GetCurrentUser
 from app.application.use_cases.evaluate_operation import EvaluateOperation
@@ -52,6 +53,7 @@ from app.presentation.api.operating_area import (
     ComputeOperatingAreaDependency,
     create_operating_area_router,
 )
+from app.presentation.api.scenarios import create_scenarios_router
 from app.presentation.api.simulations import create_simulations_router
 from app.presentation.api.upload_limits import UploadLimits
 from app.presentation.api.users import create_users_router
@@ -74,6 +76,7 @@ def create_app(
     operating_area: ComputeOperatingAreaDependency | None = None,
     accessory_repository: AccessoryRepository | None = None,
     simulation_recordings: SimulationRecordingRepository | None = None,
+    scenario_repository: ScenarioRepository | None = None,
 ) -> FastAPI:
     """Monta a aplicação com as rotas cujos adapters foram recebidos.
 
@@ -93,6 +96,8 @@ def create_app(
       a mesma autorização da avaliação;
     - o catálogo de acessórios de içamento (TASK-056) só entra com `accessory_repository`: leitura
       para qualquer perfil logado, escrita para `ADMIN`;
+    - os cenários (`/api/v1/scenarios`, TASK-052) só entram com `scenario_repository` **e** `auth`:
+      todo usuário logado lista e abre; só o autor ou um `ADMIN` edita e apaga;
     - `on_shutdown` roda quando a aplicação encerra (a composição libera o pool do banco);
     - `auth` (TASK-038, ADR-016) liga a autenticação: cabeçalho CSRF nos métodos inseguros, sessão
       exigida em toda rota exceto a saúde e `GET /auth/session`, perfil `ADMIN` nos cadastros e
@@ -190,6 +195,13 @@ def create_app(
     # Gravações de simulação (TASK-057; ADR-027): só com banco e autenticação (o autor é o logado).
     if simulation_recordings is not None and auth is not None and guards is not None:
         app.include_router(create_simulations_router(simulation_recordings, auth, guards))
+    if scenario_repository is not None and auth is not None and guards is not None:
+        app.include_router(
+            create_scenarios_router(
+                scenario_repository, guards, clock=auth.clock, id_generator=auth.id_generator
+            ),
+            dependencies=session_required,
+        )
 
     return app
 

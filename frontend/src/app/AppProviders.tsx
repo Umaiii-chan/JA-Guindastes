@@ -5,11 +5,12 @@ import { ToastProvider } from '../presentation/ui'
 import { useAuth } from './auth/authContext'
 import { AuthProvider } from './auth/AuthProvider'
 import { CatalogProvider } from './catalog/CatalogProvider'
+import { ScenarioProvider } from './scenario/ScenarioProvider'
 import { SimulatorDraftProvider } from './simulator/SimulatorDraftProvider'
 
 /**
  * Estado compartilhado entre as páginas: sessão, notificações e, só com sessão válida (ou no modo
- * sem banco), catálogo e rascunho do simulador.
+ * sem banco), catálogo, rascunho do simulador e cenário (TASK-052).
  */
 export function AppProviders({
   children,
@@ -37,7 +38,9 @@ function SessionScope({ children }: { readonly children: ReactNode }) {
   if (status !== 'authenticated' && status !== 'disabled') return <>{children}</>
   return (
     <CatalogProvider key={user?.id ?? 'sem-autenticacao'}>
-      <SimulatorDraftProvider>{children}</SimulatorDraftProvider>
+      <SimulatorDraftProvider>
+        <ScenarioProvider>{children}</ScenarioProvider>
+      </SimulatorDraftProvider>
     </CatalogProvider>
   )
 }

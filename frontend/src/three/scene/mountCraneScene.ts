@@ -1,6 +1,7 @@
 import { NeutralToneMapping, PCFShadowMap, SRGBColorSpace, WebGLRenderer } from 'three'
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js'
 
+import type { ScenarioSpec } from '../../domain/environment/environment'
 import {
   CAMERA_TRANSITION_MS,
   type CameraPreset,
@@ -22,7 +23,6 @@ import {
   collisionStateKey,
   NO_COLLISION,
 } from '../../domain/collision/collisions'
-import type { ScenarioSpec } from '../../domain/environment/environment'
 import {
   AccessoryChain,
   type AccessoryModelLoader,
@@ -97,6 +97,12 @@ export interface CraneSceneHandle {
    * para a carga. A carga desce a soma de `riggingHeightM`. Lista vazia remove. Só desenho.
    */
   setAccessories(accessories: readonly SceneAccessory[]): void
+  /**
+   * Cenário (TASK-052; ADR-023): terreno deslocado por `terrainHeightAt`, obstáculos e posição do
+   * guindaste. `null` volta ao plano e ao guindaste na origem. A predefinição de câmera seguida
+   * acompanha o guindaste.
+   */
+  setScenario(scenario: ScenarioSpec | null): void
   /** Leva a câmera a uma predefinição, enquadrando o estado atual do guindaste. */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
   /**
@@ -159,8 +165,7 @@ export function mountCraneScene(
     rotationZones,
     collisions,
     operatingArea,
-  } =
-    contents
+  } = contents
 
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -232,8 +237,8 @@ export function mountCraneScene(
   }
 
   /** Enquadramento da predefinição para o estado atual do guindaste e a proporção do quadro. */
-  const presetView = (preset: CameraPreset): CameraView =>
-    resolveCameraPreset(preset, {
+  const presetView = (preset: CameraPreset): CameraView => {
+    const view = resolveCameraPreset(preset, {
       turretRotationDeg: crane.getState().turretRotationDeg,
       geometry: crane.getOperationalGeometry(),
       maxReachM: radiusIndicator.reach.maxM,
@@ -241,6 +246,17 @@ export function mountCraneScene(
       aspect: camera.aspect,
       fovDeg: camera.fov,
     })
+    // As predefinições enquadram o guindaste na origem; com o cenário, o conjunto se desloca com ele
+    // (só a posição: o rumo do chassi não gira a câmera).
+    const { x, y, z } = contents.craneAnchor.position
+    if (x === 0 && y === 0 && z === 0) return view
+    const shift = (v: { x: number; y: number; z: number }) => ({
+      x: v.x + x,
+      y: v.y + y,
+      z: v.z + z,
+    })
+    return { position: shift(view.position), target: shift(view.target) }
+  }
 
   const jumpTo = (view: CameraView): void => {
     transition = null
@@ -396,6 +412,12 @@ export function mountCraneScene(
       if (disposed || !operatingArea.setArea(area)) return
       invalidate()
     },
+    setScenario(scenario) {
+      if (disposed) return
+      contents.setScenario(scenario)
+      if (followedPreset && !transition) jumpTo(presetView(followedPreset))
+      invalidate()
+    },
     setCameraPreset(preset, options = {}) {
       if (disposed) return
       const to = presetView(preset)
@@ -441,6 +463,7 @@ export function mountCraneScene(
       removeZoneLabels()
       rotationZones.dispose()
       operatingArea.dispose()
+      contents.obstacles.dispose()
       labelRenderer.domElement.remove()
       scaleBar.element.remove()
       crane.setCollisionGuard(null)

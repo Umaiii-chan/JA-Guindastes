@@ -1,0 +1,65 @@
+/* Seção "Ambiente" abaixo dos passos: folha recolhível com o mesmo carimbo do cabeçalho. */
+.section {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 60%;
+  margin-top: var(--space-3);
+  border: 1px solid var(--color-border-ink);
+  background: var(--color-surface-1);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 40px;
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--color-text-1);
+  cursor: pointer;
+}
+
+.header:hover {
+  background: var(--color-surface-2, var(--color-surface-1));
+}
+
+.title {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  flex: none;
+  color: var(--color-text-2);
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.chevron[data-open] {
+  transform: rotate(180deg);
+}
+
+.body {
+  min-height: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--color-border-ink);
+  overflow-y: auto;
+}

@@ -11,7 +11,7 @@ Nesta leva todas as migrations partem de `b4e1d7c93a52` (docs/leva-e/contratos.m
 as tarefas encadeia na ordem 051 → 052 → 056 → 057 trocando só o `down_revision`.
 
 Revision ID: d7a3c5e8f1b4
-Revises: b4e1d7c93a52
+Revises: 03845e55f0a8
 Create Date: 2026-10-14 15:00:00.000000
 
 """
@@ -23,7 +23,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "d7a3c5e8f1b4"
-down_revision: str | Sequence[str] | None = "b4e1d7c93a52"
+down_revision: str | Sequence[str] | None = "03845e55f0a8"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -1,0 +1,286 @@
+"""Cenário: terreno editável, obstáculos e posição do guindaste (TASK-052; ADR-023).
+
+Espelha o `ScenarioSpec` do frontend (`frontend/src/domain/environment/environment.ts`), com os
+campos em `snake_case`. Eixos da cena (ADR-013): Y para cima; X e Z no chão. Unidades internas
+(RN-006): metros e graus; inclinação do plano em % (subida em m a cada 100 m).
+
+Regras (valores FICTÍCIOS e configuráveis até haver dado oficial):
+- números finitos; inclinação do plano de -100 a 100 %;
+- feição: `radius_m` > 0, `height_m` >= 0; `direction_deg` e `width_m` só na rampa (`width_m` > 0);
+- obstáculo: dimensões > 0 (o cilindro usa `width_m` como diâmetro);
+- no máximo 50 feições e 100 obstáculos; ids únicos dentro de cada lista;
+- nome do cenário: 1 a 120 caracteres, sem espaços nas pontas.
+"""
+
+import math
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import StrEnum
+from typing import Any
+
+from app.domain.exceptions.scenario_errors import InvalidScenarioError
+
+SCENARIO_NAME_MAX_LENGTH = 120
+SLOPE_PERCENT_LIMIT = 100.0
+MAX_TERRAIN_FEATURES = 50
+MAX_OBSTACLES = 100
+ID_MAX_LENGTH = 64
+LABEL_MAX_LENGTH = 120
+
+
+class FeatureKind(StrEnum):
+    MOUND = "mound"
+    PIT = "pit"
+    PLATEAU = "plateau"
+    RAMP = "ramp"
+
+
+class ObstacleKind(StrEnum):
+    BOX = "box"
+    CYLINDER = "cylinder"
+
+
+def _finite(path: str, value: float) -> None:
+    if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
+        raise InvalidScenarioError(path, "o valor deve ser um número finito")
+
+
+def _positive(path: str, value: float) -> None:
+    _finite(path, value)
+    if value <= 0:
+        raise InvalidScenarioError(path, "o valor deve ser maior que zero")
+
+
+def _text(path: str, value: str, max_length: int) -> None:
+    if not isinstance(value, str) or not value.strip() or len(value) > max_length:
+        raise InvalidScenarioError(path, f"o texto deve ter de 1 a {max_length} caracteres")
+
+
+def _unique_ids(path: str, ids: list[str]) -> None:
+    if len(set(ids)) != len(ids):
+        raise InvalidScenarioError(path, "os ids devem ser únicos")
+
+
+def normalize_scenario_name(raw: str) -> str:
+    """Nome sem espaços nas pontas; vazio ou maior que o limite → `InvalidScenarioError`."""
+    if not isinstance(raw, str) or not raw.strip() or len(raw.strip()) > SCENARIO_NAME_MAX_LENGTH:
+        raise InvalidScenarioError(
+            "name", f"o nome deve ter de 1 a {SCENARIO_NAME_MAX_LENGTH} caracteres"
+        )
+    return raw.strip()
+
+
+@dataclass(frozen=True, slots=True)
+class TerrainFeatureSpec:
+    id: str
+    kind: FeatureKind
+    center_x: float
+    center_z: float
+    radius_m: float
+    height_m: float
+    direction_deg: float | None = None
+    width_m: float | None = None
+
+    def validate(self, path: str) -> None:
+        _text(f"{path}.id", self.id, ID_MAX_LENGTH)
+        if not isinstance(self.kind, FeatureKind):
+            raise InvalidScenarioError(f"{path}.kind", "tipo de feição desconhecido")
+        _finite(f"{path}.center_x", self.center_x)
+        _finite(f"{path}.center_z", self.center_z)
+        _positive(f"{path}.radius_m", self.radius_m)
+        _finite(f"{path}.height_m", self.height_m)
+        if self.height_m < 0:
+            raise InvalidScenarioError(f"{path}.height_m", "a altura não pode ser negativa")
+        if self.direction_deg is not None:
+            _finite(f"{path}.direction_deg", self.direction_deg)
+        if self.width_m is not None:
+            _positive(f"{path}.width_m", self.width_m)
+
+
+@dataclass(frozen=True, slots=True)
+class TerrainSpec:
+    slope_x_percent: float = 0.0
+    slope_z_percent: float = 0.0
+    features: tuple[TerrainFeatureSpec, ...] = ()
+
+    def validate(self, path: str) -> None:
+        for name, value in (
+            ("slope_x_percent", self.slope_x_percent),
+            ("slope_z_percent", self.slope_z_percent),
+        ):
+            _finite(f"{path}.{name}", value)
+            if abs(value) > SLOPE_PERCENT_LIMIT:
+                raise InvalidScenarioError(
+                    f"{path}.{name}",
+                    f"a inclinação deve ficar entre -{SLOPE_PERCENT_LIMIT:g} e "
+                    f"{SLOPE_PERCENT_LIMIT:g} %",
+                )
+        if len(self.features) > MAX_TERRAIN_FEATURES:
+            raise InvalidScenarioError(
+                f"{path}.features", f"no máximo {MAX_TERRAIN_FEATURES} feições"
+            )
+        _unique_ids(f"{path}.features", [feature.id for feature in self.features])
+        for index, feature in enumerate(self.features):
+            feature.validate(f"{path}.features[{index}]")
+
+
+@dataclass(frozen=True, slots=True)
+class ObstacleSpec:
+    id: str
+    label: str
+    kind: ObstacleKind
+    center_x: float
+    center_z: float
+    width_m: float
+    depth_m: float
+    height_m: float
+    rotation_y_deg: float
+
+    def validate(self, path: str) -> None:
+        _text(f"{path}.id", self.id, ID_MAX_LENGTH)
+        _text(f"{path}.label", self.label, LABEL_MAX_LENGTH)
+        if not isinstance(self.kind, ObstacleKind):
+            raise InvalidScenarioError(f"{path}.kind", "tipo de obstáculo desconhecido")
+        _finite(f"{path}.center_x", self.center_x)
+        _finite(f"{path}.center_z", self.center_z)
+        _positive(f"{path}.width_m", self.width_m)
+        _positive(f"{path}.depth_m", self.depth_m)
+        _positive(f"{path}.height_m", self.height_m)
+        _finite(f"{path}.rotation_y_deg", self.rotation_y_deg)
+
+
+@dataclass(frozen=True, slots=True)
+class CranePlacementSpec:
+    x: float = 0.0
+    z: float = 0.0
+    heading_deg: float = 0.0
+
+    def validate(self, path: str) -> None:
+        _finite(f"{path}.x", self.x)
+        _finite(f"{path}.z", self.z)
+        _finite(f"{path}.heading_deg", self.heading_deg)
+
+
+@dataclass(frozen=True, slots=True)
+class ScenarioSpec:
+    terrain: TerrainSpec = field(default_factory=TerrainSpec)
+    obstacles: tuple[ObstacleSpec, ...] = ()
+    crane: CranePlacementSpec = field(default_factory=CranePlacementSpec)
+
+    def __post_init__(self) -> None:
+        self.terrain.validate("spec.terrain")
+        if len(self.obstacles) > MAX_OBSTACLES:
+            raise InvalidScenarioError("spec.obstacles", f"no máximo {MAX_OBSTACLES} obstáculos")
+        _unique_ids("spec.obstacles", [obstacle.id for obstacle in self.obstacles])
+        for index, obstacle in enumerate(self.obstacles):
+            obstacle.validate(f"spec.obstacles[{index}]")
+        self.crane.validate("spec.crane")
+
+
+@dataclass(frozen=True, slots=True)
+class Scenario:
+    """Cenário salvo. O autor é o dono: só ele ou um admin edita e apaga (ADR-016, ADR-023)."""
+
+    id: str
+    name: str
+    author_user_id: str
+    created_at: datetime
+    updated_at: datetime
+    spec: ScenarioSpec
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.id, str) or not self.id.strip():
+            raise ValueError("o id do cenário deve ser informado")
+        if normalize_scenario_name(self.name) != self.name:
+            raise InvalidScenarioError("name", "o nome não pode ter espaços nas pontas")
+        if not isinstance(self.author_user_id, str) or not self.author_user_id.strip():
+            raise ValueError("o autor do cenário deve ser informado")
+        if self.created_at.tzinfo is None or self.updated_at.tzinfo is None:
+            raise ValueError("as datas do cenário devem ter fuso horário")
+        if self.updated_at < self.created_at:
+            raise ValueError("a atualização não pode ser anterior à criação")
+
+
+def scenario_spec_to_dict(spec: ScenarioSpec) -> dict[str, object]:
+    """`spec` como JSON (`snake_case`), na forma gravada no banco e devolvida pela API."""
+    return {
+        "terrain": {
+            "slope_x_percent": spec.terrain.slope_x_percent,
+            "slope_z_percent": spec.terrain.slope_z_percent,
+            "features": [
+                {
+                    "id": f.id,
+                    "kind": f.kind.value,
+                    "center_x": f.center_x,
+                    "center_z": f.center_z,
+                    "radius_m": f.radius_m,
+                    "height_m": f.height_m,
+                    **({} if f.direction_deg is None else {"direction_deg": f.direction_deg}),
+                    **({} if f.width_m is None else {"width_m": f.width_m}),
+                }
+                for f in spec.terrain.features
+            ],
+        },
+        "obstacles": [
+            {
+                "id": o.id,
+                "label": o.label,
+                "kind": o.kind.value,
+                "center_x": o.center_x,
+                "center_z": o.center_z,
+                "width_m": o.width_m,
+                "depth_m": o.depth_m,
+                "height_m": o.height_m,
+                "rotation_y_deg": o.rotation_y_deg,
+            }
+            for o in spec.obstacles
+        ],
+        "crane": {"x": spec.crane.x, "z": spec.crane.z, "heading_deg": spec.crane.heading_deg},
+    }
+
+
+def scenario_spec_from_dict(data: Mapping[str, Any]) -> ScenarioSpec:
+    """Lê o JSON gravado (já validado na entrada); chaves ausentes levantam `KeyError`."""
+    terrain = data["terrain"]
+    crane = data["crane"]
+
+    def optional(raw: Mapping[str, Any], key: str) -> float | None:
+        return None if raw.get(key) is None else float(raw[key])
+
+    return ScenarioSpec(
+        terrain=TerrainSpec(
+            slope_x_percent=float(terrain["slope_x_percent"]),
+            slope_z_percent=float(terrain["slope_z_percent"]),
+            features=tuple(
+                TerrainFeatureSpec(
+                    id=str(f["id"]),
+                    kind=FeatureKind(f["kind"]),
+                    center_x=float(f["center_x"]),
+                    center_z=float(f["center_z"]),
+                    radius_m=float(f["radius_m"]),
+                    height_m=float(f["height_m"]),
+                    direction_deg=optional(f, "direction_deg"),
+                    width_m=optional(f, "width_m"),
+                )
+                for f in terrain["features"]
+            ),
+        ),
+        obstacles=tuple(
+            ObstacleSpec(
+                id=str(o["id"]),
+                label=str(o["label"]),
+                kind=ObstacleKind(o["kind"]),
+                center_x=float(o["center_x"]),
+                center_z=float(o["center_z"]),
+                width_m=float(o["width_m"]),
+                depth_m=float(o["depth_m"]),
+                height_m=float(o["height_m"]),
+                rotation_y_deg=float(o["rotation_y_deg"]),
+            )
+            for o in data["obstacles"]
+        ),
+        crane=CranePlacementSpec(
+            x=float(crane["x"]), z=float(crane["z"]), heading_deg=float(crane["heading_deg"])
+        ),
+    )

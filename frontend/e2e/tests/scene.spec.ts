@@ -80,7 +80,8 @@ test('a cena 3D aparece num canvas que ocupa a página do simulador', async ({ p
   await expect(canvas).toBeVisible()
   const box = await canvas.boundingBox()
   expect(box?.width ?? 0).toBeGreaterThan(600)
-  expect(box?.height ?? 0).toBeGreaterThan(400)
+  // A faixa de gravação (TASK-057) ocupa parte da altura da página.
+  expect(box?.height ?? 0).toBeGreaterThan(300)
   await expect(page.getByText('Não foi possível iniciar a cena 3D')).toHaveCount(0)
   await expect(page.getByRole('group', { name: 'Status da conexão e câmera' })).toBeVisible()
   expect(pageErrors).toEqual([])

@@ -1,5 +1,6 @@
-import { Mesh, type Object3D, type Scene } from 'three'
+import { Group, MathUtils, Mesh, type Object3D, type Scene } from 'three'
 
+import { EMPTY_SCENARIO, type ScenarioSpec } from '../../domain/environment/environment'
 import type { Vec3 } from '../camera/cameraPresets'
 import { CraneController, type CraneRig } from '../crane/CraneController'
 import { createProvisionalCrane } from '../crane/createProvisionalCrane'
@@ -15,6 +16,7 @@ import { createScene } from './createScene'
 import { disposeObject3D } from './disposeObject3D'
 import { HookLoad } from './HookLoad'
 import { OperatingAreaOverlay } from './OperatingAreaOverlay'
+import { ObstacleMeshes } from './ObstacleMeshes'
 import { RadiusIndicator } from './RadiusIndicator'
 import { RotationZoneSectors } from './RotationZoneSectors'
 import { SceneCollisions } from './SceneCollisions'
@@ -52,6 +54,13 @@ export class CraneSceneContents {
   readonly operatingArea: OperatingAreaOverlay
   /** Limites e a/h com que a cena foi montada (ficha técnica ou FICTÍCIOS). */
   readonly setup: CraneSetup
+  /**
+   * Raiz do guindaste e dos desenhos que o acompanham (anel de raio e zonas de giro). O cenário
+   * (TASK-052) o assenta na altura do terreno e o posiciona e gira por `CranePlacement`.
+   */
+  readonly craneAnchor: Group
+  /** Obstáculos do cenário (TASK-052). */
+  readonly obstacles: ObstacleMeshes
 
   private currentRig: CraneRig
   private currentRoot: Object3D
@@ -69,6 +78,8 @@ export class CraneSceneContents {
     collisions: SceneCollisions
     operatingArea: OperatingAreaOverlay
     setup: CraneSetup
+    craneAnchor: Group
+    obstacles: ObstacleMeshes
   }) {
     this.scene = parts.scene
     this.environment = parts.environment
@@ -81,6 +92,8 @@ export class CraneSceneContents {
     this.collisions = parts.collisions
     this.operatingArea = parts.operatingArea
     this.setup = parts.setup
+    this.craneAnchor = parts.craneAnchor
+    this.obstacles = parts.obstacles
     this.eye = findOperatorEye(parts.rig)
   }
 
@@ -109,7 +122,7 @@ export class CraneSceneContents {
     // Primeiro o controller: se os limites não servirem para o rig, lança antes de mexer na cena.
     this.crane.switchTo(model.rig, model.afterCommand)
     enableShadows(model.root)
-    this.scene.add(model.root)
+    this.craneAnchor.add(model.root)
     this.hookLoad.attachTo(model.rig.hook)
     this.collisions.setRig(model.rig)
 
@@ -121,6 +134,23 @@ export class CraneSceneContents {
     this.currentRoot = model.root
     this.eye = findOperatorEye(model.rig)
     this.modelInUse = true
+  }
+
+  /**
+   * Aplica o cenário (TASK-052; ADR-023): terreno, obstáculos e posição do guindaste. `null` volta ao
+   * cenário vazio (o plano de sempre, guindaste na origem). O guindaste assenta em
+   * `terrainHeightAt` no eixo de giro; o rumo gira o conjunto em torno do eixo Y (anti-horário visto
+   * de cima; 0 = chassi como modelado, frente em +Z).
+   */
+  setScenario(scenario: ScenarioSpec | null): void {
+    const spec = scenario ?? EMPTY_SCENARIO
+    this.environment.setTerrain(spec.terrain)
+    this.obstacles.setObstacles(spec.obstacles, (x, z) => this.environment.heightAt(x, z))
+    const { x, z, headingDeg } = spec.crane
+    const y = this.environment.heightAt(x, z)
+    this.craneAnchor.position.set(x, y, z)
+    this.craneAnchor.rotation.y = MathUtils.degToRad(headingDeg)
+    this.environment.followCrane(x, y, z)
   }
 }
 
@@ -156,7 +186,10 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     setup.geometryParameters,
   )
   enableShadows(rig.base)
-  scene.add(rig.base)
+  const craneAnchor = new Group()
+  craneAnchor.name = 'crane-anchor'
+  scene.add(craneAnchor)
+  craneAnchor.add(rig.base)
   const crane = new CraneController(
     rig,
     setup.limits,
@@ -165,7 +198,7 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
   )
 
   const radiusIndicator = new RadiusIndicator(setup.limits, setup.geometryParameters)
-  scene.add(radiusIndicator.root)
+  craneAnchor.add(radiusIndicator.root)
   environment.fitShadowToReach(radiusIndicator.reach.maxM)
   const hookLoad = new HookLoad(rig.hook)
   // Setores das zonas até um pouco além do alcance máximo, para ficarem visíveis sob o anel.
@@ -173,11 +206,13 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     innerM: 1.5,
     outerM: Math.max(radiusIndicator.reach.maxM + 1.5, 6),
   })
-  scene.add(rotationZones.root)
+  craneAnchor.add(rotationZones.root)
   const collisions = new SceneCollisions(rig, hookLoad, setup.geometryParameters)
   scene.add(collisions.highlight.root)
   const operatingArea = new OperatingAreaOverlay()
   scene.add(operatingArea.root)
+  const obstacles = new ObstacleMeshes()
+  scene.add(obstacles.root)
 
   radiusIndicator.update({
     workingRadiusM: crane.getOperationalGeometry().workingRadiusM,
@@ -194,5 +229,7 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     collisions,
     operatingArea,
     setup,
+    craneAnchor,
+    obstacles,
   })
 }
