@@ -8,7 +8,7 @@ Cadastra, pelos casos de uso e repositórios existentes:
 
 1. fabricante, guindaste e configuração FICTÍCIOS (`ManageCraneCatalog`, TASK-030), com a ficha
    técnica compatível com o modelo 3D ilustrativo do guindaste sobre caminhão
-   (`frontend/public/models/guindaste-caminhao.glb`, TASK-043): a = −1,56 m, h = 3,3 m e as
+   (`frontend/public/models/guindaste-80t.glb`, TASK-069): a = 0,46 m, h = 3,3 m e as
    faixas dos sliders (lança 12–22 m, inclinação 0–80°, cabo 1–15 m, giro contínuo). Desde a
    TASK-046 (ADR-018), a configuração tem duas zonas de giro FICTÍCIAS, `FRONTAL` (305° a 55°) e
    `LATERAL_TRASEIRA` (55° a 305°), no formato "frontal 110° + lateral e traseira 250°", e um peso
@@ -40,7 +40,7 @@ app.demo_seed"` (ver `docs/demo.md`).
 import os
 import sys
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
 from typing import TextIO
@@ -173,15 +173,15 @@ class DemoLoadChart:
 def build_demo_crane_geometry() -> CraneGeometry:
     """Ficha técnica FICTÍCIA, coerente com o modelo 3D ilustrativo do guindaste sobre caminhão.
 
-    a = −1,56 m (pino atrás do eixo de giro) é o valor do GLB ilustrativo
+    a = 0,46 m (pino à frente do eixo de giro) é o valor do modelo 3D do guindaste 80 t
     (`TRUCK_CRANE_MODEL_MEASUREMENTS` em `frontend/src/three/loaders/loadTruckCraneModel.ts`,
-    TASK-043), para o gancho desenhado coincidir com o G calculado. Até a TASK-043, era −1,2 m.
+    TASK-069), para o gancho desenhado coincidir com o G calculado. Antes, era −1,56 m (TASK-043).
     h = 3,3 m, lança 12–22 m, inclinação 0–80°, cabo 1–15 m: as mesmas faixas de
     `PROVISIONAL_CRANE_LIMITS` (`frontend/src/three/crane/provisionalCraneSpec.ts`). O slider de
     giro vai de −180° a 180° (volta inteira), então o giro é contínuo: sem limites (ADR-013 C-4).
     """
     return CraneGeometry(
-        boom_pivot_offset_m=-1.56,
+        boom_pivot_offset_m=0.46,
         boom_pivot_height=Length(3.3),
         boom_length_min=Length(12.0),
         boom_length_max=Length(22.0),
@@ -199,6 +199,7 @@ class SeedAction(StrEnum):
     ALREADY_EXISTS = "já existia; nada alterado"
     ACTIVATED = "ativada"
     ALREADY_ACTIVE = "já estava ativa; nada alterado"
+    UPDATED = "atualizada (ficha do modelo 3D novo)"
     SUPERSEDED_KEPT = "está SUPERSEDED (outra versão foi ativada); não reativada"
 
 
@@ -342,9 +343,21 @@ def _seed_crane(catalog: CraneCatalogStore, ids: DemoSeedIds) -> SeedStep:
     return SeedStep(entity, ids.crane_id, SeedAction.CREATED)
 
 
+LEGACY_DEMO_PIVOT_OFFSET_M = -1.56
+"""Ficha de demonstração anterior à TASK-069 (modelo 3D antigo); o seed migra para a atual."""
+
+
 def _seed_configuration(catalog: CraneCatalogStore, ids: DemoSeedIds) -> SeedStep:
     entity = "configuração"
     existing = catalog.get_configuration(ids.configuration_id)
+    legacy_geometry = replace(
+        build_demo_crane_geometry(), boom_pivot_offset_m=LEGACY_DEMO_PIVOT_OFFSET_M
+    )
+    if existing is not None and existing.geometry == legacy_geometry:
+        # Banco semeado antes da TASK-069 (Render, Docker local): só a ficha muda, para o modelo
+        # 3D novo. Nada mais é sobrescrito.
+        catalog.update_configuration(replace(existing, geometry=build_demo_crane_geometry()))
+        return SeedStep(entity, ids.configuration_id, SeedAction.UPDATED)
     if existing is not None:
         if (
             existing.crane_id != ids.crane_id

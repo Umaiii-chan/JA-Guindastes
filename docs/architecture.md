@@ -134,10 +134,10 @@ Em desenvolvimento, o Vite encaminha `/api` (inclusive WebSocket) para `http://l
 O build divide o pacote em arquivos (`react`, `three-core`, `three`, `three-addons` e a aplicação;
 TASK-036), todos carregados na abertura da página; o `three-addons` inclui o `GLTFLoader` e o
 `CSS2DRenderer`. O modelo do guindaste sobre caminhão fica em
-`frontend/public/models/guindaste-caminhao.glb` (1,81 MiB, cerca de 103 mil triângulos, TASK-043) e é
-baixado uma vez por página. Ele é gerado a partir do FBX do CGTrader, que fica fora do Git, pelo script
-`frontend/scripts/convert-crane-model.mjs`, e é ilustrativo: as medidas de cálculo vêm da ficha
-técnica (RN-003). O GLB de exemplo FICTÍCIO do guindaste provisório fica em `assets/example-models/`.
+`frontend/public/models/guindaste-80t.glb` (4,3 MB, TASK-064/069; modelo CC BY 4.0, créditos em
+`frontend/public/models/CREDITS.md`) e é baixado uma vez por página. Ele é gerado do GLB original do
+Sketchfab, que fica fora do Git, pelo script `frontend/scripts/convert-crane-80t.mjs`, e é ilustrativo:
+as medidas de cálculo vêm da ficha técnica (RN-003). O GLB de exemplo FICTÍCIO do guindaste provisório fica em `assets/example-models/`.
 
 ---
 

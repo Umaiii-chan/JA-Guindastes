@@ -8,7 +8,7 @@ dados são FICTÍCIOS (ADR-012).
 
 import dataclasses
 import io
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pytest
@@ -40,6 +40,7 @@ from app.demo_seed import (
     DEMO_SEED_IDS,
     DEMO_SIDE_REAR_ZONE,
     EXIT_CONFIGURATION_ERROR,
+    LEGACY_DEMO_PIVOT_OFFSET_M,
     DemoSeedError,
     DemoSeedResult,
     SeedAction,
@@ -81,22 +82,23 @@ class CenarioFicticio:
 
 
 ROTEIRO_FICTICIO = (
-    CenarioFicticio("A: pose inicial", 12.0, 35.0, 8.27, 4200.0, (12.0, 10.0), 76.19),
-    CenarioFicticio("B: lança mais alta", 12.0, 60.0, 4.44, 7000.0, (12.0, 6.0), 45.71),
-    CenarioFicticio("C: lança estendida", 22.0, 35.0, 16.46, 1500.0, (22.0, 18.0), 213.33),
-    # ADR-029: 17,5 m usa a coluna de 22 m; 12,78 m fica entre 12 m (3000) e 14 m (2400 kg).
-    CenarioFicticio("D: lança entre colunas", 17.5, 35.0, 12.78, 2400.0, (22.0, 14.0), 133.33),
+    # TASK-069: a = 0,46 m (eixo de giro real do modelo 3D), então R = 0,46 + L·cos θ.
+    CenarioFicticio("A: pose inicial", 12.0, 35.0, 10.29, 3800.0, (12.0, 11.0), 84.21),
+    CenarioFicticio("B: lança mais alta", 12.0, 60.0, 6.46, 5500.0, (12.0, 8.0), 58.18),
+    CenarioFicticio("C: lança estendida", 22.0, 35.0, 18.48, 1200.0, (22.0, 20.0), 266.67),
+    # ADR-029: 17,5 m usa a coluna de 22 m; 14,80 m fica entre 14 m (2400) e 16 m (1900 kg).
+    CenarioFicticio("D: lança entre colunas", 17.5, 35.0, 14.80, 1900.0, (22.0, 16.0), 168.42),
     CenarioFicticio(
-        "E: raio abaixo da tabela", 12.0, 80.0, 0.52, reasons=("RADIUS_BELOW_CHART_MIN",)
+        "E: raio acima da tabela", 22.0, 0.0, 22.46, reasons=("RADIUS_ABOVE_CHART_MAX",)
     ),
     CenarioFicticio(
         "F: giro para trás",
         12.0,
         35.0,
-        8.27,
-        3360.0,
-        (12.0, 10.0),
-        95.24,
+        10.29,
+        3040.0,
+        (12.0, 11.0),
+        105.26,
         turret_rotation_deg=180.0,
         zone=DEMO_SIDE_REAR_ZONE,
     ),
@@ -104,10 +106,10 @@ ROTEIRO_FICTICIO = (
         "G: giro na fronteira",
         12.0,
         35.0,
-        8.27,
-        3360.0,
-        (12.0, 10.0),
-        95.24,
+        10.29,
+        3040.0,
+        (12.0, 11.0),
+        105.26,
         turret_rotation_deg=55.0,
         zone=DEMO_SIDE_REAR_ZONE,
     ),
@@ -115,7 +117,7 @@ ROTEIRO_FICTICIO = (
 """Valores arredondados a 2 casas, como em `docs/demo.md`: carga FICTÍCIA de 3 000 kg + gancho
 FICTÍCIO de 200 kg = 3 200 kg comparados; ativas a v1 (frontal) e a lateral/traseira v1."""
 
-CENARIO_A_COM_V2 = CenarioFicticio("A com a v2", 12.0, 35.0, 8.27, 3780.0, (12.0, 10.0), 84.66)
+CENARIO_A_COM_V2 = CenarioFicticio("A com a v2", 12.0, 35.0, 10.29, 3420.0, (12.0, 11.0), 93.57)
 CENARIO_F_COM_V2 = ROTEIRO_FICTICIO[5]
 """Com a v2 ativa na zona frontal, a zona lateral/traseira não muda (troca por zona)."""
 
@@ -340,7 +342,7 @@ def test_tabela_de_demonstracao_invalida_nao_grava_nada(demo: Demo) -> None:
 def test_ficha_ficticia_bate_com_o_modelo_3d_ilustrativo() -> None:
     geometry = build_demo_crane_geometry()
 
-    assert geometry.boom_pivot_offset_m == -1.56
+    assert geometry.boom_pivot_offset_m == 0.46
     assert geometry.boom_pivot_height.meters == 3.3
     assert (geometry.boom_length_min.meters, geometry.boom_length_max.meters) == (12.0, 22.0)
     assert (geometry.boom_angle_min.degrees, geometry.boom_angle_max.degrees) == (0.0, 80.0)
@@ -454,3 +456,24 @@ def test_linha_de_comando_com_url_invalida_nao_repete_a_url(tmp_path: Path) -> N
 
     assert exit_code == EXIT_CONFIGURATION_ERROR
     assert "nao-e-url-segredo" not in out.getvalue()
+
+
+def test_ficha_anterior_a_task_069_e_migrada_para_a_do_modelo_novo(demo: Demo) -> None:
+    # Banco semeado antes da TASK-069 (ex.: Render): a ficha tinha a = −1,56 m. O seed troca só a
+    # ficha, sem falhar na subida do serviço.
+    demo.seed()
+    configuration = demo.catalog.get_configuration(DEMO_SEED_IDS.configuration_id)
+    assert configuration is not None
+    legacy = replace(
+        configuration,
+        geometry=replace(configuration.geometry, boom_pivot_offset_m=LEGACY_DEMO_PIVOT_OFFSET_M),
+    )
+    demo.catalog.update_configuration(legacy)
+
+    result = demo.seed()
+
+    steps = {(step.entity, step.action) for step in result.steps}
+    assert ("configuração", SeedAction.UPDATED) in steps
+    migrated = demo.catalog.get_configuration(DEMO_SEED_IDS.configuration_id)
+    assert migrated is not None
+    assert migrated.geometry == build_demo_crane_geometry()

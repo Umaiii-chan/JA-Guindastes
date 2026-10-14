@@ -49,9 +49,9 @@ test('baixar o cabo até a carga tocar o chão para o cabo e mostra o alerta de 
 
   // Vai ao máximo (40 m): o gancho iria bem abaixo do chão, então o cabo para no contato.
   await cable.press('End')
-  // O cabo parou antes do máximo. O alerta «comando bloqueado» some quando o controle de deslizar
-  // arredonda o valor ao passo (0,5 m) e reenvia um valor já seguro; com o GLB da TASK-064 o corte cai
-  // abaixo de um passo e some na hora (estabilizar o alerta fica nos testes a escrever depois).
+  // O cabo parou antes do máximo, e o aviso «comando bloqueado» fica visível (TASK-069: ele dura 2 s
+  // mesmo quando o controle de deslizar reenvia o valor arredondado, já seguro).
+  await expect(page.getByRole('alert').filter({ hasText: /bloqueado/ })).toBeVisible()
   expect(Number.parseFloat(await cable.inputValue())).toBeLessThan(10)
   const height = metersOf(await hookHeight.textContent())
   // Carga de 2 m de altura pendurada por lingas: o gancho para acima do chão, nunca abaixo dele.

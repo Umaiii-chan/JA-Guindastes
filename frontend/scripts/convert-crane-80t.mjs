@@ -41,10 +41,9 @@
 //     GLTFLoader lê sem decodificador). Sem Draco nem meshopt.
 //
 // Calibração (ficha FICTÍCIA de demo; frontend/src/three/crane/provisionalCraneSpec.ts): a escala sai
-// da altura do pino da lança (h = 3,3 m). O pino do arquivo fica 0,4 m à frente da torre; a ficha de
-// demo pede a = −1,56 m (pino atrás do eixo). Para a conferência bater sem mexer na ficha, o eixo de
-// giro (origem O) foi posto 2,0 m à frente da torre original. Efeito visual: ao girar, a superestrutura
-// descreve um arco de 2 m de raio em torno de O (ADR-031). A lança recolhida mede L_min = 12 m: as
+// da altura do pino da lança (h = 3,3 m). O eixo de giro (origem O) é o centro do anel de giro do
+// arquivo, e o pino fica a = 0,46 m à frente dele; a ficha de demo usa esse a (TASK-069). O chassi é
+// girado 180° para a lança em repouso ficar sobre a cabine. A lança recolhida mede L_min = 12 m: as
 // seções 2 a 4 saem ~0,6 m da seção 1 em repouso. As medidas de cálculo nunca são lidas do GLB (RN-003).
 
 import { createHash } from 'node:crypto'
@@ -72,7 +71,10 @@ const EXPECTED_INPUT_SHA256 = '808ffaa5e09937df54ca07b290edf0fa772252f4840d540f8
 // Medidas-alvo: ficha FICTÍCIA de demonstração (ADR-012; backend/app/demo_seed.py).
 // ---------------------------------------------------------------------------------------------
 const TARGET_PIVOT_HEIGHT_M = 3.3 // h: define a escala única
-const TARGET_PIVOT_OFFSET_M = -1.56 // a
+// a: o pino da lança fica 0,46 m à frente do eixo de giro real (centro do anel de giro da
+// superestrutura, x = −1,30 no arquivo; pino em x = −1,70; escala ≈ 1,138). Antes, o eixo era
+// deslocado para caber na ficha antiga (a = −1,56 m) e a superestrutura girava num arco (TASK-069).
+const TARGET_PIVOT_OFFSET_M = 0.46
 const TARGET_RETRACTED_LENGTH_M = 12 // L_min
 /** Curso da lança telescópica na ficha de demo (22 − 12 m): só informativo (extras). */
 const TARGET_TELESCOPE_TRAVEL_M = 10
@@ -89,6 +91,11 @@ const CABLE_RADIUS_M = 0.035
 // ---------------------------------------------------------------------------------------------
 /** Mundo do arquivo → simulador: X' = z, Y' = y, Z' = −x (frente = −X do arquivo). */
 const R_WORLD = new Matrix4().set(0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 0, 1)
+/**
+ * Chassi girado 180° em torno do eixo de giro (TASK-069): no arquivo, a lança em repouso aponta para
+ * a traseira do caminhão; no simulador, ψ = 0 é a frente, com a lança sobre a cabine.
+ */
+const R_CARRIER = new Matrix4().copy(R_WORLD).multiply(new Matrix4().makeRotationY(Math.PI))
 /** Eixos locais da lança (x ao longo da lança, y para baixo) → simulador: X' = z, Y' = −y, Z' = x. */
 const R_BOOM = new Matrix4().set(0, 0, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1)
 /** Camisa do cilindro (eixo +x do arquivo) → +Y local do nó. */
@@ -248,8 +255,8 @@ const extension = newNode('crane-boom-extension', boom)
 
 // Chassi e as vigas fixas das patolas.
 newMeshLeaf('chassi', base, (mesh) => {
-  bake(mesh, need('Crane_Carrier__PBR'), BASE_FRAME, R_WORLD)
-  for (const n of [1, 2, 3, 4]) bake(mesh, need(`Outrigger_0${n}__PBR`), BASE_FRAME, R_WORLD)
+  bake(mesh, need('Crane_Carrier__PBR'), BASE_FRAME, R_CARRIER)
+  for (const n of [1, 2, 3, 4]) bake(mesh, need(`Outrigger_0${n}__PBR`), BASE_FRAME, R_CARRIER)
 })
 
 // Superestrutura e guinchos.
@@ -288,8 +295,21 @@ const tip = newNode('crane-boom-tip', extension, [0, 0, TARGET_RETRACTED_LENGTH_
 const tipFrame = world('Boom_Section_04').multiply(
   new Matrix4().makeTranslation(SOURCE_SECTION_LENGTH, 0, 0),
 )
+// A cabeça vem escura no arquivo (as UVs dela caem numa área escura do atlas de texturas): recebe um
+// material liso na cor clara das seções da lança (TASK-069).
+const boomMaterial = doc
+  .createMaterial('lanca-cabeca')
+  .setBaseColorFactor([0.86, 0.86, 0.84, 1])
+  .setMetallicFactor(0.2)
+  .setRoughnessFactor(0.6)
 newMeshLeaf('lanca-cabeca', tip, (mesh) => {
-  for (const node of meshNodesUnder('Boom_Nose')) bake(mesh, node, tipFrame, R_BOOM)
+  for (const node of meshNodesUnder('Boom_Nose')) {
+    const before = mesh.listPrimitives().length
+    bake(mesh, node, tipFrame, R_BOOM)
+    if (node.getName() === 'Boom_Nose__PBR') {
+      mesh.listPrimitives().slice(before).forEach((primitive) => primitive.setMaterial(boomMaterial))
+    }
+  }
 })
 
 // Cabo e moitão.
@@ -368,7 +388,8 @@ newMeshLeaf('cilindro-haste', rod, (mesh) =>
 }
 
 // Patolas: o arquivo as tem estendidas e com os macacos no chão; aqui ficam recolhidas e suspensas.
-const OUTRIGGERS = { 1: 'fl', 2: 'fr', 3: 'rl', 4: 'rr' }
+// Com o chassi girado 180°, cada patola do arquivo troca de canto (frente↔trás, esquerda↔direita).
+const OUTRIGGERS = { 1: 'rr', 2: 'rl', 3: 'fr', 4: 'fl' }
 const retract = OUTRIGGER_RETRACT_SRC * SCALE
 const lift = OUTRIGGER_LIFT_SRC * SCALE
 for (const [index, position] of Object.entries(OUTRIGGERS)) {
@@ -379,19 +400,19 @@ for (const [index, position] of Object.entries(OUTRIGGERS)) {
   const jack = newNode(`${prefix}-jack`, base, [-side * retract, lift, 0])
   const pad = newNode(`${prefix}-pad`, base, [-side * retract, lift, 0])
   newMeshLeaf(`${prefix}-viga`, beam, (mesh) => {
-    bake(mesh, need(`Outrigger_${n}_Extension__PBR`), BASE_FRAME, R_WORLD)
-    bake(mesh, need(`Outrigger_${n}_Jack__PBR`), BASE_FRAME, R_WORLD)
+    bake(mesh, need(`Outrigger_${n}_Extension__PBR`), BASE_FRAME, R_CARRIER)
+    bake(mesh, need(`Outrigger_${n}_Jack__PBR`), BASE_FRAME, R_CARRIER)
   })
   // A haste é esticada para cima (base fixa na sapata), para continuar dentro da camisa quando sobe.
   const pistonBottom = positionOf(world(`Outrigger_${n}_Piston`)).y - 0.3
   const stretch = (PISTON_TOP_SRC - pistonBottom) / 0.33
   newMeshLeaf(`${prefix}-haste`, jack, (mesh) =>
-    bake(mesh, need(`Outrigger_${n}_Piston__PBR`), BASE_FRAME, R_WORLD, (point) => {
+    bake(mesh, need(`Outrigger_${n}_Piston__PBR`), BASE_FRAME, R_CARRIER, (point) => {
       point.y = pistonBottom + (point.y - pistonBottom) * stretch
     }),
   )
   newMeshLeaf(`${prefix}-sapata`, pad, (mesh) =>
-    bake(mesh, need(`Outrigger_${n}_GroundPad__PBR`), BASE_FRAME, R_WORLD),
+    bake(mesh, need(`Outrigger_${n}_GroundPad__PBR`), BASE_FRAME, R_CARRIER),
   )
 }
 

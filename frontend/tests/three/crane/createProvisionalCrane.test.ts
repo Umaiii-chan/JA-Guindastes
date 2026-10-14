@@ -89,7 +89,7 @@ describe('createProvisionalCrane (guindaste provisório, medidas FICTÍCIAS)', (
     expect(() => createProvisionalCrane(PROVISIONAL_CRANE_DIMENSIONS, geometry)).toThrow(RangeError)
   })
 
-  it('os parâmetros geométricos FICTÍCIOS são os do guindaste provisório (a = −1,56 m; h = 3,3 m)', () => {
-    expect(PROVISIONAL_CRANE_GEOMETRY).toEqual({ boomPivotOffsetM: -1.56, boomPivotHeightM: 3.3 })
+  it('os parâmetros geométricos FICTÍCIOS são os do guindaste provisório (a = 0,46 m; h = 3,3 m)', () => {
+    expect(PROVISIONAL_CRANE_GEOMETRY).toEqual({ boomPivotOffsetM: 0.46, boomPivotHeightM: 3.3 })
   })
 })

@@ -50,7 +50,7 @@ export const TRUCK_CRANE_LUFFING_NODE_NAMES = {
  * ADR-013 C-4, regra 1).
  */
 export const TRUCK_CRANE_MODEL_MEASUREMENTS = {
-  boomPivotOffsetM: -1.56,
+  boomPivotOffsetM: 0.46,
   boomPivotHeightM: 3.3,
   boomRetractedLengthM: 12,
 } as const satisfies CraneGeometryParameters & { readonly boomRetractedLengthM: number }

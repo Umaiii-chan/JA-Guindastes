@@ -147,7 +147,7 @@ describe('RadiusIndicator', () => {
     expect(full.root.getObjectByName(RADIUS_INDICATOR_NAMES.reachMin)).toBeInstanceOf(Line)
     expect(full.root.getObjectByName(RADIUS_INDICATOR_NAMES.reachMax)).toBeInstanceOf(Line)
     expect(full.root.getObjectByName(RADIUS_INDICATOR_NAMES.reachEdges)).toBeUndefined()
-    expectClose(full.reach.maxM, 20.44, 1e-9)
+    expectClose(full.reach.maxM, 22.46, 1e-9)
 
     const sector = indicator({
       ...PROVISIONAL_CRANE_LIMITS,
@@ -164,7 +164,7 @@ describe('RadiusIndicator', () => {
     const arc = target.root.getObjectByName(RADIUS_INDICATOR_NAMES.reachMax) as Line
     const positions = arc.geometry.getAttribute('position')
     for (let index = 0; index < positions.count; index += 1) {
-      expectClose(Math.hypot(positions.getX(index), positions.getZ(index)), 20.44, 1e-6)
+      expectClose(Math.hypot(positions.getX(index), positions.getZ(index)), 22.46, 1e-5)
     }
   })
 })

@@ -48,13 +48,13 @@ const TIGHT_CALIBRATION = { positionM: 1e-3, rotationDeg: 1e-3 }
  * SHA-256 do GLB versionado: é o que `node scripts/convert-crane-80t.mjs` gera (determinístico).
  * Mudou o script? Regenere o GLB e atualize este valor e o handoff da TASK-064.
  */
-const GLB_SHA256 = '9292432f9c9c3d3fda5482e98ac3393773b45eb077dbb994becd6931247f98a1'
+const GLB_SHA256 = 'bae4cadae0a84774f10ac6a2f6fa6c2a13dcb673db8a005514cc50d4a558bb1e'
 
 /**
  * Ficha FICTÍCIA de demonstração do backend (`backend/app/demo_seed.py`: a = −1,56 m, ADR-031, h = 3,3 m, L_min = 12 m; ADR-012).
  */
 const DEMO_CONFIG: Omit<CraneKinematicsConfig, 'nodeNames'> = {
-  geometryParameters: { boomPivotOffsetM: -1.56, boomPivotHeightM: 3.3 },
+  geometryParameters: { boomPivotOffsetM: 0.46, boomPivotHeightM: 3.3 },
   boomRetractedLengthM: 12,
   calibrationTolerance: TIGHT_CALIBRATION,
 }
