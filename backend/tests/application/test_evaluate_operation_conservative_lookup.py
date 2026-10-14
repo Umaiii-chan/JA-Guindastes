@@ -122,10 +122,6 @@ def test_ficticio_radius_with_float_noise_is_evaluated_with_the_tabulated_point(
         pytest.param(
             10.0, 30.0, CapacityUnsupportedReason.RADIUS_BELOW_CHART_MIN, id="raio-abaixo"
         ),
-        # L = 15 m: a tabela só tem 10, 20 e 30 m (ADR-013 C-6).
-        pytest.param(
-            15.0, 0.0, CapacityUnsupportedReason.BOOM_LENGTH_NOT_IN_CHART, id="lanca-entre-colunas"
-        ),
     ],
 )
 def test_ficticio_state_outside_the_chart_domain_is_not_evaluable_with_the_strategy_reason(
@@ -141,3 +137,15 @@ def test_ficticio_state_outside_the_chart_domain_is_not_evaluable_with_the_strat
     assert result.geometry is not None
     assert isinstance(result.capacity, CapacityUnsupported)
     assert result.load_chart_version == LOAD_CHART_AVALIACAO_FICTICIO_VERSION
+
+
+def test_ficticio_boom_length_between_columns_uses_the_next_longer_column() -> None:
+    # ADR-029: L = 15 m usa a coluna de 20 m; R = 16,5 m fica entre 11,5 m (5000 kg) e 21,5 m
+    # (2000 kg), e vale a menor.
+    result = evaluate_ficticio(boom_length_m=15.0, boom_angle_deg=0.0, load_kg=1500.0)
+
+    assert isinstance(result, EvaluatedOperation)
+    capacity = result.capacity
+    assert isinstance(capacity, ConservativeCapacityFound)
+    assert capacity.used_point == point_ficticio(20.0, 21.5, 2000.0)
+    assert result.utilization_percent == 75.0

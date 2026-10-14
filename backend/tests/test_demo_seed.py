@@ -84,9 +84,8 @@ ROTEIRO_FICTICIO = (
     CenarioFicticio("A: pose inicial", 12.0, 35.0, 8.27, 4200.0, (12.0, 10.0), 76.19),
     CenarioFicticio("B: lança mais alta", 12.0, 60.0, 4.44, 7000.0, (12.0, 6.0), 45.71),
     CenarioFicticio("C: lança estendida", 22.0, 35.0, 16.46, 1500.0, (22.0, 18.0), 213.33),
-    CenarioFicticio(
-        "D: lança fora da tabela", 17.5, 35.0, 12.78, reasons=("BOOM_LENGTH_NOT_IN_CHART",)
-    ),
+    # ADR-029: 17,5 m usa a coluna de 22 m; 12,78 m fica entre 12 m (3000) e 14 m (2400 kg).
+    CenarioFicticio("D: lança entre colunas", 17.5, 35.0, 12.78, 2400.0, (22.0, 14.0), 133.33),
     CenarioFicticio(
         "E: raio abaixo da tabela", 12.0, 80.0, 0.52, reasons=("RADIUS_BELOW_CHART_MIN",)
     ),

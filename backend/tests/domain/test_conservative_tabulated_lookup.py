@@ -260,19 +260,31 @@ def test_ficticio_radius_outside_the_chart_range_is_unsupported_with_its_reason(
 
 
 @pytest.mark.parametrize(
-    "boom_length_m",
+    ("boom_length_m", "expected_point"),
     [
-        pytest.param(25.0, id="entre-colunas"),
-        pytest.param(10.0, id="abaixo-da-menor-coluna"),
-        pytest.param(40.0, id="acima-da-maior-coluna"),
-        pytest.param(20.0 + BEYOND_TOLERANCE_M, id="alem-de-eps"),
+        # 25 m usa a coluna de 30 m; 10 m fica entre 8 m (5000 kg) e 12 m (3500 kg).
+        pytest.param(25.0, point_ficticio(30.0, 12.0, 3500.0), id="entre-colunas"),
+        # 10 m usa a coluna de 20 m; 10 m fica entre 8 m (6000 kg) e 11,5 m (4500 kg).
+        pytest.param(10.0, point_ficticio(20.0, 11.5, 4500.0), id="abaixo-da-menor-coluna"),
+        pytest.param(
+            20.0 + BEYOND_TOLERANCE_M, point_ficticio(30.0, 12.0, 3500.0), id="alem-de-eps"
+        ),
     ],
 )
-def test_ficticio_boom_length_not_in_chart_is_unsupported(boom_length_m: float) -> None:
-    # ADR-013 C-6 e ADR-015: sem interpolação nem arredondamento de comprimento.
-    result = assert_unsupported(lookup_ficticio(boom_length_m, 10.0))
+def test_ficticio_boom_length_between_columns_uses_the_next_longer_column(
+    boom_length_m: float, expected_point: LoadChartPoint
+) -> None:
+    # ADR-029: nota padrão das tabelas de fabricante; o comprimento não é interpolado.
+    result = assert_found(lookup_ficticio(boom_length_m, 10.0))
 
-    assert result.reason is CapacityUnsupportedReason.BOOM_LENGTH_NOT_IN_CHART
+    assert result.used_point == expected_point
+    assert result.query.boom_length == Length(boom_length_m)
+
+
+def test_ficticio_boom_length_above_the_longest_column_is_unsupported() -> None:
+    result = assert_unsupported(lookup_ficticio(40.0, 10.0))
+
+    assert result.reason is CapacityUnsupportedReason.BOOM_LENGTH_ABOVE_CHART_MAX
 
 
 @pytest.mark.parametrize(
