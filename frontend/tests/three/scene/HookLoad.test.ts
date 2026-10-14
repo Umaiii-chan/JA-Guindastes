@@ -116,4 +116,28 @@ describe('HookLoad', () => {
 
     expect(hook.children).toHaveLength(0)
   })
+
+  it('com um moitão na cadeia, esconde o moitão do modelo e a carga parte do fim do cabo', () => {
+    const hook = new Group()
+    const builtIn = new Mesh(new BoxGeometry(1, 1, 1))
+    builtIn.position.y = -0.5
+    hook.add(builtIn)
+    const hookLoad = new HookLoad(hook)
+    hookLoad.setLoad({ lengthM: 1, widthM: 1, heightM: 1 })
+    const withHook = hookLoad.currentLayout!.slingTop.y
+    const chain = new Group()
+
+    hookLoad.setAccessories(chain, 1.4, true)
+
+    expect(builtIn.visible).toBe(false)
+    expect(hookLoad.root.visible).toBe(true)
+    expect(chain.parent).toBe(hookLoad.root)
+    expect(chain.position.y).toBeGreaterThan(-0.05)
+    expect(hookLoad.currentLayout!.slingTop.y).toBeLessThan(0)
+    expect(hookLoad.currentLayout!.slingTop.y).toBeGreaterThan(withHook - 1.4)
+
+    hookLoad.setAccessories(chain, 1.4, false)
+    expect(builtIn.visible).toBe(true)
+    expect(chain.position.y).toBeCloseTo(withHook, 5)
+  })
 })

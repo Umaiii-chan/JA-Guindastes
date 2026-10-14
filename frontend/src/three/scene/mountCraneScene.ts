@@ -398,7 +398,11 @@ export function mountCraneScene(
     },
     setAccessories(accessories) {
       if (disposed || !accessoryChain.setAccessories(accessories)) return
-      hookLoad.setAccessories(accessoryChain.root, accessoryChain.totalDropM)
+      hookLoad.setAccessories(
+        accessoryChain.root,
+        accessoryChain.totalDropM,
+        accessoryChain.replacesHook,
+      )
       invalidate()
     },
     setRotationZones(zones) {

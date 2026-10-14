@@ -294,6 +294,7 @@ export function SimulatorRoute() {
     id: item.id,
     riggingHeightM: item.riggingHeightM,
     modelUrl: accessoryModelUrl(item),
+    replacesHook: item.type === 'HOOK_BLOCK',
   }))
   const handleAccessoryModelResult = useCallback((accessoryId: string, loaded: boolean) => {
     setFailedModelIds((previous) => {
