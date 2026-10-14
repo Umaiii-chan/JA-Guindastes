@@ -21,7 +21,7 @@ import type { CraneCommands, CraneState } from '../../three/crane/types'
 import { useCatalog } from '../catalog/catalogContext'
 import { useScenario } from '../scenario/scenarioContext'
 import { applyRecommendationToScenario } from '../../application/planning/applyRecommendation'
-import { applyPlanState, PLAYBACK_SPEEDS, usePlanPlayback } from './usePlanPlayback'
+import { applyPlanState, PLAYBACK_SPEEDS, startsPhase, usePlanPlayback } from './usePlanPlayback'
 import { usePlanning } from './usePlanning'
 
 export interface PlanningSectionProps {
@@ -107,6 +107,9 @@ export function PlanningSection({
     refreshMs,
     // Coleta e entrega (TASK-073): a trajetória engata no quadro "Engatar" e solta no "Soltar".
     onKeyframe: (point) => {
+      // O planejador gera dois quadros "engatar" seguidos (chegar e segurar): só o primeiro de cada
+      // fase engata ou solta. Antes, o segundo tentava engatar a carga já no gancho e parava.
+      if (!startsPhase(points, point)) return false
       const tandem = selected?.kind === 'tandem'
       const problem =
         point.phase === 'engatar'

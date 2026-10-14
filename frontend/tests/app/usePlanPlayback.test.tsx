@@ -5,7 +5,11 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { keyframesCrossed, usePlanPlayback } from '../../src/app/planning/usePlanPlayback'
+import {
+  keyframesCrossed,
+  startsPhase,
+  usePlanPlayback,
+} from '../../src/app/planning/usePlanPlayback'
 import type { PlanPhase, TrajectoryPoint } from '../../src/domain/planning/planning'
 import type { CraneCommands } from '../../src/three/crane/types'
 
@@ -130,5 +134,17 @@ describe('execução da trajetória', () => {
     expect(phases).toEqual(['aproximar', 'engatar'])
     expect(result.current.playing).toBe(false)
     expect(result.current.phase).toBe('engatar')
+  })
+})
+
+describe('startsPhase', () => {
+  it('only the first of consecutive keyframes of a phase starts it (two "engatar" from the planner)', () => {
+    const plan = [
+      point(0, 'aproximar'),
+      point(2, 'engatar'),
+      point(3, 'engatar'),
+      point(5, 'levantar'),
+    ]
+    expect(plan.map((point) => startsPhase(plan, point))).toEqual([true, true, false, true])
   })
 })
