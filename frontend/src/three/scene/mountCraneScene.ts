@@ -113,6 +113,8 @@ export interface CraneSceneHandle {
   setScenario(scenario: ScenarioSpec | null): void
   /** Leva a câmera a uma predefinição, enquadrando o estado atual do guindaste. */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
+  /** Distância (m) de G até onde as lingas se prendem, medida no gancho em uso (TASK-075). */
+  hookAttachOffsetM(): number
   /**
    * Dados do cenário (terreno, obstáculos e posição do guindaste) usados só para colidir (TASK-053;
    * ADR-028); quem desenha é a TASK-052. Sem chamar, vale o cenário vazio: chão plano em y = 0 e o
@@ -463,6 +465,9 @@ export function mountCraneScene(
       editor?.refresh()
       if (followedPreset && !transition) jumpTo(presetView(followedPreset))
       invalidate()
+    },
+    hookAttachOffsetM() {
+      return contents.hookLoad.currentAttachOffsetM
     },
     setCameraPreset(preset, options = {}) {
       if (disposed) return

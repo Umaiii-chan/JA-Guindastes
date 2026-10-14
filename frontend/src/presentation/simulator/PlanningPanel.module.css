@@ -1,0 +1,171 @@
+/* Painel "Planejar operação" (TASK-075): pontos, recomendações, trajetória e passo a passo. */
+
+.panel {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.section {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.heading {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.grid4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.distance {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Recomendação: ficha com filete; a escolhida ganha o filete laranja à esquerda. */
+.card {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-left-width: 3px;
+  background: var(--color-surface-1);
+  font: inherit;
+  text-align: left;
+  color: var(--color-text-1);
+  cursor: pointer;
+}
+
+.card:hover {
+  background: var(--color-surface-2, var(--color-surface-1));
+}
+
+.card[aria-pressed='true'] {
+  border-color: var(--color-border-ink);
+  border-left-color: var(--color-accent);
+  background: var(--color-accent-softer);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.cardTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.cardSummary {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.notes {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 0 0 var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.progress {
+  position: relative;
+  height: 6px;
+  border: 1px solid var(--color-border-ink);
+  background: var(--color-surface-1);
+}
+
+.progressBar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--color-accent);
+}
+
+.playRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.speed {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+/* Passo a passo: a próxima ação em destaque, com o filete laranja do manual. */
+.guide {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-ink);
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-surface-1);
+}
+
+.guideCount {
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+
+.guideAction {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.guideAction[data-done] {
+  color: var(--color-status-ok);
+}
+
+.guideMore {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}

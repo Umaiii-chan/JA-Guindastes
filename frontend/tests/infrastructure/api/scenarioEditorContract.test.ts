@@ -41,6 +41,28 @@ describe('cenário com solo, vento e nivelamento', () => {
   })
 })
 
+describe('cenário com coleta e entrega (TASK-075)', () => {
+  const planned: ScenarioSpec = {
+    ...EMPTY_SCENARIO,
+    cargo: { x: -7.5, z: 1, rotationYDeg: 10 },
+    delivery: { x: 7.5, z: -1, rotationYDeg: 90, radiusM: 2 },
+  }
+
+  it('ida e volta pelo JSON do backend em snake_case', () => {
+    const dto = toScenarioSpecDto(planned)
+    expect(dto.cargo).toEqual({ x: -7.5, z: 1, rotation_y_deg: 10 })
+    expect(dto.delivery).toEqual({ x: 7.5, z: -1, rotation_y_deg: 90, radius_m: 2 })
+    expect(mapScenarioSpec(dto, 'spec')).toEqual(planned)
+  })
+
+  it('cenário sem coleta e entrega continua salvando igual', () => {
+    const dto = toScenarioSpecDto(EMPTY_SCENARIO)
+    expect(dto).not.toHaveProperty('cargo')
+    expect(dto).not.toHaveProperty('delivery')
+    expect(mapScenarioSpec({ ...dto, cargo: null, delivery: null }, 'spec')).toEqual(EMPTY_SCENARIO)
+  })
+})
+
 describe('avaliação com o cenário', () => {
   const state = {
     turretRotationDeg: 0,

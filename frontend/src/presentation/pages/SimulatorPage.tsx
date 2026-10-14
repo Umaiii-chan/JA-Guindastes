@@ -27,6 +27,8 @@ export interface SimulatorPageProps {
   readonly editorToolbar?: ReactNode
   /** Faixa de coleta e entrega da carga (TASK-073), sob as ferramentas do editor. */
   readonly operationBar?: ReactNode
+  /** Seção "Planejar operação" (TASK-075), recolhida, abaixo dos passos. */
+  readonly planning?: ReactNode
 }
 
 /**
@@ -46,6 +48,7 @@ export function SimulatorPage({
   environment,
   editorToolbar,
   operationBar,
+  planning,
 }: SimulatorPageProps) {
   const stageRef = useRef<HTMLDivElement>(null)
   // Tela cheia (Fullscreen API) e painel recolhido: deixam a cena ocupar o espaço (TASK-062).
@@ -87,6 +90,11 @@ export function SimulatorPage({
     >
       <div className={styles.procedure} hidden={panelHidden}>
         {steps}
+        {planning && (
+          <CollapsibleSection id="planning" title="Planejar operação">
+            {planning}
+          </CollapsibleSection>
+        )}
         {accessories && (
           <CollapsibleSection id="accessories" title="Acessórios de içamento">
             {accessories}

@@ -62,6 +62,7 @@ from app.application.ports.crane_geometry_provider import CraneGeometryProvider
 from app.application.ports.crane_limits_provider import CraneLimitsProvider
 from app.application.use_cases.compute_operating_area import ComputeOperatingArea
 from app.application.use_cases.evaluate_operation import EvaluateOperation
+from app.application.use_cases.recommend_lift_plan import RecommendLiftPlan
 from app.auth_composition import build_auth
 from app.domain.entities.load_chart import LoadChart
 from app.domain.services.linear_interpolation_lookup import LinearInterpolationLookup
@@ -96,6 +97,7 @@ from app.presentation.api.operating_area import (
     ComputeOperatingAreaDependency,
     shared_compute_operating_area,
 )
+from app.presentation.api.planning import RecommendLiftPlanDependency
 from app.presentation.api.upload_limits import UploadLimits
 
 logger = logging.getLogger(__name__)
@@ -221,6 +223,22 @@ def operating_area_per_request(engine: Engine) -> ComputeOperatingAreaDependency
     return provide
 
 
+def planning_per_request(engine: Engine) -> RecommendLiftPlanDependency:
+    """Dependência FastAPI do planejamento (TASK-075): uma conexão do pool por requisição."""
+
+    def provide() -> Iterator[RecommendLiftPlan]:
+        with engine.connect() as connection:
+            session_factory = sessionmaker(bind=connection)
+            yield RecommendLiftPlan(
+                catalog=SqlAlchemyCraneCatalogRepository(session_factory),
+                active_load_chart_provider=SqlAlchemyLoadChartRepository(session_factory),
+                load_chart_interpolator=load_chart_interpolator,
+                accessory_provider=SqlAlchemyAccessoryRepository(session_factory),
+            )
+
+    return provide
+
+
 def evaluate_operation_per_request(engine: Engine) -> EvaluateOperationDependency:
     """Dependência FastAPI da avaliação REST: uma conexão do pool por requisição.
 
@@ -283,6 +301,7 @@ def create_database_app(engine: Engine, environ: Mapping[str, str] | None = None
         upload_limits=UploadLimits(),
         evaluation=evaluate_operation_per_request(engine),
         operating_area=operating_area_per_request(engine),
+        planning=planning_per_request(engine),
         evaluation_websocket=build_database_evaluate_operation(session_factory),
         database_health_check=database_health_check(engine),
         # Catálogo (TASK-030) e suas edições (TASK-044) no mesmo engine da avaliação: um pool só.

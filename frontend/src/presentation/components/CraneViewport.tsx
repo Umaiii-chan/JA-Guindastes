@@ -34,6 +34,8 @@ export interface CraneViewportHandle {
   releaseCargo(): boolean
   /** Mostra o estado da carga de uma gravação em reprodução; `null` volta ao estado ao vivo. */
   setCargoPlayback(state: CargoState | null): void
+  /** Do gancho ao ponto de amarração das lingas, medido na cena; `null` sem cena (TASK-075). */
+  hookAttachOffsetM(): number | null
 }
 
 interface CraneViewportProps {
@@ -151,6 +153,9 @@ export function CraneViewport({
       engageCargo: () => sceneRef.current?.engageCargo() ?? false,
       releaseCargo: () => sceneRef.current?.releaseCargo() ?? false,
       setCargoPlayback: (state) => sceneRef.current?.setCargoPlayback(state),
+      hookAttachOffsetM() {
+        return sceneRef.current?.hookAttachOffsetM() ?? null
+      },
     }),
     [],
   )
