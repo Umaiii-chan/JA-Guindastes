@@ -58,19 +58,17 @@
 .cell {
   display: grid;
   align-content: start;
-  gap: 6px;
-  padding: var(--space-2) var(--space-4);
+  gap: 4px;
+  padding: 6px var(--space-4);
   min-width: 0;
 }
 
 /* Utilização: a linha inteira, sobre um filete. */
 .cellUtilization {
   grid-column: 1 / -1;
-  /* altura fixa: a legenda "acima de 100 %" não empurra a cena quando aparece */
-  min-height: 88px;
   align-content: center;
-  padding-top: var(--space-2);
-  padding-bottom: var(--space-2);
+  padding-top: 4px;
+  padding-bottom: 4px;
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -343,9 +341,9 @@ span.riskPill {
   min-width: 9ch;
 }
 
-/* Alertas de segurança: altura fixa e rolagem por dentro. */
+/* Alertas de segurança: sem espaço reservado vazio; lista longa rola por dentro. */
 .alertsBox {
-  height: 56px;
+  max-height: 56px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }

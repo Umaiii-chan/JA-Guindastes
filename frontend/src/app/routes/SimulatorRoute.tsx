@@ -835,9 +835,6 @@ export function SimulatorRoute() {
                 slow={evaluation.slow}
               />
             )}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-              <LiftReportButton buildRequest={buildLiftReportRequest} />
-            </div>
           </>
         }
         tandem={
@@ -873,11 +870,23 @@ export function SimulatorRoute() {
           />
         }
         geometry={
-          <OperationalGeometryPanel
-            geometry={crane?.geometry ?? null}
-            parameters={crane?.commands.geometryParameters ?? null}
-            parametersFromSheet={craneSetup.fromSheet}
-          />
+          <>
+            <OperationalGeometryPanel
+              geometry={crane?.geometry ?? null}
+              parameters={crane?.commands.geometryParameters ?? null}
+              parametersFromSheet={craneSetup.fromSheet}
+            />
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 'var(--space-2)',
+                padding: '0 var(--space-3) var(--space-2)',
+              }}
+            >
+              <LiftReportButton buildRequest={buildLiftReportRequest} />
+            </div>
+          </>
         }
         recording={
           <RecordingPanel

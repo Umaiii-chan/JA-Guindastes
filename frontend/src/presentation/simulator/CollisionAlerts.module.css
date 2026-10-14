@@ -1,6 +1,7 @@
-/* Alertas de colisão: altura fixa (aparecer ou sumir não empurra a ficha) e rolagem por dentro. */
+/* Alertas de colisão: sem espaço reservado quando não há nada a avisar (TASK-082); com aviso, altura
+   limitada e rolagem por dentro. */
 .box {
-  height: 64px;
+  max-height: 64px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
