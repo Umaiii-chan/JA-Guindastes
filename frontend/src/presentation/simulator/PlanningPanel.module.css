@@ -169,3 +169,10 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-2);
 }
+
+/* Ações da recomendação (como "Explicar"), logo abaixo da ficha. */
+.cardActions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-1);
+}

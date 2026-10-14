@@ -93,3 +93,9 @@ de paridade avisam); as medidas do corpo do guindaste (`crane_body.py`) são do 
 - Mais arriscado: a escolha do sentido do giro e da altura de transporte, e o descarte por corpo do
   guindaste (`_site_at`, `_swings`).
 - Menos certeza: o tandem (aproximação de duas trajetórias independentes).
+
+## 12. Integração com as levas 072, 073 e 076 (branch `leva-f/integracao-075`)
+
+- Carga e entrega: vale a versão canônica da TASK-073 (`CargoPlacement`, `DeliveryPoint`; no backend `CargoPlacementSpec`, `DeliveryPointSpec`, raio da entrega de 0,5 a 30 m). A cópia da 075 (`DeliveryPlacement`, `CargoSpec`, `DeliverySpec`) foi removida.
+- Os marcadores `PlanMarkers` da 075 foram removidos: a cena da 073 já desenha a carga e o ponto de entrega.
+- O botão "Explicar" (TASK-076) aparece em cada recomendação do painel "Planejar operação"; envia a recomendação sem a trajetória e a coleta/entrega como contexto.

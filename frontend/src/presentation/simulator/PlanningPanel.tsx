@@ -7,6 +7,7 @@ import {
   type PlanRecommendation,
   type PlanningResult,
 } from '../../domain/planning/planning'
+import { ExplainRecommendationButton } from '../ai'
 import { NumberField } from '../panels/NumberField'
 import { Badge, Button, Notice, Spinner, type Tone } from '../ui'
 import styles from './PlanningPanel.module.css'
@@ -75,12 +76,29 @@ function percent(value: number): string {
   return `${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} %`
 }
 
+/** Recomendação sem a trajetória (quadros demais): o que a IA precisa para explicar. */
+function recommendationForAi(item: PlanRecommendation): Record<string, unknown> {
+  return {
+    kind: item.kind,
+    configurationIds: item.configurationIds,
+    placements: item.placements,
+    maxLimitUtilizationPercent: item.maxLimitUtilizationPercent,
+    tippingRisk: item.tippingRisk,
+    valid: item.valid,
+    summary: item.summary,
+    notes: item.notes,
+    details: item.details,
+  }
+}
+
 function Card({
   item,
+  context,
   selected,
   onSelect,
 }: {
   readonly item: PlanRecommendation
+  readonly context: Record<string, unknown>
   readonly selected: boolean
   onSelect(): void
 }) {
@@ -112,6 +130,9 @@ function Card({
           </span>
         </span>
       </button>
+      <div className={styles.cardActions}>
+        <ExplainRecommendationButton recommendation={recommendationForAi(item)} context={context} />
+      </div>
     </li>
   )
 }
@@ -143,6 +164,16 @@ export function PlanningPanel({
   const distance = Math.hypot(pick.x - delivery.x, pick.z - delivery.z)
   const recommendations = result?.recommendations ?? []
   const selected = recommendations[selectedIndex]
+  const aiContext = {
+    coleta: { x: pick.x, z: pick.z, giroGraus: pick.rotationYDeg },
+    entrega: {
+      x: delivery.x,
+      z: delivery.z,
+      giroGraus: delivery.rotationYDeg,
+      raioM: delivery.radiusM,
+    },
+    distanciaM: distance,
+  }
 
   return (
     <div className={styles.panel}>
@@ -236,6 +267,7 @@ export function PlanningPanel({
                 <Card
                   key={`${item.configurationIds.join('+')}-${index}`}
                   item={item}
+                  context={aiContext}
                   selected={index === selectedIndex}
                   onSelect={() => onSelect(index)}
                 />
