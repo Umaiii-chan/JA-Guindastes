@@ -87,7 +87,7 @@ describe('EvaluationSession', () => {
       session.update(FICTICIO_INPUT)
       vi.advanceTimersByTime(WAIT_MS)
 
-      expect(session.getState().connectionStatus).toBe('closed')
+      expect(session.getState().connectionStatus).toBe('rest')
       expect(calls).toHaveLength(1)
       calls[0].resolve(mapEvaluationResponse(REST_NOT_EVALUABLE))
       await Promise.resolve()
@@ -345,6 +345,100 @@ describe('EvaluationSession', () => {
 
       expect(factory.latest().closedByClient).toBe(true)
       expect(session.getState()).toMatchObject({ connectionStatus: 'closed', result: null })
+    })
+  })
+
+  describe('resposta que não chega (TASK-050)', () => {
+    const REPLY_TIMEOUT_MS = 2000
+    const SLOW_AFTER_MS = 1000
+
+    function timedSetup() {
+      const oneShot = fakeOneShot()
+      const factory = fakeWebSocketFactory()
+      const session = new EvaluationSession({
+        createRealtimeChannel: (handlers) =>
+          new EvaluationSocket(
+            {
+              url: 'ws://test/api/v1/ws/evaluation',
+              createWebSocket: factory.create,
+              reconnectDelayMs: RECONNECT_MS,
+            },
+            handlers,
+          ),
+        oneShotEvaluator: oneShot.evaluator,
+        debounce: { waitMs: WAIT_MS, maxWaitMs: MAX_WAIT_MS },
+        replyTimeoutMs: REPLY_TIMEOUT_MS,
+        slowAfterMs: SLOW_AFTER_MS,
+      })
+      session.start()
+      factory.latest().acceptConnection()
+      return { ...oneShot, factory, session }
+    }
+
+    it('sem resposta do WebSocket, repete o mesmo sequence por REST', async () => {
+      const { calls, factory, session } = timedSetup()
+
+      session.update(withLoad(1000))
+      vi.advanceTimersByTime(WAIT_MS)
+      expect(factory.latest().sentMessages()).toHaveLength(1)
+      expect(calls).toHaveLength(0)
+
+      vi.advanceTimersByTime(REPLY_TIMEOUT_MS)
+      expect(calls).toHaveLength(1)
+      expect(calls[0].input.loadWeightKg).toBe(1000)
+
+      calls[0].resolve(mapEvaluationResponse(REST_NOT_EVALUABLE))
+      await Promise.resolve()
+      expect(session.getState()).toMatchObject({
+        transport: 'rest',
+        pending: false,
+        slow: false,
+        lastAppliedSequence: 1,
+      })
+    })
+
+    it('com resposta do WebSocket a tempo, não usa REST', () => {
+      const { calls, factory, session } = timedSetup()
+
+      session.update(withLoad(1000))
+      vi.advanceTimersByTime(WAIT_MS)
+      factory.latest().receive(wsEvaluated(1, 50))
+      vi.advanceTimersByTime(REPLY_TIMEOUT_MS * 2)
+
+      expect(calls).toHaveLength(0)
+      expect(session.getState()).toMatchObject({ pending: false, slow: false })
+    })
+
+    it('avisa que o backend está demorando e limpa o aviso quando ele responde', async () => {
+      const { calls, session } = timedSetup()
+
+      session.update(withLoad(1000))
+      vi.advanceTimersByTime(WAIT_MS)
+      expect(session.getState().slow).toBe(false)
+      vi.advanceTimersByTime(SLOW_AFTER_MS)
+      expect(session.getState()).toMatchObject({ slow: true, pending: true })
+
+      vi.advanceTimersByTime(REPLY_TIMEOUT_MS)
+      calls[0].resolve(mapEvaluationResponse(REST_NOT_EVALUABLE))
+      await Promise.resolve()
+      expect(session.getState()).toMatchObject({ slow: false, pending: false })
+    })
+
+    it('clear() e stop() desarmam os relógios', () => {
+      const { calls, session } = timedSetup()
+
+      session.update(withLoad(1000))
+      vi.advanceTimersByTime(WAIT_MS)
+      session.clear()
+      vi.advanceTimersByTime(REPLY_TIMEOUT_MS * 2)
+      expect(calls).toHaveLength(0)
+      expect(session.getState().slow).toBe(false)
+
+      session.update(withLoad(1100))
+      vi.advanceTimersByTime(WAIT_MS)
+      session.stop()
+      vi.advanceTimersByTime(REPLY_TIMEOUT_MS * 2)
+      expect(calls).toHaveLength(0)
     })
   })
 

@@ -8,7 +8,10 @@
 // - com o WebSocket aberto, o estado vai por ele (ADR-010: ciclo interativo); sem ele, vai por REST
 //   (`POST /api/v1/evaluations`), para a tela continuar mostrando o valor do backend (RN-008);
 // - ao (re)conectar, o último estado é reenviado; ao cair com resposta pendente, ele vai por REST;
-// - um erro limpa o resultado mostrado: um resultado antigo não pode parecer ser do estado atual.
+// - um erro limpa o resultado mostrado: um resultado antigo não pode parecer ser do estado atual;
+// - sem resposta do WebSocket em `replyTimeoutMs`, o mesmo estado vai por REST (TASK-050);
+// - com um envio sem resposta há mais de `slowAfterMs`, `slow` avisa a tela (ex.: o backend no plano
+//   gratuito do Render acordando, ~1 min; known-gaps § 7), em vez de "atualizando…" sem explicação.
 //
 // Sem nível de alerta (PEND-004): o resultado é mostrado como o backend o devolveu.
 
@@ -36,6 +39,8 @@ export interface EvaluationSessionState {
   readonly lastSentSequence: number
   /** `sequence` da última resposta aplicada (0 = nenhuma). */
   readonly lastAppliedSequence: number
+  /** O último envio está sem resposta há mais de `slowAfterMs` (TASK-050). */
+  readonly slow: boolean
 }
 
 export interface EvaluationSessionOptions {
@@ -43,6 +48,10 @@ export interface EvaluationSessionOptions {
   readonly createRealtimeChannel?: RealtimeChannelFactory
   readonly oneShotEvaluator: OneShotEvaluator
   readonly debounce?: DebounceOptions
+  /** Espera pela resposta do WebSocket antes de repetir o estado por REST. */
+  readonly replyTimeoutMs?: number
+  /** Tempo sem resposta a partir do qual a tela avisa que o backend está demorando. */
+  readonly slowAfterMs?: number
 }
 
 /**
@@ -50,6 +59,10 @@ export interface EvaluationSessionOptions {
  * máximo 400 ms durante mudanças contínuas.
  */
 export const DEFAULT_DEBOUNCE: DebounceOptions = { waitMs: 150, maxWaitMs: 400 }
+
+/** PROVISÓRIO — valores técnicos (TASK-050), sem requisito: uma resposta normal leva milissegundos. */
+export const DEFAULT_REPLY_TIMEOUT_MS = 8000
+export const DEFAULT_SLOW_AFTER_MS = 4000
 
 const INITIAL_STATE: EvaluationSessionState = {
   connectionStatus: 'idle',
@@ -59,6 +72,7 @@ const INITIAL_STATE: EvaluationSessionState = {
   transport: null,
   lastSentSequence: 0,
   lastAppliedSequence: 0,
+  slow: false,
 }
 
 type Outcome =
@@ -74,6 +88,8 @@ export class EvaluationSession {
   private latestInput: EvaluationInput | null = null
   /** Invalida as respostas REST em voo quando a sessão para. */
   private generation = 0
+  private replyTimer: ReturnType<typeof setTimeout> | null = null
+  private slowTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(options: EvaluationSessionOptions) {
     this.options = options
@@ -93,7 +109,7 @@ export class EvaluationSession {
     this.generation += 1
     const generation = this.generation
     if (!this.options.createRealtimeChannel) {
-      this.setState({ connectionStatus: 'closed' })
+      this.setState({ connectionStatus: 'rest' })
       return
     }
     this.channel = this.options.createRealtimeChannel({
@@ -111,9 +127,10 @@ export class EvaluationSession {
   stop(): void {
     this.generation += 1
     this.debouncer.cancel()
+    this.clearTimers()
     this.channel?.close()
     this.channel = null
-    this.setState({ connectionStatus: 'closed', pending: false })
+    this.setState({ connectionStatus: 'closed', pending: false, slow: false })
   }
 
   /** Novo estado da tela: será enviado depois do debounce. */
@@ -130,10 +147,12 @@ export class EvaluationSession {
   clear(): void {
     this.latestInput = null
     this.debouncer.cancel()
+    this.clearTimers()
     this.setState({
       result: null,
       error: null,
       pending: false,
+      slow: false,
       transport: null,
       lastAppliedSequence: this.state.lastSentSequence,
     })
@@ -144,9 +163,16 @@ export class EvaluationSession {
     if (!input) return
     const sequence = this.state.lastSentSequence + 1
     this.setState({ lastSentSequence: sequence, pending: true })
+    this.watchSlowReply(sequence)
 
-    if (this.channel?.send(sequence, input)) return
+    if (this.channel?.send(sequence, input)) {
+      this.armReplyTimeout(sequence, input)
+      return
+    }
+    this.sendByRest(sequence, input)
+  }
 
+  private sendByRest(sequence: number, input: EvaluationInput): void {
     const generation = this.generation
     this.options.oneShotEvaluator.evaluate(input).then(
       (result) => {
@@ -156,6 +182,44 @@ export class EvaluationSession {
         if (generation === this.generation) this.apply(sequence, 'rest', { error: toError(error) })
       },
     )
+  }
+
+  /** O envio `sequence` ainda é o último e está sem resposta (nesta geração da sessão). */
+  private isUnanswered(sequence: number, generation: number): boolean {
+    return (
+      generation === this.generation &&
+      this.state.lastSentSequence === sequence &&
+      this.state.lastAppliedSequence < sequence
+    )
+  }
+
+  /** Aviso de demora do envio `sequence`. */
+  private watchSlowReply(sequence: number): void {
+    this.clearTimers()
+    const generation = this.generation
+    this.slowTimer = setTimeout(() => {
+      this.slowTimer = null
+      if (this.isUnanswered(sequence, generation)) this.setState({ slow: true })
+    }, this.options.slowAfterMs ?? DEFAULT_SLOW_AFTER_MS)
+  }
+
+  /**
+   * Enviado pelo WebSocket: se a resposta não vier (canal meio aberto, servidor sem responder), o
+   * mesmo `sequence` vai por REST.
+   */
+  private armReplyTimeout(sequence: number, input: EvaluationInput): void {
+    const generation = this.generation
+    this.replyTimer = setTimeout(() => {
+      this.replyTimer = null
+      if (this.isUnanswered(sequence, generation)) this.sendByRest(sequence, input)
+    }, this.options.replyTimeoutMs ?? DEFAULT_REPLY_TIMEOUT_MS)
+  }
+
+  private clearTimers(): void {
+    if (this.replyTimer !== null) clearTimeout(this.replyTimer)
+    if (this.slowTimer !== null) clearTimeout(this.slowTimer)
+    this.replyTimer = null
+    this.slowTimer = null
   }
 
   private handleStatusChange(status: ConnectionStatus): void {
@@ -192,12 +256,15 @@ export class EvaluationSession {
     if (sequence <= this.state.lastAppliedSequence || sequence > this.state.lastSentSequence) {
       return
     }
+    const answeredLatest = sequence === this.state.lastSentSequence
+    if (answeredLatest) this.clearTimers()
     this.setState({
       lastAppliedSequence: sequence,
       result: outcome.result ?? null,
       error: outcome.error ?? null,
       transport,
-      pending: sequence < this.state.lastSentSequence || this.debouncer.isPending,
+      pending: !answeredLatest || this.debouncer.isPending,
+      slow: answeredLatest ? false : this.state.slow,
     })
   }
 

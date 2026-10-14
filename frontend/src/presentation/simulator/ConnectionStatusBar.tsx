@@ -9,6 +9,8 @@ export interface ConnectionStatusBarProps {
   /** Por onde veio o último resultado mostrado. */
   readonly transport: 'websocket' | 'rest' | null
   readonly pending: boolean
+  /** O backend está demorando para responder (TASK-050). */
+  readonly slow?: boolean
   /** Ações de câmera (predefinições da TASK-041). Sem elas, mostra a dica de mouse. */
   readonly cameraActions?: ReactNode
 }
@@ -19,6 +21,7 @@ const CONNECTION: Record<ConnectionStatus, { tone: Tone; label: string; pulse: b
   connected: { tone: 'ok', label: 'Tempo real (WebSocket)', pulse: false },
   reconnecting: { tone: 'warning', label: 'Reconectando — avaliação por REST', pulse: true },
   closed: { tone: 'neutral', label: 'Conexão fechada', pulse: false },
+  rest: { tone: 'ok', label: 'Avaliação por REST', pulse: false },
 }
 
 /**
@@ -30,6 +33,7 @@ export function ConnectionStatusBar({
   connectionStatus,
   transport,
   pending,
+  slow = false,
   cameraActions,
 }: ConnectionStatusBarProps) {
   const connection = CONNECTION[connectionStatus]
@@ -50,7 +54,7 @@ export function ConnectionStatusBar({
       </span>
       {pending && (
         <span className={cx(styles.cell, styles.pending)}>
-          <Spinner size={10} /> atualizando…
+          <Spinner size={10} /> {slow ? 'aguardando o backend…' : 'atualizando…'}
         </span>
       )}
       <span className={styles.spacer} aria-hidden="true" />

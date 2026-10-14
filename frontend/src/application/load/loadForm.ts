@@ -125,10 +125,12 @@ export function validateLoadForm(values: LoadFormValues): LoadFormResult {
 }
 
 /**
- * Texto do peso que alimenta a avaliação (o `loadWeightText` do App, TASK-032): o peso da carga
- * quando a carga toda é válida; vazio caso contrário, e a avaliação fica aguardando o peso.
+ * Texto do peso que alimenta a avaliação (o `loadWeightText` do App, TASK-032): o peso assim que ele
+ * for válido, mesmo com outros campos da carga ainda incompletos; vazio caso contrário, e a avaliação
+ * fica aguardando o peso. Desde a TASK-050: os outros campos só desenham a carga na cena, e exigi-los
+ * deixava o resultado sem aparecer (known-gaps L-009).
  */
 export function loadWeightTextForEvaluation(values: LoadFormValues): string {
-  const { load } = validateLoadForm(values)
-  return load === null ? '' : String(load.weightKg)
+  const weightKg = parseNumber(values.weightKg)
+  return weightKg === null || weightKg <= 0 ? '' : String(weightKg)
 }

@@ -38,6 +38,28 @@ async function rejection(promise: Promise<unknown>): Promise<EvaluationClientErr
 }
 
 describe('cliente REST da avaliação', () => {
+  it('desiste depois do tempo máximo com o código TIMEOUT (TASK-050)', async () => {
+    vi.useFakeTimers()
+    try {
+      const fetchFn = vi.fn<typeof fetch>(
+        (_url, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new DOMException('abort')))
+          }),
+      )
+      const client = createEvaluationRestClient({ fetchFn, timeoutMs: 5000 })
+
+      const pending = rejection(client.evaluate(FICTICIO_INPUT))
+      await vi.advanceTimersByTimeAsync(5000)
+      const error = await pending
+
+      expect(error.code).toBe('TIMEOUT')
+      expect(error.message).toContain('5 s')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('envia POST /api/v1/evaluations com os nomes de campo do backend', async () => {
     const { fetchFn, client } = clientAnswering(jsonResponse(REST_EVALUATED))
 
