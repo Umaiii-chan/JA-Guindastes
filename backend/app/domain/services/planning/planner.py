@@ -68,6 +68,9 @@ HOOK_ATTACH_M = 1.05
 frontend); a tela manda o valor medido no gancho do modelo 3D em uso."""
 REST_CLEARANCE_M = 0.03
 """Folga entre a base da carga e o chão quando ela é pousada ou pega, para não encostar."""
+ENGAGE_GAP_M = 0.25
+"""No quadro "Engatar", o fim do gancho fica esta altura acima do topo da carga no chão: dentro da
+faixa de engate da cena (até 0,5 m; TASK-073), sem encostar na caixa."""
 DEFAULT_MAX_POSITIONS = 30
 DEFAULT_KEEP = 3
 REFINE_TOP = 6
@@ -450,7 +453,16 @@ def _try_length(
     transport_hook_y = swing.bottom_y + below_hook - site.ground_y
     pick_ground = terrain_height_at(scenario.terrain, pick.x, pick.z)
     delivery_ground = terrain_height_at(scenario.terrain, delivery.x, delivery.z)
-    pick_hook_y = pick_ground + REST_CLEARANCE_M + below_hook - site.ground_y
+    # Na coleta, o gancho desce até o topo da carga apoiada (as lingas ainda não estão nela): é aí
+    # que a cena engata (TASK-073). Depois de engatada, a carga pende `below_hook` abaixo do gancho.
+    pick_hook_y = (
+        pick_ground
+        + load.height_m
+        + hook_attach_m
+        + accessory_drop_m
+        + ENGAGE_GAP_M
+        - site.ground_y
+    )
     delivery_hook_y = delivery_ground + REST_CLEARANCE_M + below_hook - site.ground_y
     psi_pick = wrap_180(site.pick_azimuth_deg - site.placement.heading_deg)
 
