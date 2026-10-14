@@ -1,6 +1,11 @@
-/* Alertas de colisão: altura fixa (aparecer ou sumir não empurra a ficha) e rolagem por dentro. */
+/* Alertas de colisão: sobrepostos à parte de baixo da cena (TASK-082), fora do fluxo, para aparecer
+   ou sumir nunca mudar a altura de nada. Fundo semitransparente; altura limitada, rolagem por dentro. */
 .box {
-  height: 64px;
+  max-height: 96px;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.box:not(:empty) {
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
 }

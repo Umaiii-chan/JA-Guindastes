@@ -31,6 +31,8 @@ export interface SimulatorPageProps {
   readonly operationBar?: ReactNode
   /** Seção "Planejar operação" (TASK-075), recolhida, abaixo dos passos. */
   readonly planning?: ReactNode
+  /** Avisos sobrepostos à parte de baixo da cena (TASK-082): não ocupam nem mudam a altura dela. */
+  readonly sceneOverlay?: ReactNode
 }
 
 /**
@@ -52,6 +54,7 @@ export function SimulatorPage({
   editorToolbar,
   operationBar,
   planning,
+  sceneOverlay,
 }: SimulatorPageProps) {
   const stageRef = useRef<HTMLDivElement>(null)
   // Tela cheia (Fullscreen API) e painel recolhido: deixam a cena ocupar o espaço (TASK-062).
@@ -142,6 +145,7 @@ export function SimulatorPage({
         <div className={styles.scene}>
           {viewport}
           <span className={styles.corners} aria-hidden="true" />
+          {sceneOverlay && <div className={styles.overlay}>{sceneOverlay}</div>}
         </div>
         <aside className={styles.result} aria-label="Resultado da avaliação">
           <div className={styles.evaluation}>{result}</div>

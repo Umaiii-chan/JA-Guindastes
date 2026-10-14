@@ -163,18 +163,32 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 250px);
   min-width: 0;
-  /* Altura fixa: avisos que aparecem e somem rolam aqui dentro e não redimensionam a cena (o
-     redimensionamento a cada aviso fazia a cena tremer). */
-  height: min(36vh, 300px);
+  /* Altura FIXA e compacta (TASK-078/082): a ficha nunca muda de altura com o conteúdo; o que
+     passar rola por dentro. Os avisos de colisão ficam sobre a cena, fora desta ficha. */
+  height: 222px;
   overflow-y: auto;
   border-top: 1px solid var(--color-border-ink);
 }
 
-/* Telas baixas (ex.: 1280 × 720): a ficha rola por dentro para a cena manter a altura útil. */
+/* Telas baixas (ex.: 1280 × 720): a ficha fica menor e rola por dentro. */
 @media (height < 800px) {
   .result {
     height: 196px;
   }
+}
+
+/* Avisos sobrepostos à parte de baixo da cena: fora do fluxo, não mudam a altura dela. */
+.overlay {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.overlay > * {
+  pointer-events: auto;
 }
 
 .evaluation {
