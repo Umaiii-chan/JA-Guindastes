@@ -7,9 +7,12 @@ from datetime import timedelta
 import pytest
 
 from app.domain.entities.scenario import (
+    MAX_EXTRA_CRANES,
     MAX_OBSTACLES,
     MAX_TERRAIN_FEATURES,
+    CargoPlacementSpec,
     CranePlacementSpec,
+    ExtraCraneSpec,
     FeatureKind,
     ObstacleKind,
     ObstacleSpec,
@@ -173,6 +176,47 @@ def test_flatten_accepts_a_negative_level_but_mound_does_not() -> None:
     ],
 )
 def test_invalid_soil_and_wind_are_rejected(changes: dict[str, object], campo: str) -> None:
+    with pytest.raises(InvalidScenarioError) as raised:
+        ScenarioSpec(**changes)  # type: ignore[arg-type]
+
+    assert campo in raised.value.field
+
+
+def test_extra_cranes_and_cargo_round_trip_and_stay_out_of_old_json() -> None:
+    old = spec_ficticio()
+    assert "cranes" not in scenario_spec_to_dict(old)
+    assert "cargo" not in scenario_spec_to_dict(old)
+
+    spec = replace(
+        old,
+        cranes=(
+            ExtraCraneSpec("c2", "conf-2", CranePlacementSpec(x=12.0, z=-3.0, heading_deg=90)),
+        ),
+        cargo=CargoPlacementSpec(x=6.0, z=0.0, rotation_y_deg=20.0),
+    )
+
+    assert scenario_spec_from_dict(scenario_spec_to_dict(spec)) == spec
+
+
+@pytest.mark.parametrize(
+    ("changes", "campo"),
+    [
+        (
+            {"cranes": tuple(ExtraCraneSpec(f"c{i}", "conf") for i in range(MAX_EXTRA_CRANES + 1))},
+            "cranes",
+        ),
+        ({"cranes": (ExtraCraneSpec("c", "conf"), ExtraCraneSpec("c", "conf"))}, "cranes"),
+        ({"cranes": (ExtraCraneSpec("c", " "),)}, "cranes[0].configuration_id"),
+        (
+            {"cranes": (ExtraCraneSpec("c", "conf", CranePlacementSpec(x=math.nan)),)},
+            "cranes[0].placement.x",
+        ),
+        ({"cargo": CargoPlacementSpec(x=math.inf, z=0.0)}, "cargo.x"),
+    ],
+)
+def test_invalid_extra_cranes_and_cargo_are_rejected(
+    changes: dict[str, object], campo: str
+) -> None:
     with pytest.raises(InvalidScenarioError) as raised:
         ScenarioSpec(**changes)  # type: ignore[arg-type]
 

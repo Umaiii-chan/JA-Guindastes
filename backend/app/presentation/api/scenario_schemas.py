@@ -11,7 +11,9 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.entities.scenario import (
+    CargoPlacementSpec,
     CranePlacementSpec,
+    ExtraCraneSpec,
     FeatureKind,
     ObstacleKind,
     ObstacleSpec,
@@ -127,6 +129,45 @@ class CranePlacementPayload(BaseModel):
     heading_deg: float
 
 
+class ExtraCranePayload(BaseModel):
+    """Guindaste adicional (TASK-074): configuração do catálogo e posição no cenário."""
+
+    model_config = _STRICT_INPUT
+
+    id: str
+    configuration_id: str
+    placement: CranePlacementPayload
+
+    def to_domain(self) -> ExtraCraneSpec:
+        return ExtraCraneSpec(
+            id=self.id,
+            configuration_id=self.configuration_id,
+            placement=CranePlacementSpec(
+                x=self.placement.x, z=self.placement.z, heading_deg=self.placement.heading_deg
+            ),
+        )
+
+    @classmethod
+    def from_domain(cls, crane: ExtraCraneSpec) -> ExtraCranePayload:
+        return cls(
+            id=crane.id,
+            configuration_id=crane.configuration_id,
+            placement=CranePlacementPayload(
+                x=crane.placement.x, z=crane.placement.z, heading_deg=crane.placement.heading_deg
+            ),
+        )
+
+
+class CargoPayload(BaseModel):
+    """Carga posicionada no chão (contrato da TASK-073): centro e giro."""
+
+    model_config = _STRICT_INPUT
+
+    x: float
+    z: float
+    rotation_y_deg: float = 0.0
+
+
 class SoilZonePayload(BaseModel):
     model_config = _STRICT_INPUT
 
@@ -177,6 +218,12 @@ class ScenarioSpecPayload(BaseModel):
         default=None, description="Zonas de solo pintadas; opcional (TASK-066)."
     )
     wind: WindPayload | None = Field(default=None, description="Vento; opcional (TASK-066).")
+    cranes: list[ExtraCranePayload] | None = Field(
+        default=None, description="Guindastes adicionais (até 3); opcional (TASK-074)."
+    )
+    cargo: CargoPayload | None = Field(
+        default=None, description="Carga posicionada no chão; opcional (TASK-073)."
+    )
 
     def to_domain(self) -> ScenarioSpec:
         """Monta e valida o `ScenarioSpec` (`InvalidScenarioError` se violar uma regra)."""
@@ -195,6 +242,14 @@ class ScenarioSpecPayload(BaseModel):
                 None
                 if self.wind is None
                 else WindSpec(speed_ms=self.wind.speed_ms, direction_deg=self.wind.direction_deg)
+            ),
+            cranes=tuple(extra.to_domain() for extra in self.cranes or []),
+            cargo=(
+                None
+                if self.cargo is None
+                else CargoPlacementSpec(
+                    x=self.cargo.x, z=self.cargo.z, rotation_y_deg=self.cargo.rotation_y_deg
+                )
             ),
         )
 
@@ -215,6 +270,14 @@ class ScenarioSpecPayload(BaseModel):
                 None
                 if spec.wind is None
                 else WindPayload(speed_ms=spec.wind.speed_ms, direction_deg=spec.wind.direction_deg)
+            ),
+            cranes=[ExtraCranePayload.from_domain(c) for c in spec.cranes] or None,
+            cargo=(
+                None
+                if spec.cargo is None
+                else CargoPayload(
+                    x=spec.cargo.x, z=spec.cargo.z, rotation_y_deg=spec.cargo.rotation_y_deg
+                )
             ),
         )
 
