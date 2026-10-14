@@ -54,6 +54,7 @@ from app.application.ports.configuration_load_rules_provider import (
     ConfigurationLoadRulesProvider,
 )
 from app.application.ports.crane_geometry_provider import CraneGeometryProvider
+from app.application.ports.crane_limits_provider import CraneLimitsProvider
 from app.application.use_cases.evaluate_operation import EvaluateOperation
 from app.auth_composition import build_auth
 from app.domain.entities.load_chart import LoadChart
@@ -109,17 +110,20 @@ def build_evaluate_operation(
     crane_geometry_provider: CraneGeometryProvider,
     active_load_chart_provider: ActiveLoadChartProvider,
     configuration_load_rules_provider: ConfigurationLoadRulesProvider | None = None,
+    crane_limits_provider: CraneLimitsProvider | None = None,
 ) -> EvaluateOperation:
     """Monta o caso de uso com a estratégia da composição (a mesma para REST e WebSocket).
 
     `configuration_load_rules_provider` (TASK-046): zonas de giro e peso do gancho; sem ele, a
     configuração é avaliada sem zonas e sem gancho (composição sem banco).
+    `crane_limits_provider` (TASK-051): limite de capacidade do modelo; sem ele, valem os padrões.
     """
     return EvaluateOperation(
         crane_geometry_provider=crane_geometry_provider,
         active_load_chart_provider=active_load_chart_provider,
         load_chart_interpolator=load_chart_interpolator,
         configuration_load_rules_provider=configuration_load_rules_provider,
+        crane_limits_provider=crane_limits_provider,
     )
 
 
@@ -127,7 +131,7 @@ def build_database_evaluate_operation(session_factory: sessionmaker[Session]) ->
     """Caso de uso ligado aos repositórios da TASK-022 sobre `session_factory`."""
     catalog = SqlAlchemyCraneCatalogRepository(session_factory)
     return build_evaluate_operation(
-        catalog, SqlAlchemyLoadChartRepository(session_factory), catalog
+        catalog, SqlAlchemyLoadChartRepository(session_factory), catalog, catalog
     )
 
 

@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from app.domain.value_objects.crane_geometry import CraneGeometry
+from app.domain.value_objects.crane_limits import CraneLimits
 from app.domain.value_objects.mass import Mass
 from app.domain.value_objects.rotation_zone import RotationZones
 
@@ -43,16 +44,23 @@ class Manufacturer:
 
 @dataclass(frozen=True)
 class Crane:
-    """Modelo lógico de guindaste de um fabricante (RF-002), sem capacidade global."""
+    """Modelo lógico de guindaste de um fabricante (RF-002), sem capacidade global.
+
+    `limits` (TASK-051; RN-011, RN-013): limite de uso da capacidade, faixa de atenção e
+    inclinações máximas do modelo; os padrões valem para quem não os informa.
+    """
 
     id: str
     manufacturer_id: str
     model_name: str
+    limits: CraneLimits = CraneLimits()
 
     def __post_init__(self) -> None:
         _require_text(self.id, "id do guindaste")
         _require_text(self.manufacturer_id, "fabricante do guindaste")
         _require_text(self.model_name, "modelo do guindaste")
+        if not isinstance(self.limits, CraneLimits):
+            raise ValueError(f"limits deve ser CraneLimits, recebido {self.limits!r}")
 
 
 @dataclass(frozen=True)

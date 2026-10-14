@@ -42,9 +42,9 @@ export function CatalogRoute() {
       onCreateManufacturer={(name) =>
         notify(catalog.createManufacturer(name), `Fabricante "${name}" cadastrado`)
       }
-      onCreateCrane={(manufacturerId, modelName) =>
+      onCreateCrane={(manufacturerId, modelName, limits) =>
         notify(
-          catalog.createCrane(manufacturerId, modelName),
+          catalog.createCrane(manufacturerId, modelName, limits),
           `Guindaste "${modelName}" cadastrado`,
         )
       }
@@ -61,11 +61,13 @@ export function CatalogRoute() {
           'O nome novo já vale em todas as telas.',
         )
       }
-      onUpdateCrane={(id, modelName) =>
+      onUpdateCrane={(id, modelName, limits) =>
         notify(
-          catalog.updateCrane(id, modelName),
-          `Guindaste renomeado para "${modelName}"`,
-          'O nome novo já vale em todas as telas.',
+          catalog.updateCrane(id, modelName, limits),
+          limits === undefined ? `Guindaste renomeado para "${modelName}"` : 'Guindaste alterado',
+          limits === undefined
+            ? 'O nome novo já vale em todas as telas.'
+            : 'Os limites novos valem para as próximas avaliações.',
         )
       }
       onUpdateConfiguration={(id, changes) =>

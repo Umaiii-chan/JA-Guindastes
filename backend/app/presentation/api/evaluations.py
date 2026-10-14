@@ -45,6 +45,7 @@ from app.application.ports.configuration_load_rules_provider import (
     ConfigurationLoadRulesProvider,
 )
 from app.application.ports.crane_geometry_provider import CraneGeometryProvider
+from app.application.ports.crane_limits_provider import CraneLimitsProvider
 from app.application.use_cases.evaluate_operation import EvaluateOperation
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
 from app.domain.value_objects.angle import Angle
@@ -71,6 +72,8 @@ class EvaluationDependencies:
     load_chart_interpolator: LoadChartInterpolator
     configuration_load_rules_provider: ConfigurationLoadRulesProvider | None = None
     """Zonas de giro e peso do gancho (TASK-046); sem ele, sem zonas e sem gancho."""
+    crane_limits_provider: CraneLimitsProvider | None = None
+    """Limite de capacidade do modelo (TASK-051); sem ele, valem os limites padrão."""
 
 
 type EvaluateOperationDependency = Callable[[], Iterator[EvaluateOperation]]
@@ -101,6 +104,7 @@ def _as_dependency(
                 active_load_chart_provider=dependencies.active_load_chart_provider,
                 load_chart_interpolator=dependencies.load_chart_interpolator,
                 configuration_load_rules_provider=dependencies.configuration_load_rules_provider,
+                crane_limits_provider=dependencies.crane_limits_provider,
             )
         )
     return dependencies

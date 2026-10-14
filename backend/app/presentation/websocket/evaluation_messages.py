@@ -30,6 +30,7 @@ from app.application.use_cases.evaluate_operation import (
     NotEvaluableOperation,
     OperationEvaluation,
 )
+from app.domain.services.capacity_limit import CapacityLimit, CapacityLimitLevel
 from app.domain.value_objects.capacity_result import CapacityFound
 from app.domain.value_objects.conservative_capacity_result import (
     CapacityLookupStrategy,
@@ -200,6 +201,30 @@ _HOOK_DESCRIPTION = "Peso do gancho da configuração, em kg (0 se não cadastra
 _COMPARED_DESCRIPTION = "Carga + gancho, em kg: o peso comparado com a capacidade."
 
 
+class CapacityLimitMessage(BaseModel):
+    """Limite de capacidade do modelo e nível OK/WARNING/OVER (RN-011; TASK-051)."""
+
+    limit_percent: float
+    effective_capacity_kg: float = Field(description="Capacidade da tabela × limite, em kg.")
+    limit_utilization_percent: float = Field(
+        description="`compared_weight_kg / capacidade efetiva × 100`, sem arredondamento."
+    )
+    warning_band_percent: float
+    level: CapacityLimitLevel
+
+    @classmethod
+    def from_limit(cls, limit: CapacityLimit | None) -> CapacityLimitMessage | None:
+        if limit is None:
+            return None
+        return cls(
+            limit_percent=limit.limit_percent,
+            effective_capacity_kg=limit.effective_capacity_kg,
+            limit_utilization_percent=limit.limit_utilization_percent,
+            warning_band_percent=limit.warning_band_percent,
+            level=limit.level,
+        )
+
+
 class EvaluatedPayload(BaseModel):
     """Operação avaliada. "Avaliada" não quer dizer "segura": não há status (PEND-004)."""
 
@@ -215,6 +240,9 @@ class EvaluatedPayload(BaseModel):
     rotation_zone_name: str | None = Field(description="Nome da zona, ou `null`.")
     hook_block_weight_kg: float = Field(description=_HOOK_DESCRIPTION)
     compared_weight_kg: float = Field(description=_COMPARED_DESCRIPTION)
+    capacity_limit: CapacityLimitMessage | None = Field(
+        default=None, description="Limite de capacidade do modelo e nível (RN-011; TASK-051)."
+    )
     reasons: list[str] = Field(description="Sempre vazio numa operação avaliada.")
 
 
@@ -275,6 +303,7 @@ class SimulationEvaluatedMessage(BaseModel):
                     rotation_zone_name=zone_name,
                     hook_block_weight_kg=hook_kg,
                     compared_weight_kg=compared_kg,
+                    capacity_limit=CapacityLimitMessage.from_limit(evaluation.capacity_limit),
                     reasons=[],
                 )
             case NotEvaluableOperation():

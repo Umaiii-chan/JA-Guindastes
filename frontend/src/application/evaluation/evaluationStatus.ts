@@ -9,13 +9,20 @@
 // - `over`    (vermelho): avaliado e acima da capacidade (utilização acima de 100 %);
 // - `unknown` (cinza): sem resultado, erro ou "não avaliável" (RN-007).
 //
-// `warning` (âmbar) existe no tipo, para casar com a paleta da cena, mas a UI NÃO o produz: ainda não
-// há critério de atenção (PEND-004). Carga igual à capacidade conta como "dentro" até a P-005
-// (docs/known-gaps.md) decidir se é violação.
+// Limite do modelo (TASK-051; RN-011; ADR-022): quando o backend devolve `capacityLimit`, a situação
+// é o `level` dele (`OK` verde, `WARNING` âmbar, `OVER` vermelho): o limite e a faixa de atenção são
+// do modelo, e quem os aplica é o backend. Sem `capacityLimit` (backend anterior), vale a regra
+// antiga acima, que nunca produz `warning`. Carga igual à capacidade conta como "dentro".
 
-import type { EvaluationResult } from '../../domain/evaluation/evaluation'
+import type { CapacityStatusLevel, EvaluationResult } from '../../domain/evaluation/evaluation'
 
 export type EvaluationStatus = 'ok' | 'warning' | 'over' | 'unknown'
+
+const LEVEL_STATUS: Record<CapacityStatusLevel, EvaluationStatus> = {
+  OK: 'ok',
+  WARNING: 'warning',
+  OVER: 'over',
+}
 
 /** Utilização que separa "dentro" de "acima" da capacidade (100 % = carga igual à capacidade). */
 export const FULL_CAPACITY_PERCENT = 100
@@ -24,5 +31,7 @@ export function evaluationStatus(result: EvaluationResult | null): EvaluationSta
   if (result === null || result.kind !== 'EVALUATED') return 'unknown'
   const utilization = result.utilizationPercent
   if (!Number.isFinite(utilization)) return 'unknown'
+  const limit = result.capacityLimit
+  if (limit) return LEVEL_STATUS[limit.level]
   return utilization > FULL_CAPACITY_PERCENT ? 'over' : 'ok'
 }

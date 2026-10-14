@@ -4,6 +4,7 @@
 import type {
   Crane,
   CraneConfiguration,
+  CraneLimits,
   CraneTechnicalSheet,
   Manufacturer,
   RotationZone,
@@ -12,6 +13,8 @@ import type {
 export interface NewCrane {
   readonly manufacturerId: string
   readonly modelName: string
+  /** Limites do modelo (TASK-051); ausente = os padrões do backend. */
+  readonly limits?: Partial<CraneLimits>
 }
 
 export interface NewConfiguration {
@@ -44,7 +47,8 @@ export interface CatalogGateway {
   updateManufacturer(manufacturerId: string, name: string): Promise<Manufacturer>
   listCranes(manufacturerId: string): Promise<readonly Crane[]>
   createCrane(crane: NewCrane): Promise<Crane>
-  updateCrane(craneId: string, modelName: string): Promise<Crane>
+  /** `limits` (TASK-051): só os limites que mudam; ausente mantém os atuais. */
+  updateCrane(craneId: string, modelName: string, limits?: Partial<CraneLimits>): Promise<Crane>
   listConfigurations(craneId: string): Promise<readonly CraneConfiguration[]>
   createConfiguration(craneId: string, configuration: NewConfiguration): Promise<CraneConfiguration>
   updateConfiguration(

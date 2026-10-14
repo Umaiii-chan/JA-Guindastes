@@ -22,6 +22,7 @@ from app.application.use_cases.evaluate_operation import (
     OperationEvaluation,
 )
 from app.domain.exceptions.geometry_errors import OperationalLimitViolation
+from app.domain.services.capacity_limit import CapacityLimit, CapacityLimitLevel
 from app.domain.value_objects.capacity_result import (
     CapacityFound,
     CapacityResult,
@@ -173,6 +174,36 @@ class CapacityResponse(BaseModel):
         )
 
 
+class CapacityLimitResponse(BaseModel):
+    """Limite de capacidade do modelo e faixa de status (RN-011; TASK-051; ADR-022)."""
+
+    limit_percent: float = Field(description="Limite de uso da capacidade do modelo, de 1 a 100 %.")
+    effective_capacity_kg: float = Field(
+        description="Capacidade efetiva, em kg: a capacidade da tabela × o limite."
+    )
+    limit_utilization_percent: float = Field(
+        description="`compared_weight_kg / capacidade efetiva × 100`, sem arredondamento."
+    )
+    warning_band_percent: float = Field(
+        description="A partir desta % do limite, o nível é `WARNING`."
+    )
+    level: CapacityLimitLevel = Field(
+        description="`OK`; `WARNING` na faixa de atenção; `OVER` acima da capacidade efetiva."
+    )
+
+    @classmethod
+    def from_limit(cls, limit: CapacityLimit | None) -> CapacityLimitResponse | None:
+        if limit is None:
+            return None
+        return cls(
+            limit_percent=limit.limit_percent,
+            effective_capacity_kg=limit.effective_capacity_kg,
+            limit_utilization_percent=limit.limit_utilization_percent,
+            warning_band_percent=limit.warning_band_percent,
+            level=limit.level,
+        )
+
+
 class ReasonCategory(StrEnum):
     """De que etapa da avaliação veio o motivo de "não avaliável"."""
 
@@ -254,6 +285,11 @@ class EvaluationResponse(BaseModel):
         description="Versão da tabela consultada (RN-005); `null` quando ela não chegou a ser "
         "consultada."
     )
+    capacity_limit: CapacityLimitResponse | None = Field(
+        default=None,
+        description="Limite de capacidade do modelo e nível OK/WARNING/OVER (RN-011; TASK-051). "
+        "`null` em `NOT_EVALUABLE`.",
+    )
     reasons: list[NotEvaluableReasonResponse] = Field(
         description="Motivos de `NOT_EVALUABLE`, na ordem das etapas (ficha técnica e geometria, "
         "tabela ativa, consulta à tabela, utilização); nunca vazio nesse caso. Sempre vazio em "
@@ -284,6 +320,7 @@ class EvaluationResponse(BaseModel):
                     rotation_zone_name=zone_name,
                     hook_block_weight_kg=hook_kg,
                     compared_weight_kg=compared_kg,
+                    capacity_limit=CapacityLimitResponse.from_limit(evaluation.capacity_limit),
                 )
             case NotEvaluableOperation():
                 return cls(

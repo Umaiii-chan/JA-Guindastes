@@ -2,7 +2,7 @@
 // `backend/app/presentation/api/catalog_schemas.py`. Nomes de campo do backend (snake_case, com a
 // unidade no sufixo; RN-006) de um lado e do frontend do outro.
 
-import type { CraneTechnicalSheet, RotationZone } from '../../domain/catalog/catalog'
+import type { CraneLimits, CraneTechnicalSheet, RotationZone } from '../../domain/catalog/catalog'
 
 export const MANUFACTURERS_PATH = '/api/v1/manufacturers'
 export const CRANES_PATH = '/api/v1/cranes'
@@ -46,9 +46,33 @@ export interface ManufacturerCreateDto {
 }
 
 /** `CraneCreateRequest`. */
-export interface CraneCreateDto {
+export interface CraneCreateDto extends CraneLimitsDto {
   readonly manufacturer_id: string
   readonly model_name: string
+}
+
+/** Limites do modelo (TASK-051; RN-011, RN-013). Na criação e na edição, só os que mudam. */
+export interface CraneLimitsDto {
+  readonly capacity_limit_percent?: number
+  readonly warning_band_percent?: number
+  readonly max_ground_slope_deg?: number
+  readonly max_leveling_deg?: number
+}
+
+export function toCraneLimitsDto(limits: Partial<CraneLimits> | undefined): CraneLimitsDto {
+  if (limits === undefined) return {}
+  return {
+    ...(limits.capacityLimitPercent !== undefined && {
+      capacity_limit_percent: limits.capacityLimitPercent,
+    }),
+    ...(limits.warningBandPercent !== undefined && {
+      warning_band_percent: limits.warningBandPercent,
+    }),
+    ...(limits.maxGroundSlopeDeg !== undefined && {
+      max_ground_slope_deg: limits.maxGroundSlopeDeg,
+    }),
+    ...(limits.maxLevelingDeg !== undefined && { max_leveling_deg: limits.maxLevelingDeg }),
+  }
 }
 
 /** Uma zona de giro (ADR-018; TASK-046 § 3), com os ângulos na convenção de ψ do ADR-013. */
@@ -79,7 +103,7 @@ export interface ManufacturerUpdateDto {
 }
 
 /** `CraneUpdateRequest` (TASK-044). */
-export interface CraneUpdateDto {
+export interface CraneUpdateDto extends CraneLimitsDto {
   readonly model_name: string
 }
 
@@ -119,6 +143,10 @@ export const REQUEST_FIELD_FROM_DTO: Readonly<Record<string, string>> = {
   geometry: 'geometry',
   rotation_zones: 'rotationZones',
   hook_block_weight_kg: 'hookBlockWeightKg',
+  capacity_limit_percent: 'capacityLimitPercent',
+  warning_band_percent: 'warningBandPercent',
+  max_ground_slope_deg: 'maxGroundSlopeDeg',
+  max_leveling_deg: 'maxLevelingDeg',
   start_deg: 'startDeg',
   end_deg: 'endDeg',
 }

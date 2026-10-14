@@ -16,7 +16,19 @@ interface CraneRow {
   id: string
   manufacturer_id: string
   model_name: string
+  /** TASK-051: limites do modelo; ausentes = padrões do backend. */
+  capacity_limit_percent?: number
+  warning_band_percent?: number
+  max_ground_slope_deg?: number
+  max_leveling_deg?: number
 }
+
+const CRANE_LIMIT_FIELDS = [
+  'capacity_limit_percent',
+  'warning_band_percent',
+  'max_ground_slope_deg',
+  'max_leveling_deg',
+] as const
 interface ConfigurationRow {
   id: string
   crane_id: string
@@ -139,7 +151,7 @@ export function createFakeCatalogFetch(
     const id = rawId === null ? '' : decodeURIComponent(rawId)
     const allowed = {
       manufacturers: ['name'],
-      cranes: ['model_name'],
+      cranes: ['model_name', ...CRANE_LIMIT_FIELDS],
       configurations: ['name', 'geometry', 'rotation_zones', 'hook_block_weight_kg'],
     }
     if (kind === null) return jsonResponse({ detail: 'Method Not Allowed' }, 405)
@@ -169,6 +181,9 @@ export function createFakeCatalogFetch(
       const row = data.cranes.find((item) => item.id === id)
       if (!row) return notFound('guindaste')
       row.model_name = String(request.model_name)
+      for (const field of CRANE_LIMIT_FIELDS) {
+        if (typeof request[field] === 'number') row[field] = request[field]
+      }
       return jsonResponse(row)
     }
     if (Object.keys(request).length === 0) {

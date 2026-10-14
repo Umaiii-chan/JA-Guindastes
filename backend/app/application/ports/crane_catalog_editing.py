@@ -7,7 +7,7 @@ não usam. `CraneCatalogStore` junta as três.
 
 O que cada `update_*` pode mudar:
 - fabricante: o nome;
-- guindaste: o nome do modelo (o fabricante não muda);
+- guindaste: o nome do modelo e os limites (TASK-051); o fabricante não muda;
 - configuração: o nome, a ficha técnica inteira, as zonas de giro e o peso do gancho (TASK-046; o
   guindaste não muda). Os valores novos valem para as próximas avaliações; as tabelas de carga da
   configuração não são tocadas.
@@ -28,8 +28,9 @@ class CraneCatalogEditing(Protocol):
     Contrato de toda implementação:
     - `update_*` substitui os campos editáveis do registro com o mesmo id e devolve `True`;
     - devolve `False` quando o id não existe, sem gravar nada e sem levantar exceção por isso;
-    - `update_crane` ignora `manufacturer_id` e `update_configuration` ignora `crane_id`: o vínculo
-      com o registro pai não muda;
+    - `update_crane` grava `model_name` e `limits` e ignora `manufacturer_id`;
+      `update_configuration`
+      ignora `crane_id`: o vínculo com o registro pai não muda;
     - `update_configuration` grava a ficha, as zonas de giro e o peso do gancho recebidos como
       estão (`None` apaga cada um; TASK-046);
     - cada chamada é atômica: ou grava tudo, ou nada.

@@ -10,7 +10,7 @@ depende dele, porque as tabelas de carga precisam continuar rastreáveis (RNF-00
 
 from typing import Any
 
-from sqlalchemy import JSON, CheckConstraint, Double, ForeignKey, String
+from sqlalchemy import JSON, CheckConstraint, Double, ForeignKey, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.database.base import Base
@@ -52,12 +52,43 @@ class CraneModel(Base):
     """Linha de `cranes`: o modelo lógico do guindaste, sem capacidade global (RF-002)."""
 
     __tablename__ = "cranes"
+    __table_args__ = (
+        CheckConstraint(
+            "capacity_limit_percent >= 1 AND capacity_limit_percent <= 100",
+            name="capacity_limit_percent_range",
+        ),
+        CheckConstraint(
+            "warning_band_percent >= 1 AND warning_band_percent <= 100",
+            name="warning_band_percent_range",
+        ),
+        CheckConstraint(
+            "max_ground_slope_deg >= 0 AND max_ground_slope_deg <= 45",
+            name="max_ground_slope_deg_range",
+        ),
+        CheckConstraint(
+            "max_leveling_deg >= 0 AND max_leveling_deg <= 45", name="max_leveling_deg_range"
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     manufacturer_id: Mapped[str] = mapped_column(
         String, ForeignKey("manufacturers.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     model_name: Mapped[str] = mapped_column(String, nullable=False)
+
+    # Limites do modelo (TASK-051; RN-011, RN-013; ADR-022). Os padrões de inclinação são FICTÍCIOS.
+    capacity_limit_percent: Mapped[float] = mapped_column(
+        Double, nullable=False, default=100.0, server_default=text("100")
+    )
+    warning_band_percent: Mapped[float] = mapped_column(
+        Double, nullable=False, default=90.0, server_default=text("90")
+    )
+    max_ground_slope_deg: Mapped[float] = mapped_column(
+        Double, nullable=False, default=1.0, server_default=text("1.0")
+    )
+    max_leveling_deg: Mapped[float] = mapped_column(
+        Double, nullable=False, default=3.0, server_default=text("3.0")
+    )
 
 
 class CraneConfigurationModel(Base):

@@ -9,6 +9,7 @@ número), `allow_inf_nan=False` (`NaN` e infinito recusados) e `extra="forbid"` 
 nem só espaços. Não há limite de tamanho dos nomes: nenhuma regra o define.
 """
 
+import dataclasses
 from typing import Annotated, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
@@ -22,6 +23,7 @@ from app.application.ports.crane_catalog_repository import (
 from app.domain.exceptions.domain_errors import DomainError
 from app.domain.value_objects.angle import Angle
 from app.domain.value_objects.crane_geometry import CraneGeometry
+from app.domain.value_objects.crane_limits import MAX_SLOPE_DEG, CraneLimits
 from app.domain.value_objects.length import Length
 from app.domain.value_objects.mass import Mass
 from app.domain.value_objects.rotation_zone import RotationZone, RotationZones
@@ -208,6 +210,18 @@ class ManufacturerResponse(BaseModel):
         return cls(id=manufacturer.id, name=manufacturer.name)
 
 
+_LIMIT_DESCRIPTIONS = {
+    "capacity_limit_percent": "Limite de uso da capacidade, de 1 a 100 % (padrão 100; RN-011). A "
+    "capacidade efetiva é a da tabela × este limite.",
+    "warning_band_percent": "Faixa de atenção, de 1 a 100 % (padrão 90; RN-011): a partir desta % "
+    "do limite, o status é `WARNING`.",
+    "max_ground_slope_deg": "Inclinação residual máxima do terreno sob o guindaste, em graus "
+    "(padrão 1,0, FICTÍCIO; RN-013).",
+    "max_leveling_deg": "Correção máxima de nivelamento pelos macacos, em graus (padrão 3,0, "
+    "FICTÍCIO).",
+}
+
+
 class CraneCreateRequest(BaseModel):
     """Modelo de guindaste a cadastrar (RF-002), sem capacidade global (doc-fonte § 10.2)."""
 
@@ -217,6 +231,38 @@ class CraneCreateRequest(BaseModel):
         description="Id do fabricante; precisa existir (senão, 404)."
     )
     model_name: RequiredText = Field(description="Nome do modelo do guindaste.")
+    capacity_limit_percent: float | None = Field(
+        default=None, ge=1, le=100, description=_LIMIT_DESCRIPTIONS["capacity_limit_percent"]
+    )
+    warning_band_percent: float | None = Field(
+        default=None, ge=1, le=100, description=_LIMIT_DESCRIPTIONS["warning_band_percent"]
+    )
+    max_ground_slope_deg: float | None = Field(
+        default=None,
+        ge=0,
+        le=MAX_SLOPE_DEG,
+        description=_LIMIT_DESCRIPTIONS["max_ground_slope_deg"],
+    )
+    max_leveling_deg: float | None = Field(
+        default=None, ge=0, le=MAX_SLOPE_DEG, description=_LIMIT_DESCRIPTIONS["max_leveling_deg"]
+    )
+
+    def limits(self) -> CraneLimits | None:
+        """Os limites informados sobre os padrões; `None` se nenhum veio."""
+        return _merge_limits(CraneLimits(), self)
+
+
+def _merge_limits(
+    base: CraneLimits, request: CraneCreateRequest | CraneUpdateRequest
+) -> CraneLimits | None:
+    informed = {
+        name: getattr(request, name)
+        for name in _LIMIT_DESCRIPTIONS
+        if getattr(request, name) is not None
+    }
+    if not informed:
+        return None
+    return dataclasses.replace(base, **informed)
 
 
 class CraneResponse(BaseModel):
@@ -225,10 +271,22 @@ class CraneResponse(BaseModel):
     id: str = Field(description="Id gerado pelo servidor (UUID em texto).")
     manufacturer_id: str = Field(description="Id do fabricante.")
     model_name: str = Field(description="Nome do modelo do guindaste.")
+    capacity_limit_percent: float = Field(description=_LIMIT_DESCRIPTIONS["capacity_limit_percent"])
+    warning_band_percent: float = Field(description=_LIMIT_DESCRIPTIONS["warning_band_percent"])
+    max_ground_slope_deg: float = Field(description=_LIMIT_DESCRIPTIONS["max_ground_slope_deg"])
+    max_leveling_deg: float = Field(description=_LIMIT_DESCRIPTIONS["max_leveling_deg"])
 
     @classmethod
     def from_record(cls, crane: Crane) -> CraneResponse:
-        return cls(id=crane.id, manufacturer_id=crane.manufacturer_id, model_name=crane.model_name)
+        return cls(
+            id=crane.id,
+            manufacturer_id=crane.manufacturer_id,
+            model_name=crane.model_name,
+            capacity_limit_percent=crane.limits.capacity_limit_percent,
+            warning_band_percent=crane.limits.warning_band_percent,
+            max_ground_slope_deg=crane.limits.max_ground_slope_deg,
+            max_leveling_deg=crane.limits.max_leveling_deg,
+        )
 
 
 class ConfigurationCreateRequest(BaseModel):
@@ -295,11 +353,43 @@ class ManufacturerUpdateRequest(BaseModel):
 
 
 class CraneUpdateRequest(BaseModel):
-    """Edição do guindaste (TASK-044): só o nome do modelo; o fabricante não muda."""
+    """Edição do guindaste (TASK-044, TASK-051): nome do modelo e/ou limites; o fabricante não
+    muda. Campo ausente mantém o valor atual; pelo menos um precisa vir (422)."""
 
     model_config = _STRICT_INPUT
 
-    model_name: RequiredText = Field(description="Novo nome do modelo do guindaste.")
+    model_name: RequiredText | None = Field(
+        default=None, description="Novo nome do modelo do guindaste."
+    )
+    capacity_limit_percent: float | None = Field(
+        default=None, ge=1, le=100, description=_LIMIT_DESCRIPTIONS["capacity_limit_percent"]
+    )
+    warning_band_percent: float | None = Field(
+        default=None, ge=1, le=100, description=_LIMIT_DESCRIPTIONS["warning_band_percent"]
+    )
+    max_ground_slope_deg: float | None = Field(
+        default=None,
+        ge=0,
+        le=MAX_SLOPE_DEG,
+        description=_LIMIT_DESCRIPTIONS["max_ground_slope_deg"],
+    )
+    max_leveling_deg: float | None = Field(
+        default=None, ge=0, le=MAX_SLOPE_DEG, description=_LIMIT_DESCRIPTIONS["max_leveling_deg"]
+    )
+
+    @model_validator(mode="after")
+    def _require_some_field(self) -> Self:
+        if self.model_name is None and _merge_limits(CraneLimits(), self) is None:
+            raise ValueError("informe o nome do modelo ou algum limite do guindaste")
+        return self
+
+    def limit_changes(self) -> dict[str, float]:
+        """Só os limites informados, por nome."""
+        return {
+            name: getattr(self, name)
+            for name in _LIMIT_DESCRIPTIONS
+            if getattr(self, name) is not None
+        }
 
 
 class ConfigurationUpdateRequest(BaseModel):
