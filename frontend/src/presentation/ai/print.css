@@ -1,0 +1,43 @@
+/* Impressão dos textos do assistente (TASK-076): na tela a cópia para impressão fica escondida; ao
+   imprimir (com a classe `ai-printing` no body, posta enquanto um texto imprimível está aberto), só
+   ela aparece, em preto sobre branco. */
+.ai-print-root {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 16mm;
+  }
+
+  body.ai-printing > *:not(.ai-print-root) {
+    display: none !important;
+  }
+
+  body.ai-printing > .ai-print-root {
+    display: block !important;
+    --color-text-1: #111;
+    --color-text-2: #333;
+    --color-text-3: #555;
+    --color-border: #999;
+    --color-surface-2: #eee;
+    background: #fff;
+    color: #111;
+    font-family: var(--font-sans);
+  }
+
+  body.ai-printing {
+    background: #fff !important;
+    overflow: visible !important;
+  }
+
+  body.ai-printing .ai-print-root table,
+  body.ai-printing .ai-print-root tr {
+    break-inside: avoid;
+  }
+
+  body.ai-printing .ai-print-root h3,
+  body.ai-printing .ai-print-root h4 {
+    break-after: avoid;
+  }
+}

@@ -4,6 +4,7 @@ import { type FormEvent, useId, useState } from 'react'
 import type { SimulationRecordingController } from '../../app/simulator/useSimulationRecording'
 import { formatClock } from '../../application/recording/playback'
 import { PLAYBACK_SPEEDS, type PlaybackSpeed } from '../../application/recording/recording'
+import { ReviewRecordingButton } from '../ai'
 import { Button, cx } from '../ui'
 import styles from './RecordingPanel.module.css'
 
@@ -161,6 +162,7 @@ export function RecordingPanel({ controller, canDelete }: RecordingPanelProps) {
                   >
                     Reproduzir
                   </Button>
+                  <ReviewRecordingButton recordingId={item.id} recordingName={item.name} />
                   {canDelete(item.authorUserId) && (
                     <Button
                       size="sm"
