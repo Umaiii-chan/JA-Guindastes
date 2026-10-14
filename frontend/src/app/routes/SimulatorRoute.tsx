@@ -7,7 +7,7 @@ import { Link } from 'react-router'
 
 import { resolveAccessories } from '../../application/accessory/accessorySelection'
 import type { AiLiftReportRequest, AiScenarioDraft } from '../../application/ai/ports'
-import { loadFormFromDraft } from '../../application/ai/scenarioDraft'
+import { loadFormFromDraft, withLibraryProportions } from '../../application/ai/scenarioDraft'
 import { selectedConfiguration as findSelectedConfiguration } from '../../application/catalog/CatalogBrowser'
 import { cargoGuidance } from '../../application/cargo/cargoGuidance'
 import { fitTurretRotation } from '../../application/planning/trajectoryPlayback'
@@ -623,7 +623,7 @@ export function SimulatorRoute() {
   // do backend para o novo estado (RN-008).
   const applyAiDraft = (draft: AiScenarioDraft) => {
     scenario.checkpoint()
-    scenario.setSpec(draft.scenario)
+    scenario.setSpec(withLibraryProportions(draft).scenario)
     setLoad(loadFormFromDraft(draft.load))
   }
   // Pedido do relatório de içamento: só com guindaste, carga e estado válidos. O backend avalia de
