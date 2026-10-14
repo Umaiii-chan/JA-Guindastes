@@ -191,7 +191,7 @@ pt-BR):
 | A — pose inicial | 0° | 12,0 m | 35° | 8,27 m | `FRONTAL` | Avaliado | 4 200 kg | 12 m × 10 m | 76,19 % |
 | B — lança mais alta | 0° | 12,0 m | 60° | 4,44 m | `FRONTAL` | Avaliado | 7 000 kg | 12 m × 6 m | 45,71 % |
 | C — lança estendida | 0° | 22,0 m | 35° | 16,46 m | `FRONTAL` | Avaliado | 1 500 kg | 22 m × 18 m | 213,33 % |
-| D — lança fora da tabela | 0° | 17,5 m | 35° | 12,78 m | `FRONTAL` | Não avaliável: `BOOM_LENGTH_NOT_IN_CHART` | — | — | — |
+| D — lança entre colunas | 0° | 17,5 m | 35° | 12,78 m | `FRONTAL` | Avaliado (coluna de 22 m, ADR-029) | 2 400 kg | 22 m × 14 m | 133,33 % |
 | E — raio abaixo da tabela | 0° | 12,0 m | 80° | 0,52 m | `FRONTAL` | Não avaliável: `RADIUS_BELOW_CHART_MIN` | — | — | — |
 | F — giro para trás | 180° | 12,0 m | 35° | 8,27 m | `LATERAL_TRASEIRA` | Avaliado | 3 360 kg | 12 m × 10 m | 95,24 % |
 | G — giro na fronteira | 55° | 12,0 m | 35° | 8,27 m | `LATERAL_TRASEIRA` | Avaliado | 3 360 kg | 12 m × 10 m | 95,24 % |

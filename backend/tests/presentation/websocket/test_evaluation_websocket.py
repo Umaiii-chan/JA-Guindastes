@@ -178,7 +178,8 @@ def test_ficticio_several_messages_on_one_connection_are_answered_in_order(
     messages = [
         state_changed_ficticio(1, boom_angle_deg=30.0, load_weight_kg=1500.0),  # 2000 kg → 75 %
         state_changed_ficticio(2, boom_angle_deg=60.0, load_weight_kg=2500.0),  # 5000 kg → 50 %
-        state_changed_ficticio(3, boom_length_m=15.0, boom_angle_deg=0.0),  # sem coluna de 15 m
+        # L = 20 m, θ = 80° → R ≈ 4,97 m, abaixo do menor raio tabelado (11,5 m).
+        state_changed_ficticio(3, boom_length_m=20.0, boom_angle_deg=80.0),
     ]
     for message in messages:
         websocket.send_json(message)
@@ -202,20 +203,19 @@ def test_ficticio_sequence_is_echoed_as_sent_without_order_requirement(
         assert exchange(websocket, state_changed_ficticio(sequence))["sequence"] == sequence
 
 
-def test_ficticio_boom_length_outside_the_chart_is_not_evaluable_with_geometry(
+def test_ficticio_boom_length_between_columns_uses_the_next_longer_column(
     websocket: WebSocketTestSession,
 ) -> None:
+    # ADR-029: L = 15 m usa a coluna de 20 m; R = 16,5 m fica entre 11,5 m e 21,5 m (2000 kg).
     reply = exchange(websocket, state_changed_ficticio(8, boom_length_m=15.0, boom_angle_deg=0.0))
 
     payload = reply["payload"]
     assert reply["sequence"] == 8
-    assert payload["result"] == "NOT_EVALUABLE"
-    assert payload["reasons"] == ["BOOM_LENGTH_NOT_IN_CHART"]
+    assert payload["result"] == "EVALUATED"
     assert payload["geometry"]["working_radius_m"] == 16.5  # 1,5 + 15·cos 0°
-    assert payload["capacity"] is None
+    assert payload["capacity"]["maximum_capacity_kg"] == 2000.0
     assert payload["load_chart_id"] == LOAD_CHART_AVALIACAO_FICTICIO_ID
     assert payload["load_chart_version"] == LOAD_CHART_AVALIACAO_FICTICIO_VERSION
-    assert "utilization_percent" not in payload
 
 
 def test_ficticio_state_outside_the_crane_limits_is_not_evaluable_without_geometry(
