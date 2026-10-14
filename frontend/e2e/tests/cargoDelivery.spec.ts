@@ -137,6 +137,8 @@ test.describe('coleta e entrega da carga', () => {
 
     // Editor: vista de cima, posicionar a carga e o ponto de entrega.
     await page.getByRole('button', { name: 'Topo' }).click()
+    // Espera a câmera chegar à vista de cima: o clique no chão depende do enquadramento final.
+    await page.waitForTimeout(1200)
     await page.getByRole('button', { name: 'Editar ambiente' }).click()
     const canvas = page.locator('.crane-viewport__canvas canvas')
     const box = (await canvas.boundingBox())!
@@ -146,10 +148,12 @@ test.describe('coleta e entrega da carga', () => {
       await page.mouse.click(x, y)
       await settle(page)
     }
-    await placeCargo(center.x + 110, center.y + 70)
+    // Perto do guindaste (cerca de 15 m): com a barra do editor (que cresceu com o tandem), a vista de
+    // cima fica menor e 110 px já passam do alcance da lança.
+    await placeCargo(center.x + 70, center.y + 45)
     await expect(strip(page)).toContainText('Agora marque onde a carga deve chegar')
     await page.getByRole('button', { name: 'Ponto de entrega' }).click()
-    await page.mouse.click(center.x - 110, center.y + 70)
+    await page.mouse.click(center.x - 70, center.y + 45)
     await settle(page)
     await expect(strip(page).getByRole('button', { name: 'Engatar' })).toBeDisabled()
     // Com a carga no chão, só o gancho e os acessórios entram na avaliação.
