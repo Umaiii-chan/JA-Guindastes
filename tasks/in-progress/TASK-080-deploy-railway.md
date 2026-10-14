@@ -7,9 +7,9 @@ com as mesmas imagens Docker do `docker-compose.yml`. O deploy no Render/Vercel 
 ## Critérios de aceite
 
 - [x] **CA-1** — `backend/railway.json` e `frontend/railway.json` (Dockerfile, healthcheck, reinício em falha, watch por pasta).
-- [x] **CA-2** — `render-start.sh` aceita `HOST` (no Railway, `::`, porque a rede privada usa IPv6); o resto da inicialização é igual (migrations, seed, admin).
+- [x] **CA-2** — `render-start.sh` aceita `HOST` (padrão `0.0.0.0`; `::` deixa o uvicorn só em IPv6 e quebra o healthcheck do Railway); o resto da inicialização é igual (migrations, seed, admin).
 - [x] **CA-3** — Passo a passo e variáveis em `docs/deployment-railway.md`.
-- [ ] **CA-4** — Site publicado no Railway com login, simulação e IA (Groq) verificados.
+- [ ] **CA-4** — Site publicado no Railway com login, simulação e IA (Groq) verificados. Em 2026-10-14: health 200 com banco UP pelo frontend e login feito pela pessoa usuária; falta conferir a IA na tela.
 
 ## Testes a escrever depois
 

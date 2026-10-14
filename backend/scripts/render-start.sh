@@ -13,5 +13,6 @@ python -m app.create_admin \
   --username "$ADMIN_USERNAME" \
   --display-name "${ADMIN_DISPLAY_NAME:-Administrador da apresentação}"
 
-# HOST: o Railway usa rede privada com IPv6; lá definimos HOST=:: (aceita IPv4 e IPv6).
+# HOST: padrão 0.0.0.0. Não use "::" no Railway: o uvicorn passa a escutar só IPv6 e o healthcheck
+# (IPv4) falha.
 exec uvicorn app.main:app --host "${HOST:-0.0.0.0}" --port "${PORT:-10000}"

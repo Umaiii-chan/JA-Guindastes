@@ -22,7 +22,6 @@ site fica na mesma origem, como em `http://127.0.0.1:8080`.
 |---|---|
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
 | `PORT` | `8000` |
-| `HOST` | `::` |
 | `FILE_STORAGE_DIR` | `/data/load-charts` |
 | `SESSION_COOKIE_SECURE` | `true` |
 | `ADMIN_USERNAME` | `admin-apresentacao` |
@@ -64,5 +63,5 @@ site fica na mesma origem, como em `http://127.0.0.1:8080`.
 
 ## Problemas comuns
 
-- **502 em `/api` com o frontend no ar:** o frontend não alcança a API pela rede privada. Na API, confira `PORT=8000` e `HOST=::` (a rede privada usa IPv6). O nginx re-resolve o endereço da API a cada 10 s, então não precisa de redeploy do frontend depois de um deploy da API.
+- **502 em `/api` com o frontend no ar:** o frontend não alcança a API pela rede privada. Na API, confira `PORT=8000`. Não defina `HOST=::`: com ele o uvicorn escuta só IPv6 e o healthcheck do Railway (IPv4) falha. Ambientes criados a partir de out/2025 aceitam IPv4 na rede privada. O nginx re-resolve o endereço da API a cada 10 s, então não precisa de redeploy do frontend depois de um deploy da API.
 - **Sem seta da API para o banco no canvas:** `DATABASE_URL` não referencia o serviço do banco. Use `${{<nome-do-serviço-do-banco>.DATABASE_URL}}`.
