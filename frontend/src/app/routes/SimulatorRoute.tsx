@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 
 import { resolveAccessories } from '../../application/accessory/accessorySelection'
+import type { AiLiftReportRequest, AiScenarioDraft } from '../../application/ai/ports'
+import { loadFormFromDraft } from '../../application/ai/scenarioDraft'
 import { selectedConfiguration as findSelectedConfiguration } from '../../application/catalog/CatalogBrowser'
 import { cargoGuidance } from '../../application/cargo/cargoGuidance'
 import { evaluationStatus } from '../../application/evaluation/evaluationStatus'
@@ -20,6 +22,7 @@ import {
   CraneViewport,
   type CraneViewportHandle,
 } from '../../presentation/components/CraneViewport'
+import { AssistantButton, LiftReportButton } from '../../presentation/ai'
 import { SceneErrorBoundary } from '../../presentation/components/SceneErrorBoundary'
 import { ROUTES } from '../../presentation/layout/navigation'
 import { SimulatorPage } from '../../presentation/pages/SimulatorPage'
@@ -331,6 +334,31 @@ export function SimulatorRoute() {
     viewportRef.current?.setCameraPreset(preset)
   }
 
+  // Assistente de IA (TASK-076): "Aplicar" troca o cenário e a carga pela proposta revisada. O
+  // desfazer do editor guarda o cenário anterior. Nada é calculado aqui: o resultado continua vindo
+  // do backend para o novo estado (RN-008).
+  const applyAiDraft = (draft: AiScenarioDraft) => {
+    scenario.checkpoint()
+    scenario.setSpec(draft.scenario)
+    setLoad(loadFormFromDraft(draft.load))
+  }
+  // Pedido do relatório de içamento: só com guindaste, carga e estado válidos. O backend avalia de
+  // novo o estado enviado, então os números do relatório são os do cálculo dele.
+  const buildLiftReportRequest = (): AiLiftReportRequest | null =>
+    locked || input === null || validLoad === null
+      ? null
+      : {
+          evaluation: input,
+          load: {
+            description: validLoad.description,
+            lengthM: validLoad.lengthM,
+            widthM: validLoad.widthM,
+            heightM: validLoad.heightM,
+          },
+          craneLabel: craneSummary === '' ? undefined : craneSummary,
+          scenario: scenario.spec,
+        }
+
   const viewport = (
     <SceneErrorBoundary
       fallback={
@@ -442,6 +470,9 @@ export function SimulatorRoute() {
             }
             slow={evaluation.slow}
           />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+            <LiftReportButton buildRequest={buildLiftReportRequest} />
+          </div>
         </>
       }
       accessories={
@@ -540,6 +571,7 @@ export function SimulatorRoute() {
           cameraActions={
             <>
               <EditEnvironmentToggle active={editor.active} onToggle={editor.toggle} />
+              <AssistantButton onApply={applyAiDraft} disabled={locked} />
               <OperatingAreaToggle
                 enabled={operatingAreaEnabled}
                 onToggle={setOperatingAreaEnabled}

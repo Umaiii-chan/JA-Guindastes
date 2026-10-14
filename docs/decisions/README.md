@@ -73,3 +73,4 @@ Crie um ADR quando a decisão:
 | [ADR-034](ADR-034-eixo-de-giro-real-do-modelo-80t.md) | Eixo de giro real do modelo 80 t (a = 0,46 m) | Aceito | 2026-10-14 |
 | [ADR-035](ADR-035-carga-posicionavel-entrega-engatar-e-soltar.md) | Carga posicionável, ponto de entrega, engatar e soltar | Aceito | 2026-10-14 |
 | [ADR-036](ADR-036-biblioteca-de-objetos-reais.md) | Biblioteca de objetos reais no editor 3D | Aceito | 2026-10-14 |
+| [ADR-039](ADR-039-assistente-de-ia-gemini.md) | Assistente de IA (Gemini): cenário por texto, explicação, relatório e revisão | Aceito | 2026-10-14 |

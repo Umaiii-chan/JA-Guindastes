@@ -54,6 +54,11 @@ services:
       # Flag Secure do cookie de sessão (TASK-038; ADR-016 § 3). Padrão true; false só para usar a
       # stack em HTTP local (http://127.0.0.1:8080), nunca em produção. Vem do .env.
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      # Assistente de IA (TASK-076; ADR-039). Vêm do .env; sem GEMINI_API_KEY a IA fica desligada.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      GEMINI_FALLBACK_MODELS: ${GEMINI_FALLBACK_MODELS:-}
+      AI_RATE_LIMIT_PER_HOUR: ${AI_RATE_LIMIT_PER_HOUR:-}
     volumes:
       - load-chart-files:/data/load-charts
     ports:
