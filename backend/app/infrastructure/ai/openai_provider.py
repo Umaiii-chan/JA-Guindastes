@@ -37,6 +37,7 @@ from app.infrastructure.ai.gemini_provider import HttpPost, urllib_post
 logger = logging.getLogger(__name__)
 
 OPENAI_BASE_URL = "https://api.openai.com/v1"
+USER_AGENT = "ja-guindastes-simulador/1.0"
 DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_FALLBACK_MODELS: tuple[str, ...] = ()
 
@@ -215,6 +216,8 @@ class OpenAiProvider:
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self._api_key}",
+            # O Cloudflare do Groq recusa o User-Agent padrão do urllib (HTTP 403, código 1010).
+            "User-Agent": USER_AGENT,
         }
         try:
             status, raw = self._transport(url, headers, body, timeout)
