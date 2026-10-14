@@ -181,7 +181,7 @@ const seed = {
 test.describe('zonas de giro, com backend', () => {
   test.skip(!hasBackend, 'precisa da stack com backend atrás de /api (defina E2E_BACKEND=1)')
 
-  test('seed FICTÍCIO: pose inicial na frontal e giro de 180° na lateral e traseira (docs/demo.md)', async ({
+  test('seed de demonstração: pose inicial na frontal e giro de 180° na lateral e traseira (docs/demo.md)', async ({
     page,
   }) => {
     test.skip(
@@ -190,25 +190,27 @@ test.describe('zonas de giro, com backend', () => {
     )
     await page.goto('/simulador')
     await openPositionStep(page, seed)
-    // Cenário A do roteiro: 3 000 kg + gancho 200 kg = 3 200 kg; frontal 4 200 kg → 76,19 %.
-    await expect(hudMetric(page, 'Zona de giro')).toHaveText('Frontal FICTÍCIA', {
+    // Cenário A: R = 0,46 + 12·cos 35° ≈ 10,29 m (TASK-069), interpolado entre 10 m (4 200 kg) e
+    // 11 m (3 800 kg) → 4 084 kg (ADR-030); 3 000 kg + gancho 200 kg = 3 200 kg → 78,35 %.
+    await expect(hudMetric(page, 'Zona de giro')).toHaveText('Frontal', {
       timeout: 15_000,
     })
-    await expect(hudMetric(page, 'Capacidade')).toHaveText('4.200 kg')
+    await expect(hudMetric(page, 'Capacidade')).toHaveText('4.084 kg')
     await expect(hudMetric(page, 'Gancho')).toHaveText('200 kg')
     await expect(hudMetric(page, 'Peso comparado')).toHaveText('3.200 kg')
-    await expect(hudMetric(page, 'Utilização')).toHaveText('76,19 %')
+    await expect(hudMetric(page, 'Utilização')).toHaveText('78,35 %')
 
-    // Cenário F: −180° é o mesmo giro que 180° (traseira) → lateral e traseira, 3 360 kg → 95,24 %.
+    // Cenário F: −180° é o mesmo giro que 180° (traseira) → lateral e traseira (v1 × 0,8), 3 267 kg →
+    // 97,94 %.
     const turret = page.getByLabel('Giro da torre')
     await turret.focus()
     await turret.press('Home')
-    await expect(hudMetric(page, 'Zona de giro')).toHaveText('Lateral e traseira FICTÍCIA', {
+    await expect(hudMetric(page, 'Zona de giro')).toHaveText('Lateral e traseira', {
       timeout: 15_000,
     })
-    await expect(hudMetric(page, 'Capacidade')).toHaveText('3.360 kg')
-    await expect(hudMetric(page, 'Utilização')).toHaveText('95,24 %')
-    await expect(activeZoneLabel(page)).toHaveText('Lateral e traseira FICTÍCIA')
+    await expect(hudMetric(page, 'Capacidade')).toHaveText('3.267 kg')
+    await expect(hudMetric(page, 'Utilização')).toHaveText('97,94 %')
+    await expect(activeZoneLabel(page)).toHaveText('Lateral e traseira')
   })
 
   test('tabelas FICTÍCIAS em duas zonas: girar a torre muda a zona e a capacidade', async ({
