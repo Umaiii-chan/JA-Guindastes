@@ -6,8 +6,11 @@ campos em `snake_case`. Eixos da cena (ADR-013): Y para cima; X e Z no chão. Un
 
 Regras (valores FICTÍCIOS e configuráveis até haver dado oficial):
 - números finitos; inclinação do plano de -100 a 100 %;
-- feição: `radius_m` > 0, `height_m` >= 0; `direction_deg` e `width_m` só na rampa (`width_m` > 0);
+- feição: `radius_m` > 0, `height_m` >= 0 (no `flatten`, `height_m` é o nível absoluto e pode ser
+  negativo); `direction_deg` e `width_m` só na rampa (`width_m` > 0);
 - obstáculo: dimensões > 0 (o cilindro usa `width_m` como diâmetro);
+- zonas de solo (TASK-066): `radius_m` > 0, no máximo 200, ids únicos; vento: velocidade de 0 a 100
+  m/s e direção finita (ambos opcionais no cenário);
 - no máximo 50 feições e 100 obstáculos; ids únicos dentro de cada lista;
 - nome do cenário: 1 a 120 caracteres, sem espaços nas pontas.
 """
@@ -25,6 +28,8 @@ SCENARIO_NAME_MAX_LENGTH = 120
 SLOPE_PERCENT_LIMIT = 100.0
 MAX_TERRAIN_FEATURES = 50
 MAX_OBSTACLES = 100
+MAX_SOIL_ZONES = 200
+MAX_WIND_SPEED_MS = 100.0
 ID_MAX_LENGTH = 64
 LABEL_MAX_LENGTH = 120
 
@@ -34,6 +39,14 @@ class FeatureKind(StrEnum):
     PIT = "pit"
     PLATEAU = "plateau"
     RAMP = "ramp"
+    FLATTEN = "flatten"
+
+
+class SoilKind(StrEnum):
+    ROCK = "rock"
+    COMPACTED = "compacted"
+    CLAY = "clay"
+    LOOSE_FILL = "loose_fill"
 
 
 class ObstacleKind(StrEnum):
@@ -90,7 +103,7 @@ class TerrainFeatureSpec:
         _finite(f"{path}.center_z", self.center_z)
         _positive(f"{path}.radius_m", self.radius_m)
         _finite(f"{path}.height_m", self.height_m)
-        if self.height_m < 0:
+        if self.height_m < 0 and self.kind is not FeatureKind.FLATTEN:
             raise InvalidScenarioError(f"{path}.height_m", "a altura não pode ser negativa")
         if self.direction_deg is not None:
             _finite(f"{path}.direction_deg", self.direction_deg)
@@ -151,6 +164,41 @@ class ObstacleSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class SoilZoneSpec:
+    """Círculo de solo pintado; a zona mais recente da lista vale onde houver sobreposição."""
+
+    id: str
+    kind: SoilKind
+    center_x: float
+    center_z: float
+    radius_m: float
+
+    def validate(self, path: str) -> None:
+        _text(f"{path}.id", self.id, ID_MAX_LENGTH)
+        if not isinstance(self.kind, SoilKind):
+            raise InvalidScenarioError(f"{path}.kind", "tipo de solo desconhecido")
+        _finite(f"{path}.center_x", self.center_x)
+        _finite(f"{path}.center_z", self.center_z)
+        _positive(f"{path}.radius_m", self.radius_m)
+
+
+@dataclass(frozen=True, slots=True)
+class WindSpec:
+    """Vento: velocidade em m/s e direção para onde sopra (graus a partir de +X)."""
+
+    speed_ms: float
+    direction_deg: float
+
+    def validate(self, path: str) -> None:
+        _finite(f"{path}.speed_ms", self.speed_ms)
+        if self.speed_ms < 0 or self.speed_ms > MAX_WIND_SPEED_MS:
+            raise InvalidScenarioError(
+                f"{path}.speed_ms", f"a velocidade deve ficar entre 0 e {MAX_WIND_SPEED_MS:g} m/s"
+            )
+        _finite(f"{path}.direction_deg", self.direction_deg)
+
+
+@dataclass(frozen=True, slots=True)
 class CranePlacementSpec:
     x: float = 0.0
     z: float = 0.0
@@ -167,6 +215,8 @@ class ScenarioSpec:
     terrain: TerrainSpec = field(default_factory=TerrainSpec)
     obstacles: tuple[ObstacleSpec, ...] = ()
     crane: CranePlacementSpec = field(default_factory=CranePlacementSpec)
+    soil_zones: tuple[SoilZoneSpec, ...] = ()
+    wind: WindSpec | None = None
 
     def __post_init__(self) -> None:
         self.terrain.validate("spec.terrain")
@@ -176,6 +226,15 @@ class ScenarioSpec:
         for index, obstacle in enumerate(self.obstacles):
             obstacle.validate(f"spec.obstacles[{index}]")
         self.crane.validate("spec.crane")
+        if len(self.soil_zones) > MAX_SOIL_ZONES:
+            raise InvalidScenarioError(
+                "spec.soil_zones", f"no máximo {MAX_SOIL_ZONES} zonas de solo"
+            )
+        _unique_ids("spec.soil_zones", [zone.id for zone in self.soil_zones])
+        for index, zone in enumerate(self.soil_zones):
+            zone.validate(f"spec.soil_zones[{index}]")
+        if self.wind is not None:
+            self.wind.validate("spec.wind")
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,7 +263,7 @@ class Scenario:
 
 def scenario_spec_to_dict(spec: ScenarioSpec) -> dict[str, object]:
     """`spec` como JSON (`snake_case`), na forma gravada no banco e devolvida pela API."""
-    return {
+    data: dict[str, object] = {
         "terrain": {
             "slope_x_percent": spec.terrain.slope_x_percent,
             "slope_z_percent": spec.terrain.slope_z_percent,
@@ -238,6 +297,21 @@ def scenario_spec_to_dict(spec: ScenarioSpec) -> dict[str, object]:
         ],
         "crane": {"x": spec.crane.x, "z": spec.crane.z, "heading_deg": spec.crane.heading_deg},
     }
+    # Campos opcionais da TASK-066: só entram no JSON quando existem (cenários antigos não mudam).
+    if spec.soil_zones:
+        data["soil_zones"] = [
+            {
+                "id": z.id,
+                "kind": z.kind.value,
+                "center_x": z.center_x,
+                "center_z": z.center_z,
+                "radius_m": z.radius_m,
+            }
+            for z in spec.soil_zones
+        ]
+    if spec.wind is not None:
+        data["wind"] = {"speed_ms": spec.wind.speed_ms, "direction_deg": spec.wind.direction_deg}
+    return data
 
 
 def scenario_spec_from_dict(data: Mapping[str, Any]) -> ScenarioSpec:
@@ -282,5 +356,23 @@ def scenario_spec_from_dict(data: Mapping[str, Any]) -> ScenarioSpec:
         ),
         crane=CranePlacementSpec(
             x=float(crane["x"]), z=float(crane["z"]), heading_deg=float(crane["heading_deg"])
+        ),
+        soil_zones=tuple(
+            SoilZoneSpec(
+                id=str(z["id"]),
+                kind=SoilKind(z["kind"]),
+                center_x=float(z["center_x"]),
+                center_z=float(z["center_z"]),
+                radius_m=float(z["radius_m"]),
+            )
+            for z in data.get("soil_zones") or []
+        ),
+        wind=(
+            None
+            if data.get("wind") is None
+            else WindSpec(
+                speed_ms=float(data["wind"]["speed_ms"]),
+                direction_deg=float(data["wind"]["direction_deg"]),
+            )
         ),
     )

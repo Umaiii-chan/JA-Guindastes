@@ -10,6 +10,9 @@ import {
   type ScenarioListStatus,
 } from './scenarioContext'
 
+/** Quantos gestos do editor o desfazer guarda. */
+const UNDO_LIMIT = 50
+
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : 'Falha inesperada ao falar com o servidor.'
 }
@@ -34,6 +37,11 @@ export function ScenarioProvider({
 }) {
   const client = useMemo(() => gateway ?? createScenarioRestClient(), [gateway])
   const [spec, setSpecState] = useState<ScenarioSpec>(EMPTY_SCENARIO)
+  // Cenário mais recente, já na hora do `setSpec` (o editor 3D lê entre uma renderização e outra), e
+  // a pilha de desfazer dos gestos do editor (TASK-066).
+  const specRef = useRef<ScenarioSpec>(EMPTY_SCENARIO)
+  const historyRef = useRef<ScenarioSpec[]>([])
+  const [undoDepth, setUndoDepth] = useState(0)
   const [saved, setSaved] = useState<{
     readonly summary: ScenarioSummary
     readonly spec: ScenarioSpec
@@ -52,7 +60,30 @@ export function ScenarioProvider({
   }, [])
 
   const setSpec = useCallback((next: ScenarioSpec) => {
+    specRef.current = next
     setSpecState(next)
+    setInfo(null)
+  }, [])
+
+  const getSpec = useCallback(() => specRef.current, [])
+
+  const clearHistory = useCallback(() => {
+    historyRef.current = []
+    setUndoDepth(0)
+  }, [])
+
+  const checkpoint = useCallback(() => {
+    historyRef.current = [...historyRef.current, specRef.current].slice(-UNDO_LIMIT)
+    setUndoDepth(historyRef.current.length)
+  }, [])
+
+  const undo = useCallback(() => {
+    const previous = historyRef.current[historyRef.current.length - 1]
+    if (!previous) return
+    historyRef.current = historyRef.current.slice(0, -1)
+    setUndoDepth(historyRef.current.length)
+    specRef.current = previous
+    setSpecState(previous)
     setInfo(null)
   }, [])
 
@@ -89,11 +120,13 @@ export function ScenarioProvider({
     (id: string) =>
       run(async () => {
         const scenario = await client.get(id)
+        specRef.current = scenario.spec
+        clearHistory()
         setSpecState(scenario.spec)
         setSaved({ summary: summaryOf(scenario), spec: scenario.spec })
         return `Cenário "${scenario.name}" aberto.`
       }),
-    [client, run],
+    [client, run, clearHistory],
   )
 
   const save = useCallback(
@@ -123,11 +156,13 @@ export function ScenarioProvider({
   )
 
   const reset = useCallback(() => {
+    specRef.current = EMPTY_SCENARIO
+    clearHistory()
     setSpecState(EMPTY_SCENARIO)
     setSaved(null)
     setError(null)
     setInfo(null)
-  }, [])
+  }, [clearHistory])
 
   const groundSlopeDeg = useMemo(() => scenarioGroundSlopeDeg(spec), [spec])
   const dirty = useMemo(
@@ -139,6 +174,10 @@ export function ScenarioProvider({
     () => ({
       spec,
       setSpec,
+      getSpec,
+      checkpoint,
+      undo,
+      canUndo: undoDepth > 0,
       groundSlopeDeg,
       current: saved?.summary ?? null,
       dirty,
@@ -156,6 +195,10 @@ export function ScenarioProvider({
     [
       spec,
       setSpec,
+      getSpec,
+      checkpoint,
+      undo,
+      undoDepth,
       groundSlopeDeg,
       saved,
       dirty,

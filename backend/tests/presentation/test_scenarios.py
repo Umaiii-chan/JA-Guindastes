@@ -201,3 +201,40 @@ def test_domain_violation_reports_the_field_path(client: TestClient) -> None:
         "features[1]",
         "radius_m",
     ]
+
+
+def test_soil_zones_wind_and_flatten_are_saved_and_returned(client: TestClient) -> None:
+    login_as_operator(client)
+    payload = body()
+    payload["spec"]["terrain"]["features"].append(
+        {
+            "id": "f3",
+            "kind": "flatten",
+            "center_x": 0.0,
+            "center_z": 0.0,
+            "radius_m": 5.0,
+            "height_m": -0.5,
+        }
+    )
+    payload["spec"]["soil_zones"] = [
+        {"id": "s1", "kind": "loose_fill", "center_x": 1.0, "center_z": 2.0, "radius_m": 3.0}
+    ]
+    payload["spec"]["wind"] = {"speed_ms": 6.0, "direction_deg": 90.0}
+
+    created = client.post(SCENARIOS_PATH, json=payload, headers=CSRF_HEADERS)
+
+    assert created.status_code == 201, created.text
+    reopened = client.get(f"{SCENARIOS_PATH}/{created.json()['id']}").json()["spec"]
+    assert reopened["soil_zones"] == payload["spec"]["soil_zones"]
+    assert reopened["wind"] == payload["spec"]["wind"]
+    assert reopened["terrain"]["features"][-1]["kind"] == "flatten"
+
+
+def test_unknown_soil_kind_answers_422(client: TestClient) -> None:
+    login_as_operator(client)
+    payload = body()
+    payload["spec"]["soil_zones"] = [
+        {"id": "s1", "kind": "lava", "center_x": 0.0, "center_z": 0.0, "radius_m": 1.0}
+    ]
+
+    assert client.post(SCENARIOS_PATH, json=payload, headers=CSRF_HEADERS).status_code == 422

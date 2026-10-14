@@ -17,8 +17,11 @@ from app.domain.entities.scenario import (
     ObstacleSpec,
     Scenario,
     ScenarioSpec,
+    SoilKind,
+    SoilZoneSpec,
     TerrainFeatureSpec,
     TerrainSpec,
+    WindSpec,
 )
 
 _STRICT_INPUT = ConfigDict(strict=True, allow_inf_nan=False, extra="forbid")
@@ -28,13 +31,16 @@ class TerrainFeaturePayload(BaseModel):
     model_config = _STRICT_INPUT
 
     id: str
-    kind: Literal["mound", "pit", "plateau", "ramp"] = Field(
-        description="Elevação, depressão, platô ou rampa."
+    kind: Literal["mound", "pit", "plateau", "ramp", "flatten"] = Field(
+        description="Elevação, depressão, platô, rampa ou nivelamento."
     )
     center_x: float
     center_z: float
     radius_m: float = Field(description="Raio (rampa: meio comprimento), em metros; > 0.")
-    height_m: float = Field(description="Altura, em metros; >= 0 (a depressão desce pelo tipo).")
+    height_m: float = Field(
+        description="Altura, em metros; >= 0 (a depressão desce pelo tipo). No nivelamento, o "
+        "nível absoluto, que pode ser negativo."
+    )
     direction_deg: float | None = Field(default=None, description="Só rampa: direção da subida.")
     width_m: float | None = Field(default=None, description="Só rampa: largura, em metros.")
 
@@ -121,6 +127,44 @@ class CranePlacementPayload(BaseModel):
     heading_deg: float
 
 
+class SoilZonePayload(BaseModel):
+    model_config = _STRICT_INPUT
+
+    id: str
+    kind: Literal["rock", "compacted", "clay", "loose_fill"] = Field(
+        description="Rochoso, compactado, argiloso ou aterro solto."
+    )
+    center_x: float
+    center_z: float
+    radius_m: float = Field(description="Raio da zona, em metros; > 0.")
+
+    def to_domain(self) -> SoilZoneSpec:
+        return SoilZoneSpec(
+            id=self.id,
+            kind=SoilKind(self.kind),
+            center_x=self.center_x,
+            center_z=self.center_z,
+            radius_m=self.radius_m,
+        )
+
+    @classmethod
+    def from_domain(cls, zone: SoilZoneSpec) -> SoilZonePayload:
+        return cls(
+            id=zone.id,
+            kind=zone.kind.value,
+            center_x=zone.center_x,
+            center_z=zone.center_z,
+            radius_m=zone.radius_m,
+        )
+
+
+class WindPayload(BaseModel):
+    model_config = _STRICT_INPUT
+
+    speed_ms: float = Field(description="Velocidade do vento, em m/s; de 0 a 100.")
+    direction_deg: float = Field(description="Direção para onde sopra, em graus a partir de +X.")
+
+
 class ScenarioSpecPayload(BaseModel):
     """`ScenarioSpec` do frontend, em `snake_case`."""
 
@@ -129,6 +173,10 @@ class ScenarioSpecPayload(BaseModel):
     terrain: TerrainPayload
     obstacles: list[ObstaclePayload]
     crane: CranePlacementPayload
+    soil_zones: list[SoilZonePayload] | None = Field(
+        default=None, description="Zonas de solo pintadas; opcional (TASK-066)."
+    )
+    wind: WindPayload | None = Field(default=None, description="Vento; opcional (TASK-066).")
 
     def to_domain(self) -> ScenarioSpec:
         """Monta e valida o `ScenarioSpec` (`InvalidScenarioError` se violar uma regra)."""
@@ -141,6 +189,12 @@ class ScenarioSpecPayload(BaseModel):
             obstacles=tuple(obstacle.to_domain() for obstacle in self.obstacles),
             crane=CranePlacementSpec(
                 x=self.crane.x, z=self.crane.z, heading_deg=self.crane.heading_deg
+            ),
+            soil_zones=tuple(zone.to_domain() for zone in self.soil_zones or []),
+            wind=(
+                None
+                if self.wind is None
+                else WindSpec(speed_ms=self.wind.speed_ms, direction_deg=self.wind.direction_deg)
             ),
         )
 
@@ -155,6 +209,12 @@ class ScenarioSpecPayload(BaseModel):
             obstacles=[ObstaclePayload.from_domain(o) for o in spec.obstacles],
             crane=CranePlacementPayload(
                 x=spec.crane.x, z=spec.crane.z, heading_deg=spec.crane.heading_deg
+            ),
+            soil_zones=[SoilZonePayload.from_domain(z) for z in spec.soil_zones] or None,
+            wind=(
+                None
+                if spec.wind is None
+                else WindPayload(speed_ms=spec.wind.speed_ms, direction_deg=spec.wind.direction_deg)
             ),
         )
 

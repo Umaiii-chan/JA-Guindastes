@@ -93,9 +93,9 @@ function FeatureEditor({
           onCommit={(radiusM) => onChange({ radiusM })}
         />
         <NumberField
-          label="Altura (m)"
+          label={feature.kind === 'flatten' ? 'Nível (m)' : 'Altura (m)'}
           unit="m"
-          nonNegative
+          nonNegative={feature.kind !== 'flatten'}
           value={feature.heightM}
           onCommit={(heightM) => onChange({ heightM })}
         />

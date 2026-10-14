@@ -4,6 +4,8 @@
 // para um formato único. O frontend não calcula capacidade nem utilização: só mostra o que o backend
 // devolveu (RN-008). Não há nível de alerta (normal/atenção/crítico): está pendente (PEND-004).
 
+import type { SoilKind } from '../environment/environment'
+
 /** Estado operacional e carga enviados ao backend, em unidades internas (RN-006; ADR-013 C-2). */
 export interface EvaluationInput {
   /** Configuração do guindaste avaliada (RN-001). */
@@ -20,6 +22,12 @@ export interface EvaluationInput {
   readonly groundSlopeDeg?: number
   /** Acessórios de içamento pendurados no gancho (TASK-056; RN-014). */
   readonly accessoryIds?: readonly string[]
+  /** Tipo de solo sob cada sapata, na ordem fl, fr, rl, rr (TASK-066); só com solo pintado. */
+  readonly soilKinds?: readonly SoilKind[]
+  /** Velocidade do vento (m/s) do cenário (TASK-066); só com vento. */
+  readonly windSpeedMs?: number
+  /** Ids de obstáculos no raio de giro da carga ou atravessados pela lança e pelo cabo (TASK-066). */
+  readonly obstacleConflicts?: readonly string[]
 }
 
 /** Estado das patolas enviado ao backend (TASK-054). */

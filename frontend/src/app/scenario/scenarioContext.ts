@@ -13,6 +13,13 @@ export interface ScenarioContextValue {
   /** Cenário em edição: é o que a cena desenha. Começa vazio (terreno plano, sem obstáculos). */
   readonly spec: ScenarioSpec
   setSpec(next: ScenarioSpec): void
+  /** Cenário mais recente, mesmo antes da próxima renderização (usado pelo editor 3D). */
+  getSpec(): ScenarioSpec
+  /** Guarda o cenário atual na pilha do desfazer; o editor chama antes de cada gesto (TASK-066). */
+  checkpoint(): void
+  /** Volta ao cenário do último ponto guardado. */
+  undo(): void
+  readonly canUndo: boolean
   /**
    * Inclinação do terreno sob as sapatas FICTÍCIAS do guindaste, em graus, enviada como
    * `ground_slope_deg`; `undefined` com terreno plano (a requisição fica como era).

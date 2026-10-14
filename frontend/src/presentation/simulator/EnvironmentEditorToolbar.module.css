@@ -1,0 +1,111 @@
+/* Faixa de ferramentas do editor do ambiente: mesma linguagem da faixa de gravação, em linhas. */
+.bar {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-ink);
+  background: var(--color-surface-1);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--color-border-ink);
+}
+
+.tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface-1);
+  color: var(--color-text-2);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tool:last-child {
+  border-right: 0;
+}
+
+.tool:hover {
+  color: var(--color-text-1);
+}
+
+.on {
+  background: var(--color-text-1);
+  color: var(--color-surface-1);
+}
+
+.on:hover {
+  color: var(--color-surface-1);
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--color-border-ink);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.action {
+  height: 26px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-ink);
+  background: var(--color-surface-1);
+  color: var(--color-text-1);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.action:disabled {
+  color: var(--color-text-3);
+  border-color: var(--color-border);
+  cursor: not-allowed;
+}
+
+.done {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+.range {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.range input {
+  width: 120px;
+  accent-color: var(--color-accent);
+}
+
+.range output {
+  min-width: 52px;
+  font-family: var(--font-mono, monospace);
+  color: var(--color-text-1);
+}
+
+.note {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-2);
+}

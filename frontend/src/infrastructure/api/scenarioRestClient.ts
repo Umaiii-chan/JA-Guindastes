@@ -8,11 +8,14 @@
 // - `PUT    /scenarios/{id}` `{name?, spec?}` → 200; 403 `FORBIDDEN` (não é o autor nem admin); 404; 422;
 // - `DELETE /scenarios/{id}` → 204; 403; 404.
 
-import type {
-  CranePlacement,
-  Obstacle,
-  ScenarioSpec,
-  TerrainFeature,
+import {
+  type CranePlacement,
+  type Obstacle,
+  type ScenarioSpec,
+  SOIL_KINDS,
+  type SoilZone,
+  type TerrainFeature,
+  type WindSpec,
 } from '../../domain/environment/environment'
 import type {
   SavedScenario,
@@ -32,7 +35,13 @@ import { type AuthHttpOptions, createSendJson, guardContract } from './authHttp'
 
 export const SCENARIOS_PATH = '/api/v1/scenarios'
 
-const FEATURE_KINDS: readonly TerrainFeature['kind'][] = ['mound', 'pit', 'plateau', 'ramp']
+const FEATURE_KINDS: readonly TerrainFeature['kind'][] = [
+  'mound',
+  'pit',
+  'plateau',
+  'ramp',
+  'flatten',
+]
 const OBSTACLE_KINDS: readonly Obstacle['kind'][] = ['box', 'cylinder']
 
 /** `ScenarioSpec` no JSON do backend. */
@@ -64,6 +73,20 @@ export function toScenarioSpecDto(spec: ScenarioSpec): Record<string, unknown> {
       rotation_y_deg: obstacle.rotationYDeg,
     })),
     crane: { x: spec.crane.x, z: spec.crane.z, heading_deg: spec.crane.headingDeg },
+    ...(spec.soilZones && spec.soilZones.length > 0
+      ? {
+          soil_zones: spec.soilZones.map((zone) => ({
+            id: zone.id,
+            kind: zone.kind,
+            center_x: zone.centerX,
+            center_z: zone.centerZ,
+            radius_m: zone.radiusM,
+          })),
+        }
+      : {}),
+    ...(spec.wind
+      ? { wind: { speed_ms: spec.wind.speedMs, direction_deg: spec.wind.directionDeg } }
+      : {}),
   }
 }
 
@@ -112,6 +135,25 @@ function mapObstacle(json: unknown, path: string): Obstacle {
   }
 }
 
+function mapSoilZone(json: unknown, path: string): SoilZone {
+  const record = readRecord(json, path)
+  return {
+    id: readString(record, 'id', path),
+    kind: readOneOf(record, 'kind', path, SOIL_KINDS),
+    centerX: readNumber(record, 'center_x', path),
+    centerZ: readNumber(record, 'center_z', path),
+    radiusM: readNumber(record, 'radius_m', path),
+  }
+}
+
+function mapWind(json: unknown, path: string): WindSpec {
+  const record = readRecord(json, path)
+  return {
+    speedMs: readNumber(record, 'speed_ms', path),
+    directionDeg: readNumber(record, 'direction_deg', path),
+  }
+}
+
 export function mapScenarioSpec(json: unknown, path: string): ScenarioSpec {
   const record = readRecord(json, path)
   const terrain = readRecord(record.terrain, `${path}.terrain`)
@@ -133,6 +175,15 @@ export function mapScenarioSpec(json: unknown, path: string): ScenarioSpec {
       mapObstacle(item, `${path}.obstacles[${index}]`),
     ),
     crane: placement,
+    // Campos da TASK-066: cenários salvos antes deles não os têm (ausente ou `null`).
+    ...(Array.isArray(record.soil_zones) && record.soil_zones.length > 0
+      ? {
+          soilZones: record.soil_zones.map((item, index) =>
+            mapSoilZone(item, `${path}.soil_zones[${index}]`),
+          ),
+        }
+      : {}),
+    ...(record.wind != null ? { wind: mapWind(record.wind, `${path}.wind`) } : {}),
   }
 }
 

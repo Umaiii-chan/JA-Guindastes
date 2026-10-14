@@ -15,8 +15,11 @@ from app.domain.entities.scenario import (
     ObstacleSpec,
     Scenario,
     ScenarioSpec,
+    SoilKind,
+    SoilZoneSpec,
     TerrainFeatureSpec,
     TerrainSpec,
+    WindSpec,
     normalize_scenario_name,
     scenario_spec_from_dict,
     scenario_spec_to_dict,
@@ -128,3 +131,49 @@ def test_scenario_validates_its_fields() -> None:
         )
     with pytest.raises(ValueError, match="anterior"):
         replace(scenario, updated_at=INSTANTE_FICTICIO - timedelta(seconds=1))
+
+
+def test_soil_zones_and_wind_round_trip_and_stay_out_of_old_json() -> None:
+    old = spec_ficticio()
+    assert "soil_zones" not in scenario_spec_to_dict(old)
+    assert "wind" not in scenario_spec_to_dict(old)
+
+    spec = replace(
+        old,
+        soil_zones=(SoilZoneSpec("s1", SoilKind.CLAY, 2.0, 3.0, 4.0),),
+        wind=WindSpec(speed_ms=8.5, direction_deg=45.0),
+    )
+
+    assert scenario_spec_from_dict(scenario_spec_to_dict(spec)) == spec
+
+
+def test_flatten_accepts_a_negative_level_but_mound_does_not() -> None:
+    flatten = feature(kind=FeatureKind.FLATTEN, height_m=-1.5)
+    ScenarioSpec(terrain=TerrainSpec(features=(flatten,)))
+
+    with pytest.raises(InvalidScenarioError):
+        ScenarioSpec(terrain=TerrainSpec(features=(feature(height_m=-1.0),)))
+
+
+@pytest.mark.parametrize(
+    ("changes", "campo"),
+    [
+        ({"soil_zones": (SoilZoneSpec("s", SoilKind.ROCK, 0, 0, 0.0),)}, "soil_zones[0].radius_m"),
+        (
+            {
+                "soil_zones": (
+                    SoilZoneSpec("s", SoilKind.ROCK, 0, 0, 1.0),
+                    SoilZoneSpec("s", SoilKind.CLAY, 1, 1, 1.0),
+                )
+            },
+            "soil_zones",
+        ),
+        ({"wind": WindSpec(speed_ms=-1.0, direction_deg=0.0)}, "wind.speed_ms"),
+        ({"wind": WindSpec(speed_ms=math.nan, direction_deg=0.0)}, "wind.speed_ms"),
+    ],
+)
+def test_invalid_soil_and_wind_are_rejected(changes: dict[str, object], campo: str) -> None:
+    with pytest.raises(InvalidScenarioError) as raised:
+        ScenarioSpec(**changes)  # type: ignore[arg-type]
+
+    assert campo in raised.value.field

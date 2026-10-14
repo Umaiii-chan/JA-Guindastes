@@ -73,6 +73,20 @@ export const SCENE_COLORS = Object.freeze({
   zoneBoundary: PAPER_INK.inkSecondary,
 })
 
+/** Cores do solo pintado (TASK-066), em sRGB; a cena as desenha semitransparentes. */
+export const SOIL_COLORS = Object.freeze({
+  rock: 0x5b6b7a,
+  compacted: 0xb08a3e,
+  clay: 0xb4541f,
+  loose_fill: 0x8a9a3b,
+} as const)
+
+/** Editor 3D do ambiente (TASK-066): cursor do pincel, seta do vento. */
+export const EDITOR_COLORS = Object.freeze({
+  brush: PAPER_INK.accent,
+  wind: 0x2563a8,
+})
+
 /** Situação válida ou `unknown` para qualquer outro valor (inclusive `undefined`). */
 export function normalizeEvaluationStatus(value: unknown): EvaluationStatus {
   return EVALUATION_STATUSES.includes(value as EvaluationStatus)

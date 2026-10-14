@@ -1,6 +1,7 @@
 import { Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 
+import { CollapsibleSection } from '../simulator/CollapsibleSection'
 import { cx } from '../ui'
 
 import styles from './SimulatorPage.module.css'
@@ -22,6 +23,8 @@ export interface SimulatorPageProps {
   readonly recording?: ReactNode
   /** Seção "Ambiente" (TASK-052), recolhida, abaixo dos passos. */
   readonly environment?: ReactNode
+  /** Faixa de ferramentas do editor 3D do ambiente (TASK-066), sob a faixa de título. */
+  readonly editorToolbar?: ReactNode
 }
 
 /**
@@ -39,6 +42,7 @@ export function SimulatorPage({
   accessories,
   recording,
   environment,
+  editorToolbar,
 }: SimulatorPageProps) {
   const stageRef = useRef<HTMLDivElement>(null)
   // Tela cheia (Fullscreen API) e painel recolhido: deixam a cena ocupar o espaço (TASK-062).
@@ -81,10 +85,9 @@ export function SimulatorPage({
       <div className={styles.procedure} hidden={panelHidden}>
         {steps}
         {accessories && (
-          <details className={styles.section}>
-            <summary className={styles.sectionTitle}>Acessórios de içamento</summary>
+          <CollapsibleSection id="accessories" title="Acessórios de içamento">
             {accessories}
-          </details>
+          </CollapsibleSection>
         )}
         {environment}
       </div>
@@ -118,6 +121,7 @@ export function SimulatorPage({
             </div>
           </div>
           {recording}
+          {editorToolbar}
         </div>
         <div className={styles.scene}>
           {viewport}

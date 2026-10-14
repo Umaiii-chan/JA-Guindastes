@@ -2,8 +2,15 @@
 // tela (TASK-032); desde a TASK-033, o id é o da configuração escolhida no catálogo. Só confere a forma que o backend exige (id não vazio, carga finita e >= 0); as
 // faixas do guindaste são validadas no backend, com a ficha técnica (RN-008; ADR-013 C-5).
 
+import type { SoilKind } from '../domain/environment/environment'
 import type { EvaluationInput, OutriggerInput } from '../domain/evaluation/evaluation'
 import type { CraneState } from '../three/crane/types'
+
+export interface ScenarioEvaluationExtras {
+  readonly soilKinds?: readonly SoilKind[]
+  readonly windSpeedMs?: number
+  readonly obstacleConflicts?: readonly string[]
+}
 
 export type EvaluationInputResult =
   | { readonly input: EvaluationInput; readonly problem: null }
@@ -17,6 +24,8 @@ export function buildEvaluationInput(
   accessoryIds: readonly string[] = [],
   /** Inclinação do terreno sob o guindaste (TASK-052); `undefined` com terreno plano. */
   groundSlopeDeg?: number,
+  /** Solo, vento e conflitos com obstáculos (TASK-066); só vão ao backend quando existem. */
+  scenarioExtras: ScenarioEvaluationExtras = {},
 ): EvaluationInputResult {
   if (craneState === null) return { input: null, problem: 'Aguardando a cena 3D.' }
   const trimmedId = configurationId.trim()
@@ -43,6 +52,13 @@ export function buildEvaluationInput(
       // Só vai ao backend com acessórios escolhidos (TASK-056; RN-014).
       ...(accessoryIds.length > 0 ? { accessoryIds } : {}),
       ...(groundSlopeDeg === undefined ? {} : { groundSlopeDeg }),
+      ...(scenarioExtras.soilKinds ? { soilKinds: scenarioExtras.soilKinds } : {}),
+      ...(scenarioExtras.windSpeedMs === undefined
+        ? {}
+        : { windSpeedMs: scenarioExtras.windSpeedMs }),
+      ...(scenarioExtras.obstacleConflicts && scenarioExtras.obstacleConflicts.length > 0
+        ? { obstacleConflicts: scenarioExtras.obstacleConflicts }
+        : {}),
     },
     problem: null,
   }

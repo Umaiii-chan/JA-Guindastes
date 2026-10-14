@@ -68,3 +68,4 @@ Crie um ADR quando a decisão:
 | [ADR-028](ADR-028-colisoes-da-carga.md) | Colisões da carga | Aceito | 2026-10-14 |
 | [ADR-029](ADR-029-lanca-entre-colunas-proxima-mais-longa.md) | Lança entre colunas: próxima mais longa | Aceito | 2026-10-14 |
 | [ADR-030](ADR-030-interpolacao-linear-provisoria.md) | Interpolação linear provisória | Aceito | 2026-10-14 |
+| [ADR-032](ADR-032-editor-3d-do-ambiente.md) | Editor 3D livre do ambiente | Aceito | 2026-10-14 |
