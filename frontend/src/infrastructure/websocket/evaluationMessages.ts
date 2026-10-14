@@ -11,6 +11,7 @@ import type {
   EvaluationInput,
   EvaluationResult,
 } from '../../domain/evaluation/evaluation'
+import { type OutriggersDto, toOutriggersDto } from '../api/evaluationContract'
 import {
   ContractViolationError,
   type JsonRecord,
@@ -22,6 +23,9 @@ import {
   readRecord,
   readString,
 } from '../shared/readJson'
+import { readCapacityLimit } from '../shared/evaluationCapacityLimit'
+import { readSafety } from '../shared/evaluationSafety'
+import { readAccessories } from '../shared/evaluationAccessories'
 import { readZoneAndWeights } from '../shared/evaluationZone'
 
 export const EVALUATION_WEBSOCKET_PATH = '/api/v1/ws/evaluation'
@@ -38,6 +42,11 @@ export interface OperationalStatePayloadDto {
   readonly turret_rotation_deg: number
   readonly cable_length_m: number
   readonly load_weight_kg: number
+  /** Patolas (TASK-054); omitido quando a tela não as informa. */
+  readonly outriggers?: OutriggersDto
+  readonly ground_slope_deg?: number
+  /** TASK-056 (RN-014): só vai com acessórios escolhidos. */
+  readonly accessory_ids?: readonly string[]
 }
 
 /** Cliente → servidor. O backend recusa campo desconhecido (`INVALID_MESSAGE`). */
@@ -72,6 +81,13 @@ export interface SimulationEvaluatedMessageDto {
     readonly load_chart_id: string | null
     readonly load_chart_version: string | null
     readonly reasons: readonly string[]
+    /** TASK-055 (RN-013). */
+    readonly tipping_risk?: 'LOW' | 'ATTENTION' | 'HIGH' | null
+    readonly alerts?: readonly {
+      readonly code: string
+      readonly severity: 'INFO' | 'ATTENTION' | 'CRITICAL'
+      readonly message: string
+    }[]
   }
 }
 
@@ -106,6 +122,11 @@ export function toStateChangedMessage(
       turret_rotation_deg: input.turretRotationDeg,
       cable_length_m: input.cableLengthM,
       load_weight_kg: input.loadWeightKg,
+      ...toOutriggersDto(input),
+      ...(input.groundSlopeDeg !== undefined && { ground_slope_deg: input.groundSlopeDeg }),
+      ...(input.accessoryIds && input.accessoryIds.length > 0
+        ? { accessory_ids: input.accessoryIds }
+        : {}),
     },
   }
 }
@@ -176,6 +197,9 @@ function mapEvaluatedPayload(payload: JsonRecord): EvaluationResult {
     loadChartId: readNullableString(payload, 'load_chart_id', path),
     loadChartVersion: readNullableString(payload, 'load_chart_version', path),
     ...readZoneAndWeights(payload, path),
+    ...readCapacityLimit(payload, path),
+    ...readSafety(payload, path),
+    ...readAccessories(payload, path),
   }
   if (result === 'EVALUATED') {
     if (common.capacity === null) throw new ContractViolationError(`${path}.capacity`, 'objeto')

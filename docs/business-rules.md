@@ -130,6 +130,57 @@ parceira, o campo diz **PENDENTE** e aponta a pergunta em aberto correspondente.
 **Testes relacionados:** —
 **Origem:** doc-fonte v0.1 § 6.1 (l.151)
 
+### RN-011 — Limite de uso da capacidade por modelo
+
+**Status:** Ativa
+**Contexto:** avaliação operacional (TASK-051).
+**Regra:** cada modelo de guindaste tem um limite de uso da capacidade, de 1 a 100 % (padrão 100). A capacidade efetiva é a capacidade da tabela × limite. Acima da capacidade efetiva, o status é "acima do limite". A partir de uma faixa de atenção configurável (padrão: 90 % do limite), o status é "atenção".
+**Exemplos:**
+- limite 85 %, capacidade da tabela 10 000 kg, peso comparado 8 000 kg → efetiva 8 500 kg; 94,1 % do limite → atenção
+- mesmo caso com 9 000 kg → acima do limite
+**Exceções:** nenhuma
+**Testes relacionados:** —
+**Origem:** Anderson Sehnem, em chat em 2026-10-14 (plano da leva E)
+
+### RN-012 — Carga não atravessa terreno, guindaste nem obstáculos
+
+**Status:** Ativa
+**Contexto:** simulação 3D (TASK-053).
+**Regra:** a carga suspensa e os acessórios não podem atravessar o terreno, o corpo do guindaste nem os obstáculos. O comando que causaria colisão deve ser bloqueado no último estado seguro e sinalizado.
+**Exemplos:**
+- baixar o cabo até a carga tocar o chão → o cabo para no contato e aparece o alerta de colisão
+**Exceções:** nenhuma
+**Testes relacionados:** —
+**Origem:** Anderson Sehnem, em chat em 2026-10-14
+
+### RN-013 — Risco de tombamento por regras
+
+**Status:** Ativa
+**Contexto:** avaliação operacional (TASK-055).
+**Regra:** o risco de tombamento é **baixo**, **atenção** ou **alto**, com a lista de motivos. Não há cálculo físico de estabilidade. É alto com qualquer um destes:
+- utilização acima do limite (RN-011);
+- patolas não totalmente estendidas e apoiadas com carga suspensa;
+- inclinação residual do terreno sob o guindaste acima do máximo do modelo;
+- operação fora da tabela com carga.
+
+É atenção com a utilização na faixa de atenção.
+**Exemplos:**
+- patolas a 50 % com carga → alto
+**Exceções:** valores FICTÍCIOS até haver dado oficial
+**Testes relacionados:** —
+**Origem:** Anderson Sehnem, em chat em 2026-10-14
+
+### RN-014 — Peso comparado inclui os acessórios de içamento
+
+**Status:** Ativa
+**Contexto:** avaliação operacional (TASK-056); estende o ADR-018.
+**Regra:** o peso comparado com a capacidade é carga + moitão/gancho + acessórios de içamento. Jib e contrapeso não são acessórios: são configurações com tabela própria (RN-001, RN-002). Trocá-los troca a configuração.
+**Exemplos:**
+- carga 3 000 kg + gancho 200 kg + manilha 20 kg + cinta 15 kg → 3 235 kg comparados
+**Exceções:** nenhuma
+**Testes relacionados:** —
+**Origem:** Anderson Sehnem, em chat em 2026-10-14
+
 ---
 
 ## Regras por domínio (índice)

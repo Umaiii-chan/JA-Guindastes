@@ -77,11 +77,16 @@ def test_status_only_distinguishes_evaluated_from_not_evaluable(openapi: dict[st
         "utilization_percent",
         "load_chart_id",
         "load_chart_version",
+        "capacity_limit",
         "rotation_zone_code",
         "rotation_zone_name",
         "hook_block_weight_kg",
         "compared_weight_kg",
+        "accessories_weight_kg",
+        "accessories",
         "reasons",
+        "tipping_risk",
+        "alerts",
     }
 
 
@@ -96,9 +101,10 @@ def test_capacity_carries_the_used_point_and_the_provisional_strategy(
         "queried_boom_length_m",
         "queried_working_radius_m",
         "used_point",
+        "interpolated_points",
     }
     strategy = nullable_ref(openapi, capacity["properties"]["strategy"])
-    assert strategy["enum"] == ["CONSERVATIVE_PROVISIONAL"]
+    assert strategy["enum"] == ["CONSERVATIVE_PROVISIONAL", "LINEAR_INTERPOLATION_PROVISIONAL"]
 
 
 def test_geometry_has_radius_heights_and_positions(openapi: dict[str, Any]) -> None:

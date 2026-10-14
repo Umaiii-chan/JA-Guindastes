@@ -18,6 +18,7 @@ import {
   CatalogRequestError,
   type Crane,
   type CraneConfiguration,
+  type CraneLimits,
   type CraneTechnicalSheet,
   type Manufacturer,
   type RotationZone,
@@ -46,6 +47,7 @@ import {
   INVALID_ROTATION_ZONES,
   ROTATION_ZONE_IN_USE,
   toRotationZoneDto,
+  type CraneCreateDto,
   type CraneGeometryDto,
   cranePath,
   type CraneUpdateDto,
@@ -57,6 +59,7 @@ import {
   REQUEST_FIELD_FROM_DTO,
   SHEET_FIELD_FROM_DTO,
   toCraneGeometryDto,
+  toCraneLimitsDto,
 } from './catalogContract'
 import { createApiFetch } from './apiFetch'
 
@@ -116,8 +119,16 @@ export function createCatalogRestClient(options: CatalogRestClientOptions = {}):
         undefined,
         (json) => mapList(json, mapCrane),
       ),
-    createCrane: ({ manufacturerId, modelName }) =>
-      request(CRANES_PATH, { manufacturer_id: manufacturerId, model_name: modelName }, mapCrane),
+    createCrane: ({ manufacturerId, modelName, limits }) =>
+      request(
+        CRANES_PATH,
+        {
+          manufacturer_id: manufacturerId,
+          model_name: modelName,
+          ...toCraneLimitsDto(limits),
+        } satisfies CraneCreateDto,
+        mapCrane,
+      ),
     listConfigurations: (craneId) =>
       request(craneConfigurationsPath(craneId), undefined, (json) =>
         mapList(json, mapConfiguration),
@@ -141,10 +152,10 @@ export function createCatalogRestClient(options: CatalogRestClientOptions = {}):
         mapManufacturer,
         'PATCH',
       ),
-    updateCrane: (craneId, modelName) =>
+    updateCrane: (craneId, modelName, limits) =>
       request(
         cranePath(craneId),
-        { model_name: modelName } satisfies CraneUpdateDto,
+        { model_name: modelName, ...toCraneLimitsDto(limits) } satisfies CraneUpdateDto,
         mapCrane,
         'PATCH',
       ),
@@ -271,7 +282,23 @@ function mapCrane(json: unknown, path = 'response'): Crane {
     id: readString(record, 'id', path),
     manufacturerId: readString(record, 'manufacturer_id', path),
     modelName: readString(record, 'model_name', path),
+    ...readCraneLimits(record, path),
   }
+}
+
+/** Limites do modelo (TASK-051); ausentes (backend anterior) ficam de fora. */
+function readCraneLimits(record: JsonRecord, path: string): Partial<CraneLimits> {
+  const limits: { -readonly [K in keyof CraneLimits]?: number } = {}
+  const fields = [
+    ['capacity_limit_percent', 'capacityLimitPercent'],
+    ['warning_band_percent', 'warningBandPercent'],
+    ['max_ground_slope_deg', 'maxGroundSlopeDeg'],
+    ['max_leveling_deg', 'maxLevelingDeg'],
+  ] as const
+  for (const [key, name] of fields) {
+    if (key in record) limits[name] = readNumber(record, key, path)
+  }
+  return limits
 }
 
 function mapConfiguration(json: unknown, path = 'response'): CraneConfiguration {

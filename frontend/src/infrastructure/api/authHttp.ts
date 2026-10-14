@@ -20,7 +20,7 @@ export interface AuthHttpOptions {
 }
 
 export type SendJson = (
-  method: 'GET' | 'POST' | 'PATCH',
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   path: string,
   body?: unknown,
 ) => Promise<{ readonly status: number; readonly json: unknown }>
@@ -36,6 +36,7 @@ const DEFAULT_MESSAGES: Readonly<Record<string, string>> = {
   OWN_ADMIN_ACCESS: 'Você não pode desativar a própria conta nem tirar o próprio perfil de admin.',
   USER_NOT_FOUND: 'Usuário não encontrado.',
   CSRF_HEADER_MISSING: 'Requisição recusada pelo backend (cabeçalho de proteção ausente).',
+  SCENARIO_NOT_FOUND: 'Cenário não encontrado (talvez já tenha sido apagado).',
 }
 
 export function createSendJson(options: AuthHttpOptions = {}): SendJson {

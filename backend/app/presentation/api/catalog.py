@@ -6,7 +6,7 @@
 - `GET/POST /api/v1/cranes/{crane_id}/configurations`;
 - `GET /api/v1/configurations/{configuration_id}`;
 - edição (TASK-044): `PATCH /api/v1/manufacturers/{manufacturer_id}` (`name`),
-  `PATCH /api/v1/cranes/{crane_id}` (`model_name`) e
+  `PATCH /api/v1/cranes/{crane_id}` (`model_name` e/ou os limites do modelo, TASK-051) e
   `PATCH /api/v1/configurations/{configuration_id}` (`name`, `geometry`, `rotation_zones` e/ou
   `hook_block_weight_kg`), com os mesmos schemas de resposta da criação;
 - zonas de giro e peso do gancho (TASK-046; ADR-018) na criação e na edição da configuração:
@@ -35,13 +35,17 @@ O router recebe o repositório pronto porque a apresentação não pode importar
 o repositório é síncrono, e o FastAPI roda cada rota numa thread à parte.
 """
 
+import dataclasses
 from collections.abc import Callable, Sequence
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, params, status
 
 from app.application.ports.crane_catalog_listing import CraneCatalogStore
-from app.application.ports.crane_catalog_repository import CatalogEntryAlreadyExistsError
+from app.application.ports.crane_catalog_repository import (
+    CatalogEntryAlreadyExistsError,
+    Crane,
+)
 from app.application.ports.load_chart_listing import LoadChartListing
 from app.application.use_cases.crane_catalog import (
     UNCHANGED,
@@ -198,7 +202,11 @@ def create_catalog_router(
         responses={**_NOT_FOUND, **_CREATE_ERRORS},
     )
     def create_crane(request: CraneCreateRequest) -> CraneResponse:
-        crane = _call(lambda: catalog.create_crane(request.manufacturer_id, request.model_name))
+        crane = _call(
+            lambda: catalog.create_crane(
+                request.manufacturer_id, request.model_name, request.limits()
+            )
+        )
         return CraneResponse.from_record(crane)
 
     @router.get(
@@ -276,12 +284,20 @@ def create_catalog_router(
     @router.patch(
         f"{CRANES_PATH}/{{crane_id}}",
         dependencies=writes,
-        summary="Editar o nome do modelo do guindaste (TASK-044)",
+        summary="Editar o nome e/ou os limites do modelo do guindaste (TASK-044, TASK-051)",
         responses=_NOT_FOUND,
     )
     def update_crane(crane_id: str, request: CraneUpdateRequest) -> CraneResponse:
-        crane = _call(lambda: catalog.rename_crane(crane_id, request.model_name))
-        return CraneResponse.from_record(crane)
+        def apply() -> Crane:
+            changes = request.limit_changes()
+            limits = (
+                dataclasses.replace(catalog.get_crane(crane_id).limits, **changes)
+                if changes
+                else None
+            )
+            return catalog.update_crane(crane_id, model_name=request.model_name, limits=limits)
+
+        return CraneResponse.from_record(_call(apply))
 
     @router.patch(
         f"{CONFIGURATIONS_PATH}/{{configuration_id}}",

@@ -1,6 +1,7 @@
 import { NeutralToneMapping, PCFShadowMap, SRGBColorSpace, WebGLRenderer } from 'three'
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js'
 
+import type { ScenarioSpec } from '../../domain/environment/environment'
 import {
   CAMERA_TRANSITION_MS,
   type CameraPreset,
@@ -14,10 +15,23 @@ import {
   createOrbitControls,
   keepCameraAboveGround,
 } from '../controls/createOrbitControls'
+import type { OutriggerState } from '../../domain/crane/outriggers'
+import { OutriggerController } from '../crane/OutriggerController'
 import type { CraneCommands, CraneSetup, CraneState } from '../crane/types'
+import {
+  type CollisionState,
+  collisionStateKey,
+  NO_COLLISION,
+} from '../../domain/collision/collisions'
+import {
+  AccessoryChain,
+  type AccessoryModelLoader,
+  type SceneAccessory,
+} from '../accessories/AccessoryChain'
 import { buildCraneScene } from './buildCraneScene'
 import { disposeObject3D } from './disposeObject3D'
 import type { LoadDimensions } from './loadBox'
+import type { OperatingArea } from '../../domain/evaluation/operatingArea'
 import type { SceneRotationZone } from './RotationZoneSectors'
 import { type EvaluationStatus, normalizeEvaluationStatus, statusCssColor } from './palette'
 import { createScaleBar, pixelsPerMeter } from './scaleBar'
@@ -38,6 +52,19 @@ export interface MountCraneSceneOptions {
   readonly loadModel?: CraneModelLoader | null
   /** Avisado quando a troca termina, com o modelo em uso ou o motivo de ficar no provisório. */
   readonly onModelResult?: (result: CraneModelUpgradeResult) => void
+  /**
+   * Avisado quando o estado de colisão da carga muda (TASK-053; RN-012): carga atingindo o terreno, o
+   * guindaste ou um obstáculo, comando bloqueado e cabo ou lança atravessando um obstáculo. É chamado
+   * uma vez na montagem, com o estado sem colisão.
+   */
+  readonly onCollisionChange?: (state: CollisionState) => void
+  /**
+   * Carregador dos modelos 3D dos acessórios de içamento (TASK-056). Padrão: `loadGltf`. `null`:
+   * os acessórios entram só no peso e na distância, sem malha.
+   */
+  readonly loadAccessoryModel?: AccessoryModelLoader | null
+  /** Avisado quando o modelo de um acessório chega (`true`) ou não pôde ser carregado (`false`). */
+  readonly onAccessoryModelResult?: (accessoryId: string, loaded: boolean) => void
 }
 
 /** Opções de `setCameraPreset`. */
@@ -60,8 +87,37 @@ export interface CraneSceneHandle {
   setRotationZones(zones: readonly SceneRotationZone[]): void
   /** Destaca o setor da zona atual (`null` = nenhum). A UI decide qual é (resultado ou prévia por ψ). */
   setActiveRotationZone(code: string | null): void
+  /**
+   * Área de operação verde, amarela e vermelha no chão (TASK-055; ADR-025). `null` apaga. Só
+   * desenho: o nível de cada célula vem do backend (RN-008).
+   */
+  setOperatingArea(area: OperatingArea | null): void
+  /**
+   * Cadeia de acessórios de içamento entre o gancho e a carga (TASK-056; RN-014), na ordem do gancho
+   * para a carga. A carga desce a soma de `riggingHeightM`. Lista vazia remove. Só desenho.
+   */
+  setAccessories(accessories: readonly SceneAccessory[]): void
+  /**
+   * Cenário (TASK-052; ADR-023): terreno deslocado por `terrainHeightAt`, obstáculos e posição do
+   * guindaste. `null` volta ao plano e ao guindaste na origem. A predefinição de câmera seguida
+   * acompanha o guindaste.
+   */
+  setScenario(scenario: ScenarioSpec | null): void
   /** Leva a câmera a uma predefinição, enquadrando o estado atual do guindaste. */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
+  /**
+   * Dados do cenário (terreno, obstáculos e posição do guindaste) usados só para colidir (TASK-053;
+   * ADR-028); quem desenha é a TASK-052. Sem chamar, vale o cenário vazio: chão plano em y = 0 e o
+   * guindaste na origem. Reavalia o estado atual.
+   */
+  setEnvironment(spec: ScenarioSpec): void
+  /** Último estado de colisão (o mesmo que `onCollisionChange` recebeu). */
+  getCollisionState(): CollisionState
+  /**
+   * Patolas (TASK-054): estende as vigas, desce os macacos e nivela, animado. Só move os nós
+   * `crane-outrigger-*` que o modelo 3D tiver; sem eles, não desenha nada.
+   */
+  setOutriggers(state: OutriggerState): void
   /** Para o laço de renderização e libera renderer, controles, geometrias e materiais. Idempotente. */
   dispose(): void
 }
@@ -100,7 +156,16 @@ export function mountCraneScene(
   options: MountCraneSceneOptions = {},
 ): CraneSceneHandle {
   const contents = buildCraneScene(setup)
-  const { scene, crane, environment, radiusIndicator, hookLoad, rotationZones } = contents
+  const {
+    scene,
+    crane,
+    environment,
+    radiusIndicator,
+    hookLoad,
+    rotationZones,
+    collisions,
+    operatingArea,
+  } = contents
 
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -172,8 +237,8 @@ export function mountCraneScene(
   }
 
   /** Enquadramento da predefinição para o estado atual do guindaste e a proporção do quadro. */
-  const presetView = (preset: CameraPreset): CameraView =>
-    resolveCameraPreset(preset, {
+  const presetView = (preset: CameraPreset): CameraView => {
+    const view = resolveCameraPreset(preset, {
       turretRotationDeg: crane.getState().turretRotationDeg,
       geometry: crane.getOperationalGeometry(),
       maxReachM: radiusIndicator.reach.maxM,
@@ -181,6 +246,17 @@ export function mountCraneScene(
       aspect: camera.aspect,
       fovDeg: camera.fov,
     })
+    // As predefinições enquadram o guindaste na origem; com o cenário, o conjunto se desloca com ele
+    // (só a posição: o rumo do chassi não gira a câmera).
+    const { x, y, z } = contents.craneAnchor.position
+    if (x === 0 && y === 0 && z === 0) return view
+    const shift = (v: { x: number; y: number; z: number }) => ({
+      x: v.x + x,
+      y: v.y + y,
+      z: v.z + z,
+    })
+    return { position: shift(view.position), target: shift(view.target) }
+  }
 
   const jumpTo = (view: CameraView): void => {
     transition = null
@@ -195,6 +271,12 @@ export function mountCraneScene(
   const invalidate = (): void => {
     dirty = true
   }
+
+  const accessoryChain = new AccessoryChain({
+    loader: options.loadAccessoryModel,
+    onModelResult: options.onAccessoryModelResult,
+    onChange: invalidate,
+  })
 
   const resize = (): void => {
     const width = container.clientWidth
@@ -228,8 +310,16 @@ export function mountCraneScene(
     return true
   }
 
+  // Patolas (TASK-054): a animação avança a cada quadro e invalida só enquanto algo se move.
+  const outriggers = new OutriggerController({
+    getRoot: () => contents.rig.base,
+    invalidate,
+    reducedMotion: prefersReducedMotion(),
+  })
+
   const renderFrame = (): void => {
-    const craneChanged = syncWithCrane()
+    const outriggersMoved = outriggers.update(performance.now())
+    const craneChanged = syncWithCrane() || outriggersMoved
     const moving = transition !== null
     if (transition) {
       const { view, done } = transition.sample(performance.now())
@@ -258,12 +348,26 @@ export function mountCraneScene(
   document.addEventListener('visibilitychange', onVisibilityChange)
   if (!document.hidden) renderer.setAnimationLoop(renderFrame)
 
+  // Colisões (TASK-053): a guarda corta comandos que levariam a carga a colidir e avisa a UI.
+  let collisionKey = collisionStateKey(NO_COLLISION)
+  collisions.setListener((state) => {
+    invalidate()
+    const key = collisionStateKey(state)
+    if (key === collisionKey) return
+    collisionKey = key
+    options.onCollisionChange?.(state)
+  })
+  crane.setCollisionGuard(collisions)
+  options.onCollisionChange?.(collisions.state)
+
   // Modelo 3D: carrega em segundo plano; enquanto isso, o provisório fica na cena.
   const modelAbort = new AbortController()
   const loadModel = options.loadModel === undefined ? loadDefaultCraneModel : options.loadModel
   if (loadModel) {
     void upgradeCraneModel(contents, loadModel, { signal: modelAbort.signal }).then((result) => {
+      outriggers.reapply()
       invalidate()
+      crane.revalidate()
       options.onModelResult?.(result)
     })
   }
@@ -279,6 +383,12 @@ export function mountCraneScene(
     },
     setLoad(load) {
       hookLoad.setLoad(load)
+      crane.revalidate()
+      invalidate()
+    },
+    setAccessories(accessories) {
+      if (disposed || !accessoryChain.setAccessories(accessories)) return
+      hookLoad.setAccessories(accessoryChain.root, accessoryChain.totalDropM)
       invalidate()
     },
     setRotationZones(zones) {
@@ -298,6 +408,16 @@ export function mountCraneScene(
       for (const zoneLabel of zoneLabels) paintZoneLabel(zoneLabel.element, zoneLabel.code === code)
       invalidate()
     },
+    setOperatingArea(area) {
+      if (disposed || !operatingArea.setArea(area)) return
+      invalidate()
+    },
+    setScenario(scenario) {
+      if (disposed) return
+      contents.setScenario(scenario)
+      if (followedPreset && !transition) jumpTo(presetView(followedPreset))
+      invalidate()
+    },
     setCameraPreset(preset, options = {}) {
       if (disposed) return
       const to = presetView(preset)
@@ -315,6 +435,19 @@ export function mountCraneScene(
       transition = new CameraTransition(from, to, CAMERA_TRANSITION_MS, performance.now())
       followedPreset = preset
     },
+    setEnvironment(spec) {
+      if (disposed) return
+      collisions.setScenario(spec)
+      crane.revalidate()
+      invalidate()
+    },
+    getCollisionState() {
+      return collisions.state
+    },
+    setOutriggers(state) {
+      if (disposed) return
+      outriggers.setState(state)
+    },
     dispose() {
       if (disposed) return
       disposed = true
@@ -329,10 +462,15 @@ export function mountCraneScene(
       labelElement.remove()
       removeZoneLabels()
       rotationZones.dispose()
+      operatingArea.dispose()
+      contents.obstacles.dispose()
       labelRenderer.domElement.remove()
       scaleBar.element.remove()
+      crane.setCollisionGuard(null)
+      collisions.dispose()
       hookLoad.dispose()
       disposeObject3D(scene)
+      accessoryChain.dispose()
       renderer.dispose()
       // Libera o contexto WebGL já, sem esperar o coletor de lixo: o navegador limita quantos
       // contextos podem existir (o StrictMode do React monta e desmonta a cena duas vezes em dev).

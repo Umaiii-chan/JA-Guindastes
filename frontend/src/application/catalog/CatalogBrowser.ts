@@ -10,6 +10,7 @@ import {
   CatalogRequestError,
   type Crane,
   type CraneConfiguration,
+  type CraneLimits,
   type CraneTechnicalSheet,
   type Manufacturer,
 } from '../../domain/catalog/catalog'
@@ -123,9 +124,18 @@ export class CatalogBrowser {
   }
 
   /** Cadastra o guindaste no fabricante indicado, recarrega a lista e o deixa escolhido. */
-  createCrane(manufacturerId: string, modelName: string): Promise<CatalogMutationResult<Crane>> {
+  createCrane(
+    manufacturerId: string,
+    modelName: string,
+    limits?: Partial<CraneLimits>,
+  ): Promise<CatalogMutationResult<Crane>> {
     return this.mutate(
-      () => this.gateway.createCrane({ manufacturerId, modelName }),
+      () =>
+        this.gateway.createCrane(
+          limits === undefined
+            ? { manufacturerId, modelName }
+            : { manufacturerId, modelName, limits },
+        ),
       async (created) => {
         if (this.state.selectedManufacturerId !== manufacturerId) return
         await this.loadList('cranes', () => this.gateway.listCranes(manufacturerId), true)
@@ -163,9 +173,16 @@ export class CatalogBrowser {
   }
 
   /** Renomeia o guindaste (TASK-044); recarrega os guindastes se o fabricante dele está escolhido. */
-  updateCrane(craneId: string, modelName: string): Promise<CatalogMutationResult<Crane>> {
+  updateCrane(
+    craneId: string,
+    modelName: string,
+    limits?: Partial<CraneLimits>,
+  ): Promise<CatalogMutationResult<Crane>> {
     return this.mutate(
-      () => this.gateway.updateCrane(craneId, modelName),
+      () =>
+        limits === undefined
+          ? this.gateway.updateCrane(craneId, modelName)
+          : this.gateway.updateCrane(craneId, modelName, limits),
       async (updated) => {
         const manufacturerId = updated.manufacturerId
         if (this.state.selectedManufacturerId !== manufacturerId) return

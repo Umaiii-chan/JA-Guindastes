@@ -19,6 +19,10 @@ Liga as peças do motor de cálculo na ordem da doc-fonte § 14.1:
 Sem zonas, a configuração se comporta como antes da TASK-046: a tabela ativa sem zona vale para
 todo o giro.
 
+Limite de capacidade por modelo (TASK-051; RN-011; ADR-022): a operação avaliada traz o
+`CapacityLimit` (capacidade efetiva, utilização contra o limite e faixa OK/WARNING/OVER), com os
+limites do guindaste da configuração (`CraneLimitsProvider`; sem ele, valem os padrões).
+
 O `SafetyValidator` da doc-fonte não entra: os níveis de alerta e os limiares estão pendentes
 (PEND-004; known-gaps P-005). Por isso o resultado só distingue "avaliado" de "não avaliável" e
 lista os motivos, sem `WARNING` nem `CRITICAL`.
@@ -31,15 +35,20 @@ Não grava nada. Quem o chama: `POST /api/v1/evaluations` (TASK-024) e o WebSock
 (`app.main`, TASK-029).
 """
 
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, replace
 from enum import StrEnum
 
+from app.application.ports.accessory_repository import AccessoryProvider
 from app.application.ports.active_load_chart_provider import ActiveLoadChartProvider
 from app.application.ports.configuration_load_rules_provider import (
     ConfigurationLoadRules,
     ConfigurationLoadRulesProvider,
 )
 from app.application.ports.crane_geometry_provider import CraneGeometryProvider
+from app.application.ports.crane_limits_provider import CraneLimitsProvider
+from app.application.ports.safety_profile_provider import SafetyProfileProvider
+from app.domain.entities.accessory import Accessory
 from app.domain.entities.load import Load
 from app.domain.entities.load_chart import LoadChart, LoadChartStatus
 from app.domain.exceptions.domain_errors import UndefinedUtilizationError
@@ -48,9 +57,17 @@ from app.domain.exceptions.geometry_errors import (
     OperationalStateOutOfLimitsError,
     OutsideGeometricDomainError,
 )
+from app.domain.services.capacity_limit import CapacityLimit, evaluate_capacity_limit
 from app.domain.services.compared_load_weight import weight_compared_with_capacity
 from app.domain.services.geometry_service import calculate_operational_geometry
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
+from app.domain.services.safety_assessment import (
+    OutriggerSetting,
+    SafetyAlert,
+    TippingRisk,
+    assess_safety,
+    limit_level,
+)
 from app.domain.services.utilization import calculate_utilization_percent
 from app.domain.value_objects.capacity_query import CapacityQuery
 from app.domain.value_objects.capacity_result import (
@@ -59,10 +76,12 @@ from app.domain.value_objects.capacity_result import (
     CapacityUnsupported,
     CapacityUnsupportedReason,
 )
+from app.domain.value_objects.crane_limits import CraneLimits
 from app.domain.value_objects.mass import Mass
 from app.domain.value_objects.operational_geometry import OperationalGeometry
 from app.domain.value_objects.operational_state import OperationalState
 from app.domain.value_objects.rotation_zone import RotationZone
+from app.domain.value_objects.safety_profile import SafetyProfile
 
 ZERO_MASS = Mass(0.0)
 
@@ -85,6 +104,9 @@ class NotEvaluableReason(StrEnum):
     ψ não tem tabela ativa, e o resultado informa a zona (ADR-018)."""
     UTILIZATION_UNDEFINED = "UTILIZATION_UNDEFINED"
     """A tabela devolveu capacidade 0 kg, e a utilização não pode ser calculada."""
+    ACCESSORY_NOT_FOUND = "ACCESSORY_NOT_FOUND"
+    """Algum `accessory_id` pedido não existe no catálogo (TASK-056): o peso comparado ficaria
+    subestimado, então a operação não é avaliável (RN-014)."""
 
 
 type EvaluationReason = NotEvaluableReason | OperationalLimitViolation | CapacityUnsupportedReason
@@ -105,6 +127,9 @@ class EvaluatedOperation:
     - `utilization_percent`: `compared_weight / capacidade × 100`, sem arredondamento (PEND-002).
     - `load_weight` e `hook_block_weight`: as parcelas do peso comparado (ADR-018 § 2).
     - `rotation_zone`: a zona cuja tabela deu a capacidade, ou `None` sem zonas de giro.
+    - `capacity_limit`: o limite de capacidade do modelo e a faixa OK/WARNING/OVER (RN-011;
+      TASK-051), calculado sobre a capacidade da tabela. `None` só se a capacidade efetiva for 0.
+    - `accessories`: os acessórios de içamento somados ao peso comparado (TASK-056; RN-014).
     """
 
     geometry: OperationalGeometry
@@ -113,11 +138,17 @@ class EvaluatedOperation:
     load_weight: Mass
     hook_block_weight: Mass = ZERO_MASS
     rotation_zone: RotationZone | None = None
+    capacity_limit: CapacityLimit | None = None
+    tipping_risk: TippingRisk | None = None
+    alerts: tuple[SafetyAlert, ...] = ()
+    accessories: tuple[Accessory, ...] = ()
 
     @property
     def compared_weight(self) -> Mass:
-        """Carga + gancho: o peso comparado com a capacidade (`weight_compared_with_capacity`)."""
-        return weight_compared_with_capacity(self.load_weight, self.hook_block_weight)
+        """Carga + gancho + acessórios: o peso comparado (`weight_compared_with_capacity`)."""
+        return weight_compared_with_capacity(
+            self.load_weight, self.hook_block_weight, self.accessories
+        )
 
     @property
     def load_chart_id(self) -> str:
@@ -161,6 +192,9 @@ class NotEvaluableOperation:
     load_weight: Mass = ZERO_MASS
     hook_block_weight: Mass = ZERO_MASS
     rotation_zone: RotationZone | None = None
+    tipping_risk: TippingRisk | None = None
+    alerts: tuple[SafetyAlert, ...] = ()
+    accessories: tuple[Accessory, ...] = ()
 
     def __post_init__(self) -> None:
         reasons = tuple(self.reasons)
@@ -170,8 +204,10 @@ class NotEvaluableOperation:
 
     @property
     def compared_weight(self) -> Mass:
-        """Carga + gancho (`weight_compared_with_capacity`), mesmo sem capacidade para comparar."""
-        return weight_compared_with_capacity(self.load_weight, self.hook_block_weight)
+        """Carga + gancho + acessórios, mesmo sem capacidade para comparar."""
+        return weight_compared_with_capacity(
+            self.load_weight, self.hook_block_weight, self.accessories
+        )
 
     @property
     def load_chart_id(self) -> str | None:
@@ -220,11 +256,17 @@ class EvaluateOperation:
         active_load_chart_provider: ActiveLoadChartProvider,
         load_chart_interpolator: LoadChartInterpolator,
         configuration_load_rules_provider: ConfigurationLoadRulesProvider | None = None,
+        crane_limits_provider: CraneLimitsProvider | None = None,
+        safety_profile_provider: SafetyProfileProvider | None = None,
+        accessory_provider: AccessoryProvider | None = None,
     ) -> None:
         self._crane_geometry_provider = crane_geometry_provider
         self._active_load_chart_provider = active_load_chart_provider
         self._load_chart_interpolator = load_chart_interpolator
         self._configuration_load_rules_provider = configuration_load_rules_provider
+        self._crane_limits_provider = crane_limits_provider
+        self._safety_profile_provider = safety_profile_provider
+        self._accessory_provider = accessory_provider
 
     def execute_for_load(
         self, *, configuration_id: str, state: OperationalState, load: Load
@@ -241,18 +283,76 @@ class EvaluateOperation:
         return self.execute(configuration_id=configuration_id, state=state, load_weight=load.weight)
 
     def execute(
-        self, *, configuration_id: str, state: OperationalState, load_weight: Mass
+        self,
+        *,
+        configuration_id: str,
+        state: OperationalState,
+        load_weight: Mass,
+        outriggers: OutriggerSetting | None = None,
+        ground_slope_deg: float | None = None,
+        accessory_ids: Sequence[str] = (),
+    ) -> OperationEvaluation:
+        """Avalia como `_evaluate_load_chart` e acrescenta o risco de tombamento e os alertas.
+
+        `outriggers` e `ground_slope_deg` são opcionais (leva E; ADR-025): ausentes, não entram
+        no risco e geram alertas INFO de "não informado" (RN-013).
+        """
+        evaluation = self._evaluate_load_chart(
+            configuration_id=configuration_id,
+            state=state,
+            load_weight=load_weight,
+            accessory_ids=accessory_ids,
+        )
+        profile = self.safety_profile(configuration_id)
+        capacity = evaluation.capacity
+        if isinstance(capacity, CapacityFound):
+            level = limit_level(
+                evaluation.compared_weight.kilograms, capacity.max_capacity.kilograms, profile
+            )
+        else:
+            level = None
+        outside_chart = any(
+            isinstance(reason, CapacityUnsupportedReason) for reason in evaluation.reasons
+        )
+        assessment = assess_safety(
+            profile=profile,
+            load_weight_kg=load_weight.kilograms,
+            level=level,
+            outside_chart=outside_chart,
+            outriggers=outriggers,
+            ground_slope_deg=ground_slope_deg,
+        )
+        return replace(evaluation, tipping_risk=assessment.tipping_risk, alerts=assessment.alerts)
+
+    def safety_profile(self, configuration_id: str) -> SafetyProfile:
+        """Parâmetros de segurança da configuração; sem provedor ou sem dado, os padrões."""
+        provider = self._safety_profile_provider
+        profile = None if provider is None else provider.get_safety_profile(configuration_id)
+        return SafetyProfile() if profile is None else profile
+
+    def _evaluate_load_chart(
+        self,
+        *,
+        configuration_id: str,
+        state: OperationalState,
+        load_weight: Mass,
+        accessory_ids: Sequence[str] = (),
     ) -> OperationEvaluation:
         """Avalia `state` com o peso da carga `load_weight` na configuração `configuration_id`.
 
         É a entrada dos contratos REST e WebSocket, que recebem só `load_weight_kg`. O gancho da
         configuração é somado aqui, por `weight_compared_with_capacity`.
 
+        `accessory_ids` (TASK-056; RN-014): acessórios de içamento do catálogo; cada ocorrência soma
+        o peso do acessório ao peso comparado. Um id desconhecido (ou sem catálogo de acessórios)
+        deixa a operação não avaliável com `ACCESSORY_NOT_FOUND`, em vez de subestimar o peso.
+
         Levanta `InconsistentActiveLoadChartError` se o provedor da tabela quebrar o contrato.
         """
         rules = self._load_rules(configuration_id)
         hook_block_weight = rules.hook_block_weight or ZERO_MASS
-        compared_weight = weight_compared_with_capacity(load_weight, hook_block_weight)
+        accessories, missing_accessories = self._resolve_accessories(accessory_ids)
+        compared_weight = weight_compared_with_capacity(load_weight, hook_block_weight, accessories)
         zones: tuple[RotationZone | None, ...] = (
             (None,)
             if rules.rotation_zones is None
@@ -261,14 +361,16 @@ class EvaluateOperation:
 
         geometry, geometry_reasons = self._calculate_geometry(configuration_id, state)
         charts, missing_zone = self._resolve_active_load_charts(configuration_id, zones)
-        if geometry is None or missing_zone is not None:
+        if geometry is None or missing_zone is not None or missing_accessories:
             chart_reasons = () if missing_zone is None else _NO_ACTIVE_CHART
+            accessory_reasons = _ACCESSORY_NOT_FOUND if missing_accessories else ()
             return NotEvaluableOperation(
-                reasons=(*geometry_reasons, *chart_reasons),
+                reasons=(*geometry_reasons, *chart_reasons, *accessory_reasons),
                 geometry=geometry,
                 load_weight=load_weight,
                 hook_block_weight=hook_block_weight,
                 rotation_zone=zones[0] if missing_zone is None else missing_zone[0],
+                accessories=accessories,
             )
 
         query = CapacityQuery(boom_length=state.boom_length, working_radius=geometry.working_radius)
@@ -284,6 +386,7 @@ class EvaluateOperation:
                     load_weight=load_weight,
                     hook_block_weight=hook_block_weight,
                     rotation_zone=zone,
+                    accessories=accessories,
                 )
             found.append((zone, capacity))
 
@@ -301,6 +404,7 @@ class EvaluateOperation:
                 load_weight=load_weight,
                 hook_block_weight=hook_block_weight,
                 rotation_zone=zone,
+                accessories=accessories,
             )
 
         return EvaluatedOperation(
@@ -310,7 +414,26 @@ class EvaluateOperation:
             load_weight=load_weight,
             hook_block_weight=hook_block_weight,
             rotation_zone=zone,
+            capacity_limit=evaluate_capacity_limit(
+                capacity.max_capacity, compared_weight, self._crane_limits(configuration_id)
+            ),
+            accessories=accessories,
         )
+
+    def _crane_limits(self, configuration_id: str) -> CraneLimits | None:
+        provider = self._crane_limits_provider
+        return None if provider is None else provider.get_crane_limits(configuration_id)
+
+    def _resolve_accessories(
+        self, accessory_ids: Sequence[str]
+    ) -> tuple[tuple[Accessory, ...], bool]:
+        """Os acessórios pedidos, na ordem e com repetições, e se algum id não foi encontrado."""
+        if not accessory_ids:
+            return (), False
+        provider = self._accessory_provider
+        found = {} if provider is None else provider.get_accessories(tuple(accessory_ids))
+        accessories = tuple(found[item] for item in accessory_ids if item in found)
+        return accessories, len(accessories) != len(accessory_ids)
 
     def _load_rules(self, configuration_id: str) -> ConfigurationLoadRules:
         provider = self._configuration_load_rules_provider
@@ -360,3 +483,5 @@ class EvaluateOperation:
 
 
 _NO_ACTIVE_CHART: tuple[EvaluationReason, ...] = (NotEvaluableReason.ACTIVE_LOAD_CHART_NOT_FOUND,)
+
+_ACCESSORY_NOT_FOUND: tuple[EvaluationReason, ...] = (NotEvaluableReason.ACCESSORY_NOT_FOUND,)

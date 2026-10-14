@@ -1,0 +1,158 @@
+/* Faixa de gravação e reprodução (TASK-057), sob a faixa de título da prancha (ADR-019). */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.bar,
+.saveForm,
+.playerRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.caption {
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+
+.status {
+  font-variant-numeric: tabular-nums;
+}
+
+.live::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--space-1);
+  border-radius: 50%;
+  background: var(--color-danger, #c0392b);
+}
+
+.toggle {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.nameInput {
+  min-width: 14rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-ink);
+  background: var(--color-surface-1);
+  color: var(--color-text-1);
+}
+
+.note {
+  margin: 0;
+  color: var(--color-text-3);
+}
+
+.error {
+  margin: 0;
+  color: var(--color-danger, #c0392b);
+}
+
+.list {
+  max-height: 9rem;
+  overflow-y: auto;
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.itemName {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-1);
+}
+
+.itemMeta {
+  margin-right: auto;
+  color: var(--color-text-3);
+}
+
+.player {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border);
+}
+
+.playerTitle {
+  margin-right: auto;
+  color: var(--color-text-1);
+}
+
+.speed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.clock {
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline {
+  position: relative;
+  height: 24px;
+}
+
+.range {
+  position: absolute;
+  inset: 0 0 8px;
+  width: 100%;
+  margin: 0;
+}
+
+.markers {
+  position: absolute;
+  inset: auto 0 0;
+  height: 10px;
+}
+
+.marker {
+  position: absolute;
+  bottom: 0;
+  width: 8px;
+  height: 10px;
+  margin-left: -4px;
+  padding: 0;
+  border: 0;
+}
+
+.alert {
+  background: var(--color-warning, #d98e04);
+}
+
+.collision {
+  background: var(--color-danger, #c0392b);
+}

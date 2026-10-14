@@ -419,6 +419,11 @@ def test_patch_crane_renames_the_model_and_keeps_the_manufacturer(client: TestCl
         "id": crane_id,
         "manufacturer_id": manufacturer_id,
         "model_name": "Modelo FICTÍCIO B",
+        # Limites padrão do modelo (TASK-051).
+        "capacity_limit_percent": 100.0,
+        "warning_band_percent": 90.0,
+        "max_ground_slope_deg": 1.0,
+        "max_leveling_deg": 3.0,
     }
     assert client.get(f"{CRANES}/{crane_id}").json() == response.json()
 

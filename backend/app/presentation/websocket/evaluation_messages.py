@@ -23,18 +23,21 @@ são recusados.
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.application.use_cases.evaluate_operation import (
     EvaluatedOperation,
     NotEvaluableOperation,
     OperationEvaluation,
 )
+from app.domain.services.capacity_limit import CapacityLimit, CapacityLimitLevel
+from app.domain.services.safety_assessment import SafetyAlert, TippingRisk
 from app.domain.value_objects.capacity_result import CapacityFound
 from app.domain.value_objects.conservative_capacity_result import (
     CapacityLookupStrategy,
     ConservativeCapacityFound,
 )
+from app.domain.value_objects.interpolated_capacity_result import InterpolatedCapacityFound
 from app.domain.value_objects.operational_geometry import OperationalGeometry, Point3D
 
 STATE_CHANGED_TYPE = "simulation.state.changed"
@@ -46,6 +49,15 @@ INBOUND_MESSAGE_TYPES = frozenset({STATE_CHANGED_TYPE})
 
 
 # --- Entrada -------------------------------------------------------------------------------------
+
+
+class OutriggersPayload(BaseModel):
+    """Estado das patolas (leva E; RN-013)."""
+
+    model_config = ConfigDict(strict=True, extra="forbid", allow_inf_nan=False, frozen=True)
+
+    extension_percent: float = Field(ge=0, le=100, description="Extensão das vigas, 0 a 100 %.")
+    jacks_set: bool = Field(description="Macacos apoiados no chão.")
 
 
 class OperationalStatePayload(BaseModel):
@@ -69,6 +81,19 @@ class OperationalStatePayload(BaseModel):
     turret_rotation_deg: float = Field(description="Giro da torre ψ, em graus (ADR-013).")
     cable_length_m: float = Field(ge=0, description="Queda vertical c, em metros (ADR-013 C-3).")
     load_weight_kg: float = Field(ge=0, description="Massa da carga, em quilogramas.")
+    outriggers: OutriggersPayload | None = Field(
+        default=None, description="Estado das patolas (opcional; RN-013)."
+    )
+    ground_slope_deg: float | None = Field(
+        default=None, ge=0, description="Inclinação residual do terreno, em graus (opcional)."
+    )
+    accessory_ids: list[Annotated[str, StringConstraints(min_length=1, max_length=64)]] = Field(
+        default_factory=list,
+        max_length=20,
+        description="Ids de acessórios de içamento do catálogo (TASK-056; RN-014); cada id soma o "
+        "peso do acessório ao peso comparado. Id desconhecido: `NOT_EVALUABLE` com "
+        "`ACCESSORY_NOT_FOUND`.",
+    )
 
 
 class SimulationStateChangedMessage(BaseModel):
@@ -143,9 +168,34 @@ class CapacityMessage(BaseModel):
     )
     queried_radius_m: float | None = Field(description="Raio consultado na tabela, em metros.")
     used_point: TabulatedPointMessage | None = Field(description="Ponto tabelado usado.")
+    interpolated_points: list[TabulatedPointMessage] | None = Field(
+        default=None,
+        description="Pontos tabelados usados na interpolação linear (ADR-030).",
+    )
 
     @classmethod
     def from_capacity(cls, capacity: CapacityFound) -> CapacityMessage:
+        if isinstance(capacity, InterpolatedCapacityFound):
+            points = [
+                TabulatedPointMessage(
+                    boom_length_m=point.boom_length.meters,
+                    working_radius_m=point.working_radius.meters,
+                    max_capacity_kg=point.max_capacity.kilograms,
+                )
+                for point in capacity.points
+            ]
+            lowest = capacity.lowest_point
+            return cls(
+                maximum_capacity_kg=capacity.max_capacity.kilograms,
+                strategy=capacity.strategy,
+                queried_radius_m=capacity.queried_radius.meters,
+                used_point=TabulatedPointMessage(
+                    boom_length_m=lowest.boom_length.meters,
+                    working_radius_m=lowest.working_radius.meters,
+                    max_capacity_kg=lowest.max_capacity.kilograms,
+                ),
+                interpolated_points=points,
+            )
         if isinstance(capacity, ConservativeCapacityFound):
             point = capacity.used_point
             return cls(
@@ -171,7 +221,54 @@ _ZONE_CODE_DESCRIPTION = (
     "tabela deu a menor capacidade (mesmas regras do `rotation_zone_code` da avaliação REST)."
 )
 _HOOK_DESCRIPTION = "Peso do gancho da configuração, em kg (0 se não cadastrado)."
-_COMPARED_DESCRIPTION = "Carga + gancho, em kg: o peso comparado com a capacidade."
+_COMPARED_DESCRIPTION = "Carga + gancho + acessórios, em kg: o peso comparado com a capacidade."
+_ACCESSORIES_WEIGHT_DESCRIPTION = (
+    "Soma dos pesos dos acessórios enviados (TASK-056; RN-014), ou `null` sem acessórios."
+)
+
+
+class AccessorySummaryMessage(BaseModel):
+    """Acessório somado ao peso comparado (TASK-056; RN-014)."""
+
+    id: str
+    name: str
+    weight_kg: float
+
+
+class CapacityLimitMessage(BaseModel):
+    """Limite de capacidade do modelo e nível OK/WARNING/OVER (RN-011; TASK-051)."""
+
+    limit_percent: float
+    effective_capacity_kg: float = Field(description="Capacidade da tabela × limite, em kg.")
+    limit_utilization_percent: float = Field(
+        description="`compared_weight_kg / capacidade efetiva × 100`, sem arredondamento."
+    )
+    warning_band_percent: float
+    level: CapacityLimitLevel
+
+    @classmethod
+    def from_limit(cls, limit: CapacityLimit | None) -> CapacityLimitMessage | None:
+        if limit is None:
+            return None
+        return cls(
+            limit_percent=limit.limit_percent,
+            effective_capacity_kg=limit.effective_capacity_kg,
+            limit_utilization_percent=limit.limit_utilization_percent,
+            warning_band_percent=limit.warning_band_percent,
+            level=limit.level,
+        )
+
+
+class SafetyAlertMessage(BaseModel):
+    """Alerta de segurança (RN-013), com mensagem em pt-BR."""
+
+    code: str
+    severity: Literal["INFO", "ATTENTION", "CRITICAL"]
+    message: str
+
+    @classmethod
+    def from_alert(cls, alert: SafetyAlert) -> SafetyAlertMessage:
+        return cls(code=alert.code, severity=alert.severity.value, message=alert.message)
 
 
 class EvaluatedPayload(BaseModel):
@@ -189,7 +286,16 @@ class EvaluatedPayload(BaseModel):
     rotation_zone_name: str | None = Field(description="Nome da zona, ou `null`.")
     hook_block_weight_kg: float = Field(description=_HOOK_DESCRIPTION)
     compared_weight_kg: float = Field(description=_COMPARED_DESCRIPTION)
+    capacity_limit: CapacityLimitMessage | None = Field(
+        default=None, description="Limite de capacidade do modelo e nível (RN-011; TASK-051)."
+    )
+    accessories_weight_kg: float | None = Field(description=_ACCESSORIES_WEIGHT_DESCRIPTION)
+    accessories: list[AccessorySummaryMessage] = Field(description="Acessórios somados.")
     reasons: list[str] = Field(description="Sempre vazio numa operação avaliada.")
+    tipping_risk: TippingRisk | None = Field(
+        default=None, description="Risco de tombamento por regras (RN-013): LOW, ATTENTION, HIGH."
+    )
+    alerts: list[SafetyAlertMessage] = Field(default_factory=list)
 
 
 class NotEvaluablePayload(BaseModel):
@@ -210,9 +316,15 @@ class NotEvaluablePayload(BaseModel):
     rotation_zone_name: str | None = Field(description="Nome da zona, ou `null`.")
     hook_block_weight_kg: float = Field(description=_HOOK_DESCRIPTION)
     compared_weight_kg: float = Field(description=_COMPARED_DESCRIPTION)
+    accessories_weight_kg: float | None = Field(description=_ACCESSORIES_WEIGHT_DESCRIPTION)
+    accessories: list[AccessorySummaryMessage] = Field(description="Acessórios somados.")
     reasons: list[str] = Field(
         description="Motivos legíveis por máquina, nunca vazio, na ordem das etapas."
     )
+    tipping_risk: TippingRisk | None = Field(
+        default=None, description="Risco de tombamento por regras (RN-013); `null` sem regra."
+    )
+    alerts: list[SafetyAlertMessage] = Field(default_factory=list)
 
 
 type EvaluationPayload = Annotated[
@@ -237,9 +349,16 @@ class SimulationEvaluatedMessage(BaseModel):
         zone_name = None if zone is None else zone.name
         hook_kg = evaluation.hook_block_weight.kilograms
         compared_kg = evaluation.compared_weight.kilograms
+        accessories = [
+            AccessorySummaryMessage(id=item.id, name=item.name, weight_kg=item.weight.kilograms)
+            for item in evaluation.accessories
+        ]
+        accessories_kg = sum(item.weight_kg for item in accessories) if accessories else None
         match evaluation:
             case EvaluatedOperation():
                 payload = EvaluatedPayload(
+                    accessories_weight_kg=accessories_kg,
+                    accessories=accessories,
                     geometry=GeometryMessage.from_geometry(evaluation.geometry),
                     capacity=CapacityMessage.from_capacity(evaluation.capacity),
                     utilization_percent=evaluation.utilization_percent,
@@ -249,11 +368,16 @@ class SimulationEvaluatedMessage(BaseModel):
                     rotation_zone_name=zone_name,
                     hook_block_weight_kg=hook_kg,
                     compared_weight_kg=compared_kg,
+                    capacity_limit=CapacityLimitMessage.from_limit(evaluation.capacity_limit),
                     reasons=[],
+                    tipping_risk=evaluation.tipping_risk,
+                    alerts=[SafetyAlertMessage.from_alert(a) for a in evaluation.alerts],
                 )
             case NotEvaluableOperation():
                 capacity = evaluation.capacity
                 payload = NotEvaluablePayload(
+                    accessories_weight_kg=accessories_kg,
+                    accessories=accessories,
                     geometry=(
                         None
                         if evaluation.geometry is None
@@ -271,6 +395,8 @@ class SimulationEvaluatedMessage(BaseModel):
                     hook_block_weight_kg=hook_kg,
                     compared_weight_kg=compared_kg,
                     reasons=[reason.value for reason in evaluation.reasons],
+                    tipping_risk=evaluation.tipping_risk,
+                    alerts=[SafetyAlertMessage.from_alert(a) for a in evaluation.alerts],
                 )
         return cls(sequence=sequence, payload=payload)
 

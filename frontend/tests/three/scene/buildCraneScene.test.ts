@@ -62,9 +62,9 @@ describe('buildCraneScene', () => {
   })
 
   it('adiciona o guindaste provisório na origem da cena', () => {
-    const { scene, rig } = buildCraneScene()
+    const { craneAnchor, rig } = buildCraneScene()
 
-    expect(rig.base.parent).toBe(scene)
+    expect(rig.base.parent).toBe(craneAnchor)
     expect(rig.base.position.toArray()).toEqual([0, 0, 0])
   })
 

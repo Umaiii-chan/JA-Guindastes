@@ -12,6 +12,9 @@ export interface SimulatorDraft {
   /** Passo que a pessoa abriu por último (a página resolve se ele está liberado). */
   readonly requestedStep: GuidedStepId
   setRequestedStep(step: GuidedStepId): void
+  /** Cadeia de acessórios de içamento escolhida, do gancho para a carga (TASK-056). */
+  readonly accessoryIds: readonly string[]
+  setAccessoryIds(ids: readonly string[]): void
 }
 
 export const SimulatorDraftContext = createContext<SimulatorDraft | null>(null)

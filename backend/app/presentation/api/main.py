@@ -17,11 +17,15 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 from fastapi.exceptions import RequestValidationError
 
+from app.application.ports.accessory_repository import AccessoryRepository
 from app.application.ports.crane_catalog_listing import CraneCatalogStore
 from app.application.ports.load_chart_listing import LoadChartListing
 from app.application.ports.load_chart_parser import LoadChartParser
+from app.application.ports.scenario_repository import ScenarioRepository
+from app.application.ports.simulation_recording_repository import SimulationRecordingRepository
 from app.application.use_cases.authentication import GetCurrentUser
 from app.application.use_cases.evaluate_operation import EvaluateOperation
+from app.presentation.api.accessories import create_accessories_router
 from app.presentation.api.auth import create_auth_router
 from app.presentation.api.authorization import (
     ApiError,
@@ -45,6 +49,12 @@ from app.presentation.api.load_chart_persistence import (
     create_load_chart_persistence_router,
 )
 from app.presentation.api.load_charts import create_load_charts_router
+from app.presentation.api.operating_area import (
+    ComputeOperatingAreaDependency,
+    create_operating_area_router,
+)
+from app.presentation.api.scenarios import create_scenarios_router
+from app.presentation.api.simulations import create_simulations_router
 from app.presentation.api.upload_limits import UploadLimits
 from app.presentation.api.users import create_users_router
 from app.presentation.api.validation_errors import request_validation_error_handler
@@ -63,6 +73,10 @@ def create_app(
     load_chart_persistence: LoadChartPersistenceDependencies | None = None,
     auth: AuthDependencies | None = None,
     load_chart_listing: LoadChartListing | None = None,
+    operating_area: ComputeOperatingAreaDependency | None = None,
+    accessory_repository: AccessoryRepository | None = None,
+    simulation_recordings: SimulationRecordingRepository | None = None,
+    scenario_repository: ScenarioRepository | None = None,
 ) -> FastAPI:
     """Monta a aplicação com as rotas cujos adapters foram recebidos.
 
@@ -78,6 +92,12 @@ def create_app(
     - a listagem das tabelas de uma configuração (TASK-044) só entra com `catalog_repository` e
       `load_chart_listing` (não depende do armazenamento de arquivos);
     - as edições do catálogo (`PATCH`, TASK-044) entram com as demais rotas do catálogo;
+    - a área de operação (TASK-055) só entra com `operating_area` (dependência do caso de uso), com
+      a mesma autorização da avaliação;
+    - o catálogo de acessórios de içamento (TASK-056) só entra com `accessory_repository`: leitura
+      para qualquer perfil logado, escrita para `ADMIN`;
+    - os cenários (`/api/v1/scenarios`, TASK-052) só entram com `scenario_repository` **e** `auth`:
+      todo usuário logado lista e abre; só o autor ou um `ADMIN` edita e apaga;
     - `on_shutdown` roda quando a aplicação encerra (a composição libera o pool do banco);
     - `auth` (TASK-038, ADR-016) liga a autenticação: cabeçalho CSRF nos métodos inseguros, sessão
       exigida em toda rota exceto a saúde e `GET /auth/session`, perfil `ADMIN` nos cadastros e
@@ -130,6 +150,11 @@ def create_app(
     if evaluation is not None:
         app.include_router(create_evaluations_router(evaluation), dependencies=session_required)
 
+    if operating_area is not None:
+        app.include_router(
+            create_operating_area_router(operating_area), dependencies=session_required
+        )
+
     if evaluation_websocket is not None:
         app.include_router(
             create_evaluation_websocket_router(
@@ -159,6 +184,22 @@ def create_app(
     if catalog_repository is not None and load_chart_listing is not None:
         app.include_router(
             create_configuration_load_charts_router(catalog_repository, load_chart_listing),
+            dependencies=session_required,
+        )
+
+    if accessory_repository is not None:
+        app.include_router(
+            create_accessories_router(accessory_repository, write_dependencies=admin_required),
+            dependencies=session_required,
+        )
+    # Gravações de simulação (TASK-057; ADR-027): só com banco e autenticação (o autor é o logado).
+    if simulation_recordings is not None and auth is not None and guards is not None:
+        app.include_router(create_simulations_router(simulation_recordings, auth, guards))
+    if scenario_repository is not None and auth is not None and guards is not None:
+        app.include_router(
+            create_scenarios_router(
+                scenario_repository, guards, clock=auth.clock, id_generator=auth.id_generator
+            ),
             dependencies=session_required,
         )
 

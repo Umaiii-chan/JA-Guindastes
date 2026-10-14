@@ -27,7 +27,7 @@ from app.auth_composition import (
     AuthConfigurationError,
     session_cookie_secure,
 )
-from app.domain.services.conservative_tabulated_lookup import ConservativeTabulatedLookup
+from app.domain.services.linear_interpolation_lookup import LinearInterpolationLookup
 from app.infrastructure.database.config import DatabaseConfigurationError
 from app.main import (
     compose_app,
@@ -64,9 +64,27 @@ NOT_EVALUABLE_WITHOUT_DATA = {
     "rotation_zone_name": None,
     "hook_block_weight_kg": 0.0,
     "compared_weight_kg": 1500.0,
+    "capacity_limit": None,
+    # TASK-056: sem acessórios enviados, soma nula e lista vazia.
+    "accessories_weight_kg": None,
+    "accessories": [],
     "reasons": [
         {"code": "CRANE_GEOMETRY_NOT_FOUND", "category": "EVALUATION"},
         {"code": "ACTIVE_LOAD_CHART_NOT_FOUND", "category": "EVALUATION"},
+    ],
+    # Leva E (TASK-055): sem capacidade nem regra, não há risco; entradas ausentes viram INFO.
+    "tipping_risk": None,
+    "alerts": [
+        {
+            "code": "OUTRIGGERS_NOT_INFORMED",
+            "severity": "INFO",
+            "message": "Estado das patolas não informado: não entrou na avaliação do risco.",
+        },
+        {
+            "code": "GROUND_SLOPE_NOT_INFORMED",
+            "severity": "INFO",
+            "message": "Inclinação do terreno não informada: não entrou na avaliação do risco.",
+        },
     ],
 }
 
@@ -98,8 +116,8 @@ def app_without_database() -> TestClient:
     return TestClient(compose_app({}))
 
 
-def test_composition_uses_the_conservative_provisional_strategy() -> None:
-    assert isinstance(load_chart_interpolator, ConservativeTabulatedLookup)
+def test_composition_uses_the_linear_interpolation_strategy() -> None:
+    assert isinstance(load_chart_interpolator, LinearInterpolationLookup)
 
 
 def test_without_database_url_the_evaluation_is_not_evaluable_without_inventing_data(

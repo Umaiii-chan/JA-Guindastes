@@ -24,6 +24,8 @@ class CapacityLookupStrategy(StrEnum):
 
     CONSERVATIVE_PROVISIONAL = "CONSERVATIVE_PROVISIONAL"
     """Consulta conservadora provisória do ADR-015, até a empresa responder PEND-001 e PEND-003."""
+    LINEAR_INTERPOLATION_PROVISIONAL = "LINEAR_INTERPOLATION_PROVISIONAL"
+    """Interpolação linear provisória entre pontos da tabela (ADR-030), decisão de 2026-10-14."""
 
 
 @dataclass(frozen=True)

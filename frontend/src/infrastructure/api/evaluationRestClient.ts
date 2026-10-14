@@ -18,6 +18,9 @@ import {
   readRecord,
   readString,
 } from '../shared/readJson'
+import { readCapacityLimit } from '../shared/evaluationCapacityLimit'
+import { readSafety } from '../shared/evaluationSafety'
+import { readAccessories } from '../shared/evaluationAccessories'
 import { readZoneAndWeights } from '../shared/evaluationZone'
 import { createApiFetch } from './apiFetch'
 import { EVALUATIONS_PATH, toEvaluationRequestDto } from './evaluationContract'
@@ -151,6 +154,9 @@ export function mapEvaluationResponse(json: unknown): EvaluationResult {
     loadChartId: readNullableString(body, 'load_chart_id', path),
     loadChartVersion: readNullableString(body, 'load_chart_version', path),
     ...readZoneAndWeights(body, path),
+    ...readCapacityLimit(body, path),
+    ...readSafety(body, path),
+    ...readAccessories(body, path),
   }
 
   if (status === 'EVALUATED') {

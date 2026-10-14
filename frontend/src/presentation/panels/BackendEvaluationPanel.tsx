@@ -8,10 +8,23 @@ import {
 } from '../../application/evaluation/evaluationStatus'
 import {
   CONSERVATIVE_PROVISIONAL_STRATEGY,
+  LINEAR_INTERPOLATION_STRATEGY,
   type EvaluationError,
   type EvaluationResult,
+  type SafetyAlertSeverity,
+  type TippingRisk,
 } from '../../domain/evaluation/evaluation'
-import { Badge, cx, EmptyState, Gauge, Skeleton, Spinner, StatusPill, type Tone } from '../ui'
+import {
+  Badge,
+  cx,
+  EmptyState,
+  Gauge,
+  type GaugeBand,
+  Skeleton,
+  Spinner,
+  StatusPill,
+  type Tone,
+} from '../ui'
 import styles from './BackendEvaluationPanel.module.css'
 
 export type EvaluationTransportLabel = 'websocket' | 'rest'
@@ -34,18 +47,35 @@ export const SLOW_BACKEND_MESSAGE =
   'O backend está demorando para responder. Se estava parado, ele leva até 1 minuto para acordar.'
 
 export const PROVISIONAL_MARK = 'PROVISÓRIO — consulta conservadora (ADR-015)'
+export const INTERPOLATED_MARK = 'PROVISÓRIO — interpolado entre pontos da tabela (ADR-030)'
 
 const TRANSPORT_LABEL: Record<EvaluationTransportLabel, string> = {
   websocket: 'WebSocket',
   rest: 'REST',
 }
 
-/** Cor e texto de cada situação (ADR-019 § 1; sem níveis de alerta, PEND-004). */
+/**
+ * Cor e texto de cada situação (ADR-019 § 1). Com `capacityLimit` (TASK-051; RN-011), a situação é o
+ * nível que o backend devolveu (`OK`, `WARNING`, `OVER`); sem ele, só `ok` e `over`.
+ */
 const STATUS_PRESENTATION: Record<EvaluationStatus, { tone: Tone; label: string }> = {
   ok: { tone: 'ok', label: 'Dentro da capacidade' },
-  warning: { tone: 'warning', label: 'No limite da capacidade' },
+  warning: { tone: 'warning', label: 'Perto do limite' },
   over: { tone: 'danger', label: 'Acima da capacidade' },
   unknown: { tone: 'neutral', label: 'Sem avaliação' },
+}
+
+/** Selo do risco de tombamento por regras (RN-013; TASK-055): cor e texto de cada nível. */
+const TIPPING_RISK_PRESENTATION: Record<TippingRisk, { tone: Tone; label: string }> = {
+  LOW: { tone: 'ok', label: 'Risco de tombamento: baixo' },
+  ATTENTION: { tone: 'warning', label: 'Risco de tombamento: atenção' },
+  HIGH: { tone: 'danger', label: 'Risco de tombamento: alto' },
+}
+
+const ALERT_PRESENTATION: Record<SafetyAlertSeverity, { tone: Tone; label: string }> = {
+  INFO: { tone: 'info', label: 'Informação' },
+  ATTENTION: { tone: 'warning', label: 'Atenção' },
+  CRITICAL: { tone: 'danger', label: 'Crítico' },
 }
 
 function formatNumber(value: number, fractionDigits: number): string {
@@ -84,9 +114,21 @@ export function BackendEvaluationPanel({
       ? { tone: 'neutral' as const, label: 'Não avaliável' }
       : STATUS_PRESENTATION[status]
   const waitingFirst = inputProblem === null && error === null && result === null
-  const utilization = shown?.kind === 'EVALUATED' ? shown.utilizationPercent : null
+  // Limite do modelo (TASK-051): a régua mede o peso comparado contra a capacidade EFETIVA.
+  const limit = shown?.kind === 'EVALUATED' ? (shown.capacityLimit ?? null) : null
+  const utilization =
+    shown?.kind === 'EVALUATED'
+      ? (limit?.limitUtilizationPercent ?? shown.utilizationPercent)
+      : null
+  const gaugeBands: readonly GaugeBand[] = limit
+    ? [
+        { from: 0, to: limit.warningBandPercent, tone: 'ok' },
+        { from: limit.warningBandPercent, to: FULL_CAPACITY_PERCENT, tone: 'warning' },
+      ]
+    : [{ from: 0, to: FULL_CAPACITY_PERCENT, tone: 'ok' }]
   // Zona de giro usada pelo backend (TASK-046); some numa configuração sem zonas.
   const zoneLabel = shown ? (shown.rotationZoneName ?? shown.rotationZoneCode) : null
+  const interpolated = shown?.capacity?.strategy === LINEAR_INTERPOLATION_STRATEGY
 
   return (
     <section className={styles.hud} aria-labelledby={titleId} aria-busy={pending}>
@@ -105,6 +147,11 @@ export function BackendEvaluationPanel({
             Avaliado
           </span>
         )}
+        {shown?.tippingRisk != null && (
+          <StatusPill tone={TIPPING_RISK_PRESENTATION[shown.tippingRisk].tone} size="lg">
+            {TIPPING_RISK_PRESENTATION[shown.tippingRisk].label}
+          </StatusPill>
+        )}
         <StatusPill tone={presentation.tone} size="lg" live pulse={waitingFirst && pending}>
           {presentation.label}
         </StatusPill>
@@ -116,13 +163,17 @@ export function BackendEvaluationPanel({
             value={utilization}
             tone={presentation.tone}
             label="Utilização"
-            bands={[{ from: 0, to: FULL_CAPACITY_PERCENT, tone: 'ok' }]}
+            bands={gaugeBands}
             caption={
               status === 'over'
-                ? 'acima de 100 %'
+                ? limit
+                  ? 'acima do limite'
+                  : 'acima de 100 %'
                 : shown?.kind === 'NOT_EVALUABLE'
                   ? 'sem utilização'
-                  : undefined
+                  : limit
+                    ? `do limite de ${formatNumber(limit.limitPercent, 0)} %`
+                    : undefined
             }
           />
         </div>
@@ -146,6 +197,13 @@ export function BackendEvaluationPanel({
             </Metric>
           </dl>
 
+          {limit && (
+            <dl className={styles.keyMetrics} aria-label="Limite de capacidade do modelo">
+              <Metric label="Limite do modelo">{formatNumber(limit.limitPercent, 0)} %</Metric>
+              <Metric label="Capacidade efetiva">{kilograms(limit.effectiveCapacityKg)}</Metric>
+            </dl>
+          )}
+
           <div className={styles.parts} role="group" aria-label="Peso comparado com a capacidade">
             <dl className={styles.part}>
               <Metric label="Carga">{loadWeightKg === null ? '—' : kilograms(loadWeightKg)}</Metric>
@@ -160,6 +218,16 @@ export function BackendEvaluationPanel({
                   : '—'}
               </Metric>
             </dl>
+            {shown?.accessoriesWeightKg !== null && shown?.accessoriesWeightKg !== undefined && (
+              <>
+                <span className={styles.partsOperator} aria-hidden="true">
+                  +
+                </span>
+                <dl className={styles.part}>
+                  <Metric label="Acessórios">{kilograms(shown.accessoriesWeightKg)}</Metric>
+                </dl>
+              </>
+            )}
             <span className={styles.partsOperator} aria-hidden="true">
               =
             </span>
@@ -203,6 +271,19 @@ export function BackendEvaluationPanel({
             <EvaluationDetails result={result} />
           )}
 
+          {shown !== null && shown.alerts !== undefined && shown.alerts.length > 0 && (
+            <ul className={styles.alerts} aria-label="Alertas de segurança">
+              {shown.alerts.map((alert) => (
+                <li key={alert.code} className={styles.alert} data-severity={alert.severity}>
+                  <Badge tone={ALERT_PRESENTATION[alert.severity].tone}>
+                    {ALERT_PRESENTATION[alert.severity].label}
+                  </Badge>
+                  <span>{alert.message}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
           {slow && pending && inputProblem === null && (
             <p className={styles.waiting} role="status">
               {SLOW_BACKEND_MESSAGE}
@@ -212,11 +293,15 @@ export function BackendEvaluationPanel({
           <p className={styles.provisional} role="note">
             <strong>
               <span className={styles.provisionalStamp}>PROVISÓRIO</span>
-              <span>{PROVISIONAL_MARK.slice('PROVISÓRIO'.length)}</span>
+              <span>
+                {(interpolated ? INTERPOLATED_MARK : PROVISIONAL_MARK).slice('PROVISÓRIO'.length)}
+              </span>
             </strong>
             <span>
               {' '}
-              Capacidade tirada de um ponto da tabela, do lado seguro; não é valor definitivo.
+              {interpolated
+                ? 'Capacidade interpolada linearmente entre pontos da tabela; não é valor definitivo.'
+                : 'Capacidade tirada de um ponto da tabela, do lado seguro; não é valor definitivo.'}
             </span>
           </p>
 
@@ -255,6 +340,20 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
   if (result.kind === 'EVALUATED') {
     rows.push({ label: 'Utilização', value: `${formatNumber(result.utilizationPercent, 2)} %` })
   }
+  const limit = result.capacityLimit
+  if (limit) {
+    rows.push(
+      {
+        label: 'Limite do modelo',
+        value: `${formatNumber(limit.limitPercent, 0)} % (atenção a partir de ${formatNumber(limit.warningBandPercent, 0)} % do limite)`,
+      },
+      { label: 'Capacidade efetiva', value: kilograms(limit.effectiveCapacityKg) },
+      {
+        label: 'Utilização do limite',
+        value: `${formatNumber(limit.limitUtilizationPercent, 2)} %`,
+      },
+    )
+  }
   if (result.rotationZoneCode !== null || result.rotationZoneName !== null) {
     rows.push({
       label: 'Zona de giro',
@@ -267,6 +366,14 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
     rows.push({
       label: 'Peso comparado (carga + gancho)',
       value: `${kilograms(result.comparedWeightKg)}${result.hookBlockWeightKg !== null ? ` (gancho ${kilograms(result.hookBlockWeightKg)})` : ''}`,
+    })
+  }
+  if (result.accessories !== undefined && result.accessories.length > 0) {
+    rows.push({
+      label: 'Acessórios de içamento (RN-014)',
+      value: result.accessories
+        .map((item) => `${item.name} ${kilograms(item.weightKg)}`)
+        .join(' · '),
     })
   }
   if (result.workingRadiusM !== null) {
@@ -288,7 +395,9 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
       value:
         capacity.strategy === CONSERVATIVE_PROVISIONAL_STRATEGY
           ? 'conservadora provisória (ADR-015)'
-          : (capacity.strategy ?? 'não informada pelo backend'),
+          : capacity.strategy === LINEAR_INTERPOLATION_STRATEGY
+            ? 'interpolação linear provisória (ADR-030)'
+            : (capacity.strategy ?? 'não informada pelo backend'),
     })
   }
   if (result.loadChartId !== null || result.loadChartVersion !== null) {
@@ -332,8 +441,9 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
           </dl>
           {result.kind === 'EVALUATED' && (
             <p className={cx(styles.meta, styles.detailsNote)}>
-              A cor só compara o peso comparado (carga + gancho) com a capacidade: não há níveis de
-              alerta definidos (PEND-004).
+              {result.capacityLimit
+                ? 'A cor é o nível devolvido pelo backend: o peso comparado (carga + gancho) contra a capacidade efetiva do modelo (RN-011).'
+                : 'A cor só compara o peso comparado (carga + gancho) com a capacidade: não há níveis de alerta definidos (PEND-004).'}
             </p>
           )}
         </details>

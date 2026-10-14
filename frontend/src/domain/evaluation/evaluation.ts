@@ -13,10 +13,63 @@ export interface EvaluationInput {
   readonly turretRotationDeg: number
   readonly cableLengthM: number
   readonly loadWeightKg: number
+  // Leva E (contrato em docs/leva-e/contratos.md). Opcionais: ausentes = comportamento anterior.
+  /** Patolas (TASK-054); o backend usa no risco de tombamento (TASK-055). */
+  readonly outriggers?: OutriggerInput
+  /** Inclinação residual do terreno sob o guindaste, em graus, depois do nivelamento (TASK-052/054). */
+  readonly groundSlopeDeg?: number
+  /** Acessórios de içamento pendurados no gancho (TASK-056; RN-014). */
+  readonly accessoryIds?: readonly string[]
+}
+
+/** Estado das patolas enviado ao backend (TASK-054). */
+export interface OutriggerInput {
+  /** Extensão das vigas, de 0 a 100 %. */
+  readonly extensionPercent: number
+  /** Macacos descidos e apoiados no chão. */
+  readonly jacksSet: boolean
+}
+
+/** Situação da carga frente ao limite do modelo (RN-011; TASK-051). */
+export type CapacityStatusLevel = 'OK' | 'WARNING' | 'OVER'
+
+/** Limite de uso da capacidade do modelo aplicado pelo backend (RN-011; TASK-051). */
+export interface CapacityLimitResult {
+  /** Limite do modelo, de 1 a 100 %. */
+  readonly limitPercent: number
+  /** Capacidade da tabela × limite (kg). */
+  readonly effectiveCapacityKg: number
+  /** Peso comparado / capacidade efetiva × 100. */
+  readonly limitUtilizationPercent: number
+  /** Início da faixa de atenção, em % do limite. */
+  readonly warningBandPercent: number
+  readonly level: CapacityStatusLevel
+}
+
+/** Risco de tombamento por regras (RN-013; TASK-055). */
+export type TippingRisk = 'LOW' | 'ATTENTION' | 'HIGH'
+
+export type SafetyAlertSeverity = 'INFO' | 'ATTENTION' | 'CRITICAL'
+
+/** Alerta de segurança devolvido pelo backend (TASK-055). */
+export interface SafetyAlert {
+  readonly code: string
+  readonly severity: SafetyAlertSeverity
+  readonly message: string
+}
+
+/** Acessório considerado no peso comparado (TASK-056; RN-014). */
+export interface EvaluatedAccessory {
+  readonly id: string
+  readonly name: string
+  readonly weightKg: number
 }
 
 /** Marca da consulta conservadora provisória (ADR-015). */
 export const CONSERVATIVE_PROVISIONAL_STRATEGY = 'CONSERVATIVE_PROVISIONAL'
+
+/** Marca da interpolação linear provisória (ADR-030; TASK-059). */
+export const LINEAR_INTERPOLATION_STRATEGY = 'LINEAR_INTERPOLATION_PROVISIONAL'
 
 /** Ponto da tabela de carga de onde veio a capacidade (ADR-015 item 4). */
 export interface TabulatedPoint {
@@ -66,6 +119,15 @@ interface EvaluationCommon {
    * `comparedWeightKg / capacidade`. `null` quando o backend não informou.
    */
   readonly comparedWeightKg: number | null
+  // Leva E (docs/leva-e/contratos.md). Opcionais: backend anterior não envia.
+  /** TASK-051 (RN-011). */
+  readonly capacityLimit?: CapacityLimitResult | null
+  /** TASK-055 (RN-013). */
+  readonly tippingRisk?: TippingRisk | null
+  readonly alerts?: readonly SafetyAlert[]
+  /** TASK-056 (RN-014): soma dos acessórios incluída no peso comparado. */
+  readonly accessoriesWeightKg?: number | null
+  readonly accessories?: readonly EvaluatedAccessory[]
 }
 
 /** A tabela suportou o estado e a carga foi comparada. "Avaliado" não quer dizer "seguro" (PEND-004). */

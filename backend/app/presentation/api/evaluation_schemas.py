@@ -10,9 +10,9 @@ como o resultado do caso de uso `EvaluateOperation` (TASK-015).
 """
 
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.application.use_cases.evaluate_operation import (
     EvaluatedOperation,
@@ -22,6 +22,13 @@ from app.application.use_cases.evaluate_operation import (
     OperationEvaluation,
 )
 from app.domain.exceptions.geometry_errors import OperationalLimitViolation
+from app.domain.services.capacity_limit import CapacityLimit, CapacityLimitLevel
+from app.domain.services.safety_assessment import (
+    AlertSeverity,
+    OutriggerSetting,
+    SafetyAlert,
+    TippingRisk,
+)
 from app.domain.value_objects.capacity_result import (
     CapacityFound,
     CapacityResult,
@@ -31,8 +38,44 @@ from app.domain.value_objects.conservative_capacity_result import (
     CapacityLookupStrategy,
     ConservativeCapacityFound,
 )
+from app.domain.value_objects.interpolated_capacity_result import InterpolatedCapacityFound
 from app.domain.value_objects.operational_geometry import OperationalGeometry, Point3D
 from app.presentation.api.load_chart_schemas import LoadChartPointResponse
+
+MAX_ACCESSORY_IDS = 20
+AccessoryId = Annotated[str, StringConstraints(min_length=1, max_length=64)]
+
+
+class AccessorySummaryResponse(BaseModel):
+    """Acessório somado ao peso comparado (TASK-056; RN-014)."""
+
+    id: str
+    name: str
+    weight_kg: float
+
+
+class OutriggersRequest(BaseModel):
+    """Estado das patolas (leva E; RN-013): extensão de 0 a 100 % e macacos apoiados."""
+
+    model_config = ConfigDict(strict=True, allow_inf_nan=False, extra="forbid", frozen=True)
+
+    extension_percent: float = Field(ge=0, le=100, description="Extensão das vigas, de 0 a 100 %.")
+    jacks_set: bool = Field(description="Macacos descidos e apoiados no chão.")
+
+    def to_setting(self) -> OutriggerSetting:
+        return OutriggerSetting(extension_percent=self.extension_percent, jacks_set=self.jacks_set)
+
+
+class SafetyAlertResponse(BaseModel):
+    """Alerta de segurança (RN-013), com mensagem em pt-BR."""
+
+    code: str = Field(description="Código do alerta, legível por máquina.")
+    severity: AlertSeverity
+    message: str = Field(description="Mensagem para o usuário, em pt-BR.")
+
+    @classmethod
+    def from_alert(cls, alert: SafetyAlert) -> SafetyAlertResponse:
+        return cls(code=alert.code, severity=alert.severity, message=alert.message)
 
 
 class EvaluationRequest(BaseModel):
@@ -71,6 +114,24 @@ class EvaluationRequest(BaseModel):
         "(ADR-013 C-3).",
     )
     load_weight_kg: float = Field(ge=0, description="Peso da carga, em quilogramas.")
+    outriggers: OutriggersRequest | None = Field(
+        default=None,
+        description="Estado das patolas (opcional). Ausente, gera o alerta INFO "
+        "`OUTRIGGERS_NOT_INFORMED` e não entra no risco de tombamento (RN-013).",
+    )
+    ground_slope_deg: float | None = Field(
+        default=None,
+        ge=0,
+        description="Inclinação residual do terreno sob o guindaste, em graus (opcional). "
+        "Ausente, gera o alerta INFO `GROUND_SLOPE_NOT_INFORMED` (RN-013).",
+    )
+    accessory_ids: list[AccessoryId] = Field(
+        default_factory=list,
+        max_length=MAX_ACCESSORY_IDS,
+        description="Ids de acessórios de içamento do catálogo (TASK-056; RN-014). Cada id soma "
+        "o peso do acessório ao peso comparado; o mesmo id repetido soma de novo. Id desconhecido "
+        "deixa a operação `NOT_EVALUABLE` com `ACCESSORY_NOT_FOUND`.",
+    )
 
 
 class Point3DResponse(BaseModel):
@@ -133,11 +194,28 @@ class CapacityResponse(BaseModel):
     )
     used_point: LoadChartPointResponse | None = Field(
         description="Ponto da tabela de onde veio a capacidade (ADR-015 item 4). Entre dois raios "
-        "tabelados, é o vizinho de menor capacidade. `null` quando a estratégia não o informa."
+        "tabelados, é o vizinho de menor capacidade. Na interpolação (ADR-030), o ponto usado de "
+        "menor capacidade. `null` quando a estratégia não o informa."
+    )
+    interpolated_points: list[LoadChartPointResponse] | None = Field(
+        default=None,
+        description="Pontos da tabela usados na interpolação linear (ADR-030); `null` nas "
+        "outras estratégias.",
     )
 
     @classmethod
     def from_capacity(cls, capacity: CapacityFound) -> CapacityResponse:
+        if isinstance(capacity, InterpolatedCapacityFound):
+            return cls(
+                maximum_capacity_kg=capacity.max_capacity.kilograms,
+                strategy=capacity.strategy,
+                queried_boom_length_m=capacity.query.boom_length.meters,
+                queried_working_radius_m=capacity.queried_radius.meters,
+                used_point=LoadChartPointResponse.from_point(capacity.lowest_point),
+                interpolated_points=[
+                    LoadChartPointResponse.from_point(point) for point in capacity.points
+                ],
+            )
         if isinstance(capacity, ConservativeCapacityFound):
             return cls(
                 maximum_capacity_kg=capacity.max_capacity.kilograms,
@@ -152,6 +230,36 @@ class CapacityResponse(BaseModel):
             queried_boom_length_m=None,
             queried_working_radius_m=None,
             used_point=None,
+        )
+
+
+class CapacityLimitResponse(BaseModel):
+    """Limite de capacidade do modelo e faixa de status (RN-011; TASK-051; ADR-022)."""
+
+    limit_percent: float = Field(description="Limite de uso da capacidade do modelo, de 1 a 100 %.")
+    effective_capacity_kg: float = Field(
+        description="Capacidade efetiva, em kg: a capacidade da tabela × o limite."
+    )
+    limit_utilization_percent: float = Field(
+        description="`compared_weight_kg / capacidade efetiva × 100`, sem arredondamento."
+    )
+    warning_band_percent: float = Field(
+        description="A partir desta % do limite, o nível é `WARNING`."
+    )
+    level: CapacityLimitLevel = Field(
+        description="`OK`; `WARNING` na faixa de atenção; `OVER` acima da capacidade efetiva."
+    )
+
+    @classmethod
+    def from_limit(cls, limit: CapacityLimit | None) -> CapacityLimitResponse | None:
+        if limit is None:
+            return None
+        return cls(
+            limit_percent=limit.limit_percent,
+            effective_capacity_kg=limit.effective_capacity_kg,
+            limit_utilization_percent=limit.limit_utilization_percent,
+            warning_band_percent=limit.warning_band_percent,
+            level=limit.level,
         )
 
 
@@ -227,7 +335,15 @@ class EvaluationResponse(BaseModel):
         description="Peso do gancho da configuração, em kg (0 se não cadastrado; ADR-018 § 2)."
     )
     compared_weight_kg: float = Field(
-        description="Carga + gancho, em kg: o peso comparado com a capacidade (ADR-018 § 2)."
+        description="Carga + gancho + acessórios, em kg: o peso comparado com a capacidade "
+        "(ADR-018 § 2; RN-014)."
+    )
+    accessories_weight_kg: float | None = Field(
+        description="Soma dos pesos dos acessórios de içamento enviados (TASK-056; RN-014), ou "
+        "`null` quando nenhum acessório foi enviado."
+    )
+    accessories: list[AccessorySummaryResponse] = Field(
+        description="Acessórios somados ao peso comparado, na ordem enviada; vazio sem acessórios."
     )
     load_chart_id: str | None = Field(
         description="Id da tabela consultada; `null` quando a tabela não chegou a ser consultada."
@@ -236,10 +352,23 @@ class EvaluationResponse(BaseModel):
         description="Versão da tabela consultada (RN-005); `null` quando ela não chegou a ser "
         "consultada."
     )
+    capacity_limit: CapacityLimitResponse | None = Field(
+        default=None,
+        description="Limite de capacidade do modelo e nível OK/WARNING/OVER (RN-011; TASK-051). "
+        "`null` em `NOT_EVALUABLE`.",
+    )
     reasons: list[NotEvaluableReasonResponse] = Field(
         description="Motivos de `NOT_EVALUABLE`, na ordem das etapas (ficha técnica e geometria, "
         "tabela ativa, consulta à tabela, utilização); nunca vazio nesse caso. Sempre vazio em "
         "`EVALUATED`."
+    )
+    tipping_risk: TippingRisk | None = Field(
+        default=None,
+        description="Risco de tombamento por regras (RN-013; ADR-025): `LOW`, `ATTENTION` ou "
+        "`HIGH`; `null` quando não há capacidade para comparar e nenhuma regra dispara.",
+    )
+    alerts: list[SafetyAlertResponse] = Field(
+        default_factory=list, description="Alertas de segurança, em pt-BR (RN-013)."
     )
 
     @classmethod
@@ -251,9 +380,16 @@ class EvaluationResponse(BaseModel):
         zone_name = None if zone is None else zone.name
         hook_kg = evaluation.hook_block_weight.kilograms
         compared_kg = evaluation.compared_weight.kilograms
+        accessories = [
+            AccessorySummaryResponse(id=item.id, name=item.name, weight_kg=item.weight.kilograms)
+            for item in evaluation.accessories
+        ]
+        accessories_kg = sum(item.weight_kg for item in accessories) if accessories else None
         match evaluation:
             case EvaluatedOperation():
                 return cls(
+                    accessories_weight_kg=accessories_kg,
+                    accessories=accessories,
                     status="EVALUATED",
                     configuration_id=configuration_id,
                     geometry=GeometryResponse.from_geometry(evaluation.geometry),
@@ -266,13 +402,20 @@ class EvaluationResponse(BaseModel):
                     rotation_zone_name=zone_name,
                     hook_block_weight_kg=hook_kg,
                     compared_weight_kg=compared_kg,
+                    capacity_limit=CapacityLimitResponse.from_limit(evaluation.capacity_limit),
+                    tipping_risk=evaluation.tipping_risk,
+                    alerts=[SafetyAlertResponse.from_alert(a) for a in evaluation.alerts],
                 )
             case NotEvaluableOperation():
                 return cls(
+                    accessories_weight_kg=accessories_kg,
+                    accessories=accessories,
                     rotation_zone_code=zone_code,
                     rotation_zone_name=zone_name,
                     hook_block_weight_kg=hook_kg,
                     compared_weight_kg=compared_kg,
+                    tipping_risk=evaluation.tipping_risk,
+                    alerts=[SafetyAlertResponse.from_alert(a) for a in evaluation.alerts],
                     status="NOT_EVALUABLE",
                     configuration_id=configuration_id,
                     geometry=(
