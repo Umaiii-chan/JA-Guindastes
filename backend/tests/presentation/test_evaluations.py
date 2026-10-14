@@ -450,3 +450,73 @@ def test_body_that_is_not_json_returns_422(client: TestClient) -> None:
     )
 
     assert response.status_code == 422
+
+
+# Risco de tombamento e alertas (TASK-055; RN-013)
+
+
+def test_ficticio_without_new_inputs_has_low_risk_and_info_alerts(client: TestClient) -> None:
+    body = client.post(EVALUATIONS_PATH, json=body_ficticio()).json()
+
+    assert body["tipping_risk"] == "LOW"
+    assert [(a["code"], a["severity"]) for a in body["alerts"]] == [
+        ("OUTRIGGERS_NOT_INFORMED", "INFO"),
+        ("GROUND_SLOPE_NOT_INFORMED", "INFO"),
+    ]
+    assert all(alert["message"] for alert in body["alerts"])
+
+
+def test_ficticio_outriggers_and_slope_drive_the_risk(client: TestClient) -> None:
+    body = client.post(
+        EVALUATIONS_PATH,
+        json=body_ficticio(
+            outriggers={"extension_percent": 50, "jacks_set": True}, ground_slope_deg=2.0
+        ),
+    ).json()
+
+    assert body["tipping_risk"] == "HIGH"
+    assert [a["code"] for a in body["alerts"]] == ["OUTRIGGERS_NOT_READY", "GROUND_SLOPE_EXCEEDED"]
+
+
+def test_ficticio_over_the_limit_is_high_and_warning_band_is_attention(client: TestClient) -> None:
+    ready = {"extension_percent": 100, "jacks_set": True}
+    over = client.post(
+        EVALUATIONS_PATH,
+        json=body_ficticio(load_weight_kg=2500.0, outriggers=ready, ground_slope_deg=0.0),
+    ).json()
+    warning = client.post(
+        EVALUATIONS_PATH,
+        json=body_ficticio(load_weight_kg=1900.0, outriggers=ready, ground_slope_deg=0.0),
+    ).json()
+
+    assert (over["tipping_risk"], [a["code"] for a in over["alerts"]]) == (
+        "HIGH",
+        ["CAPACITY_LIMIT_EXCEEDED"],
+    )
+    assert (warning["tipping_risk"], [a["code"] for a in warning["alerts"]]) == (
+        "ATTENTION",
+        ["CAPACITY_LIMIT_WARNING"],
+    )
+
+
+def test_ficticio_outside_the_chart_with_load_is_high(client: TestClient) -> None:
+    # L = 20 m, θ = 80° → R ≈ 4,97 m, abaixo do menor raio tabelado (11,5 m).
+    body = client.post(
+        EVALUATIONS_PATH, json=body_ficticio(boom_angle_deg=80.0, ground_slope_deg=0.0)
+    ).json()
+
+    assert body["status"] == "NOT_EVALUABLE"
+    assert body["tipping_risk"] == "HIGH"
+    assert "OUTSIDE_LOAD_CHART" in [a["code"] for a in body["alerts"]]
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"outriggers": {"extension_percent": 101, "jacks_set": True}},
+        {"outriggers": {"extension_percent": 50}},
+        {"ground_slope_deg": -1.0},
+    ],
+)
+def test_ficticio_invalid_new_inputs_are_422(client: TestClient, extra: dict[str, Any]) -> None:
+    assert client.post(EVALUATIONS_PATH, json=body_ficticio(**extra)).status_code == 422

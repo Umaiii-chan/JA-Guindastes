@@ -54,6 +54,7 @@ from app.application.ports.configuration_load_rules_provider import (
     ConfigurationLoadRulesProvider,
 )
 from app.application.ports.crane_geometry_provider import CraneGeometryProvider
+from app.application.use_cases.compute_operating_area import ComputeOperatingArea
 from app.application.use_cases.evaluate_operation import EvaluateOperation
 from app.auth_composition import build_auth
 from app.domain.entities.load_chart import LoadChart
@@ -75,6 +76,10 @@ from app.presentation.api.evaluations import (
 )
 from app.presentation.api.health import DatabaseHealthCheck
 from app.presentation.api.main import create_app
+from app.presentation.api.operating_area import (
+    ComputeOperatingAreaDependency,
+    shared_compute_operating_area,
+)
 from app.presentation.api.upload_limits import UploadLimits
 
 logger = logging.getLogger(__name__)
@@ -129,6 +134,34 @@ def build_database_evaluate_operation(session_factory: sessionmaker[Session]) ->
     return build_evaluate_operation(
         catalog, SqlAlchemyLoadChartRepository(session_factory), catalog
     )
+
+
+def build_compute_operating_area(
+    crane_geometry_provider: CraneGeometryProvider,
+    active_load_chart_provider: ActiveLoadChartProvider,
+    configuration_load_rules_provider: ConfigurationLoadRulesProvider | None = None,
+) -> ComputeOperatingArea:
+    """Área de operação (TASK-055) com a mesma estratégia de consulta da avaliação."""
+    return ComputeOperatingArea(
+        crane_geometry_provider=crane_geometry_provider,
+        active_load_chart_provider=active_load_chart_provider,
+        load_chart_interpolator=load_chart_interpolator,
+        configuration_load_rules_provider=configuration_load_rules_provider,
+    )
+
+
+def operating_area_per_request(engine: Engine) -> ComputeOperatingAreaDependency:
+    """Dependência FastAPI da área de operação: uma conexão do pool por requisição."""
+
+    def provide() -> Iterator[ComputeOperatingArea]:
+        with engine.connect() as connection:
+            session_factory = sessionmaker(bind=connection)
+            catalog = SqlAlchemyCraneCatalogRepository(session_factory)
+            yield build_compute_operating_area(
+                catalog, SqlAlchemyLoadChartRepository(session_factory), catalog
+            )
+
+    return provide
 
 
 def evaluate_operation_per_request(engine: Engine) -> EvaluateOperationDependency:
@@ -192,6 +225,7 @@ def create_database_app(engine: Engine, environ: Mapping[str, str] | None = None
         # Limite padrão PROVISÓRIO de 1 MiB por arquivo — A VALIDAR (P-008).
         upload_limits=UploadLimits(),
         evaluation=evaluate_operation_per_request(engine),
+        operating_area=operating_area_per_request(engine),
         evaluation_websocket=build_database_evaluate_operation(session_factory),
         database_health_check=database_health_check(engine),
         # Catálogo (TASK-030) e suas edições (TASK-044) no mesmo engine da avaliação: um pool só.
@@ -220,6 +254,11 @@ def create_app_without_database() -> FastAPI:
         # Limite padrão PROVISÓRIO de 1 MiB por arquivo — A VALIDAR (P-008).
         upload_limits=UploadLimits(),
         evaluation=shared_evaluate_operation(use_case),
+        operating_area=shared_compute_operating_area(
+            build_compute_operating_area(
+                UnconfiguredCraneGeometryProvider(), UnconfiguredActiveLoadChartProvider()
+            )
+        ),
         evaluation_websocket=use_case,
     )
 

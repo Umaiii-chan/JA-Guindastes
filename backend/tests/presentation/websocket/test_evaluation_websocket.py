@@ -527,3 +527,39 @@ def test_internal_failure_gets_a_generic_error_and_keeps_the_connection(
 def test_client_can_close_the_connection_cleanly(websocket: WebSocketTestSession) -> None:
     exchange(websocket, state_changed_ficticio(50))
     websocket.close()
+
+
+# --- Risco de tombamento e alertas (TASK-055; RN-013) ---
+
+
+def test_ficticio_tipping_risk_with_half_extended_outriggers_is_high(
+    websocket: WebSocketTestSession,
+) -> None:
+    message = state_changed_ficticio(7)
+    message["payload"]["outriggers"] = {"extension_percent": 50, "jacks_set": True}
+    message["payload"]["ground_slope_deg"] = 0.2
+
+    payload = exchange(websocket, message)["payload"]
+
+    assert payload["tipping_risk"] == "HIGH"
+    assert [alert["code"] for alert in payload["alerts"]] == ["OUTRIGGERS_NOT_READY"]
+
+
+def test_ficticio_missing_outriggers_and_slope_are_info_alerts(
+    websocket: WebSocketTestSession,
+) -> None:
+    payload = exchange(websocket, state_changed_ficticio(8))["payload"]
+
+    assert payload["tipping_risk"] == "LOW"
+    assert {alert["severity"] for alert in payload["alerts"]} == {"INFO"}
+    assert len(payload["alerts"]) == 2
+
+
+def test_ficticio_invalid_outriggers_are_rejected(websocket: WebSocketTestSession) -> None:
+    message = state_changed_ficticio(9)
+    message["payload"]["outriggers"] = {"extension_percent": 150, "jacks_set": True}
+
+    reply = exchange(websocket, message)
+
+    assert reply["type"] == "simulation.error"
+    assert reply["payload"]["code"] == "INVALID_MESSAGE"

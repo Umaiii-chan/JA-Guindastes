@@ -30,6 +30,7 @@ from app.application.use_cases.evaluate_operation import (
     NotEvaluableOperation,
     OperationEvaluation,
 )
+from app.domain.services.safety_assessment import SafetyAlert, TippingRisk
 from app.domain.value_objects.capacity_result import CapacityFound
 from app.domain.value_objects.conservative_capacity_result import (
     CapacityLookupStrategy,
@@ -46,6 +47,15 @@ INBOUND_MESSAGE_TYPES = frozenset({STATE_CHANGED_TYPE})
 
 
 # --- Entrada -------------------------------------------------------------------------------------
+
+
+class OutriggersPayload(BaseModel):
+    """Estado das patolas (leva E; RN-013)."""
+
+    model_config = ConfigDict(strict=True, extra="forbid", allow_inf_nan=False, frozen=True)
+
+    extension_percent: float = Field(ge=0, le=100, description="Extensão das vigas, 0 a 100 %.")
+    jacks_set: bool = Field(description="Macacos apoiados no chão.")
 
 
 class OperationalStatePayload(BaseModel):
@@ -69,6 +79,12 @@ class OperationalStatePayload(BaseModel):
     turret_rotation_deg: float = Field(description="Giro da torre ψ, em graus (ADR-013).")
     cable_length_m: float = Field(ge=0, description="Queda vertical c, em metros (ADR-013 C-3).")
     load_weight_kg: float = Field(ge=0, description="Massa da carga, em quilogramas.")
+    outriggers: OutriggersPayload | None = Field(
+        default=None, description="Estado das patolas (opcional; RN-013)."
+    )
+    ground_slope_deg: float | None = Field(
+        default=None, ge=0, description="Inclinação residual do terreno, em graus (opcional)."
+    )
 
 
 class SimulationStateChangedMessage(BaseModel):
@@ -174,6 +190,18 @@ _HOOK_DESCRIPTION = "Peso do gancho da configuração, em kg (0 se não cadastra
 _COMPARED_DESCRIPTION = "Carga + gancho, em kg: o peso comparado com a capacidade."
 
 
+class SafetyAlertMessage(BaseModel):
+    """Alerta de segurança (RN-013), com mensagem em pt-BR."""
+
+    code: str
+    severity: Literal["INFO", "ATTENTION", "CRITICAL"]
+    message: str
+
+    @classmethod
+    def from_alert(cls, alert: SafetyAlert) -> SafetyAlertMessage:
+        return cls(code=alert.code, severity=alert.severity.value, message=alert.message)
+
+
 class EvaluatedPayload(BaseModel):
     """Operação avaliada. "Avaliada" não quer dizer "segura": não há status (PEND-004)."""
 
@@ -190,6 +218,10 @@ class EvaluatedPayload(BaseModel):
     hook_block_weight_kg: float = Field(description=_HOOK_DESCRIPTION)
     compared_weight_kg: float = Field(description=_COMPARED_DESCRIPTION)
     reasons: list[str] = Field(description="Sempre vazio numa operação avaliada.")
+    tipping_risk: TippingRisk | None = Field(
+        default=None, description="Risco de tombamento por regras (RN-013): LOW, ATTENTION, HIGH."
+    )
+    alerts: list[SafetyAlertMessage] = Field(default_factory=list)
 
 
 class NotEvaluablePayload(BaseModel):
@@ -213,6 +245,10 @@ class NotEvaluablePayload(BaseModel):
     reasons: list[str] = Field(
         description="Motivos legíveis por máquina, nunca vazio, na ordem das etapas."
     )
+    tipping_risk: TippingRisk | None = Field(
+        default=None, description="Risco de tombamento por regras (RN-013); `null` sem regra."
+    )
+    alerts: list[SafetyAlertMessage] = Field(default_factory=list)
 
 
 type EvaluationPayload = Annotated[
@@ -250,6 +286,8 @@ class SimulationEvaluatedMessage(BaseModel):
                     hook_block_weight_kg=hook_kg,
                     compared_weight_kg=compared_kg,
                     reasons=[],
+                    tipping_risk=evaluation.tipping_risk,
+                    alerts=[SafetyAlertMessage.from_alert(a) for a in evaluation.alerts],
                 )
             case NotEvaluableOperation():
                 capacity = evaluation.capacity
@@ -271,6 +309,8 @@ class SimulationEvaluatedMessage(BaseModel):
                     hook_block_weight_kg=hook_kg,
                     compared_weight_kg=compared_kg,
                     reasons=[reason.value for reason in evaluation.reasons],
+                    tipping_risk=evaluation.tipping_risk,
+                    alerts=[SafetyAlertMessage.from_alert(a) for a in evaluation.alerts],
                 )
         return cls(sequence=sequence, payload=payload)
 
