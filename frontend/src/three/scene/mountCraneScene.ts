@@ -279,6 +279,9 @@ export function mountCraneScene(
     dirty = true
   }
 
+  // Objetos da biblioteca (TASK-072): quando um GLB termina de carregar, pede um quadro novo.
+  contents.obstacles.setOnChange(invalidate)
+
   const accessoryChain = new AccessoryChain({
     loader: options.loadAccessoryModel,
     onModelResult: options.onAccessoryModelResult,

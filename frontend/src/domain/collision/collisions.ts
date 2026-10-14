@@ -19,6 +19,7 @@ import {
   type TerrainSpec,
   terrainHeightAt,
 } from '../environment/environment'
+import { findLibraryObject, scaledCollisionBoxes } from '../environment/objectLibrary'
 import type { LoadBoxLayout } from './loadBox'
 import {
   applyTransform,
@@ -163,6 +164,29 @@ export function obstacleObb(obstacle: Obstacle, terrain: TerrainSpec): Obb {
   )
 }
 
+/**
+ * Caixas de colisão de um obstáculo no mundo. Caixa e cilindro dão uma só (`obstacleObb`); um objeto da
+ * biblioteca (TASK-072) dá as caixas dele (paredes, teto e a abertura do barracão, por exemplo), cada
+ * uma escalada para o tamanho do obstáculo e girada com ele em torno do centro da planta, com a base na
+ * altura do terreno no centro. Um `modelId` que a biblioteca não conhece volta à caixa que o envolve.
+ */
+export function obstacleObbs(obstacle: Obstacle, terrain: TerrainSpec): readonly Obb[] {
+  const object = obstacle.kind === 'model' ? findLibraryObject(obstacle.modelId) : undefined
+  if (!object) return [obstacleObb(obstacle, terrain)]
+  const ground = terrainHeightAt(terrain, obstacle.centerX, obstacle.centerZ)
+  const frame: Transform = {
+    rot: rotY(obstacle.rotationYDeg * DEG),
+    pos: { x: obstacle.centerX, y: ground, z: obstacle.centerZ },
+  }
+  return scaledCollisionBoxes(obstacle, object).map((box) =>
+    obbFromFrame(
+      frame,
+      { x: box.x, y: box.y + box.h / 2, z: box.z },
+      { x: box.w / 2, y: box.h / 2, z: box.d / 2 },
+    ),
+  )
+}
+
 /** Caixas do corpo do guindaste no mundo, para o estado dado. */
 export function craneBodyObbs(
   body: CraneBody,
@@ -263,7 +287,7 @@ export function evaluateCollisions(input: CollisionInput): CollisionReport {
   const hits: CollisionHit[] = []
   const obstacles = scenario.obstacles.map((obstacle) => ({
     obstacle,
-    obb: obstacleObb(obstacle, scenario.terrain),
+    obbs: obstacleObbs(obstacle, scenario.terrain),
   }))
   const bodyObbs = input.body ? craneBodyObbs(input.body, input.state, scenario) : []
 
@@ -282,14 +306,16 @@ export function evaluateCollisions(input: CollisionInput): CollisionReport {
         penetrationM += depth
       }
     }
-    for (const { obstacle, obb: obstacleBox } of obstacles) {
-      const depth = obbPenetration(obb, obstacleBox)
-      if (depth > 0) {
-        penetrationM += depth
-        hits.push({
-          subject,
-          target: { kind: 'obstacle', id: obstacle.id, label: obstacle.label, obb: obstacleBox },
-        })
+    for (const { obstacle, obbs } of obstacles) {
+      for (const obstacleBox of obbs) {
+        const depth = obbPenetration(obb, obstacleBox)
+        if (depth > 0) {
+          penetrationM += depth
+          hits.push({
+            subject,
+            target: { kind: 'obstacle', id: obstacle.id, label: obstacle.label, obb: obstacleBox },
+          })
+        }
       }
     }
   }
@@ -297,10 +323,14 @@ export function evaluateCollisions(input: CollisionInput): CollisionReport {
   const alerts: CollisionAlert[] = []
   if (obstacles.length > 0) {
     const { hook, tip, pivot } = suspension(input)
-    for (const { obstacle, obb } of obstacles) {
+    for (const { obstacle, obbs } of obstacles) {
       const entry = { obstacleId: obstacle.id, label: obstacle.label }
-      if (segmentIntersectsObb(tip, hook, obb)) alerts.push({ segment: 'cable', ...entry })
-      if (segmentIntersectsObb(pivot, tip, obb)) alerts.push({ segment: 'boom', ...entry })
+      if (obbs.some((obb) => segmentIntersectsObb(tip, hook, obb))) {
+        alerts.push({ segment: 'cable', ...entry })
+      }
+      if (obbs.some((obb) => segmentIntersectsObb(pivot, tip, obb))) {
+        alerts.push({ segment: 'boom', ...entry })
+      }
     }
   }
   return { hits, alerts, penetrationM }

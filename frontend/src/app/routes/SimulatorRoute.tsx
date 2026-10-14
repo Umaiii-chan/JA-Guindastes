@@ -485,6 +485,8 @@ export function SimulatorRoute() {
             onSoilKindChange={editor.setSoilKind}
             lowerTerrain={editor.lowerTerrain}
             onLowerTerrainChange={editor.setLowerTerrain}
+            modelId={editor.modelId}
+            onModelChange={editor.setModelId}
             wind={scenario.spec.wind}
             onWindChange={editor.changeWind}
             selectedLabel={editor.selectedLabel}

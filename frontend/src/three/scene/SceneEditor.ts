@@ -16,6 +16,7 @@ import type { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { TransformControls } from 'three/addons/controls/TransformControls.js'
 
 import {
+  addModelAt,
   addObstacleAt,
   type Brush,
   flattenAt,
@@ -25,7 +26,7 @@ import {
 } from '../../application/environment/editorOps'
 import type { Obstacle, ScenarioSpec, SoilKind } from '../../domain/environment/environment'
 import type { CraneSceneContents } from './buildCraneScene'
-import { OBSTACLE_NAMES } from './ObstacleMeshes'
+import { MODEL_SELECTION_OUTLINE, OBSTACLE_NAMES } from './ObstacleMeshes'
 import { EDITOR_COLORS, SOIL_COLORS } from './palette'
 
 // Editor 3D do ambiente (TASK-066; ADR-032): seleção e arrasto de obstáculos e do guindaste com
@@ -33,7 +34,8 @@ import { EDITOR_COLORS, SOIL_COLORS } from './palette'
 // raycast no chão. A cena não guarda o cenário: lê por `getSpec()` e devolve cada mudança por
 // `onChange` (o cenário fica na UI, com o desfazer).
 
-export type EditorTool = 'select' | 'add-box' | 'add-cylinder' | 'sculpt' | 'flatten' | 'paint'
+export type EditorTool =
+  'select' | 'add-box' | 'add-cylinder' | 'add-model' | 'sculpt' | 'flatten' | 'paint'
 export type EditorTransformMode = 'translate' | 'rotate' | 'scale'
 
 /** Id da seleção quando o objeto escolhido é o guindaste. */
@@ -48,6 +50,8 @@ export interface SceneEditorConfig {
   readonly lowerTerrain: boolean
   /** Id do obstáculo selecionado, `CRANE_SELECTION_ID` ou `null`. */
   readonly selectedId: string | null
+  /** Objeto da biblioteca que a ferramenta "add-model" coloca (TASK-072); `null` = nenhum. */
+  readonly modelId?: string | null
 }
 
 export interface SceneEditorCallbacks {
@@ -213,10 +217,16 @@ export class SceneEditor {
     const config = this.config
     // Realça o obstáculo escolhido (as malhas são refeitas a cada mudança, então é refeito aqui).
     for (const group of this.deps.contents.obstacles.root.children) {
+      const selected = config?.tool === 'select' && group.userData.obstacleId === config.selectedId
+      if (group.userData.kind === 'model') {
+        // Objeto da biblioteca: o modelo é compartilhado, então a seleção é um contorno à parte.
+        const outline = group.getObjectByName(MODEL_SELECTION_OUTLINE)
+        if (outline) outline.visible = selected
+        continue
+      }
       const mesh = group.children[0] as Mesh | undefined
       const material = mesh?.material as MeshLambertMaterial | undefined
       if (!material) continue
-      const selected = config?.tool === 'select' && group.userData.obstacleId === config.selectedId
       material.color.setHex(selected ? SELECTED_COLOR : 0xd8d2c1)
     }
     if (!config || config.tool !== 'select' || config.selectedId === null) {
@@ -274,7 +284,9 @@ export class SceneEditor {
     if (!obstacle) return
     if (obstacle.kind === 'cylinder') object.scale.z = object.scale.x
     const base = contents.environment.heightAt(object.position.x, object.position.z)
-    object.position.y = base + (obstacle.heightM * object.scale.y) / 2
+    // Caixa e cilindro têm a origem no centro; o objeto da biblioteca, na base.
+    object.position.y =
+      obstacle.kind === 'model' ? base : base + (obstacle.heightM * object.scale.y) / 2
     this.deps.invalidate()
   }
 
@@ -419,7 +431,12 @@ export class SceneEditor {
     const moved = Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y)
     if (moved > CLICK_MAX_MOVE_PX || performance.now() - pressed.time > CLICK_MAX_MS) return
     if (config.tool === 'select') this.pick(event)
-    else if (config.tool === 'add-box' || config.tool === 'add-cylinder') this.addAt(event)
+    else if (
+      config.tool === 'add-box' ||
+      config.tool === 'add-cylinder' ||
+      config.tool === 'add-model'
+    )
+      this.addAt(event)
   }
 
   // --- ferramentas -------------------------------------------------------------------------------
@@ -445,8 +462,14 @@ export class SceneEditor {
     const callbacks = this.callbacks
     const config = this.config
     if (!point || !callbacks || !config) return
-    const kind = config.tool === 'add-box' ? 'box' : 'cylinder'
-    const added = addObstacleAt(callbacks.getSpec(), kind, point.x, point.z)
+    const spec = callbacks.getSpec()
+    let added: { readonly spec: ScenarioSpec; readonly id: string | null }
+    if (config.tool === 'add-model') {
+      if (!config.modelId) return
+      added = addModelAt(spec, config.modelId, point.x, point.z)
+    } else {
+      added = addObstacleAt(spec, config.tool === 'add-box' ? 'box' : 'cylinder', point.x, point.z)
+    }
     if (added.id === null) return
     callbacks.onCheckpoint()
     callbacks.onChange(added.spec)

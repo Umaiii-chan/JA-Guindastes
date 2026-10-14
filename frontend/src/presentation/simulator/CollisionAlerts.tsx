@@ -11,11 +11,13 @@ export interface CollisionAlertsProps {
  * desenha nada.
  */
 export function CollisionAlerts({ collision }: CollisionAlertsProps) {
-  const { hits, alerts, blocked } = collision
-  if (hits.length === 0 && alerts.length === 0) return null
+  const { alerts, blocked } = collision
+  // Um objeto da biblioteca tem várias caixas de colisão: a mesma frase não se repete.
+  const hitMessages = [...new Set(collision.hits.map(describeHit))]
+  if (hitMessages.length === 0 && alerts.length === 0) return null
   return (
     <div className="collision-alerts" role="group" aria-label="Colisões">
-      {hits.length > 0 && (
+      {hitMessages.length > 0 && (
         <Notice
           tone="danger"
           role={blocked ? 'alert' : 'status'}
@@ -24,8 +26,8 @@ export function CollisionAlerts({ collision }: CollisionAlertsProps) {
         >
           {blocked && <p>O movimento parou no último estado seguro.</p>}
           <ul>
-            {hits.map((hit, index) => (
-              <li key={index}>{describeHit(hit)}</li>
+            {hitMessages.map((message) => (
+              <li key={message}>{message}</li>
             ))}
           </ul>
         </Notice>

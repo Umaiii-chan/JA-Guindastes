@@ -43,8 +43,14 @@ export const FLAT_TERRAIN: TerrainSpec = { slopeXPercent: 0, slopeZPercent: 0, f
 export interface Obstacle {
   readonly id: string
   readonly label: string
-  /** `cylinder` usa `widthM` como diâmetro e ignora `depthM` e a rotação. */
-  readonly kind: 'box' | 'cylinder'
+  /**
+   * `cylinder` usa `widthM` como diâmetro e ignora `depthM` e a rotação. `model` (TASK-072) é um objeto
+   * da biblioteca (`objectLibrary.ts`, id em `modelId`): `widthM`, `depthM` e `heightM` são o tamanho
+   * já escalado e as caixas de colisão vêm da biblioteca.
+   */
+  readonly kind: 'box' | 'cylinder' | 'model'
+  /** Só `model`: id do objeto na biblioteca. */
+  readonly modelId?: string
   readonly centerX: number
   readonly centerZ: number
   readonly widthM: number
