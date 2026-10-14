@@ -3,6 +3,13 @@
   "framework": "vite",
   "buildCommand": "npm run build:vercel",
   "outputDirectory": "dist",
+  "git": {
+    "deploymentEnabled": {
+      "task/**": false,
+      "worktree-*": false,
+      "leva-*/**": false
+    }
+  },
   "rewrites": [
     {
       "source": "/api/:path*",
