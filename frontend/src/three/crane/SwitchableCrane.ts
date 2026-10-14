@@ -32,6 +32,15 @@ function lerp(from: number, to: number, fraction: number): number {
  * técnica, nunca do modelo; RN-003) e com o estado atual, então o guindaste novo aparece na mesma
  * pose. A geometria operacional não muda com a troca (ADR-013 C-7).
  */
+/** Passo máximo do teste varrido por comando (graus ou metros), para não atravessar objetos. */
+const SWEEP_STEP: Record<keyof CraneState, number> = {
+  turretRotationDeg: 0.5,
+  boomAngleDeg: 0.25,
+  boomLengthM: 0.05,
+  cableLengthM: 0.05,
+}
+const MAX_SWEEP_STEPS = 400
+
 export class SwitchableCrane implements CraneCommands {
   private controller: CraneController
   private afterCommand: (() => void) | null = null
@@ -210,15 +219,36 @@ export class SwitchableCrane implements CraneCommands {
     const applied = apply(value)
     const proposedState = this.controller.getState()
     const proposed = guard.evaluate(proposedState)
-    if (isSafe(proposed)) {
+
+    // Movimento varrido: um salto grande do slider não pode atravessar um obstáculo fino. Testa o
+    // caminho em passos pequenos e para no primeiro estado inseguro (TASK-063).
+    const from = previous[key]
+    const to = proposedState[key]
+    const steps = Math.min(MAX_SWEEP_STEPS, Math.ceil(Math.abs(to - from) / SWEEP_STEP[key]))
+    let lastSafe = from
+    let firstUnsafe: number | null = null
+    let firstUnsafeReport: CollisionReport | null = null
+    for (let i = 1; i < steps; i++) {
+      const sample = from + ((to - from) * i) / steps
+      const report = guard.evaluate({ ...proposedState, [key]: sample })
+      if (!isSafe(report)) {
+        firstUnsafe = sample
+        firstUnsafeReport = report
+        break
+      }
+      lastSafe = sample
+    }
+
+    if (firstUnsafe === null && isSafe(proposed)) {
       this.run(applied)
       guard.onResult({ ...proposed, blocked: false })
       return applied
     }
 
-    // Recusado: o valor anterior é aceitável e o pedido não. Busca o mais próximo do pedido que é.
-    let safe = previous[key]
-    let unsafe = proposedState[key]
+    // Recusado: busca, entre o último passo seguro e o primeiro inseguro, o mais próximo do pedido.
+    const blockedReport = firstUnsafeReport ?? proposed
+    let safe = lastSafe
+    let unsafe = firstUnsafe ?? to
     for (let i = 0; i < GUARD_ITERATIONS; i++) {
       const middle = (safe + unsafe) / 2
       if (isSafe(guard.evaluate({ ...proposedState, [key]: middle }))) safe = middle
@@ -228,9 +258,9 @@ export class SwitchableCrane implements CraneCommands {
     this.run(final)
     const after = guard.evaluate(this.controller.getState())
     guard.onResult({
-      hits: proposed.hits,
+      hits: blockedReport.hits,
       alerts: after.alerts,
-      penetrationM: proposed.penetrationM,
+      penetrationM: blockedReport.penetrationM,
       blocked: true,
     })
     return final

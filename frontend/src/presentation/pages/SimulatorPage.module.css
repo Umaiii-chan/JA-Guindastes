@@ -163,7 +163,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 250px);
   min-width: 0;
-  max-height: 46vh;
+  /* Altura fixa: avisos que aparecem e somem rolam aqui dentro e não redimensionam a cena (o
+     redimensionamento a cada aviso fazia a cena tremer). */
+  height: min(36vh, 300px);
   overflow-y: auto;
   border-top: 1px solid var(--color-border-ink);
 }
@@ -171,7 +173,7 @@
 /* Telas baixas (ex.: 1280 × 720): a ficha rola por dentro para a cena manter a altura útil. */
 @media (height < 800px) {
   .result {
-    max-height: 196px;
+    height: 196px;
   }
 }
 

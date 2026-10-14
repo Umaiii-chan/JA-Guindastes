@@ -54,6 +54,19 @@ describe('guarda de colisões do SwitchableCrane', () => {
     expect(results.at(-1)).toEqual({ hits: [], alerts: [], penetrationM: 0, blocked: false })
   })
 
+  it('um salto grande não atravessa um obstáculo fino no meio do caminho', () => {
+    // Obstáculo só entre 40° e 42° de giro: o destino (90°) é livre, mas o caminho não.
+    const { crane, results } = craneWith(
+      (state) => state.turretRotationDeg > 40 && state.turretRotationDeg < 42,
+    )
+
+    const applied = crane.setTurretRotation(90)
+
+    expect(applied).toBeLessThanOrEqual(40.01)
+    expect(applied).toBeGreaterThan(39)
+    expect(results.at(-1)).toMatchObject({ blocked: true })
+  })
+
   it('vale para qualquer comando, não só o cabo', () => {
     const { crane } = craneWith((state) => state.boomAngleDeg > 50)
 
