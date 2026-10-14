@@ -59,3 +59,12 @@ Crie um ADR quando a decisão:
 | [ADR-019](ADR-019-visual-manual-tecnico.md) | Linguagem visual de manual técnico (substitui o tema escuro do ADR-017 §§ 3–4) | Aceito | 2026-09-27 |
 | [ADR-020](ADR-020-deploy-render-vercel.md) | Render para dados e API; Vercel para o frontend | Substituído por ADR-021 quanto ao plano | 2026-09-30 |
 | [ADR-021](ADR-021-plano-gratuito-render.md) | Plano gratuito do Render para a apresentação | Aceito | 2026-09-30 |
+| [ADR-022](ADR-022-limite-de-capacidade-por-modelo.md) | Limite de uso da capacidade por modelo | Aceito | 2026-10-14 |
+| [ADR-023](ADR-023-cenarios-com-terreno-editavel.md) | Cenários com terreno editável e obstáculos | Aceito | 2026-10-14 |
+| [ADR-024](ADR-024-patolas-animadas.md) | Patolas animadas | Aceito | 2026-10-14 |
+| [ADR-025](ADR-025-risco-de-tombamento-e-area-de-operacao.md) | Risco de tombamento e área de operação | Aceito | 2026-10-14 |
+| [ADR-026](ADR-026-acessorios-de-icamento.md) | Acessórios de içamento | Aceito | 2026-10-14 |
+| [ADR-027](ADR-027-gravacao-e-reproducao-de-simulacoes.md) | Gravação e reprodução de simulações | Aceito | 2026-10-14 |
+| [ADR-028](ADR-028-colisoes-da-carga.md) | Colisões da carga | Aceito | 2026-10-14 |
+| [ADR-029](ADR-029-lanca-entre-colunas-proxima-mais-longa.md) | Lança entre colunas: próxima mais longa | Aceito | 2026-10-14 |
+| [ADR-030](ADR-030-interpolacao-linear-provisoria.md) | Interpolação linear provisória | Aceito | 2026-10-14 |

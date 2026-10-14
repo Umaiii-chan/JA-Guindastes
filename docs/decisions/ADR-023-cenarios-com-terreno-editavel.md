@@ -2,7 +2,7 @@
 
 | Campo                  | Valor              |
 | ---------------------- | ------------------ |
-| **Status**             | Proposto           |
+| **Status** | Aceito (Anderson Sehnem, em chat em 2026-10-14) |
 | **Data**               | 2026-10-14         |
 | **Autor**              | agente Claude Code |
 | **Tarefa relacionada** | TASK-052           |

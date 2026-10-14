@@ -2,7 +2,7 @@
 
 | Campo                  | Valor                                                                  |
 | ---------------------- | ---------------------------------------------------------------------- |
-| **Status**             | Proposto                                                               |
+| **Status** | Aceito (Anderson Sehnem, em chat em 2026-10-14) |
 | **Data**               | 2026-10-14                                                             |
 | **Autor**              | agente Claude Code, sessão de 2026-10-14                               |
 | **Decisores**          | Anderson Sehnem                                                        |
