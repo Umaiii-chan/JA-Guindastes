@@ -215,3 +215,20 @@ def test_invalid_cargo_and_delivery_are_rejected(changes: dict[str, object], cam
         ScenarioSpec(**changes)  # type: ignore[arg-type]
 
     assert campo in raised.value.field
+
+
+def test_library_object_requires_a_model_id_and_round_trips() -> None:
+    model = obstacle(kind=ObstacleKind.MODEL, model_id="barracao-aberto")
+    spec = ScenarioSpec(obstacles=(model,))
+
+    assert scenario_spec_from_dict(scenario_spec_to_dict(spec)) == spec
+    with pytest.raises(InvalidScenarioError) as missing:
+        ScenarioSpec(obstacles=(obstacle(kind=ObstacleKind.MODEL),))
+    assert missing.value.field == "spec.obstacles[0].model_id"
+
+
+def test_model_id_is_only_for_library_objects() -> None:
+    with pytest.raises(InvalidScenarioError) as error:
+        ScenarioSpec(obstacles=(obstacle(model_id="sedan"),))
+
+    assert error.value.field == "spec.obstacles[0].model_id"

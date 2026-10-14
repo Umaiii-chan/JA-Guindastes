@@ -13,7 +13,13 @@ import {
   type WindSpec,
 } from '../../domain/environment/environment'
 import { shoePoints } from '../../domain/environment/craneAttitude'
-import { MAX_OBSTACLES, MAX_TERRAIN_FEATURES, newObstacle } from './scenarioEditing'
+import { findLibraryObject, newModelObstacle } from '../../domain/environment/objectLibrary'
+import {
+  MAX_OBSTACLES,
+  MAX_TERRAIN_FEATURES,
+  newObstacle,
+  type PrimitiveObstacleKind,
+} from './scenarioEditing'
 
 /** Limite de zonas de solo (backend). */
 export const MAX_SOIL_ZONES = 200
@@ -164,7 +170,7 @@ export function paintSoil(
 /** Novo obstáculo no ponto (x, z) do chão; a base assenta no terreno (a cena faz isso ao desenhar). */
 export function addObstacleAt(
   spec: ScenarioSpec,
-  kind: Obstacle['kind'],
+  kind: PrimitiveObstacleKind,
   x: number,
   z: number,
 ): { readonly spec: ScenarioSpec; readonly id: string | null } {
@@ -172,6 +178,32 @@ export function addObstacleAt(
   const base = newObstacle(kind, spec.obstacles)
   const obstacle: Obstacle = {
     ...base,
+    centerX: Math.round(x * 100) / 100,
+    centerZ: Math.round(z * 100) / 100,
+  }
+  return { spec: { ...spec, obstacles: [...spec.obstacles, obstacle] }, id: obstacle.id }
+}
+
+/**
+ * Novo objeto da biblioteca (TASK-072) no ponto (x, z) do chão, em tamanho real e sem giro; a base
+ * assenta no terreno (a cena faz isso ao desenhar). Id desconhecido ou sem espaço (100 obstáculos):
+ * não muda nada. O id é `<objeto>-<n>` e o nome repete o do objeto, com o número a partir do segundo.
+ */
+export function addModelAt(
+  spec: ScenarioSpec,
+  modelId: string,
+  x: number,
+  z: number,
+): { readonly spec: ScenarioSpec; readonly id: string | null } {
+  const object = findLibraryObject(modelId)
+  if (!object || spec.obstacles.length >= MAX_OBSTACLES) return { spec, id: null }
+  const takenIds = spec.obstacles.map((obstacle) => obstacle.id)
+  let n = 1
+  while (takenIds.includes(`${object.id}-${n}`)) n += 1
+  const sameModel = spec.obstacles.filter((obstacle) => obstacle.modelId === object.id).length
+  const label = sameModel === 0 ? object.label : `${object.label} ${sameModel + 1}`
+  const obstacle: Obstacle = {
+    ...newModelObstacle(object, `${object.id}-${n}`, label),
     centerX: Math.round(x * 100) / 100,
     centerZ: Math.round(z * 100) / 100,
   }

@@ -270,3 +270,34 @@ def test_delivery_radius_out_of_range_answers_422(client: TestClient) -> None:
     payload["spec"]["delivery"] = {"x": 0.0, "z": 0.0, "rotation_y_deg": 0.0, "radius_m": 99.0}
 
     assert client.post(SCENARIOS_PATH, json=payload, headers=CSRF_HEADERS).status_code == 422
+
+
+def test_library_object_obstacle_is_saved_and_returned_with_its_model_id(
+    client: TestClient,
+) -> None:
+    login_as_operator(client)
+    payload = body()
+    payload["spec"]["obstacles"].append(
+        {
+            "id": "barracao-aberto-1",
+            "label": "Barracão FICTÍCIO",
+            "kind": "model",
+            "model_id": "barracao-aberto",
+            "center_x": 12.0,
+            "center_z": -6.0,
+            "width_m": 14.0,
+            "depth_m": 18.0,
+            "height_m": 8.8,
+            "rotation_y_deg": 90.0,
+        }
+    )
+
+    created = client.post(SCENARIOS_PATH, json=payload, headers=CSRF_HEADERS)
+
+    assert created.status_code == 201, created.text
+    reopened = client.get(f"{SCENARIOS_PATH}/{created.json()['id']}").json()["spec"]
+    saved = reopened["obstacles"][-1]
+    assert saved["kind"] == "model"
+    assert saved["model_id"] == "barracao-aberto"
+    # Caixa e cilindro não ganham model_id.
+    assert "model_id" not in reopened["obstacles"][0]

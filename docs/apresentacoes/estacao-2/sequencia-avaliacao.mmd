@@ -1,0 +1,41 @@
+sequenceDiagram
+    actor O as Operador
+    participant UI as Interface / Canvas 3D
+    participant API as API REST / WebSocket
+    participant UC as EvaluateOperation
+    participant D as Serviços de domínio
+    participant R as Provedores / PostgreSQL
+    Note over O,R: Pré-condição: sessão válida no modo com banco e configuração selecionada
+    loop A cada alteração operacional (envio com debounce)
+        O->>UI: Alterar lança, giro, cabo ou carga
+        UI->>UI: Atualizar pré-visualização e gerar sequence
+        alt WebSocket aberto
+            UI->>API: simulation.state.changed(sequence, estado, carga, configuração)
+        else WebSocket indisponível
+            UI->>API: POST /api/v1/evaluations
+        end
+        API->>API: Validar contrato e converter unidades
+        API->>UC: execute_for_load(configuration_id, state, load)
+        UC->>R: Obter ficha técnica e regras da configuração
+        R-->>UC: Geometria cadastrada, zonas e peso do gancho
+        UC->>D: Calcular geometria e determinar zonas pelo giro
+        D-->>UC: Raio, alturas, posições e zonas ou motivos
+        UC->>R: Obter tabela ACTIVE da configuração e zona(s)
+        R-->>UC: Tabela(s), pontos, id e versão ou ausência
+        alt Geometria válida e tabela(s) disponível(is)
+            UC->>D: Consultar capacidade por lança e raio
+            Note over D: Estratégia conservadora provisória (ADR-015), sem extrapolar
+            D-->>UC: Capacidade encontrada ou consulta não suportada
+        end
+        alt Capacidade encontrada e utilização definida
+            UC->>D: Calcular (carga + gancho) / capacidade × 100
+            D-->>UC: Utilização
+            UC-->>API: EVALUATED, geometria, capacidade, versão e zona
+        else Falta de dados ou operação não suportada
+            UC-->>API: NOT_EVALUABLE, motivos e geometria quando disponível
+        end
+        API-->>UI: simulation.evaluated com sequence, ou resposta REST
+        UI->>UI: Descartar resposta antiga ou de sequence não enviado
+        UI-->>O: Exibir resultado atual ou motivos da impossibilidade
+    end
+    Note over UC,R: Avaliação atual não persiste Simulation/SimulationState/SimulationResult

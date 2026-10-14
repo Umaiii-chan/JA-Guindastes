@@ -163,8 +163,8 @@ frontend/
 ├── Dockerfile, nginx.conf.template, .dockerignore   ← imagem (build do Vite + nginx sem root, porta 8080)
 ├── vite.config.ts       ← proxy /api (com WebSocket) para localhost:8000; divisão do pacote; config do Vitest (node; jsdom por arquivo)
 ├── e2e/                 ← Playwright: playwright.config.ts, tests/ (scene, evaluation, auth, loadChartImport, catalogEdit; fixture de login auth.ts; catalogMock.ts; backendCatalog.ts), tsconfig.json
-├── public/models/       ← guindaste-80t.glb (modelo ilustrativo, TASK-064) e CREDITS.md
-├── scripts/             ← convert-crane-80t.mjs (GLB → GLB, TASK-064)
+├── public/models/       ← guindaste-80t.glb (modelo ilustrativo, TASK-064), CREDITS.md e objetos/ (biblioteca do editor 3D, kits CC0 da Kenney, TASK-072)
+├── scripts/             ← convert-crane-80t.mjs (GLB → GLB, TASK-064) e build-object-library.mjs (kits da Kenney → public/models/objetos, TASK-072)
 ├── src/
 │   ├── app/             ← App.tsx, AppProviders, AppRoutes, routes/ (uma composição por página), auth/ (AuthProvider, RouteGuards, usePermissions), catalog/ e simulator/ (estado compartilhado), useEvaluationSession, evaluationInput, craneSetup
 │   ├── domain/          ← geometry/ (pré-visualização do ADR-013), evaluation/, catalog/, auth/ (tipos)

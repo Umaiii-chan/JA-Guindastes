@@ -8,7 +8,9 @@ Regras (valores FICTÍCIOS e configuráveis até haver dado oficial):
 - números finitos; inclinação do plano de -100 a 100 %;
 - feição: `radius_m` > 0, `height_m` >= 0 (no `flatten`, `height_m` é o nível absoluto e pode ser
   negativo); `direction_deg` e `width_m` só na rampa (`width_m` > 0);
-- obstáculo: dimensões > 0 (o cilindro usa `width_m` como diâmetro);
+- obstáculo: dimensões > 0 (o cilindro usa `width_m` como diâmetro); o tipo `model` (TASK-072) é
+  um objeto da biblioteca do editor e exige `model_id` (1 a 64 caracteres; a biblioteca é do
+  frontend, o backend só guarda o id), com as dimensões já escaladas;
 - zonas de solo (TASK-066): `radius_m` > 0, no máximo 200, ids únicos; vento: velocidade de 0 a 100
   m/s e direção finita (ambos opcionais no cenário);
 - carga e ponto de entrega (TASK-073; ADR-035), ambos opcionais: posição e giro finitos; o ponto de
@@ -56,6 +58,7 @@ class SoilKind(StrEnum):
 class ObstacleKind(StrEnum):
     BOX = "box"
     CYLINDER = "cylinder"
+    MODEL = "model"
 
 
 def _finite(path: str, value: float) -> None:
@@ -153,12 +156,19 @@ class ObstacleSpec:
     depth_m: float
     height_m: float
     rotation_y_deg: float
+    model_id: str | None = None
 
     def validate(self, path: str) -> None:
         _text(f"{path}.id", self.id, ID_MAX_LENGTH)
         _text(f"{path}.label", self.label, LABEL_MAX_LENGTH)
         if not isinstance(self.kind, ObstacleKind):
             raise InvalidScenarioError(f"{path}.kind", "tipo de obstáculo desconhecido")
+        if self.kind is ObstacleKind.MODEL:
+            _text(f"{path}.model_id", self.model_id or "", ID_MAX_LENGTH)
+        elif self.model_id is not None:
+            raise InvalidScenarioError(
+                f"{path}.model_id", "só um objeto da biblioteca (tipo model) tem model_id"
+            )
         _finite(f"{path}.center_x", self.center_x)
         _finite(f"{path}.center_z", self.center_z)
         _positive(f"{path}.width_m", self.width_m)
@@ -337,6 +347,7 @@ def scenario_spec_to_dict(spec: ScenarioSpec) -> dict[str, object]:
                 "depth_m": o.depth_m,
                 "height_m": o.height_m,
                 "rotation_y_deg": o.rotation_y_deg,
+                **({} if o.model_id is None else {"model_id": o.model_id}),
             }
             for o in spec.obstacles
         ],
@@ -410,6 +421,7 @@ def scenario_spec_from_dict(data: Mapping[str, Any]) -> ScenarioSpec:
                 depth_m=float(o["depth_m"]),
                 height_m=float(o["height_m"]),
                 rotation_y_deg=float(o["rotation_y_deg"]),
+                model_id=None if o.get("model_id") is None else str(o["model_id"]),
             )
             for o in data["obstacles"]
         ),

@@ -85,7 +85,10 @@ class ObstaclePayload(BaseModel):
 
     id: str
     label: str
-    kind: Literal["box", "cylinder"]
+    kind: Literal["box", "cylinder", "model"]
+    model_id: str | None = Field(
+        default=None, description="Só no tipo `model`: id do objeto da biblioteca do editor."
+    )
     center_x: float
     center_z: float
     width_m: float = Field(description="Largura; no cilindro, o diâmetro.")
@@ -104,6 +107,7 @@ class ObstaclePayload(BaseModel):
             depth_m=self.depth_m,
             height_m=self.height_m,
             rotation_y_deg=self.rotation_y_deg,
+            model_id=self.model_id,
         )
 
     @classmethod
@@ -112,6 +116,7 @@ class ObstaclePayload(BaseModel):
             id=obstacle.id,
             label=obstacle.label,
             kind=obstacle.kind.value,
+            model_id=obstacle.model_id,
             center_x=obstacle.center_x,
             center_z=obstacle.center_z,
             width_m=obstacle.width_m,

@@ -8,6 +8,7 @@ import {
   MAX_OBSTACLES,
   MAX_TERRAIN_FEATURES,
   OBSTACLE_KIND_LABELS,
+  type PrimitiveObstacleKind,
   removeFeature,
   removeObstacle,
   SLOPE_PERCENT_LIMIT,
@@ -46,7 +47,7 @@ export interface EnvironmentPanelProps {
 }
 
 const FEATURE_KINDS: readonly TerrainFeature['kind'][] = ['mound', 'pit', 'plateau', 'ramp']
-const OBSTACLE_KINDS: readonly Obstacle['kind'][] = ['box', 'cylinder']
+const OBSTACLE_KINDS: readonly PrimitiveObstacleKind[] = ['box', 'cylinder']
 
 function FeatureEditor({
   feature,
@@ -127,10 +128,10 @@ function ObstacleEditor({
   onRemove,
 }: {
   readonly obstacle: Obstacle
-  onChange(changes: Partial<Omit<Obstacle, 'id' | 'kind'>>): void
+  onChange(changes: Partial<Omit<Obstacle, 'id' | 'kind' | 'modelId'>>): void
   onRemove(): void
 }) {
-  const isBox = obstacle.kind === 'box'
+  const isBox = obstacle.kind !== 'cylinder'
   return (
     <fieldset
       className={styles.item}

@@ -29,6 +29,7 @@ import {
   type JsonRecord,
   readArray,
   readNullableNumber,
+  readNullableString,
   readNumber,
   readRecord,
   readString,
@@ -44,7 +45,7 @@ const FEATURE_KINDS: readonly TerrainFeature['kind'][] = [
   'ramp',
   'flatten',
 ]
-const OBSTACLE_KINDS: readonly Obstacle['kind'][] = ['box', 'cylinder']
+const OBSTACLE_KINDS: readonly Obstacle['kind'][] = ['box', 'cylinder', 'model']
 
 /** `ScenarioSpec` no JSON do backend. */
 export function toScenarioSpecDto(spec: ScenarioSpec): Record<string, unknown> {
@@ -67,6 +68,7 @@ export function toScenarioSpecDto(spec: ScenarioSpec): Record<string, unknown> {
       id: obstacle.id,
       label: obstacle.label,
       kind: obstacle.kind,
+      ...(obstacle.modelId === undefined ? {} : { model_id: obstacle.modelId }),
       center_x: obstacle.centerX,
       center_z: obstacle.centerZ,
       width_m: obstacle.widthM,
@@ -143,10 +145,12 @@ function mapFeature(json: unknown, path: string): TerrainFeature {
 
 function mapObstacle(json: unknown, path: string): Obstacle {
   const record = readRecord(json, path)
+  const modelId = readNullableString(record, 'model_id', path)
   return {
     id: readString(record, 'id', path),
     label: readString(record, 'label', path),
     kind: readOneOf(record, 'kind', path, OBSTACLE_KINDS),
+    ...(modelId === null ? {} : { modelId }),
     centerX: readNumber(record, 'center_x', path),
     centerZ: readNumber(record, 'center_z', path),
     widthM: readNumber(record, 'width_m', path),

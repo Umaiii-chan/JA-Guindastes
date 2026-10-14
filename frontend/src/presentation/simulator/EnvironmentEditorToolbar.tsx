@@ -9,6 +9,7 @@ import { SOIL_COLORS, toCssHex } from '../../three/scene/palette'
 import type { EditorTool, EditorTransformMode } from '../../three/scene/SceneEditor'
 import { cx } from '../ui'
 import styles from './EnvironmentEditorToolbar.module.css'
+import { ObjectLibraryPalette } from './ObjectLibraryPalette'
 import toggleStyles from './OperatingAreaToggle.module.css'
 
 /** Botão da barra da cena que liga e desliga o modo de edição do ambiente. */
@@ -54,6 +55,11 @@ const TOOLS: readonly { readonly id: EditorTool; readonly label: string; readonl
       hint: 'Clique no chão para marcar onde a carga deve ser entregue',
     },
     {
+      id: 'add-model',
+      label: 'Biblioteca',
+      hint: 'Escolha um objeto e clique no chão para colocá-lo; depois mova, gire ou redimensione',
+    },
+    {
       id: 'sculpt',
       label: 'Esculpir',
       hint: 'Clique e arraste no chão para subir ou descer o terreno',
@@ -87,6 +93,9 @@ export interface EnvironmentEditorToolbarProps {
   onSoilKindChange(kind: SoilKind): void
   readonly lowerTerrain: boolean
   onLowerTerrainChange(lower: boolean): void
+  /** Objeto da biblioteca escolhido na paleta (TASK-072), ou `null`. */
+  readonly modelId: string | null
+  onModelChange(id: string): void
   readonly wind: WindSpec | undefined
   onWindChange(wind: WindSpec): void
   /** Nome do que está selecionado ("Caixa 1", "Guindaste", "Carga"), ou `null`. */
@@ -163,6 +172,10 @@ export function EnvironmentEditorToolbar(props: EnvironmentEditorToolbarProps) {
               Excluir
             </button>
           </>
+        )}
+
+        {tool === 'add-model' && (
+          <ObjectLibraryPalette selectedId={props.modelId} onSelect={props.onModelChange} />
         )}
 
         {tool === 'sculpt' && (
