@@ -40,6 +40,7 @@ from app.application.ports.crane_catalog_repository import (
 )
 from app.application.ports.load_chart_listing import LoadChartListing
 from app.domain.value_objects.crane_geometry import CraneGeometry
+from app.domain.value_objects.crane_limits import CraneLimits
 from app.domain.value_objects.mass import Mass
 from app.domain.value_objects.rotation_zone import RotationZones
 
@@ -145,9 +146,15 @@ class ManageCraneCatalog:
             raise CatalogEntryNotFoundError(MANUFACTURER_ENTITY, manufacturer_id)
         return manufacturer
 
-    def create_crane(self, manufacturer_id: str, model_name: str) -> Crane:
+    def create_crane(
+        self, manufacturer_id: str, model_name: str, limits: CraneLimits | None = None
+    ) -> Crane:
+        """Cadastra o modelo; `limits` (TASK-051) ausente usa os limites padrão."""
         crane = Crane(
-            id=self._id_generator(), manufacturer_id=manufacturer_id, model_name=model_name
+            id=self._id_generator(),
+            manufacturer_id=manufacturer_id,
+            model_name=model_name,
+            limits=CraneLimits() if limits is None else limits,
         )
         try:
             self._repository.add_crane(crane)
@@ -212,6 +219,29 @@ class ManageCraneCatalog:
     def rename_crane(self, crane_id: str, model_name: str) -> Crane:
         """Troca o nome do modelo do guindaste; o fabricante não muda (TASK-044)."""
         crane = dataclasses.replace(self.get_crane(crane_id), model_name=model_name)
+        if not self._repository.update_crane(crane):
+            raise CatalogEntryNotFoundError(CRANE_ENTITY, crane_id)
+        return crane
+
+    def update_crane(
+        self,
+        crane_id: str,
+        *,
+        model_name: str | None = None,
+        limits: CraneLimits | None = None,
+    ) -> Crane:
+        """Troca o nome do modelo e/ou os limites (TASK-044, TASK-051); `None` mantém o atual.
+
+        Pelo menos um campo precisa vir (`ValueError`). O fabricante não muda.
+        """
+        if model_name is None and limits is None:
+            raise ValueError("informe o nome do modelo ou os limites do guindaste")
+        current = self.get_crane(crane_id)
+        crane = dataclasses.replace(
+            current,
+            model_name=current.model_name if model_name is None else model_name,
+            limits=current.limits if limits is None else limits,
+        )
         if not self._repository.update_crane(crane):
             raise CatalogEntryNotFoundError(CRANE_ENTITY, crane_id)
         return crane

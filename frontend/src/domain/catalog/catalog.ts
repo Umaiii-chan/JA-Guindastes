@@ -7,7 +7,23 @@ export interface Manufacturer {
   readonly name: string
 }
 
-export interface Crane {
+/**
+ * Limites do modelo de guindaste (TASK-051; RN-011, RN-013; ADR-022). Os padrões de inclinação são
+ * FICTÍCIOS até haver dado oficial.
+ */
+export interface CraneLimits {
+  /** Limite de uso da capacidade da tabela, de 1 a 100 % (padrão 100). */
+  readonly capacityLimitPercent: number
+  /** A partir desta % do limite o status é "atenção", de 1 a 100 % (padrão 90). */
+  readonly warningBandPercent: number
+  /** Inclinação residual máxima do terreno sob o guindaste, em graus (padrão 1,0; FICTÍCIO). */
+  readonly maxGroundSlopeDeg: number
+  /** Correção máxima de nivelamento pelos macacos, em graus (padrão 3,0; FICTÍCIO). */
+  readonly maxLevelingDeg: number
+}
+
+/** Os limites ficam ausentes em respostas de um backend anterior à TASK-051. */
+export interface Crane extends Partial<CraneLimits> {
   readonly id: string
   readonly manufacturerId: string
   readonly modelName: string

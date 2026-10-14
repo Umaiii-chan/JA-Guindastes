@@ -18,6 +18,16 @@ import {
   validateRequiredName,
   type ZoneAndHookValues,
 } from '../../application/catalog/catalogForms'
+import {
+  CRANE_LIMIT_KEYS,
+  CRANE_LIMIT_RANGES,
+  craneLimitChanges,
+  type CraneLimitKey,
+  craneLimitsToForm,
+  type CraneLimitsFormValues,
+  isCraneLimitField,
+  parseCraneLimits,
+} from '../../application/catalog/craneLimits'
 import type { ConfigurationChanges } from '../../application/catalog/ports'
 import {
   parseHookBlockWeight,
@@ -35,6 +45,7 @@ import {
 import type {
   Crane,
   CraneConfiguration,
+  CraneLimits,
   CraneTechnicalSheet,
   Manufacturer,
 } from '../../domain/catalog/catalog'
@@ -67,7 +78,11 @@ export type CatalogDrawerRequest =
 
 export interface CatalogMutations {
   onCreateManufacturer(name: string): Promise<CatalogMutationResult<Manufacturer>>
-  onCreateCrane(manufacturerId: string, modelName: string): Promise<CatalogMutationResult<Crane>>
+  onCreateCrane(
+    manufacturerId: string,
+    modelName: string,
+    limits?: Partial<CraneLimits>,
+  ): Promise<CatalogMutationResult<Crane>>
   onCreateConfiguration(
     craneId: string,
     name: string,
@@ -78,7 +93,11 @@ export interface CatalogMutations {
     manufacturerId: string,
     name: string,
   ): Promise<CatalogMutationResult<Manufacturer>>
-  onUpdateCrane(craneId: string, modelName: string): Promise<CatalogMutationResult<Crane>>
+  onUpdateCrane(
+    craneId: string,
+    modelName: string,
+    limits?: Partial<CraneLimits>,
+  ): Promise<CatalogMutationResult<Crane>>
   onUpdateConfiguration(
     configurationId: string,
     changes: ConfigurationChanges,
@@ -136,6 +155,30 @@ function initialName(request: CatalogDrawerRequest): string {
   }
 }
 
+/** Rótulo, unidade e dica de cada limite do modelo (TASK-051; RN-011, RN-013). */
+const LIMIT_FIELDS: Record<CraneLimitKey, { label: string; unit: string; hint: string }> = {
+  capacityLimitPercent: {
+    label: 'Limite de capacidade',
+    unit: '%',
+    hint: 'De 1 a 100 %. A capacidade efetiva é a da tabela × este limite (RN-011).',
+  },
+  warningBandPercent: {
+    label: 'Faixa de atenção',
+    unit: '%',
+    hint: 'De 1 a 100 %. A partir desta % do limite, o status é atenção.',
+  },
+  maxGroundSlopeDeg: {
+    label: 'Inclinação máxima do terreno',
+    unit: '°',
+    hint: 'Inclinação residual sob o guindaste (RN-013). Padrão 1,0, FICTÍCIO.',
+  },
+  maxLevelingDeg: {
+    label: 'Correção máxima de nivelamento',
+    unit: '°',
+    hint: 'O que os macacos corrigem. Padrão 3,0, FICTÍCIO.',
+  },
+}
+
 type SavePlan =
   | { readonly kind: 'none' }
   | { readonly kind: 'run'; readonly run: () => Promise<CatalogMutationResult<unknown>> }
@@ -178,6 +221,9 @@ function EntityForm({
       ? ''
       : String(editedConfiguration.hookBlockWeightKg),
   )
+  const [limitValues, setLimitValues] = useState<CraneLimitsFormValues>(() =>
+    craneLimitsToForm(request.entity === 'crane' ? request.editing : undefined),
+  )
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [backendErrors, setBackendErrors] = useState<FormErrors>({})
@@ -199,6 +245,14 @@ function EntityForm({
       const key = field.replace(/^geometry\./, '') as keyof SheetFormValues
       // Campo da ficha: mostra o erro assim que tem texto (ou depois de tentar gravar).
       if (submitted || (sheetValues[key] ?? '').trim() !== '') localErrors[field] = error
+    }
+  }
+  // Limites do modelo (TASK-051): só no guindaste.
+  const limitResult = request.entity === 'crane' ? parseCraneLimits(limitValues) : null
+  if (limitResult?.errors) {
+    for (const [field, error] of Object.entries(limitResult.errors)) {
+      const key = field as CraneLimitKey
+      if (submitted || limitValues[key].trim() !== '') localErrors[field] = error
     }
   }
   // Zonas de giro e gancho (TASK-046): só na configuração.
@@ -241,6 +295,7 @@ function EntityForm({
     trimmed: string,
     sheet: CraneTechnicalSheet | null,
     extras: ZoneAndHookValues,
+    limits: CraneLimits | null,
   ): SavePlan => {
     switch (request.entity) {
       case 'manufacturer': {
@@ -252,9 +307,24 @@ function EntityForm({
       case 'crane': {
         const original = request.editing
         const manufacturerId = request.manufacturer.id
-        if (!original) return { kind: 'run', run: () => onCreateCrane(manufacturerId, trimmed) }
-        if (trimmed === original.modelName) return { kind: 'none' }
-        return { kind: 'run', run: () => onUpdateCrane(original.id, trimmed) }
+        const changes = limits === null ? null : craneLimitChanges(original, limits)
+        if (!original) {
+          return {
+            kind: 'run',
+            run: () =>
+              changes === null
+                ? onCreateCrane(manufacturerId, trimmed)
+                : onCreateCrane(manufacturerId, trimmed, changes),
+          }
+        }
+        if (trimmed === original.modelName && changes === null) return { kind: 'none' }
+        return {
+          kind: 'run',
+          run: () =>
+            changes === null
+              ? onUpdateCrane(original.id, trimmed)
+              : onUpdateCrane(original.id, trimmed, changes),
+        }
       }
       case 'configuration': {
         const original = request.editing
@@ -317,14 +387,25 @@ function EntityForm({
     event.preventDefault()
     setSubmitted(true)
     setMessage(null)
-    if (nameError || sheetResult?.errors || zoneResult?.errors || hookResult?.error) {
+    if (
+      nameError ||
+      sheetResult?.errors ||
+      zoneResult?.errors ||
+      hookResult?.error ||
+      limitResult?.errors
+    ) {
       setMessage('Corrija os campos indicados.')
       return
     }
     const extras: ZoneAndHookValues = isConfiguration
       ? { rotationZones: zoneResult?.zones ?? [], hookBlockWeightKg: hookResult?.value ?? null }
       : {}
-    const plan = planSave(name.trim(), sheetResult?.sheet ?? null, extras)
+    const plan = planSave(
+      name.trim(),
+      sheetResult?.sheet ?? null,
+      extras,
+      limitResult?.limits ?? null,
+    )
     if (plan.kind === 'none') {
       setMessage('Nada mudou: não há o que salvar.')
       return
@@ -353,7 +434,7 @@ function EntityForm({
     request.entity === 'configuration'
       ? isConfigurationFormField(field) &&
         (withSheet || field === 'name' || isZoneOrHookField(field))
-      : field === nameField,
+      : field === nameField || (request.entity === 'crane' && isCraneLimitField(field)),
   )
   // Sem zonas e com tabelas importadas, o backend recusa pôr zonas: avisa antes de salvar.
   const zonesLockedReason =
@@ -414,6 +495,32 @@ function EntityForm({
                 onBlur={() => setNameTouched(true)}
               />
             </Field>
+            {request.entity === 'crane' &&
+              CRANE_LIMIT_KEYS.map((key) => (
+                <Field
+                  key={key}
+                  label={LIMIT_FIELDS[key].label}
+                  error={errors[key]}
+                  hint={LIMIT_FIELDS[key].hint}
+                >
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="any"
+                    min={CRANE_LIMIT_RANGES[key].min}
+                    max={CRANE_LIMIT_RANGES[key].max}
+                    unit={LIMIT_FIELDS[key].unit}
+                    value={limitValues[key]}
+                    onChange={(event) => {
+                      setLimitValues((current) => ({
+                        ...current,
+                        [key]: event.currentTarget.value,
+                      }))
+                      clearBackendError(key)
+                    }}
+                  />
+                </Field>
+              ))}
             {request.entity === 'configuration' && (
               <>
                 {sheetLocked ? (

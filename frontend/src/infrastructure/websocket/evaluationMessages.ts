@@ -22,6 +22,7 @@ import {
   readRecord,
   readString,
 } from '../shared/readJson'
+import { readCapacityLimit } from '../shared/evaluationCapacityLimit'
 import { readZoneAndWeights } from '../shared/evaluationZone'
 
 export const EVALUATION_WEBSOCKET_PATH = '/api/v1/ws/evaluation'
@@ -176,6 +177,7 @@ function mapEvaluatedPayload(payload: JsonRecord): EvaluationResult {
     loadChartId: readNullableString(payload, 'load_chart_id', path),
     loadChartVersion: readNullableString(payload, 'load_chart_version', path),
     ...readZoneAndWeights(payload, path),
+    ...readCapacityLimit(payload, path),
   }
   if (result === 'EVALUATED') {
     if (common.capacity === null) throw new ContractViolationError(`${path}.capacity`, 'objeto')

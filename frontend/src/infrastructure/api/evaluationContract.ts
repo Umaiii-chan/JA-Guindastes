@@ -67,6 +67,17 @@ export interface EvaluationResponseDto {
   readonly hook_block_weight_kg?: number
   /** Carga + gancho: o valor comparado com a capacidade. */
   readonly compared_weight_kg?: number
+  /** TASK-051 (RN-011): limite de capacidade do modelo e nível; `null` em `NOT_EVALUABLE`. */
+  readonly capacity_limit?: CapacityLimitDto | null
+}
+
+/** `CapacityLimitResponse` (TASK-051; ADR-022). */
+export interface CapacityLimitDto {
+  readonly limit_percent: number
+  readonly effective_capacity_kg: number
+  readonly limit_utilization_percent: number
+  readonly warning_band_percent: number
+  readonly level: 'OK' | 'WARNING' | 'OVER'
 }
 
 export function toEvaluationRequestDto(input: EvaluationInput): EvaluationRequestDto {

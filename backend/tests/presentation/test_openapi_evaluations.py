@@ -77,6 +77,7 @@ def test_status_only_distinguishes_evaluated_from_not_evaluable(openapi: dict[st
         "utilization_percent",
         "load_chart_id",
         "load_chart_version",
+        "capacity_limit",
         "rotation_zone_code",
         "rotation_zone_name",
         "hook_block_weight_kg",

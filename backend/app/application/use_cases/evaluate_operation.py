@@ -19,6 +19,10 @@ Liga as peças do motor de cálculo na ordem da doc-fonte § 14.1:
 Sem zonas, a configuração se comporta como antes da TASK-046: a tabela ativa sem zona vale para
 todo o giro.
 
+Limite de capacidade por modelo (TASK-051; RN-011; ADR-022): a operação avaliada traz o
+`CapacityLimit` (capacidade efetiva, utilização contra o limite e faixa OK/WARNING/OVER), com os
+limites do guindaste da configuração (`CraneLimitsProvider`; sem ele, valem os padrões).
+
 O `SafetyValidator` da doc-fonte não entra: os níveis de alerta e os limiares estão pendentes
 (PEND-004; known-gaps P-005). Por isso o resultado só distingue "avaliado" de "não avaliável" e
 lista os motivos, sem `WARNING` nem `CRITICAL`.
@@ -40,6 +44,7 @@ from app.application.ports.configuration_load_rules_provider import (
     ConfigurationLoadRulesProvider,
 )
 from app.application.ports.crane_geometry_provider import CraneGeometryProvider
+from app.application.ports.crane_limits_provider import CraneLimitsProvider
 from app.domain.entities.load import Load
 from app.domain.entities.load_chart import LoadChart, LoadChartStatus
 from app.domain.exceptions.domain_errors import UndefinedUtilizationError
@@ -48,6 +53,7 @@ from app.domain.exceptions.geometry_errors import (
     OperationalStateOutOfLimitsError,
     OutsideGeometricDomainError,
 )
+from app.domain.services.capacity_limit import CapacityLimit, evaluate_capacity_limit
 from app.domain.services.compared_load_weight import weight_compared_with_capacity
 from app.domain.services.geometry_service import calculate_operational_geometry
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
@@ -59,6 +65,7 @@ from app.domain.value_objects.capacity_result import (
     CapacityUnsupported,
     CapacityUnsupportedReason,
 )
+from app.domain.value_objects.crane_limits import CraneLimits
 from app.domain.value_objects.mass import Mass
 from app.domain.value_objects.operational_geometry import OperationalGeometry
 from app.domain.value_objects.operational_state import OperationalState
@@ -105,6 +112,8 @@ class EvaluatedOperation:
     - `utilization_percent`: `compared_weight / capacidade × 100`, sem arredondamento (PEND-002).
     - `load_weight` e `hook_block_weight`: as parcelas do peso comparado (ADR-018 § 2).
     - `rotation_zone`: a zona cuja tabela deu a capacidade, ou `None` sem zonas de giro.
+    - `capacity_limit`: o limite de capacidade do modelo e a faixa OK/WARNING/OVER (RN-011;
+      TASK-051), calculado sobre a capacidade da tabela. `None` só se a capacidade efetiva for 0.
     """
 
     geometry: OperationalGeometry
@@ -113,6 +122,7 @@ class EvaluatedOperation:
     load_weight: Mass
     hook_block_weight: Mass = ZERO_MASS
     rotation_zone: RotationZone | None = None
+    capacity_limit: CapacityLimit | None = None
 
     @property
     def compared_weight(self) -> Mass:
@@ -220,11 +230,13 @@ class EvaluateOperation:
         active_load_chart_provider: ActiveLoadChartProvider,
         load_chart_interpolator: LoadChartInterpolator,
         configuration_load_rules_provider: ConfigurationLoadRulesProvider | None = None,
+        crane_limits_provider: CraneLimitsProvider | None = None,
     ) -> None:
         self._crane_geometry_provider = crane_geometry_provider
         self._active_load_chart_provider = active_load_chart_provider
         self._load_chart_interpolator = load_chart_interpolator
         self._configuration_load_rules_provider = configuration_load_rules_provider
+        self._crane_limits_provider = crane_limits_provider
 
     def execute_for_load(
         self, *, configuration_id: str, state: OperationalState, load: Load
@@ -310,7 +322,14 @@ class EvaluateOperation:
             load_weight=load_weight,
             hook_block_weight=hook_block_weight,
             rotation_zone=zone,
+            capacity_limit=evaluate_capacity_limit(
+                capacity.max_capacity, compared_weight, self._crane_limits(configuration_id)
+            ),
         )
+
+    def _crane_limits(self, configuration_id: str) -> CraneLimits | None:
+        provider = self._crane_limits_provider
+        return None if provider is None else provider.get_crane_limits(configuration_id)
 
     def _load_rules(self, configuration_id: str) -> ConfigurationLoadRules:
         provider = self._configuration_load_rules_provider

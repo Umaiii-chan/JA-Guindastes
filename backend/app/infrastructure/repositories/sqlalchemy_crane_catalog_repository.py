@@ -1,7 +1,8 @@
 """Catálogo de guindastes no PostgreSQL via SQLAlchemy (TASK-022).
 
 Implementa `CraneCatalogRepository`, `CraneCatalogListing` (TASK-030), `CraneCatalogEditing`
-(TASK-044), `CraneGeometryProvider` e `ConfigurationLoadRulesProvider` (TASK-046).
+(TASK-044), `CraneGeometryProvider`, `ConfigurationLoadRulesProvider` (TASK-046) e
+`CraneLimitsProvider` (TASK-051).
 Cada método abre a própria sessão e a própria transação (a aplicação ainda não tem porta de unidade
 de trabalho).
 """
@@ -22,6 +23,7 @@ from app.application.ports.crane_catalog_repository import (
 )
 from app.domain.value_objects.angle import Angle
 from app.domain.value_objects.crane_geometry import CraneGeometry
+from app.domain.value_objects.crane_limits import CraneLimits
 from app.domain.value_objects.length import Length
 from app.domain.value_objects.mass import Mass
 from app.domain.value_objects.rotation_zone import RotationZone, RotationZones
@@ -60,13 +62,37 @@ def manufacturer_from_model(model: ManufacturerModel) -> Manufacturer:
 
 
 def crane_to_model(crane: Crane) -> CraneModel:
-    return CraneModel(
+    model = CraneModel(
         id=crane.id, manufacturer_id=crane.manufacturer_id, model_name=crane.model_name
+    )
+    write_limit_columns(model, crane.limits)
+    return model
+
+
+def write_limit_columns(model: CraneModel, limits: CraneLimits) -> None:
+    """Grava os quatro limites do modelo (TASK-051)."""
+    model.capacity_limit_percent = limits.capacity_limit_percent
+    model.warning_band_percent = limits.warning_band_percent
+    model.max_ground_slope_deg = limits.max_ground_slope_deg
+    model.max_leveling_deg = limits.max_leveling_deg
+
+
+def limits_from_model(model: CraneModel) -> CraneLimits:
+    return CraneLimits(
+        capacity_limit_percent=model.capacity_limit_percent,
+        warning_band_percent=model.warning_band_percent,
+        max_ground_slope_deg=model.max_ground_slope_deg,
+        max_leveling_deg=model.max_leveling_deg,
     )
 
 
 def crane_from_model(model: CraneModel) -> Crane:
-    return Crane(id=model.id, manufacturer_id=model.manufacturer_id, model_name=model.model_name)
+    return Crane(
+        id=model.id,
+        manufacturer_id=model.manufacturer_id,
+        model_name=model.model_name,
+        limits=limits_from_model(model),
+    )
 
 
 def configuration_to_model(configuration: CraneConfiguration) -> CraneConfigurationModel:
@@ -264,6 +290,18 @@ class SqlAlchemyCraneCatalogRepository:
                 ),
             )
 
+    def get_crane_limits(self, configuration_id: str) -> CraneLimits | None:
+        """`CraneLimitsProvider` (TASK-051): limites do guindaste da configuração, ou `None` se a
+        configuração não existe."""
+        statement = (
+            select(CraneModel)
+            .join(CraneConfigurationModel, CraneConfigurationModel.crane_id == CraneModel.id)
+            .where(CraneConfigurationModel.id == configuration_id)
+        )
+        with self._session_factory() as session:
+            model = session.scalars(statement).first()
+            return None if model is None else limits_from_model(model)
+
     def list_manufacturers(self) -> list[Manufacturer]:
         """`CraneCatalogListing` (TASK-030): todos, por nome e id."""
         statement = select(ManufacturerModel).order_by(ManufacturerModel.name, ManufacturerModel.id)
@@ -298,12 +336,14 @@ class SqlAlchemyCraneCatalogRepository:
             return True
 
     def update_crane(self, crane: Crane) -> bool:
-        """`CraneCatalogEditing` (TASK-044): troca o modelo; o fabricante não muda."""
+        """`CraneCatalogEditing` (TASK-044, TASK-051): troca o modelo e os limites; o fabricante
+        não muda."""
         with self._session_factory.begin() as session:
             model = session.get(CraneModel, crane.id, with_for_update=True)
             if model is None:
                 return False
             model.model_name = crane.model_name
+            write_limit_columns(model, crane.limits)
             return True
 
     def update_configuration(self, configuration: CraneConfiguration) -> bool:

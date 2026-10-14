@@ -11,7 +11,17 @@ import {
   type EvaluationError,
   type EvaluationResult,
 } from '../../domain/evaluation/evaluation'
-import { Badge, cx, EmptyState, Gauge, Skeleton, Spinner, StatusPill, type Tone } from '../ui'
+import {
+  Badge,
+  cx,
+  EmptyState,
+  Gauge,
+  type GaugeBand,
+  Skeleton,
+  Spinner,
+  StatusPill,
+  type Tone,
+} from '../ui'
 import styles from './BackendEvaluationPanel.module.css'
 
 export type EvaluationTransportLabel = 'websocket' | 'rest'
@@ -40,10 +50,13 @@ const TRANSPORT_LABEL: Record<EvaluationTransportLabel, string> = {
   rest: 'REST',
 }
 
-/** Cor e texto de cada situação (ADR-019 § 1; sem níveis de alerta, PEND-004). */
+/**
+ * Cor e texto de cada situação (ADR-019 § 1). Com `capacityLimit` (TASK-051; RN-011), a situação é o
+ * nível que o backend devolveu (`OK`, `WARNING`, `OVER`); sem ele, só `ok` e `over`.
+ */
 const STATUS_PRESENTATION: Record<EvaluationStatus, { tone: Tone; label: string }> = {
   ok: { tone: 'ok', label: 'Dentro da capacidade' },
-  warning: { tone: 'warning', label: 'No limite da capacidade' },
+  warning: { tone: 'warning', label: 'Perto do limite' },
   over: { tone: 'danger', label: 'Acima da capacidade' },
   unknown: { tone: 'neutral', label: 'Sem avaliação' },
 }
@@ -84,7 +97,18 @@ export function BackendEvaluationPanel({
       ? { tone: 'neutral' as const, label: 'Não avaliável' }
       : STATUS_PRESENTATION[status]
   const waitingFirst = inputProblem === null && error === null && result === null
-  const utilization = shown?.kind === 'EVALUATED' ? shown.utilizationPercent : null
+  // Limite do modelo (TASK-051): a régua mede o peso comparado contra a capacidade EFETIVA.
+  const limit = shown?.kind === 'EVALUATED' ? (shown.capacityLimit ?? null) : null
+  const utilization =
+    shown?.kind === 'EVALUATED'
+      ? (limit?.limitUtilizationPercent ?? shown.utilizationPercent)
+      : null
+  const gaugeBands: readonly GaugeBand[] = limit
+    ? [
+        { from: 0, to: limit.warningBandPercent, tone: 'ok' },
+        { from: limit.warningBandPercent, to: FULL_CAPACITY_PERCENT, tone: 'warning' },
+      ]
+    : [{ from: 0, to: FULL_CAPACITY_PERCENT, tone: 'ok' }]
   // Zona de giro usada pelo backend (TASK-046); some numa configuração sem zonas.
   const zoneLabel = shown ? (shown.rotationZoneName ?? shown.rotationZoneCode) : null
 
@@ -116,13 +140,17 @@ export function BackendEvaluationPanel({
             value={utilization}
             tone={presentation.tone}
             label="Utilização"
-            bands={[{ from: 0, to: FULL_CAPACITY_PERCENT, tone: 'ok' }]}
+            bands={gaugeBands}
             caption={
               status === 'over'
-                ? 'acima de 100 %'
+                ? limit
+                  ? 'acima do limite'
+                  : 'acima de 100 %'
                 : shown?.kind === 'NOT_EVALUABLE'
                   ? 'sem utilização'
-                  : undefined
+                  : limit
+                    ? `do limite de ${formatNumber(limit.limitPercent, 0)} %`
+                    : undefined
             }
           />
         </div>
@@ -145,6 +173,13 @@ export function BackendEvaluationPanel({
                 : '—'}
             </Metric>
           </dl>
+
+          {limit && (
+            <dl className={styles.keyMetrics} aria-label="Limite de capacidade do modelo">
+              <Metric label="Limite do modelo">{formatNumber(limit.limitPercent, 0)} %</Metric>
+              <Metric label="Capacidade efetiva">{kilograms(limit.effectiveCapacityKg)}</Metric>
+            </dl>
+          )}
 
           <div className={styles.parts} role="group" aria-label="Peso comparado com a capacidade">
             <dl className={styles.part}>
@@ -255,6 +290,20 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
   if (result.kind === 'EVALUATED') {
     rows.push({ label: 'Utilização', value: `${formatNumber(result.utilizationPercent, 2)} %` })
   }
+  const limit = result.capacityLimit
+  if (limit) {
+    rows.push(
+      {
+        label: 'Limite do modelo',
+        value: `${formatNumber(limit.limitPercent, 0)} % (atenção a partir de ${formatNumber(limit.warningBandPercent, 0)} % do limite)`,
+      },
+      { label: 'Capacidade efetiva', value: kilograms(limit.effectiveCapacityKg) },
+      {
+        label: 'Utilização do limite',
+        value: `${formatNumber(limit.limitUtilizationPercent, 2)} %`,
+      },
+    )
+  }
   if (result.rotationZoneCode !== null || result.rotationZoneName !== null) {
     rows.push({
       label: 'Zona de giro',
@@ -332,8 +381,9 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
           </dl>
           {result.kind === 'EVALUATED' && (
             <p className={cx(styles.meta, styles.detailsNote)}>
-              A cor só compara o peso comparado (carga + gancho) com a capacidade: não há níveis de
-              alerta definidos (PEND-004).
+              {result.capacityLimit
+                ? 'A cor é o nível devolvido pelo backend: o peso comparado (carga + gancho) contra a capacidade efetiva do modelo (RN-011).'
+                : 'A cor só compara o peso comparado (carga + gancho) com a capacidade: não há níveis de alerta definidos (PEND-004).'}
             </p>
           )}
         </details>

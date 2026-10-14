@@ -117,7 +117,9 @@ class InMemoryCraneCatalog:
         current = self.cranes.get(crane.id)
         if current is None:
             return False
-        self.cranes[crane.id] = dataclasses.replace(current, model_name=crane.model_name)
+        self.cranes[crane.id] = dataclasses.replace(
+            current, model_name=crane.model_name, limits=crane.limits
+        )
         return True
 
     def update_configuration(self, configuration: CraneConfiguration) -> bool:
