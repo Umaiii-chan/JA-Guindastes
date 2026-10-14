@@ -177,6 +177,21 @@ const LIMIT_FIELDS: Record<CraneLimitKey, { label: string; unit: string; hint: s
     unit: '°',
     hint: 'Inclinação máxima que os macacos conseguem corrigir.',
   },
+  slopeDeratingPercentPerDeg: {
+    label: 'Redução por grau de inclinação (%)',
+    unit: '%',
+    hint: 'Quanto a capacidade cai a cada grau de inclinação do terreno.',
+  },
+  craneMassKg: {
+    label: 'Massa do guindaste (kg)',
+    unit: 'kg',
+    hint: 'Usada para calcular a pressão que cada sapata faz no solo.',
+  },
+  outriggerPadAreaM2: {
+    label: 'Área de cada sapata (m²)',
+    unit: 'm²',
+    hint: 'Quanto maior a sapata, menor a pressão no solo.',
+  },
 }
 
 type SavePlan =

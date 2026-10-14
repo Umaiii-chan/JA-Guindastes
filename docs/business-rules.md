@@ -181,6 +181,24 @@ parceira, o campo diz **PENDENTE** e aponta a pergunta em aberto correspondente.
 **Testes relacionados:** —
 **Origem:** Anderson Sehnem, em chat em 2026-10-14
 
+### RN-015 — O ambiente influencia a utilização e o risco de tombamento
+
+**Status:** Ativa
+**Contexto:** avaliação operacional (TASK-067).
+**Regra:** todas as configurações de ambiente devem influenciar na carga de utilização e no risco de tombamento. A capacidade efetiva (RN-011) passa a ser capacidade da tabela × limite do modelo × fator de inclinação × fator de vento.
+- Inclinação: acima da máxima do modelo, risco alto e status "acima do limite". Abaixo dela, a capacidade cai uma % configurável por grau de inclinação residual (padrão 10 %).
+- Solo sob as quatro sapatas (rocha, compactado, argila, aterro solto): a pressão na pior sapata (massa do guindaste + peso comparado, × 0,5, ÷ área da sapata) acima do suporte do solo é risco alto; acima de 80 % do suporte, atenção.
+- Vento: até 9,8 m/s sem efeito; de 9,8 a 13,8 m/s a capacidade cai linearmente até 50 % e o risco é atenção; acima de 13,8 m/s a operação é bloqueada (risco alto, "acima do limite").
+- Obstáculos no raio de giro: risco atenção, com o alerta dos ids.
+
+Entradas de solo, vento e obstáculos são opcionais: ausentes, não têm efeito e não geram alerta.
+**Exemplos:**
+- vento de 11,8 m/s → capacidade efetiva a 75 % da capacidade sem vento
+- sapatas de 0,5 m², guindaste de 36 000 kg, carga comparada de 4 000 kg → 392 kPa: não cabe em argila (150 kPa), cabe em rocha (1 000 kPa)
+**Exceções:** valores numéricos FICTÍCIOS até haver dado oficial
+**Testes relacionados:** `backend/tests/domain/test_environment_factors.py`
+**Origem:** Anderson Sehnem, em chat em 2026-10-14
+
 ---
 
 ## Regras por domínio (índice)

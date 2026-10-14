@@ -1,6 +1,7 @@
 """Limite de capacidade por modelo e faixas OK, WARNING e OVER (RN-011; TASK-051; ADR-022).
 
-Capacidade efetiva = capacidade da tabela × limite do modelo. Acima dela, o status é `OVER`. A
+Capacidade efetiva = capacidade da tabela × limite do modelo × fator de inclinação × fator de
+vento (RN-015). Acima dela, o status é `OVER`. A
 partir da faixa de atenção (% do limite), é `WARNING`. Carga igual à capacidade efetiva ainda não
 está "acima": o limite é inclusivo.
 """
@@ -30,22 +31,38 @@ class CapacityLimit:
     limit_utilization_percent: float
     warning_band_percent: float
     level: CapacityLimitLevel
+    slope_factor: float = 1.0
+    wind_factor: float = 1.0
 
 
 def evaluate_capacity_limit(
-    table_capacity: Mass, compared_weight: Mass, limits: CraneLimits | None = None
+    table_capacity: Mass,
+    compared_weight: Mass,
+    limits: CraneLimits | None = None,
+    *,
+    slope_factor: float = 1.0,
+    wind_factor: float = 1.0,
+    blocked: bool = False,
 ) -> CapacityLimit | None:
     """Aplica o limite do modelo à capacidade da tabela.
 
     Devolve `None` se a capacidade efetiva for zero (a utilização contra o limite é indefinida).
-    Sem `limits`, vale o padrão (100 % e faixa de 90 %).
+    Sem `limits`, vale o padrão (100 % e faixa de 90 %). Os fatores de inclinação e de vento
+    reduzem a capacidade efetiva; com `blocked` (terreno inclinado demais ou vento acima do limite),
+    o nível é sempre `OVER`.
     """
     settings = CraneLimits() if limits is None else limits
-    effective_kg = table_capacity.kilograms * settings.capacity_limit_percent / 100
+    effective_kg = (
+        table_capacity.kilograms
+        * settings.capacity_limit_percent
+        / 100
+        * slope_factor
+        * wind_factor
+    )
     if effective_kg <= 0:
         return None
     utilization = compared_weight.kilograms / effective_kg * 100
-    if compared_weight.kilograms > effective_kg:
+    if blocked or compared_weight.kilograms > effective_kg:
         level = CapacityLimitLevel.OVER
     elif utilization >= settings.warning_band_percent:
         level = CapacityLimitLevel.WARNING
@@ -57,4 +74,6 @@ def evaluate_capacity_limit(
         limit_utilization_percent=utilization,
         warning_band_percent=settings.warning_band_percent,
         level=level,
+        slope_factor=slope_factor,
+        wind_factor=wind_factor,
     )

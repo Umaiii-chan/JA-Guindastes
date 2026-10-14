@@ -30,6 +30,12 @@ from app.application.ports.crane_geometry_provider import CraneGeometryProvider
 from app.application.ports.safety_profile_provider import SafetyProfileProvider
 from app.domain.entities.load_chart import LoadChart
 from app.domain.services.compared_load_weight import weight_compared_with_capacity
+from app.domain.services.environment_factors import (
+    slope_blocks,
+    slope_factor,
+    wind_blocks,
+    wind_factor,
+)
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
 from app.domain.services.safety_assessment import LimitLevel, limit_level
 from app.domain.value_objects.capacity_query import CapacityQuery
@@ -102,9 +108,12 @@ class ComputeOperatingArea:
         load_weight: Mass,
         psi_step_deg: float = 10.0,
         radius_step_m: float = 1.0,
+        ground_slope_deg: float | None = None,
+        wind_speed_ms: float | None = None,
     ) -> OperatingArea:
-        """Calcula a grade. Levanta `OperatingAreaConfigurationNotFoundError` ou
-        `OperatingAreaInvalidInputError`."""
+        """Calcula a grade. Inclinação e vento reduzem a capacidade em todas as células (RN-015);
+        terreno inclinado demais ou vento acima do limite deixam tudo vermelho.
+        Levanta `OperatingAreaConfigurationNotFoundError` ou `OperatingAreaInvalidInputError`."""
         geometry = self._geometry_provider.get_crane_geometry(configuration_id)
         if geometry is None:
             raise OperatingAreaConfigurationNotFoundError(configuration_id)
@@ -131,6 +140,8 @@ class ComputeOperatingArea:
         profile = self._profile(configuration_id)
         hook = rules.hook_block_weight or Mass(0.0)
         compared = weight_compared_with_capacity(load_weight, hook)
+        factor = slope_factor(ground_slope_deg, profile) * wind_factor(wind_speed_ms)
+        blocked = slope_blocks(ground_slope_deg, profile) or wind_blocks(wind_speed_ms)
 
         # A tabela ativa de cada zona é buscada uma vez (a consulta ao banco é o custo).
         charts: dict[str | None, LoadChart | None] = {}
@@ -151,7 +162,9 @@ class ComputeOperatingArea:
             )
             for radius_index in range(1, radius_count + 1):
                 radius = radius_index * radius_step_m
-                level = self._cell_level(zones, chart_for, boom_length_m, radius, compared, profile)
+                level = self._cell_level(
+                    zones, chart_for, boom_length_m, radius, compared, profile, factor, blocked
+                )
                 cells.append(OperatingAreaCell(psi_deg=psi, radius_m=radius, level=level))
 
         return OperatingArea(
@@ -173,7 +186,11 @@ class ComputeOperatingArea:
         radius_m: float,
         compared: Mass,
         profile: SafetyProfile,
+        factor: float = 1.0,
+        blocked: bool = False,
     ) -> AreaLevel:
+        if blocked:
+            return AreaLevel.RED
         query = CapacityQuery(boom_length=Length(boom_length_m), working_radius=Length(radius_m))
         capacities: list[Mass] = []
         for zone in zones:
@@ -186,7 +203,7 @@ class ComputeOperatingArea:
             capacities.append(result.max_capacity)
         # Menor capacidade (lado seguro), como na avaliação.
         capacity = min(capacities)
-        match limit_level(compared.kilograms, capacity.kilograms, profile):
+        match limit_level(compared.kilograms, capacity.kilograms, profile, factor):
             case LimitLevel.OVER:
                 return AreaLevel.RED
             case LimitLevel.WARNING:

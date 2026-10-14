@@ -197,6 +197,11 @@ export function BackendEvaluationPanel({
               <Metric label="Capacidade efetiva">{kilograms(limit.effectiveCapacityKg)}</Metric>
             </dl>
           )}
+          {limit && reductionNotes(limit).length > 0 && (
+            <p className={styles.meta} role="note">
+              Capacidade {reductionNotes(limit).join(' e ')}.
+            </p>
+          )}
 
           <div className={styles.parts} role="group" aria-label="Peso comparado com a capacidade">
             <dl className={styles.part}>
@@ -323,6 +328,7 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
         value: `${formatNumber(limit.limitPercent, 0)} % (atenção a partir de ${formatNumber(limit.warningBandPercent, 0)} % do limite)`,
       },
       { label: 'Capacidade efetiva', value: kilograms(limit.effectiveCapacityKg) },
+      ...reductionNotes(limit).map((note) => ({ label: 'Capacidade', value: note })),
       {
         label: 'Utilização do limite',
         value: `${formatNumber(limit.limitUtilizationPercent, 2)} %`,
@@ -422,4 +428,19 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
       )}
     </>
   )
+}
+
+/** Avisos em linguagem simples dos fatores do ambiente que reduzem a capacidade (RN-015). */
+function reductionNotes(limit: {
+  readonly slopeFactor?: number
+  readonly windFactor?: number
+}): string[] {
+  const notes: string[] = []
+  if (limit.windFactor !== undefined && limit.windFactor < 1) {
+    notes.push(`reduzida pelo vento (${formatNumber(limit.windFactor * 100, 0)} % do normal)`)
+  }
+  if (limit.slopeFactor !== undefined && limit.slopeFactor < 1) {
+    notes.push(`reduzida pela inclinação (${formatNumber(limit.slopeFactor * 100, 0)} % do normal)`)
+  }
+  return notes
 }

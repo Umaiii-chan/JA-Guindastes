@@ -68,6 +68,12 @@ class CraneModel(Base):
         CheckConstraint(
             "max_leveling_deg >= 0 AND max_leveling_deg <= 45", name="max_leveling_deg_range"
         ),
+        CheckConstraint(
+            "slope_derating_percent_per_deg >= 0 AND slope_derating_percent_per_deg <= 100",
+            name="slope_derating_percent_per_deg_range",
+        ),
+        CheckConstraint("crane_mass_kg > 0", name="crane_mass_kg_positive"),
+        CheckConstraint("outrigger_pad_area_m2 > 0", name="outrigger_pad_area_m2_positive"),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -88,6 +94,16 @@ class CraneModel(Base):
     )
     max_leveling_deg: Mapped[float] = mapped_column(
         Double, nullable=False, default=3.0, server_default=text("3.0")
+    )
+    # Fatores do ambiente (TASK-067; RN-015; ADR-033). Massa e área são FICTÍCIAS.
+    slope_derating_percent_per_deg: Mapped[float] = mapped_column(
+        Double, nullable=False, default=10.0, server_default=text("10")
+    )
+    crane_mass_kg: Mapped[float] = mapped_column(
+        Double, nullable=False, default=36000.0, server_default=text("36000")
+    )
+    outrigger_pad_area_m2: Mapped[float] = mapped_column(
+        Double, nullable=False, default=0.5, server_default=text("0.5")
     )
 
 

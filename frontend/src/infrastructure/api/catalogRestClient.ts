@@ -294,6 +294,9 @@ function readCraneLimits(record: JsonRecord, path: string): Partial<CraneLimits>
     ['warning_band_percent', 'warningBandPercent'],
     ['max_ground_slope_deg', 'maxGroundSlopeDeg'],
     ['max_leveling_deg', 'maxLevelingDeg'],
+    ['slope_derating_percent_per_deg', 'slopeDeratingPercentPerDeg'],
+    ['crane_mass_kg', 'craneMassKg'],
+    ['outrigger_pad_area_m2', 'outriggerPadAreaM2'],
   ] as const
   for (const [key, name] of fields) {
     if (key in record) limits[name] = readNumber(record, key, path)

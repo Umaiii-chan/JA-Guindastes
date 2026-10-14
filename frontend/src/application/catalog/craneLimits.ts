@@ -12,6 +12,9 @@ export const CRANE_LIMIT_KEYS = [
   'warningBandPercent',
   'maxGroundSlopeDeg',
   'maxLevelingDeg',
+  'slopeDeratingPercentPerDeg',
+  'craneMassKg',
+  'outriggerPadAreaM2',
 ] as const
 
 export type CraneLimitKey = (typeof CRANE_LIMIT_KEYS)[number]
@@ -21,6 +24,9 @@ export const DEFAULT_CRANE_LIMITS: CraneLimits = {
   warningBandPercent: 90,
   maxGroundSlopeDeg: 1,
   maxLevelingDeg: 3,
+  slopeDeratingPercentPerDeg: 10,
+  craneMassKg: 36000,
+  outriggerPadAreaM2: 0.5,
 }
 
 /** Faixa aceita de cada campo (igual à do backend). */
@@ -29,6 +35,9 @@ export const CRANE_LIMIT_RANGES: Readonly<Record<CraneLimitKey, { min: number; m
   warningBandPercent: { min: 1, max: 100 },
   maxGroundSlopeDeg: { min: 0, max: 45 },
   maxLevelingDeg: { min: 0, max: 45 },
+  slopeDeratingPercentPerDeg: { min: 0, max: 100 },
+  craneMassKg: { min: 1, max: 1_000_000 },
+  outriggerPadAreaM2: { min: 0.01, max: 100 },
 }
 
 export type CraneLimitsFormValues = Readonly<Record<CraneLimitKey, string>>

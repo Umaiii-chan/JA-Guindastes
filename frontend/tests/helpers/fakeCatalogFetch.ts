@@ -21,6 +21,9 @@ interface CraneRow {
   warning_band_percent?: number
   max_ground_slope_deg?: number
   max_leveling_deg?: number
+  slope_derating_percent_per_deg?: number
+  crane_mass_kg?: number
+  outrigger_pad_area_m2?: number
 }
 
 const CRANE_LIMIT_FIELDS = [
@@ -28,6 +31,9 @@ const CRANE_LIMIT_FIELDS = [
   'warning_band_percent',
   'max_ground_slope_deg',
   'max_leveling_deg',
+  'slope_derating_percent_per_deg',
+  'crane_mass_kg',
+  'outrigger_pad_area_m2',
 ] as const
 interface ConfigurationRow {
   id: string

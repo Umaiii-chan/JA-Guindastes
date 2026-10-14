@@ -50,6 +50,12 @@ class OperatingAreaRequest(BaseModel):
         default=10, gt=0, le=180, description="Passo do giro ψ da grade, em graus."
     )
     radius_step_m: float = Field(default=1, gt=0, description="Passo do raio R, em metros.")
+    ground_slope_deg: float | None = Field(
+        default=None, ge=0, description="Inclinação residual do terreno, em graus (opcional)."
+    )
+    wind_speed_ms: float | None = Field(
+        default=None, ge=0, description="Velocidade do vento, em m/s (opcional)."
+    )
 
 
 class OperatingAreaCellResponse(BaseModel):
@@ -121,6 +127,8 @@ def create_operating_area_router(dependency: ComputeOperatingAreaDependency) -> 
                 load_weight=Mass(request.load_weight_kg),
                 psi_step_deg=request.psi_step_deg,
                 radius_step_m=request.radius_step_m,
+                ground_slope_deg=request.ground_slope_deg,
+                wind_speed_ms=request.wind_speed_ms,
             )
         except OperatingAreaConfigurationNotFoundError:
             raise HTTPException(
