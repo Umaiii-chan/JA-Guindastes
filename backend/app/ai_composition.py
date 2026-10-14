@@ -8,6 +8,9 @@ Variáveis (ver `.env.example`; nenhuma tem valor no repositório):
   com chave na ordem OpenAI, Groq, Gemini, e o segundo com chave vira a reserva: se o primário
   falhar por sobrecarga, cota ou prazo, a reserva tenta o mesmo pedido. `openai`, `groq` e `gemini`
   usam só o provedor escolhido;
+- `AI_PROVIDER=claude_cli` (SÓ uso pessoal local, TASK-083): usa o Claude Code CLI logado nesta
+  máquina, sem chave de API. Só é montado se `CLAUDE_CLI_ENABLED=true`; nunca entra em `auto`.
+  `CLAUDE_CLI_MODEL` (padrão `sonnet`) e `CLAUDE_CLI_PATH` (padrão `claude`). NUNCA em deploy;
 - `OPENAI_API_KEY`: chave da OpenAI; `OPENAI_MODEL` (padrão `gpt-5-mini`) e
   `OPENAI_FALLBACK_MODELS` (padrão vazio, separados por vírgula);
 - `GROQ_API_KEY`: chave do Groq (API compatível com a da OpenAI, em `api.groq.com/openai/v1`);
@@ -30,7 +33,7 @@ from collections.abc import Callable, Mapping
 
 from app.application.ports.llm_provider import LlmProvider
 from app.application.use_cases.ai_assistant import AiAssistant
-from app.infrastructure.ai import openai_provider
+from app.infrastructure.ai import claude_cli_provider, openai_provider
 from app.infrastructure.ai.fallback_provider import FallbackLlmProvider
 from app.infrastructure.ai.gemini_provider import (
     DEFAULT_FALLBACK_MODELS,
@@ -60,6 +63,10 @@ _REASONING_EFFORTS = frozenset({"low", "medium", "high"})
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b"
 PROVIDER_ENV_VAR = "AI_PROVIDER"
+CLAUDE_CLI_PROVIDER = "claude_cli"
+CLAUDE_CLI_ENABLED_ENV_VAR = "CLAUDE_CLI_ENABLED"
+CLAUDE_CLI_MODEL_ENV_VAR = "CLAUDE_CLI_MODEL"
+CLAUDE_CLI_PATH_ENV_VAR = "CLAUDE_CLI_PATH"
 RATE_LIMIT_ENV_VAR = "AI_RATE_LIMIT_PER_HOUR"
 
 # Com os dois provedores, o orçamento de ~55 s é dividido entre eles.
@@ -79,6 +86,8 @@ def build_ai_assistant(environ: Mapping[str, str] | None = None) -> AiAssistant 
 
 def _build_provider(source: Mapping[str, str]) -> LlmProvider | None:
     choice = source.get(PROVIDER_ENV_VAR, "").strip().lower() or "auto"
+    if choice == CLAUDE_CLI_PROVIDER:
+        return _build_claude_cli(source)
     if choice not in {"auto", *_KEY_ENV_VARS}:
         logger.warning("%s inválido: vale o padrão (auto)", PROVIDER_ENV_VAR)
         choice = "auto"
@@ -98,6 +107,25 @@ def _build_provider(source: Mapping[str, str]) -> LlmProvider | None:
         return _BUILDERS[available[0]](source, None)
     except ValueError:
         logger.warning("Modelo de IA inválido: o assistente de IA fica desligado")
+        return None
+
+
+def _build_claude_cli(source: Mapping[str, str]) -> LlmProvider | None:
+    """Claude Code CLI local (uso pessoal): só com `CLAUDE_CLI_ENABLED=true`, nunca em deploy."""
+    if source.get(CLAUDE_CLI_ENABLED_ENV_VAR, "").strip().lower() != "true":
+        logger.warning(
+            "AI_PROVIDER=claude_cli sem CLAUDE_CLI_ENABLED=true: o assistente fica desligado"
+        )
+        return None
+    try:
+        return claude_cli_provider.ClaudeCliProvider(
+            source.get(CLAUDE_CLI_MODEL_ENV_VAR, "").strip() or claude_cli_provider.DEFAULT_MODEL,
+            source.get(CLAUDE_CLI_PATH_ENV_VAR, "").strip()
+            or claude_cli_provider.DEFAULT_EXECUTABLE,
+            timeout_seconds=_DEFAULT_DEADLINE_SECONDS,
+        )
+    except ValueError:
+        logger.warning("Configuração do Claude CLI inválida: o assistente de IA fica desligado")
         return None
 
 
