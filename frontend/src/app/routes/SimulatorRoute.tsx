@@ -7,7 +7,9 @@ import { Link } from 'react-router'
 
 import { resolveAccessories } from '../../application/accessory/accessorySelection'
 import { selectedConfiguration as findSelectedConfiguration } from '../../application/catalog/CatalogBrowser'
+import { cargoGuidance } from '../../application/cargo/cargoGuidance'
 import { evaluationStatus } from '../../application/evaluation/evaluationStatus'
+import { type CargoStatus, INACTIVE_CARGO } from '../../domain/cargo/cargoOperation'
 import type { RecordingFrame, RecordingSnapshot } from '../../application/recording/recording'
 import type { ScenarioSummary } from '../../application/environment/ports'
 import { validateLoadForm, loadWeightTextForEvaluation } from '../../application/load/loadForm'
@@ -43,6 +45,7 @@ import {
   CameraPresetButtons,
   type CameraPresetId,
 } from '../../presentation/simulator/CameraPresetButtons'
+import { CargoOperationPanel } from '../../presentation/simulator/CargoOperationPanel'
 import { CollisionAlerts } from '../../presentation/simulator/CollisionAlerts'
 import { ConnectionStatusBar } from '../../presentation/simulator/ConnectionStatusBar'
 import { OperatingAreaToggle } from '../../presentation/simulator/OperatingAreaToggle'
@@ -104,6 +107,8 @@ export function SimulatorRoute() {
   const { session, state: evaluation } = useEvaluationSession()
   const { catalog, state: catalogState } = useCatalog()
   const { collision, onCollisionChange } = useCollisionState()
+  // Coleta e entrega da carga (TASK-073): situação vinda da cena e botões Engatar e Soltar.
+  const [cargoStatus, setCargoStatus] = useState<CargoStatus>(INACTIVE_CARGO)
   const scenario = useScenario()
   const editor = useEnvironmentEditor()
   const auth = useAuth()
@@ -140,8 +145,12 @@ export function SimulatorRoute() {
   }
   const scenarioExtrasKey = JSON.stringify(scenarioExtras)
 
-  const loadWeightText = loadWeightTextForEvaluation(load)
   const validLoad = validateLoadForm(load).load
+  // Com a carga posicionada no chão, o peso só entra na avaliação depois de engatar (TASK-073): antes
+  // disso, vale só o gancho e os acessórios, com carga 0.
+  const cargoMode = scenario.spec.cargo !== undefined && validLoad !== null
+  const cargoHooked = cargoStatus.state?.phase === 'hooked'
+  const loadWeightText = cargoMode && !cargoHooked ? '0' : loadWeightTextForEvaluation(load)
   const evaluationInput = buildEvaluationInput(
     crane?.state ?? null,
     selectedConfiguration?.id ?? '',
@@ -172,6 +181,7 @@ export function SimulatorRoute() {
             : null,
           outriggers,
           accessoryIds,
+          ...(cargoStatus.active ? { cargo: cargoStatus.state } : {}),
         }
       : null
   // Reprodução: cada quadro vira a pose aplicada na cena, sem avaliar (RN-008).
@@ -179,6 +189,8 @@ export function SimulatorRoute() {
   const applyFrame = useCallback(
     (frame: RecordingFrame) => {
       if (!craneCommands) return
+      // Primeiro a carga (no chão ou no gancho), para as colisões já valerem para o quadro todo.
+      viewportRef.current?.setCargoPlayback(frame.cargo ?? null)
       craneCommands.setTurretRotation(frame.crane.turretRotationDeg)
       craneCommands.setBoomAngle(frame.crane.boomAngleDeg)
       craneCommands.setBoomLength(frame.crane.boomLengthM)
@@ -194,6 +206,10 @@ export function SimulatorRoute() {
   })
   const { playbackFrame } = recording
   const locked = playbackFrame !== null
+  // Ao sair da reprodução, a carga volta ao estado ao vivo.
+  useEffect(() => {
+    if (!locked) viewportRef.current?.setCargoPlayback(null)
+  }, [locked])
   const shownResult = playbackFrame ? playbackFrame.evaluation : evaluation.result
 
   // A cada mudança dos sliders ou dos campos, o estado vai ao backend (com debounce na sessão).
@@ -305,6 +321,11 @@ export function SimulatorRoute() {
       return next
     })
   }, [])
+  const cargoGuide = cargoGuidance({
+    status: cargoStatus,
+    cargoPlaced: scenario.spec.cargo !== undefined,
+    deliveryPlaced: scenario.spec.delivery !== undefined,
+  })
   const handleCameraPreset = (preset: CameraPresetId) => {
     setCameraPreset(preset)
     viewportRef.current?.setCameraPreset(preset)
@@ -337,6 +358,7 @@ export function SimulatorRoute() {
         accessories={sceneAccessories}
         onAccessoryModelResult={handleAccessoryModelResult}
         onCollisionChange={onCollisionChange}
+        onCargoChange={setCargoStatus}
         outriggers={playbackFrame?.outriggers ?? outriggers}
         operatingArea={operatingAreaEnabled ? operatingArea.area : null}
         scenario={
@@ -471,6 +493,17 @@ export function SimulatorRoute() {
             onReset={scenario.reset}
           />
         </EnvironmentSection>
+      }
+      operationBar={
+        locked ? undefined : (
+          <CargoOperationPanel
+            status={cargoStatus}
+            guidance={cargoGuide}
+            locked={locked}
+            onEngage={() => viewportRef.current?.engageCargo()}
+            onRelease={() => viewportRef.current?.releaseCargo()}
+          />
+        )
       }
       editorToolbar={
         editor.active ? (

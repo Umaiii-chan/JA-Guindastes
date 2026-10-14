@@ -238,3 +238,35 @@ def test_unknown_soil_kind_answers_422(client: TestClient) -> None:
     ]
 
     assert client.post(SCENARIOS_PATH, json=payload, headers=CSRF_HEADERS).status_code == 422
+
+
+def test_cargo_and_delivery_are_saved_and_returned(client: TestClient) -> None:
+    login_as_operator(client)
+    payload = body()
+    payload["spec"]["cargo"] = {"x": -6.0, "z": 4.0, "rotation_y_deg": 30.0}
+    payload["spec"]["delivery"] = {"x": 8.0, "z": -3.0, "rotation_y_deg": 0.0, "radius_m": 2.5}
+
+    created = client.post(SCENARIOS_PATH, json=payload, headers=CSRF_HEADERS)
+
+    assert created.status_code == 201, created.text
+    reopened = client.get(f"{SCENARIOS_PATH}/{created.json()['id']}").json()["spec"]
+    assert reopened["cargo"] == payload["spec"]["cargo"]
+    assert reopened["delivery"] == payload["spec"]["delivery"]
+
+
+def test_scenario_without_cargo_omits_the_new_fields(client: TestClient) -> None:
+    login_as_operator(client)
+
+    created = client.post(SCENARIOS_PATH, json=body(), headers=CSRF_HEADERS)
+
+    reopened = client.get(f"{SCENARIOS_PATH}/{created.json()['id']}").json()["spec"]
+    assert "cargo" not in reopened
+    assert "delivery" not in reopened
+
+
+def test_delivery_radius_out_of_range_answers_422(client: TestClient) -> None:
+    login_as_operator(client)
+    payload = body()
+    payload["spec"]["delivery"] = {"x": 0.0, "z": 0.0, "rotation_y_deg": 0.0, "radius_m": 99.0}
+
+    assert client.post(SCENARIOS_PATH, json=payload, headers=CSRF_HEADERS).status_code == 422

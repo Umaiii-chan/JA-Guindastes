@@ -36,9 +36,23 @@ export function EditEnvironmentToggle({
 
 const TOOLS: readonly { readonly id: EditorTool; readonly label: string; readonly hint: string }[] =
   [
-    { id: 'select', label: 'Selecionar', hint: 'Clique num obstáculo ou no guindaste para mover' },
+    {
+      id: 'select',
+      label: 'Selecionar',
+      hint: 'Clique num obstáculo, na carga, no ponto de entrega ou no guindaste para mover',
+    },
     { id: 'add-box', label: 'Caixa', hint: 'Clique no chão para colocar uma caixa' },
     { id: 'add-cylinder', label: 'Cilindro', hint: 'Clique no chão para colocar um cilindro' },
+    {
+      id: 'place-cargo',
+      label: 'Posicionar carga',
+      hint: 'Clique no chão para escolher onde a carga começa. Ela usa as medidas do passo Carga',
+    },
+    {
+      id: 'place-delivery',
+      label: 'Ponto de entrega',
+      hint: 'Clique no chão para marcar onde a carga deve ser entregue',
+    },
     {
       id: 'sculpt',
       label: 'Esculpir',
@@ -75,7 +89,7 @@ export interface EnvironmentEditorToolbarProps {
   onLowerTerrainChange(lower: boolean): void
   readonly wind: WindSpec | undefined
   onWindChange(wind: WindSpec): void
-  /** Nome do que está selecionado ("Caixa 1", "Guindaste"), ou `null`. */
+  /** Nome do que está selecionado ("Caixa 1", "Guindaste", "Carga"), ou `null`. */
   readonly selectedLabel: string | null
   readonly canDelete: boolean
   onDelete(): void

@@ -4,11 +4,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { DEFAULT_BRUSH, type Brush, withWind } from '../../application/environment/editorOps'
+import { removeCargo, removeDelivery } from '../../application/environment/cargoEditing'
 import { removeObstacle } from '../../application/environment/scenarioEditing'
 import type { SoilKind, WindSpec } from '../../domain/environment/environment'
 import type { CraneViewportEditor } from '../../presentation/components/CraneViewport'
 import {
+  CARGO_SELECTION_ID,
   CRANE_SELECTION_ID,
+  DELIVERY_SELECTION_ID,
   type EditorTool,
   type EditorTransformMode,
 } from '../../three/scene/SceneEditor'
@@ -33,13 +36,29 @@ export function useEnvironmentEditor() {
   const selectedObstacle =
     selectedId === null ? undefined : spec.obstacles.find((obstacle) => obstacle.id === selectedId)
   const selectedLabel =
-    selectedId === CRANE_SELECTION_ID ? 'Guindaste' : (selectedObstacle?.label ?? null)
-  const canDelete = selectedObstacle !== undefined
+    selectedId === CRANE_SELECTION_ID
+      ? 'Guindaste'
+      : selectedId === CARGO_SELECTION_ID
+        ? 'Carga'
+        : selectedId === DELIVERY_SELECTION_ID
+          ? 'Ponto de entrega'
+          : (selectedObstacle?.label ?? null)
+  const canDelete =
+    selectedObstacle !== undefined ||
+    (selectedId === CARGO_SELECTION_ID && spec.cargo !== undefined) ||
+    (selectedId === DELIVERY_SELECTION_ID && spec.delivery !== undefined)
 
   const deleteSelected = useCallback(() => {
     if (selectedId === null || selectedId === CRANE_SELECTION_ID) return
     checkpoint()
-    setSpec(removeObstacle(getSpec(), selectedId))
+    const current = getSpec()
+    setSpec(
+      selectedId === CARGO_SELECTION_ID
+        ? removeCargo(current)
+        : selectedId === DELIVERY_SELECTION_ID
+          ? removeDelivery(current)
+          : removeObstacle(current, selectedId),
+    )
     setSelectedId(null)
   }, [selectedId, checkpoint, setSpec, getSpec])
 

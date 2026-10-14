@@ -19,6 +19,7 @@ import type { OutriggerState } from '../../domain/crane/outriggers'
 import { OutriggerController } from '../crane/OutriggerController'
 import { TRUCK_CRANE_OUTRIGGER_TRAVEL_M } from '../loaders/loadTruckCraneModel'
 import type { CraneCommands, CraneSetup, CraneState } from '../crane/types'
+import type { CargoState, CargoStatus } from '../../domain/cargo/cargoOperation'
 import {
   type CollisionState,
   collisionStateKey,
@@ -60,6 +61,11 @@ export interface MountCraneSceneOptions {
    * uma vez na montagem, com o estado sem colisão.
    */
   readonly onCollisionChange?: (state: CollisionState) => void
+  /**
+   * Avisado quando a situação da coleta e entrega muda (TASK-073; ADR-035): carga no chão ou no
+   * gancho, se dá para engatar ou soltar, entrega feita. Chamado uma vez na montagem.
+   */
+  readonly onCargoChange?: (status: CargoStatus) => void
   /**
    * Carregador dos modelos 3D dos acessórios de içamento (TASK-056). Padrão: `loadGltf`. `null`:
    * os acessórios entram só no peso e na distância, sem malha.
@@ -115,6 +121,20 @@ export interface CraneSceneHandle {
   setEnvironment(spec: ScenarioSpec): void
   /** Último estado de colisão (o mesmo que `onCollisionChange` recebeu). */
   getCollisionState(): CollisionState
+  /**
+   * Engata a carga que está no chão se o gancho estiver a até 0,5 m acima do topo e alinhado a até
+   * 0,5 m (TASK-073). Devolve se engatou.
+   */
+  engageCargo(): boolean
+  /**
+   * Solta a carga engatada se a base dela estiver a até 0,2 m do chão; dentro do raio do ponto de
+   * entrega, marca a entrega (TASK-073). Devolve se soltou.
+   */
+  releaseCargo(): boolean
+  /** Mostra o estado da carga de uma gravação em reprodução; `null` volta ao estado ao vivo. */
+  setCargoPlayback(state: CargoState | null): void
+  /** Última situação da coleta e entrega. */
+  getCargoStatus(): CargoStatus
   /**
    * Patolas (TASK-054): estende as vigas, desce os macacos e nivela, animado. Só move os nós
    * `crane-outrigger-*` que o modelo 3D tiver; sem eles, não desenha nada.
@@ -172,6 +192,7 @@ export function mountCraneScene(
     rotationZones,
     collisions,
     operatingArea,
+    cargo,
   } = contents
 
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
@@ -360,6 +381,8 @@ export function mountCraneScene(
   let collisionKey = collisionStateKey(NO_COLLISION)
   collisions.setListener((state) => {
     invalidate()
+    // O guindaste se moveu (ou algo mudou): reavalia se dá para engatar e soltar.
+    cargo.refresh()
     const key = collisionStateKey(state)
     if (key === collisionKey) return
     collisionKey = key
@@ -367,6 +390,10 @@ export function mountCraneScene(
   })
   crane.setCollisionGuard(collisions)
   options.onCollisionChange?.(collisions.state)
+  cargo.setListener((status) => {
+    invalidate()
+    options.onCargoChange?.(status)
+  })
 
   // Modelo 3D: carrega em segundo plano; enquanto isso, o provisório fica na cena.
   const modelAbort = new AbortController()
@@ -392,7 +419,8 @@ export function mountCraneScene(
       invalidate()
     },
     setLoad(load) {
-      hookLoad.setLoad(load)
+      // Com carga posicionada, ela fica no chão até engatar; sem, pende do gancho (TASK-073).
+      cargo.setLoad(load)
       crane.revalidate()
       invalidate()
     },
@@ -459,6 +487,26 @@ export function mountCraneScene(
     getCollisionState() {
       return collisions.state
     },
+    engageCargo() {
+      if (disposed) return false
+      const done = cargo.engage(performance.now())
+      invalidate()
+      return done
+    },
+    releaseCargo() {
+      if (disposed) return false
+      const done = cargo.release(performance.now())
+      invalidate()
+      return done
+    },
+    setCargoPlayback(state) {
+      if (disposed) return
+      cargo.setPlayback(state)
+      invalidate()
+    },
+    getCargoStatus() {
+      return cargo.status
+    },
     setOutriggers(state) {
       if (disposed) return
       outriggers.setState(state)
@@ -479,6 +527,8 @@ export function mountCraneScene(
         invalidate()
         return
       }
+      // Ao entrar na edição, a carga volta à posição escolhida (a gravação fica no ambiente salvo).
+      if (!editor) cargo.reset()
       editor ??= new SceneEditor({
         scene,
         camera,
@@ -513,6 +563,7 @@ export function mountCraneScene(
       crane.setCollisionGuard(null)
       collisions.dispose()
       hookLoad.dispose()
+      cargo.dispose()
       disposeObject3D(scene)
       accessoryChain.dispose()
       renderer.dispose()

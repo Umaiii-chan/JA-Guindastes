@@ -18,8 +18,10 @@ import { measureHookExtent } from '../crane/rigLandmarks'
 import {
   computeLoadBox,
   HOOK_ATTACH_OFFSET_M,
+  type HookedCargoPose,
   type LoadBoxLayout,
   type LoadDimensions,
+  sameHookedPose,
   sameLoad,
 } from './loadBox'
 import { type EvaluationStatus, SCENE_COLORS, STATUS_COLORS, statusColor } from './palette'
@@ -100,6 +102,8 @@ export class HookLoad {
   private highlighted = false
   private loadParts: Object3D[] = []
   private load: LoadDimensions | null = null
+  /** Posição da carga em relação ao gancho depois de engatada (TASK-073); `null` = centrada nele. */
+  private hookedPose: HookedCargoPose | null = null
   private layout: LoadBoxLayout | null = null
   private hook: Object3D
   private attachOffsetM = HOOK_ATTACH_OFFSET_M
@@ -155,8 +159,9 @@ export class HookLoad {
   }
 
   /** Mostra a caixa da carga pendurada pelas lingas, ou só o gancho com `null` ou medidas inválidas. */
-  setLoad(load: LoadDimensions | null | undefined): void {
-    if (sameLoad(load, this.load)) return
+  setLoad(load: LoadDimensions | null | undefined, hooked: HookedCargoPose | null = null): void {
+    if (sameLoad(load, this.load) && sameHookedPose(hooked, this.hookedPose)) return
+    this.hookedPose = hooked
     this.rebuild(load)
   }
 
@@ -263,7 +268,7 @@ export class HookLoad {
     this.clearLoad()
     this.showBuiltInHook(!this.hookReplaced)
     const attach = this.hookReplaced ? REPLACED_HOOK_ATTACH_M : this.attachOffsetM
-    this.layout = computeLoadBox(load, attach, this.accessoriesDropM)
+    this.layout = computeLoadBox(load, attach, this.accessoriesDropM, this.hookedPose)
     if (this.accessoriesRoot) {
       this.accessoriesRoot.position.set(0, -attach, 0)
       if (this.accessoriesRoot.parent !== this.root) this.root.add(this.accessoriesRoot)
@@ -285,12 +290,14 @@ export class HookLoad {
     const box = new Mesh(boxGeometry, this.boxMaterial)
     box.name = HOOK_LOAD_NAMES.box
     box.position.set(layout.center.x, layout.center.y, layout.center.z)
+    box.rotation.y = ((layout.yawDeg ?? 0) * Math.PI) / 180
     box.castShadow = true
     box.receiveShadow = true
 
     const edges = new LineSegments(new EdgesGeometry(boxGeometry), this.edgesMaterial)
     edges.name = HOOK_LOAD_NAMES.edges
     edges.position.copy(box.position)
+    edges.rotation.copy(box.rotation)
 
     const top = new Vector3(layout.slingTop.x, layout.slingTop.y, layout.slingTop.z)
     const slingPoints: Vector3[] = []

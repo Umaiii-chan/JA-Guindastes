@@ -13,6 +13,7 @@ import { findOperatorEye } from '../crane/rigLandmarks'
 import { SwitchableCrane } from '../crane/SwitchableCrane'
 import type { CraneSetup } from '../crane/types'
 import { addEnvironment, type SceneEnvironment } from './addEnvironment'
+import { CargoOperation } from './CargoOperation'
 import { createScene } from './createScene'
 import { disposeObject3D } from './disposeObject3D'
 import { HookLoad } from './HookLoad'
@@ -68,6 +69,8 @@ export class CraneSceneContents {
   readonly soil: SoilOverlay
   /** Seta do vento (TASK-066). */
   readonly wind: WindArrow
+  /** Carga no chão, ponto de entrega, engatar e soltar (TASK-073). */
+  readonly cargo: CargoOperation
 
   private currentRig: CraneRig
   private currentRoot: Object3D
@@ -91,6 +94,7 @@ export class CraneSceneContents {
     obstacles: ObstacleMeshes
     soil: SoilOverlay
     wind: WindArrow
+    cargo: CargoOperation
   }) {
     this.scene = parts.scene
     this.environment = parts.environment
@@ -107,6 +111,8 @@ export class CraneSceneContents {
     this.obstacles = parts.obstacles
     this.soil = parts.soil
     this.wind = parts.wind
+    this.cargo = parts.cargo
+    this.cargo.bindCrane(this.crane)
     this.eye = findOperatorEye(parts.rig)
   }
 
@@ -171,6 +177,7 @@ export class CraneSceneContents {
     }
     this.appliedScenario = spec
     this.applyCraneAttitude(spec)
+    this.cargo.setScenario(spec)
   }
 
   /**
@@ -263,6 +270,13 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
   scene.add(soil.root)
   const wind = new WindArrow()
   scene.add(wind.root)
+  const cargo = new CargoOperation({
+    hookLoad,
+    collisions,
+    geometryParameters: setup.geometryParameters,
+    heightAt: (x, z) => environment.heightAt(x, z),
+  })
+  scene.add(cargo.ground.root, cargo.delivery.root)
 
   radiusIndicator.update({
     workingRadiusM: crane.getOperationalGeometry().workingRadiusM,
@@ -283,5 +297,6 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     obstacles,
     soil,
     wind,
+    cargo,
   })
 }

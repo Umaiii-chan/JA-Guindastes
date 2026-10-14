@@ -37,6 +37,9 @@ import {
 
 const DEG = Math.PI / 180
 
+/** Id do obstáculo que representa a carga apoiada no chão, enquanto ela não está engatada (TASK-073). */
+export const GROUND_CARGO_ID = 'carga-no-chao'
+
 /** Estado do guindaste que importa aqui: os mesmos ψ, θ, L e c do `CraneState`. */
 export interface CollisionCraneState {
   readonly turretRotationDeg: number
@@ -189,7 +192,7 @@ export function craneBodyObbs(
 }
 
 /** Pontos G, T e P no mundo e o referencial do gancho (eixos da torre, origem em G). */
-function suspension(input: CollisionInput): {
+function suspension(input: Pick<CollisionInput, 'state' | 'geometryParameters' | 'scenario'>): {
   hookFrame: Transform
   hook: Vec3
   tip: Vec3
@@ -211,6 +214,20 @@ function suspension(input: CollisionInput): {
 const ZERO: Vec3 = { x: 0, y: 0, z: 0 }
 
 /**
+ * Referencial do gancho no mundo (origem em G; eixos da torre, com Y para cima) e o giro dele em
+ * torno de Y (graus: rumo do chassi mais o giro da torre). Usado para engatar e soltar a carga
+ * (TASK-073; ADR-035).
+ */
+export function hookWorldFrame(
+  input: Pick<CollisionInput, 'state' | 'geometryParameters' | 'scenario'>,
+): { readonly frame: Transform; readonly yawDeg: number } {
+  return {
+    frame: suspension(input).hookFrame,
+    yawDeg: input.scenario.crane.headingDeg + input.state.turretRotationDeg,
+  }
+}
+
+/**
  * Caixa da carga e do gancho no mundo. O cabo pende na vertical (S-2), então os eixos são os da
  * torre (girada em ψ) com Y para cima, como no nó do gancho da cena.
  */
@@ -226,11 +243,18 @@ export function payloadObbs(
     })
   }
   if (input.load) {
-    const { center, size } = input.load
-    parts.push({
-      subject: 'load',
-      obb: obbFromFrame(hookFrame, center, { x: size.x / 2, y: size.y / 2, z: size.z / 2 }),
-    })
+    const { center, size, yawDeg } = input.load
+    const half = { x: size.x / 2, y: size.y / 2, z: size.z / 2 }
+    if (yawDeg === undefined) {
+      parts.push({ subject: 'load', obb: obbFromFrame(hookFrame, center, half) })
+    } else {
+      // Carga engatada fora do eixo e girada (TASK-073): a caixa gira em torno do próprio centro.
+      const frame = compose(hookFrame, {
+        rot: rotY(yawDeg * DEG),
+        pos: { x: center.x, y: 0, z: center.z },
+      })
+      parts.push({ subject: 'load', obb: obbFromFrame(frame, { x: 0, y: center.y, z: 0 }, half) })
+    }
   }
   return parts
 }
@@ -314,7 +338,7 @@ export function describeTarget(target: CollisionTarget): string {
     case 'crane':
       return 'o guindaste'
     case 'obstacle':
-      return `o obstáculo «${target.label}»`
+      return target.id === GROUND_CARGO_ID ? 'a carga no chão' : `o obstáculo «${target.label}»`
   }
 }
 
@@ -324,6 +348,9 @@ export function describeHit(hit: CollisionHit): string {
 }
 
 export function describeAlert(alert: CollisionAlert): string {
+  if (alert.obstacleId === GROUND_CARGO_ID) {
+    return `${alert.segment === 'cable' ? 'O cabo' : 'A lança'} atravessa a carga no chão.`
+  }
   const segment = alert.segment === 'cable' ? 'O cabo' : 'A lança'
   return `${segment} atravessa o obstáculo «${alert.label}».`
 }

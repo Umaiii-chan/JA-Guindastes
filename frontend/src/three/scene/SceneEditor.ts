@@ -23,6 +23,11 @@ import {
   paintSoil,
   sculptAt,
 } from '../../application/environment/editorOps'
+import {
+  clampDeliveryRadius,
+  placeCargoAt,
+  placeDeliveryAt,
+} from '../../application/environment/cargoEditing'
 import type { Obstacle, ScenarioSpec, SoilKind } from '../../domain/environment/environment'
 import type { CraneSceneContents } from './buildCraneScene'
 import { OBSTACLE_NAMES } from './ObstacleMeshes'
@@ -33,11 +38,22 @@ import { EDITOR_COLORS, SOIL_COLORS } from './palette'
 // raycast no chão. A cena não guarda o cenário: lê por `getSpec()` e devolve cada mudança por
 // `onChange` (o cenário fica na UI, com o desfazer).
 
-export type EditorTool = 'select' | 'add-box' | 'add-cylinder' | 'sculpt' | 'flatten' | 'paint'
+export type EditorTool =
+  | 'select'
+  | 'add-box'
+  | 'add-cylinder'
+  | 'place-cargo'
+  | 'place-delivery'
+  | 'sculpt'
+  | 'flatten'
+  | 'paint'
 export type EditorTransformMode = 'translate' | 'rotate' | 'scale'
 
 /** Id da seleção quando o objeto escolhido é o guindaste. */
 export const CRANE_SELECTION_ID = 'crane'
+/** Ids da seleção quando o objeto escolhido é a carga ou o ponto de entrega (TASK-073). */
+export const CARGO_SELECTION_ID = 'cargo'
+export const DELIVERY_SELECTION_ID = 'delivery'
 
 export interface SceneEditorConfig {
   readonly tool: EditorTool
@@ -224,13 +240,37 @@ export class SceneEditor {
       return
     }
     let target: Object3D | undefined
-    if (config.selectedId === CRANE_SELECTION_ID) {
-      const { x, z, headingDeg } = this.callbacks?.getSpec().crane ?? { x: 0, z: 0, headingDeg: 0 }
-      const anchor = this.deps.contents.craneAnchor
-      this.pivot.position.set(x, anchor.position.y, z)
-      this.pivot.rotation.set(0, (headingDeg * Math.PI) / 180, 0)
+    const spec = this.callbacks?.getSpec()
+    const { environment } = this.deps.contents
+    const placePivot = (x: number, z: number, y: number, deg: number): Object3D => {
+      this.pivot.position.set(x, y, z)
+      this.pivot.rotation.set(0, (deg * Math.PI) / 180, 0)
       this.pivot.scale.set(1, 1, 1)
-      target = this.pivot
+      return this.pivot
+    }
+    if (config.selectedId === CRANE_SELECTION_ID) {
+      const { x, z, headingDeg } = spec?.crane ?? { x: 0, z: 0, headingDeg: 0 }
+      target = placePivot(x, z, this.deps.contents.craneAnchor.position.y, headingDeg)
+    } else if (config.selectedId === CARGO_SELECTION_ID) {
+      const cargo = spec?.cargo
+      if (cargo) {
+        target = placePivot(
+          cargo.x,
+          cargo.z,
+          environment.heightAt(cargo.x, cargo.z),
+          cargo.rotationYDeg,
+        )
+      }
+    } else if (config.selectedId === DELIVERY_SELECTION_ID) {
+      const delivery = spec?.delivery
+      if (delivery) {
+        target = placePivot(
+          delivery.x,
+          delivery.z,
+          environment.heightAt(delivery.x, delivery.z),
+          delivery.rotationYDeg,
+        )
+      }
     } else {
       target = this.obstacleGroup(config.selectedId)
     }
@@ -238,13 +278,16 @@ export class SceneEditor {
       this.transform.detach()
       return
     }
-    const crane = config.selectedId === CRANE_SELECTION_ID
-    // O guindaste só anda e gira; escala só vale para obstáculos.
-    const mode = crane && config.transformMode === 'scale' ? 'translate' : config.transformMode
+    const pivoted = target === this.pivot
+    // O guindaste e a carga só andam e giram; o ponto de entrega também muda o raio (escala); a
+    // escala nos três eixos só vale para obstáculos.
+    const noScale =
+      config.selectedId === CRANE_SELECTION_ID || config.selectedId === CARGO_SELECTION_ID
+    const mode = noScale && config.transformMode === 'scale' ? 'translate' : config.transformMode
     this.transform.setMode(mode)
     this.transform.setSpace(mode === 'scale' ? 'local' : 'world')
     this.transform.showX = mode !== 'rotate'
-    this.transform.showY = mode === 'scale'
+    this.transform.showY = mode === 'scale' && !pivoted
     this.transform.showZ = mode !== 'rotate'
     if (mode === 'rotate') this.transform.showY = true
     if (this.transform.object !== target) this.transform.attach(target)
@@ -267,6 +310,26 @@ export class SceneEditor {
       }
       object.position.y = contents.environment.heightAt(crane.x, crane.z)
       contents.setScenario({ ...spec, crane })
+      this.deps.invalidate()
+      return
+    }
+    if (config.selectedId === CARGO_SELECTION_ID) {
+      const cargo = {
+        x: round2(object.position.x),
+        z: round2(object.position.z),
+        rotationYDeg: yawDeg(object),
+      }
+      object.position.y = contents.environment.heightAt(cargo.x, cargo.z)
+      contents.setScenario({ ...spec, cargo })
+      this.deps.invalidate()
+      return
+    }
+    if (config.selectedId === DELIVERY_SELECTION_ID) {
+      const current = spec.delivery
+      if (!current) return
+      const delivery = this.deliveryFrom(object, current.radiusM)
+      object.position.y = contents.environment.heightAt(delivery.x, delivery.z)
+      contents.setScenario({ ...spec, delivery })
       this.deps.invalidate()
       return
     }
@@ -296,6 +359,23 @@ export class SceneEditor {
       })
       return
     }
+    if (config.selectedId === CARGO_SELECTION_ID) {
+      callbacks.onChange({
+        ...spec,
+        cargo: {
+          x: round2(object.position.x),
+          z: round2(object.position.z),
+          rotationYDeg: yawDeg(object),
+        },
+      })
+      return
+    }
+    if (config.selectedId === DELIVERY_SELECTION_ID) {
+      if (spec.delivery) {
+        callbacks.onChange({ ...spec, delivery: this.deliveryFrom(object, spec.delivery.radiusM) })
+      }
+      return
+    }
     const obstacle = config.selectedId === null ? undefined : this.findObstacle(config.selectedId)
     if (!obstacle) return
     const size = (value: number, factor: number) =>
@@ -314,6 +394,18 @@ export class SceneEditor {
       ...spec,
       obstacles: spec.obstacles.map((item) => (item.id === obstacle.id ? next : item)),
     })
+  }
+
+  /** Ponto de entrega a partir do pivô: posição, giro e o raio escalado pelo fator do arrasto. */
+  private deliveryFrom(object: Object3D, radiusM: number) {
+    const factor =
+      Math.abs(object.scale.x - 1) >= Math.abs(object.scale.z - 1) ? object.scale.x : object.scale.z
+    return {
+      x: round2(object.position.x),
+      z: round2(object.position.z),
+      rotationYDeg: yawDeg(object),
+      radiusM: clampDeliveryRadius(radiusM * Math.abs(factor)),
+    }
   }
 
   // --- ponteiro ----------------------------------------------------------------------------------
@@ -420,6 +512,7 @@ export class SceneEditor {
     if (moved > CLICK_MAX_MOVE_PX || performance.now() - pressed.time > CLICK_MAX_MS) return
     if (config.tool === 'select') this.pick(event)
     else if (config.tool === 'add-box' || config.tool === 'add-cylinder') this.addAt(event)
+    else if (config.tool === 'place-cargo' || config.tool === 'place-delivery') this.placeAt(event)
   }
 
   // --- ferramentas -------------------------------------------------------------------------------
@@ -428,16 +521,25 @@ export class SceneEditor {
     this.aim(event)
     const { contents } = this.deps
     const obstacleHit = this.raycaster.intersectObjects(contents.obstacles.root.children, true)[0]
-    const craneHit = this.raycaster.intersectObject(contents.rig.base, true)[0]
-    let selected: string | null = null
-    if (obstacleHit && (!craneHit || obstacleHit.distance <= craneHit.distance)) {
+    const candidates: { id: string | null; distance: number }[] = []
+    if (obstacleHit) {
       let node: Object3D | null = obstacleHit.object
       while (node && node.userData.obstacleId === undefined) node = node.parent
-      selected = node ? (node.userData.obstacleId as string) : null
-    } else if (craneHit) {
-      selected = CRANE_SELECTION_ID
+      candidates.push({
+        id: node ? (node.userData.obstacleId as string) : null,
+        distance: obstacleHit.distance,
+      })
     }
-    this.callbacks?.onSelect(selected)
+    const nearest = (root: Object3D, id: string): void => {
+      if (!root.visible) return
+      const hit = this.raycaster.intersectObject(root, true)[0]
+      if (hit) candidates.push({ id, distance: hit.distance })
+    }
+    nearest(contents.rig.base, CRANE_SELECTION_ID)
+    nearest(contents.cargo.ground.root, CARGO_SELECTION_ID)
+    nearest(contents.cargo.delivery.root, DELIVERY_SELECTION_ID)
+    candidates.sort((a, b) => a.distance - b.distance)
+    this.callbacks?.onSelect(candidates[0]?.id ?? null)
   }
 
   private addAt(event: PointerEvent): void {
@@ -451,6 +553,21 @@ export class SceneEditor {
     callbacks.onCheckpoint()
     callbacks.onChange(added.spec)
     callbacks.onSelect(added.id)
+    callbacks.onToolChange('select')
+  }
+
+  private placeAt(event: PointerEvent): void {
+    const point = this.groundUnder(event)
+    const callbacks = this.callbacks
+    const config = this.config
+    if (!point || !callbacks || !config) return
+    const cargo = config.tool === 'place-cargo'
+    callbacks.onCheckpoint()
+    const spec = callbacks.getSpec()
+    callbacks.onChange(
+      cargo ? placeCargoAt(spec, point.x, point.z) : placeDeliveryAt(spec, point.x, point.z),
+    )
+    callbacks.onSelect(cargo ? CARGO_SELECTION_ID : DELIVERY_SELECTION_ID)
     callbacks.onToolChange('select')
   }
 
