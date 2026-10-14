@@ -36,6 +36,7 @@ function fakeCommands(): CraneCommands {
     setBoomAngle: (value: number) => (state.boomAngleDeg = value),
     setBoomLength: (value: number) => (state.boomLengthM = value),
     setCableLength: (value: number) => (state.cableLengthM = value),
+    setState: (partial: Partial<typeof state>) => Object.assign(state, partial),
   } as unknown as CraneCommands
 }
 

@@ -14,8 +14,13 @@ import type { PlanCraneState, PlanPhase, TrajectoryPoint } from '../../domain/pl
 import type { CraneCommands } from '../../three/crane/types'
 
 export const PLAYBACK_SPEEDS: readonly number[] = [1, 2, 4]
-/** Intervalo mínimo (ms) entre dois avisos à tela durante a execução (a cena anima a cada quadro). */
-const UI_REFRESH_MS = 120
+/**
+ * Intervalo mínimo (ms) entre dois avisos à tela durante a execução (~5 Hz): a cena anima a cada
+ * quadro, mas o estado React (progresso, números) só muda neste ritmo (TASK-077). Com a gravação
+ * ligada, a tela passa a ~10 Hz (`recordingRefreshMs`), que é o ritmo dos quadros do gravador.
+ */
+export const UI_REFRESH_MS = 200
+export const RECORDING_UI_REFRESH_MS = 100
 
 export interface PlanPlaybackParams {
   /** Quadros-chave do guindaste que a cena mostra, em ordem de tempo. */
@@ -25,6 +30,8 @@ export interface PlanPlaybackParams {
   /** Avisa a tela de que o estado do guindaste mudou. */
   onMoved(): void
   onPlayingChange(playing: boolean): void
+  /** Intervalo (ms) entre avisos à tela; padrão `UI_REFRESH_MS`. Mais curto enquanto grava. */
+  refreshMs?: number
   /**
    * Avisa quando a execução passa por um quadro-chave, já com o estado dele aplicado na cena: a
    * tela usa para engatar a carga no quadro "Engatar" e soltá-la no "Soltar" (TASK-073). Devolve
@@ -44,19 +51,20 @@ export interface PlanPlayback {
 }
 
 /**
- * Aplica um estado da trajetória nos comandos da cena. A ordem importa para a guarda de colisão da
- * cena: o cabo sobe antes de qualquer outro movimento e só desce depois dos demais, para a carga não
- * varrer o chão nem o guindaste no meio do caminho.
+ * Aplica um estado da trajetória nos comandos da cena, de uma vez só: a guarda de colisão confere o
+ * estado final (não cada comando em sequência, que podia bloquear uma combinação intermediária e
+ * fazer a pose pular). O giro é trazido para a faixa do guindaste.
  */
 export function applyPlanState(commands: CraneCommands, state: PlanCraneState): void {
-  const raising = state.cableLengthM < commands.getState().cableLengthM
-  if (raising) commands.setCableLength(state.cableLengthM)
-  commands.setTurretRotation(
-    fitTurretRotation(state.turretRotationDeg, commands.limits.turretRotationDeg),
-  )
-  commands.setBoomLength(state.boomLengthM)
-  commands.setBoomAngle(state.boomAngleDeg)
-  if (!raising) commands.setCableLength(state.cableLengthM)
+  commands.setState({
+    turretRotationDeg: fitTurretRotation(
+      state.turretRotationDeg,
+      commands.limits.turretRotationDeg,
+    ),
+    boomLengthM: state.boomLengthM,
+    boomAngleDeg: state.boomAngleDeg,
+    cableLengthM: state.cableLengthM,
+  })
 }
 
 /** Quadros-chave com instante em (`fromS`, `toS`]; o primeiro quadro conta quando `fromS` é 0. */
@@ -76,6 +84,7 @@ export function usePlanPlayback({
   onMoved,
   onPlayingChange,
   onKeyframe,
+  refreshMs = UI_REFRESH_MS,
 }: PlanPlaybackParams): PlanPlayback {
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -83,10 +92,12 @@ export function usePlanPlayback({
   const [speed, setSpeed] = useState(PLAYBACK_SPEEDS[0] ?? 1)
   const frame = useRef<number | null>(null)
   const speedRef = useRef(speed)
+  const refreshMsRef = useRef(refreshMs)
   const callbacks = useRef({ getCommands, onMoved, onPlayingChange, onKeyframe })
   // As leituras da animação veem sempre o valor mais recente, sem recriar o laço.
   useEffect(() => {
     speedRef.current = speed
+    refreshMsRef.current = refreshMs
     callbacks.current = { getCommands, onMoved, onPlayingChange, onKeyframe }
   })
 
@@ -120,6 +131,7 @@ export function usePlanPlayback({
       if (commands) {
         for (const point of keyframesCrossed(points, before, Math.min(elapsed, duration))) {
           applyPlanState(commands, point.state)
+          setPhase(point.phase)
           if (callbacks.current.onKeyframe?.(point) === true) {
             frame.current = null
             setPhase(point.phase)
@@ -133,15 +145,17 @@ export function usePlanPlayback({
       const sample = sampleTrajectory(points, Math.min(elapsed, duration))
       if (commands && sample) {
         applyPlanState(commands, sample.state)
-        setPhase(sample.phase)
-        setProgress(Math.min(1, elapsed / duration))
-        if (now - lastRefresh >= UI_REFRESH_MS) {
+        // A cena segue a cada quadro; a tela (React) só a ~10 Hz.
+        if (now - lastRefresh >= refreshMsRef.current) {
           lastRefresh = now
+          setPhase(sample.phase)
+          setProgress(Math.min(1, elapsed / duration))
           callbacks.current.onMoved()
         }
       }
       if (elapsed >= duration || !commands) {
         frame.current = null
+        if (commands) setProgress(1)
         setPlaying(false)
         callbacks.current.onPlayingChange(false)
         callbacks.current.onMoved()

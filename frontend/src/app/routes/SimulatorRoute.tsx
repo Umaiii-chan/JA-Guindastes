@@ -10,6 +10,7 @@ import type { AiLiftReportRequest, AiScenarioDraft } from '../../application/ai/
 import { loadFormFromDraft } from '../../application/ai/scenarioDraft'
 import { selectedConfiguration as findSelectedConfiguration } from '../../application/catalog/CatalogBrowser'
 import { cargoGuidance } from '../../application/cargo/cargoGuidance'
+import { fitTurretRotation } from '../../application/planning/trajectoryPlayback'
 import { evaluationStatus } from '../../application/evaluation/evaluationStatus'
 import { type CargoStatus, INACTIVE_CARGO } from '../../domain/cargo/cargoOperation'
 import type { RecordingFrame, RecordingSnapshot } from '../../application/recording/recording'
@@ -102,6 +103,7 @@ import { useConfigurationsById } from '../simulator/useConfigurationsById'
 import { useEnvironmentEditor } from '../simulator/useEnvironmentEditor'
 import { useTandemEvaluation } from '../simulator/useTandemEvaluation'
 import { PlanningSection } from '../planning/PlanningSection'
+import { RECORDING_UI_REFRESH_MS, UI_REFRESH_MS } from '../planning/usePlanPlayback'
 import { useAccessoryCatalog } from '../useAccessoryCatalog'
 import { useEvaluationSession } from '../useEvaluationSession'
 import { useOperatingArea } from '../useOperatingArea'
@@ -256,16 +258,29 @@ export function SimulatorRoute() {
       : null
   // Reprodução: cada quadro vira a pose aplicada na cena, sem avaliar (RN-008).
   const craneCommands = crane?.commands
+  // A cena anda a cada quadro de animação; o estado React (setCrane) só quando `uiRefresh` (~10 Hz).
+  const lastCargoFrame = useRef<RecordingFrame | null>(null)
   const applyFrame = useCallback(
-    (frame: RecordingFrame) => {
+    (frame: RecordingFrame, pose: CraneState, uiRefresh: boolean) => {
       if (!craneCommands) return
       // Primeiro a carga (no chão ou no gancho), para as colisões já valerem para o quadro todo.
-      viewportRef.current?.setCargoPlayback(frame.cargo ?? null)
-      craneCommands.setTurretRotation(frame.crane.turretRotationDeg)
-      craneCommands.setBoomAngle(frame.crane.boomAngleDeg)
-      craneCommands.setBoomLength(frame.crane.boomLengthM)
-      craneCommands.setCableLength(frame.crane.cableLengthM)
-      setCrane(bindCrane(craneCommands))
+      if (lastCargoFrame.current !== frame) {
+        lastCargoFrame.current = frame
+        viewportRef.current?.setCargoPlayback(frame.cargo ?? null)
+      }
+      // Pose interpolada aplicada de uma vez, sem a guarda de colisão: o estado gravado já foi
+      // validado. A cena só reavalia uma vez, para manter os destaques de colisão.
+      craneCommands.setState(
+        {
+          ...pose,
+          turretRotationDeg: fitTurretRotation(
+            pose.turretRotationDeg,
+            craneCommands.limits.turretRotationDeg,
+          ),
+        },
+        { guarded: false },
+      )
+      if (uiRefresh) setCrane(bindCrane(craneCommands))
     },
     [craneCommands],
   )
@@ -291,7 +306,10 @@ export function SimulatorRoute() {
   const locked = playbackFrame !== null
   // Ao sair da reprodução, a carga volta ao estado ao vivo.
   useEffect(() => {
-    if (!locked) viewportRef.current?.setCargoPlayback(null)
+    if (!locked) {
+      lastCargoFrame.current = null
+      viewportRef.current?.setCargoPlayback(null)
+    }
   }, [locked])
   const controlsLocked = locked || planPlaying
   const shownResult = playbackFrame ? playbackFrame.evaluation : evaluation.result
@@ -778,6 +796,9 @@ export function SimulatorRoute() {
             commands={crane?.commands ?? null}
             onCraneMoved={handlePlanMoved}
             onPlaybackChange={setPlanPlaying}
+            refreshMs={
+              recording.recorder.status === 'recording' ? RECORDING_UI_REFRESH_MS : UI_REFRESH_MS
+            }
             onExtendOutriggers={handleExtendOutriggers}
             getHookAttachM={() => viewportRef.current?.hookAttachOffsetM() ?? null}
             onEngage={engageFromPlan}

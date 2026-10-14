@@ -60,4 +60,12 @@ export interface CraneCommands {
   setBoomAngle(deg: number): number
   setBoomLength(m: number): number
   setCableLength(m: number): number
+  /**
+   * Aplica de uma vez os campos informados (todos limitados à faixa) e devolve o estado resultante.
+   * Com a guarda de colisões da cena, a checagem é só no estado final: se ele colidir, o conjunto é
+   * recuado ao último estado seguro na reta entre o anterior e o pedido. Com `guarded: false` (a
+   * reprodução de uma gravação, cujo estado já foi validado), nada é recuado; a cena só atualiza os
+   * destaques de colisão.
+   */
+  setState(state: Partial<CraneState>, options?: { readonly guarded?: boolean }): CraneState
 }

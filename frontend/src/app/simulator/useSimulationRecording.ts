@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   advancePosition,
   frameIndexAt,
+  interpolateCraneState,
   loadChartRefsOf,
   timelineMarkers,
 } from '../../application/recording/playback'
@@ -29,9 +30,15 @@ import {
 } from '../../application/recording/recording'
 import { SimulationRecorder } from '../../application/recording/SimulationRecorder'
 import type { ScenarioSpec } from '../../domain/environment/environment'
+import type { CraneState } from '../../three/crane/types'
 import { createSimulationRecordingRestClient } from '../../infrastructure/api/simulationRecordingRestClient'
 
 const TICK_MS = 100
+/**
+ * Intervalo mínimo (ms) entre duas atualizações do estado React durante a reprodução (~5 Hz): a
+ * cena 3D segue a cada quadro de animação, mas a tela (posição, números, `setCrane`) não precisa.
+ */
+export const PLAYBACK_UI_REFRESH_MS = 200
 
 export interface UseSimulationRecordingOptions {
   /** Retrato atual do simulador; `null` enquanto a cena ou a configuração não estão prontas. */
@@ -43,10 +50,13 @@ export interface UseSimulationRecordingOptions {
   /** Relógio injetável (testes). */
   readonly now?: () => number
   /**
-   * Chamado a cada quadro que a reprodução passa a mostrar (abrir, andar, buscar). A tela o usa para
-   * pôr o guindaste na pose gravada. Não é chamado fora da reprodução.
+   * Chamado a cada quadro de animação da reprodução (e ao abrir, buscar ou pausar). `frame` é o
+   * quadro gravado vigente (carga, resultado) e `crane` a pose interpolada entre ele e o seguinte.
+   * A tela o usa para pôr o guindaste na pose gravada. `uiRefresh` é `true` no máximo a ~5 Hz (e
+   * sempre que não está tocando): só então o estado React deve ser atualizado. Não é chamado fora
+   * da reprodução.
    */
-  readonly onFrame?: (frame: RecordingFrame) => void
+  readonly onFrame?: (frame: RecordingFrame, crane: CraneState, uiRefresh: boolean) => void
 }
 
 export interface RecorderView {
@@ -130,14 +140,14 @@ export function useSimulationRecording(
   const [positionMs, setPositionMs] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeedState] = useState<PlaybackSpeed>(1)
+  // Posição de verdade da reprodução (a cada quadro de animação); `positionMs` é a cópia para a
+  // tela, atualizada a ~5 Hz. Quem muda uma muda a outra.
   const positionRef = useRef(0)
-  useEffect(() => {
-    positionRef.current = positionMs
-  }, [positionMs])
 
-  const emitFrame = useCallback((recording: SimulationRecording, ms: number) => {
+  const emitFrame = useCallback((recording: SimulationRecording, ms: number, uiRefresh = true) => {
     const frame = recording.frames[frameIndexAt(recording.frames, ms)]
-    if (frame) onFrameRef.current?.(frame)
+    const crane = interpolateCraneState(recording.frames, ms)
+    if (frame && crane) onFrameRef.current?.(frame, crane, uiRefresh)
   }, [])
 
   const finishRecording = useCallback((by?: RecordedSimulation['stoppedBy']) => {
@@ -255,6 +265,7 @@ export function useSimulationRecording(
           return
         }
         setOpened(recording)
+        positionRef.current = 0
         setPositionMs(0)
         emitFrame(recording, 0)
         setPlaying(false)
@@ -281,13 +292,19 @@ export function useSimulationRecording(
     if (!playing || opened === null) return
     let handle = 0
     let last = clockRef.current()
+    let lastUiRefresh = Number.NEGATIVE_INFINITY
     const step = () => {
       const now = clockRef.current()
       const next = advancePosition(positionRef.current, now - last, speed, opened.durationMs)
       last = now
       positionRef.current = next.positionMs
-      setPositionMs(next.positionMs)
-      emitFrame(opened, next.positionMs)
+      // A cena anda a cada quadro; o estado React só a ~5 Hz (e no fim).
+      const uiRefresh = next.ended || now - lastUiRefresh >= PLAYBACK_UI_REFRESH_MS
+      if (uiRefresh) {
+        lastUiRefresh = now
+        setPositionMs(next.positionMs)
+      }
+      emitFrame(opened, next.positionMs, uiRefresh)
       if (next.ended) setPlaying(false)
       else handle = window.requestAnimationFrame(step)
     }
@@ -305,7 +322,14 @@ export function useSimulationRecording(
     }
     setPlaying(true)
   }, [opened, emitFrame])
-  const pause = useCallback(() => setPlaying(false), [])
+  const pause = useCallback(() => {
+    setPlaying(false)
+    // Sincroniza a tela com a posição exata em que parou.
+    if (opened) {
+      setPositionMs(positionRef.current)
+      emitFrame(opened, positionRef.current)
+    }
+  }, [opened, emitFrame])
   const seek = useCallback(
     (value: number) => {
       const bounded = Math.min(Math.max(0, value), opened?.durationMs ?? 0)
@@ -321,6 +345,7 @@ export function useSimulationRecording(
   const close = useCallback(() => {
     setPlaying(false)
     setOpened(null)
+    positionRef.current = 0
     setPositionMs(0)
   }, [])
 

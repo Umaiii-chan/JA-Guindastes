@@ -1,6 +1,7 @@
 // Funções puras da reprodução e da linha do tempo (TASK-057; ADR-027). A reprodução só escolhe qual
 // quadro gravado mostrar; nunca reavalia (RN-008).
 
+import type { CraneState } from '../../three/crane/types'
 import type { CargoState } from '../../domain/cargo/cargoOperation'
 import {
   type LoadChartRef,
@@ -21,6 +22,39 @@ export function frameIndexAt(frames: readonly RecordingFrame[], positionMs: numb
     else high = middle - 1
   }
   return low
+}
+
+/** Diferença angular `to - from` pelo caminho mais curto, em (-180, 180]. */
+export function shortestAngleDeltaDeg(fromDeg: number, toDeg: number): number {
+  const wrapped = (((toDeg - fromDeg) % 360) + 360) % 360
+  return wrapped > 180 ? wrapped - 360 : wrapped
+}
+
+/**
+ * Estado do guindaste em `positionMs`, por interpolação linear entre o quadro anterior e o seguinte
+ * (o giro vai pelo caminho mais curto). Antes do primeiro e depois do último quadro, vale o próprio
+ * quadro. Só pose: o resultado da avaliação, a carga e o resto continuam sendo os do quadro gravado,
+ * nunca reavaliados (RN-008).
+ */
+export function interpolateCraneState(
+  frames: readonly RecordingFrame[],
+  positionMs: number,
+): CraneState | null {
+  const index = frameIndexAt(frames, positionMs)
+  if (index < 0) return null
+  const from = frames[index]
+  const to = frames[index + 1]
+  if (!to || positionMs <= from.tMs || to.tMs <= from.tMs) return { ...from.crane }
+  const fraction = Math.min(1, (positionMs - from.tMs) / (to.tMs - from.tMs))
+  const mix = (a: number, b: number) => a + (b - a) * fraction
+  return {
+    turretRotationDeg:
+      from.crane.turretRotationDeg +
+      shortestAngleDeltaDeg(from.crane.turretRotationDeg, to.crane.turretRotationDeg) * fraction,
+    boomAngleDeg: mix(from.crane.boomAngleDeg, to.crane.boomAngleDeg),
+    boomLengthM: mix(from.crane.boomLengthM, to.crane.boomLengthM),
+    cableLengthM: mix(from.crane.cableLengthM, to.crane.cableLengthM),
+  }
 }
 
 export function isPlaybackSpeed(value: number): value is PlaybackSpeed {
