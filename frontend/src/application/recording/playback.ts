@@ -1,6 +1,7 @@
 // Funções puras da reprodução e da linha do tempo (TASK-057; ADR-027). A reprodução só escolhe qual
 // quadro gravado mostrar; nunca reavalia (RN-008).
 
+import type { CargoState } from '../../domain/cargo/cargoOperation'
 import {
   type LoadChartRef,
   PLAYBACK_SPEEDS,
@@ -52,6 +53,7 @@ export function timelineMarkers(frames: readonly RecordingFrame[]): TimelineMark
   const markers: TimelineMarker[] = []
   let previousAlerts = new Map<string, string>()
   let previousCollisions = 0
+  let previousCargo: CargoState | null = null
   for (const frame of frames) {
     const alerts = alertKeys(frame)
     for (const [code, message] of alerts) {
@@ -63,6 +65,20 @@ export function timelineMarkers(frames: readonly RecordingFrame[]): TimelineMark
     if (collisions > previousCollisions) {
       markers.push({ tMs: frame.tMs, kind: 'collision', label: 'Colisão' })
     }
+    // Engatar e soltar a carga (TASK-073): a fase muda de um quadro para o outro.
+    const cargo = frame.cargo ?? null
+    if (cargo && previousCargo && cargo.phase !== previousCargo.phase) {
+      if (cargo.phase === 'hooked') {
+        markers.push({ tMs: frame.tMs, kind: 'engage', label: 'Carga engatada' })
+      } else {
+        markers.push({
+          tMs: frame.tMs,
+          kind: 'release',
+          label: cargo.result === 'delivered' ? 'Carga entregue' : 'Carga solta',
+        })
+      }
+    }
+    previousCargo = cargo
     previousAlerts = alerts
     previousCollisions = collisions
   }

@@ -28,6 +28,37 @@ export interface LoadBoxLayout {
   readonly slingTop: LocalPoint
   /** Os quatro cantos de cima da caixa, onde as lingas prendem. */
   readonly slingBottoms: readonly LocalPoint[]
+  /**
+   * Giro da caixa em torno de Y (graus) quando a carga foi engatada fora do eixo e girada (TASK-073);
+   * ausente = alinhada ao gancho e centrada nele.
+   */
+  readonly yawDeg?: number
+}
+
+/**
+ * Onde a carga está em relação ao gancho depois de engatada (TASK-073; ADR-035): deslocamento do centro
+ * no plano do gancho, giro relativo e a altura das lingas, que é a distância que havia entre o gancho
+ * e o topo da carga no momento de engatar.
+ */
+export interface HookedCargoPose {
+  readonly offsetX: number
+  readonly offsetZ: number
+  readonly yawDeg: number
+  readonly slingDropM: number
+}
+
+/** Mesma posição engatada? */
+export function sameHookedPose(
+  a: HookedCargoPose | null | undefined,
+  b: HookedCargoPose | null | undefined,
+): boolean {
+  if (!a || !b) return !a === !b
+  return (
+    a.offsetX === b.offsetX &&
+    a.offsetZ === b.offsetZ &&
+    a.yawDeg === b.yawDeg &&
+    a.slingDropM === b.slingDropM
+  )
 }
 
 /**
@@ -60,25 +91,39 @@ export function computeLoadBox(
   load: LoadDimensions | null | undefined,
   attachOffsetM: number = HOOK_ATTACH_OFFSET_M,
   accessoriesDropM = 0,
+  hooked: HookedCargoPose | null = null,
 ): LoadBoxLayout | null {
   if (!isValidLoad(load)) return null
   const attach =
     Number.isFinite(attachOffsetM) && attachOffsetM > 0 ? attachOffsetM : HOOK_ATTACH_OFFSET_M
   // TASK-056 (RN-014): a cadeia de acessórios desce o ponto das lingas e a caixa.
   const drop = Number.isFinite(accessoriesDropM) && accessoriesDropM > 0 ? accessoriesDropM : 0
-  const topY = -(attach + drop + slingDropM(load))
+  const sling = hooked ? hooked.slingDropM : slingDropM(load)
+  const topY = -(attach + drop + sling)
   const halfX = load.widthM / 2
   const halfZ = load.lengthM / 2
+  const offsetX = hooked?.offsetX ?? 0
+  const offsetZ = hooked?.offsetZ ?? 0
+  const yaw = ((hooked?.yawDeg ?? 0) * Math.PI) / 180
+  const cos = Math.cos(yaw)
+  const sin = Math.sin(yaw)
+  // Canto no referencial da caixa → plano do gancho (giro em torno de Y, como `rotation.y`).
+  const corner = (x: number, z: number): LocalPoint => ({
+    x: offsetX + x * cos + z * sin,
+    y: topY,
+    z: offsetZ - x * sin + z * cos,
+  })
   return {
     size: { x: load.widthM, y: load.heightM, z: load.lengthM },
-    center: { x: 0, y: topY - load.heightM / 2, z: 0 },
+    center: { x: offsetX, y: topY - load.heightM / 2, z: offsetZ },
     slingTop: { x: 0, y: -(attach + drop), z: 0 },
     slingBottoms: [
-      { x: -halfX, y: topY, z: -halfZ },
-      { x: halfX, y: topY, z: -halfZ },
-      { x: halfX, y: topY, z: halfZ },
-      { x: -halfX, y: topY, z: halfZ },
+      corner(-halfX, -halfZ),
+      corner(halfX, -halfZ),
+      corner(halfX, halfZ),
+      corner(-halfX, halfZ),
     ],
+    ...(hooked ? { yawDeg: hooked.yawDeg } : {}),
   }
 }
 

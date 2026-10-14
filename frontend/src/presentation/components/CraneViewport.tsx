@@ -1,5 +1,6 @@
 import { type Ref, useEffect, useImperativeHandle, useRef } from 'react'
 
+import type { CargoState, CargoStatus } from '../../domain/cargo/cargoOperation'
 import type { CollisionState } from '../../domain/collision/collisions'
 import type { ScenarioSpec } from '../../domain/environment/environment'
 import type { OutriggerState } from '../../domain/crane/outriggers'
@@ -27,6 +28,12 @@ export interface CraneViewportEditor {
 export interface CraneViewportHandle {
   /** Leva a câmera à predefinição, mesmo que seja a mesma de antes (reenquadra o estado atual). */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
+  /** Engata a carga que está no chão, se o gancho estiver perto dela (TASK-073). */
+  engageCargo(): boolean
+  /** Solta a carga engatada, se ela estiver perto do chão (TASK-073). */
+  releaseCargo(): boolean
+  /** Mostra o estado da carga de uma gravação em reprodução; `null` volta ao estado ao vivo. */
+  setCargoPlayback(state: CargoState | null): void
 }
 
 interface CraneViewportProps {
@@ -66,6 +73,8 @@ interface CraneViewportProps {
   scenario?: ScenarioSpec | null
   /** Recebe o estado de colisão da carga quando ele muda (TASK-053; RN-012). Não remonta a cena. */
   onCollisionChange?: (state: CollisionState) => void
+  /** Recebe a situação da coleta e entrega da carga quando ela muda (TASK-073). Não remonta a cena. */
+  onCargoChange?: (status: CargoStatus) => void
   /**
    * Patolas (TASK-054): extensão, macacos e nivelamento, animados na cena. Só move os nós de patola
    * que o modelo 3D tiver. Sem a prop, nada muda. Não remonta a cena.
@@ -105,6 +114,7 @@ export function CraneViewport({
   activeZoneCode = null,
   scenario,
   onCollisionChange,
+  onCargoChange,
   outriggers,
   operatingArea = null,
   accessories = null,
@@ -122,6 +132,7 @@ export function CraneViewport({
   const activeZoneRef = useRef(activeZoneCode)
   const scenarioRef = useRef(scenario)
   const collisionCallbackRef = useRef(onCollisionChange)
+  const cargoCallbackRef = useRef(onCargoChange)
   const operatingAreaRef = useRef(operatingArea)
   const appliedPresetRef = useRef<CameraPreset | undefined>(undefined)
   const outriggersRef = useRef(outriggers)
@@ -137,6 +148,9 @@ export function CraneViewport({
         appliedPresetRef.current = preset
         sceneRef.current?.setCameraPreset(preset, options)
       },
+      engageCargo: () => sceneRef.current?.engageCargo() ?? false,
+      releaseCargo: () => sceneRef.current?.releaseCargo() ?? false,
+      setCargoPlayback: (state) => sceneRef.current?.setCargoPlayback(state),
     }),
     [],
   )
@@ -147,6 +161,7 @@ export function CraneViewport({
 
     const handle = mountCraneScene(host, setup, {
       onCollisionChange: (state) => collisionCallbackRef.current?.(state),
+      onCargoChange: (status) => cargoCallbackRef.current?.(status),
       onAccessoryModelResult: (id, loaded) => accessoryResultRef.current?.(id, loaded),
     })
     sceneRef.current = handle
@@ -218,6 +233,10 @@ export function CraneViewport({
   useEffect(() => {
     collisionCallbackRef.current = onCollisionChange
   }, [onCollisionChange])
+
+  useEffect(() => {
+    cargoCallbackRef.current = onCargoChange
+  }, [onCargoChange])
 
   useEffect(() => {
     // TASK-052 desenha o cenário; TASK-053 usa os mesmos dados para colidir.

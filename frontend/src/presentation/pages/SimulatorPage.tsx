@@ -25,6 +25,8 @@ export interface SimulatorPageProps {
   readonly environment?: ReactNode
   /** Faixa de ferramentas do editor 3D do ambiente (TASK-066), sob a faixa de título. */
   readonly editorToolbar?: ReactNode
+  /** Faixa de coleta e entrega da carga (TASK-073), sob as ferramentas do editor. */
+  readonly operationBar?: ReactNode
 }
 
 /**
@@ -43,6 +45,7 @@ export function SimulatorPage({
   recording,
   environment,
   editorToolbar,
+  operationBar,
 }: SimulatorPageProps) {
   const stageRef = useRef<HTMLDivElement>(null)
   // Tela cheia (Fullscreen API) e painel recolhido: deixam a cena ocupar o espaço (TASK-062).
@@ -122,6 +125,7 @@ export function SimulatorPage({
           </div>
           {recording}
           {editorToolbar}
+          {operationBar}
         </div>
         <div className={styles.scene}>
           {viewport}

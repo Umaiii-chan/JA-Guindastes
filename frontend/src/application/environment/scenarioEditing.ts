@@ -206,7 +206,9 @@ export function environmentSummary(spec: ScenarioSpec): string {
     features === 0 &&
     spec.obstacles.length === 0 &&
     !spec.soilZones?.length &&
-    !(spec.wind && spec.wind.speedMs > 0)
+    !(spec.wind && spec.wind.speedMs > 0) &&
+    !spec.cargo &&
+    !spec.delivery
   )
     return 'Terreno plano, sem obstáculos'
   const soil = spec.soilZones?.length ?? 0
@@ -220,6 +222,8 @@ export function environmentSummary(spec: ScenarioSpec): string {
     spec.wind && spec.wind.speedMs > 0
       ? `vento ${spec.wind.speedMs.toLocaleString('pt-BR')} m/s`
       : null,
+    spec.cargo ? 'carga posicionada' : null,
+    spec.delivery ? 'ponto de entrega' : null,
   ]
   return parts.filter(Boolean).join(' · ')
 }

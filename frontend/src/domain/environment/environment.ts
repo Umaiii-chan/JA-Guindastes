@@ -85,6 +85,27 @@ export interface WindSpec {
   readonly directionDeg: number
 }
 
+/**
+ * Posição inicial da carga no chão (TASK-073; ADR-035): centro em (x, z) e giro em torno de Y. A caixa
+ * usa as medidas e o peso do passo "Carga"; a base assenta no terreno.
+ */
+export interface CargoPlacement {
+  readonly x: number
+  readonly z: number
+  readonly rotationYDeg: number
+}
+
+/** Ponto de entrega (TASK-073; ADR-035): alvo no chão; soltar a carga dentro de `radiusM` entrega. */
+export interface DeliveryPoint {
+  readonly x: number
+  readonly z: number
+  readonly rotationYDeg: number
+  readonly radiusM: number
+}
+
+/** Raio de tolerância padrão do ponto de entrega (m). */
+export const DEFAULT_DELIVERY_RADIUS_M = 2
+
 /** Cenário completo, como é salvo (TASK-052) e copiado na gravação (TASK-057). */
 export interface ScenarioSpec {
   readonly terrain: TerrainSpec
@@ -94,6 +115,10 @@ export interface ScenarioSpec {
   readonly soilZones?: readonly SoilZone[]
   /** Vento (TASK-066); ausente = sem vento. */
   readonly wind?: WindSpec
+  /** Carga no chão (TASK-073); ausente = a carga já nasce pendurada no gancho, como antes. */
+  readonly cargo?: CargoPlacement
+  /** Ponto de entrega (TASK-073); ausente = sem alvo. */
+  readonly delivery?: DeliveryPoint
 }
 
 export const EMPTY_SCENARIO: ScenarioSpec = {

@@ -156,3 +156,11 @@
 .collision {
   background: var(--color-danger, #c0392b);
 }
+
+.engage {
+  background: var(--color-accent, #d9480f);
+}
+
+.release {
+  background: var(--color-success, #2f6b3a);
+}
