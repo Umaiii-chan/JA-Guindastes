@@ -38,3 +38,8 @@ causaria colisão é bloqueado no último estado seguro e sinalizado.
 
 Desenho do terreno e dos obstáculos (TASK-052); colisão do corpo do guindaste com obstáculos;
 patolas (TASK-054); acessórios (TASK-056); qualquer decisão de capacidade (backend, RN-008).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14. Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

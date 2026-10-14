@@ -23,3 +23,8 @@
 - Migration no Postgres (CI) e mapeamento das colunas novas.
 - Painel: textos de redução e e2e com os campos do guindaste.
 - Tela do simulador enviar solo, vento e obstáculos (hoje só os tipos e os clientes aceitam).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14. Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

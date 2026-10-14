@@ -12,3 +12,8 @@
 - [x] CA-3 Frontend: cliente REST, seletor trocável a qualquer momento, `accessoryIds`, parcela "Acessórios" no HUD.
 - [x] CA-4 Carga desce a soma de `rigging_height_m`; carregador de GLB por acessório.
 - [ ] CA-5 Modelos 3D reais: pendentes de confirmação de download pela pessoa.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14. Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

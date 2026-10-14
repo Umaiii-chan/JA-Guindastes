@@ -307,7 +307,10 @@ newMeshLeaf('lanca-cabeca', tip, (mesh) => {
     const before = mesh.listPrimitives().length
     bake(mesh, node, tipFrame, R_BOOM)
     if (node.getName() === 'Boom_Nose__PBR') {
-      mesh.listPrimitives().slice(before).forEach((primitive) => primitive.setMaterial(boomMaterial))
+      mesh
+        .listPrimitives()
+        .slice(before)
+        .forEach((primitive) => primitive.setMaterial(boomMaterial))
     }
   }
 })

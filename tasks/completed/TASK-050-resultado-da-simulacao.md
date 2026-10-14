@@ -53,3 +53,8 @@ Causas verificadas no código:
 ## 4. Fora do escopo
 
 Tudo o mais da leva E (TASK-051..057). Interpolação entre comprimentos (PEND-001..003).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14. Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).
