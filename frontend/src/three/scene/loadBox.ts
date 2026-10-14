@@ -55,21 +55,27 @@ export function isValidLoad(load: LoadDimensions | null | undefined): load is Lo
  * Caixa da carga abaixo do gancho, ou `null` sem carga ou com medidas inválidas (fica só o gancho).
  * `attachOffsetM` é a distância de G até o ponto de amarração das lingas, na base do gancho; um valor
  * inválido (não finito ou ≤ 0) cai em `HOOK_ATTACH_OFFSET_M`.
+ *
+ * `accessoriesDropM` (TASK-056; RN-014): soma dos `rigging_height_m` da cadeia de acessórios entre o
+ * gancho e a carga (m). Desce o ponto das lingas e a caixa na mesma medida; valor inválido (não finito
+ * ou negativo) vale 0, e sem ele o resultado é idêntico ao anterior.
  */
 export function computeLoadBox(
   load: LoadDimensions | null | undefined,
   attachOffsetM: number = HOOK_ATTACH_OFFSET_M,
+  accessoriesDropM = 0,
 ): LoadBoxLayout | null {
   if (!isValidLoad(load)) return null
   const attach =
     Number.isFinite(attachOffsetM) && attachOffsetM > 0 ? attachOffsetM : HOOK_ATTACH_OFFSET_M
-  const topY = -(attach + slingDropM(load))
+  const drop = Number.isFinite(accessoriesDropM) && accessoriesDropM > 0 ? accessoriesDropM : 0
+  const topY = -(attach + drop + slingDropM(load))
   const halfX = load.widthM / 2
   const halfZ = load.lengthM / 2
   return {
     size: { x: load.widthM, y: load.heightM, z: load.lengthM },
     center: { x: 0, y: topY - load.heightM / 2, z: 0 },
-    slingTop: { x: 0, y: -attach, z: 0 },
+    slingTop: { x: 0, y: -(attach + drop), z: 0 },
     slingBottoms: [
       { x: -halfX, y: topY, z: -halfZ },
       { x: halfX, y: topY, z: -halfZ },

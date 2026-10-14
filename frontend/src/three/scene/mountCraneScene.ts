@@ -15,6 +15,11 @@ import {
   keepCameraAboveGround,
 } from '../controls/createOrbitControls'
 import type { CraneCommands, CraneSetup, CraneState } from '../crane/types'
+import {
+  AccessoryChain,
+  type AccessoryModelLoader,
+  type SceneAccessory,
+} from '../accessories/AccessoryChain'
 import { buildCraneScene } from './buildCraneScene'
 import { disposeObject3D } from './disposeObject3D'
 import type { LoadDimensions } from './loadBox'
@@ -38,6 +43,13 @@ export interface MountCraneSceneOptions {
   readonly loadModel?: CraneModelLoader | null
   /** Avisado quando a troca termina, com o modelo em uso ou o motivo de ficar no provisório. */
   readonly onModelResult?: (result: CraneModelUpgradeResult) => void
+  /**
+   * Carregador dos modelos 3D dos acessórios de içamento (TASK-056). Padrão: `loadGltf`. `null`:
+   * os acessórios entram só no peso e na distância, sem malha.
+   */
+  readonly loadAccessoryModel?: AccessoryModelLoader | null
+  /** Avisado quando o modelo de um acessório chega (`true`) ou não pôde ser carregado (`false`). */
+  readonly onAccessoryModelResult?: (accessoryId: string, loaded: boolean) => void
 }
 
 /** Opções de `setCameraPreset`. */
@@ -60,6 +72,11 @@ export interface CraneSceneHandle {
   setRotationZones(zones: readonly SceneRotationZone[]): void
   /** Destaca o setor da zona atual (`null` = nenhum). A UI decide qual é (resultado ou prévia por ψ). */
   setActiveRotationZone(code: string | null): void
+  /**
+   * Cadeia de acessórios de içamento entre o gancho e a carga (TASK-056; RN-014), na ordem do gancho
+   * para a carga. A carga desce a soma de `riggingHeightM`. Lista vazia remove. Só desenho.
+   */
+  setAccessories(accessories: readonly SceneAccessory[]): void
   /** Leva a câmera a uma predefinição, enquadrando o estado atual do guindaste. */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
   /** Para o laço de renderização e libera renderer, controles, geometrias e materiais. Idempotente. */
@@ -196,6 +213,12 @@ export function mountCraneScene(
     dirty = true
   }
 
+  const accessoryChain = new AccessoryChain({
+    loader: options.loadAccessoryModel,
+    onModelResult: options.onAccessoryModelResult,
+    onChange: invalidate,
+  })
+
   const resize = (): void => {
     const width = container.clientWidth
     const height = container.clientHeight
@@ -281,6 +304,11 @@ export function mountCraneScene(
       hookLoad.setLoad(load)
       invalidate()
     },
+    setAccessories(accessories) {
+      if (disposed || !accessoryChain.setAccessories(accessories)) return
+      hookLoad.setAccessories(accessoryChain.root, accessoryChain.totalDropM)
+      invalidate()
+    },
     setRotationZones(zones) {
       if (disposed || !rotationZones.setZones(zones)) return
       removeZoneLabels()
@@ -333,6 +361,7 @@ export function mountCraneScene(
       scaleBar.element.remove()
       hookLoad.dispose()
       disposeObject3D(scene)
+      accessoryChain.dispose()
       renderer.dispose()
       // Libera o contexto WebGL já, sem esperar o coletor de lixo: o navegador limita quantos
       // contextos podem existir (o StrictMode do React monta e desmonta a cena duas vezes em dev).

@@ -22,6 +22,7 @@ import {
   readRecord,
   readString,
 } from '../shared/readJson'
+import { readAccessories } from '../shared/evaluationAccessories'
 import { readZoneAndWeights } from '../shared/evaluationZone'
 
 export const EVALUATION_WEBSOCKET_PATH = '/api/v1/ws/evaluation'
@@ -38,6 +39,8 @@ export interface OperationalStatePayloadDto {
   readonly turret_rotation_deg: number
   readonly cable_length_m: number
   readonly load_weight_kg: number
+  /** TASK-056 (RN-014): só vai com acessórios escolhidos. */
+  readonly accessory_ids?: readonly string[]
 }
 
 /** Cliente → servidor. O backend recusa campo desconhecido (`INVALID_MESSAGE`). */
@@ -106,6 +109,9 @@ export function toStateChangedMessage(
       turret_rotation_deg: input.turretRotationDeg,
       cable_length_m: input.cableLengthM,
       load_weight_kg: input.loadWeightKg,
+      ...(input.accessoryIds && input.accessoryIds.length > 0
+        ? { accessory_ids: input.accessoryIds }
+        : {}),
     },
   }
 }
@@ -176,6 +182,7 @@ function mapEvaluatedPayload(payload: JsonRecord): EvaluationResult {
     loadChartId: readNullableString(payload, 'load_chart_id', path),
     loadChartVersion: readNullableString(payload, 'load_chart_version', path),
     ...readZoneAndWeights(payload, path),
+    ...readAccessories(payload, path),
   }
   if (result === 'EVALUATED') {
     if (common.capacity === null) throw new ContractViolationError(`${path}.capacity`, 'objeto')

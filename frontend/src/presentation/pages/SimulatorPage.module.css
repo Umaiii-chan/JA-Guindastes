@@ -19,6 +19,14 @@
   min-height: 0;
 }
 
+/* Acessórios de içamento (TASK-056): sob os passos, com rolagem própria se faltar altura. */
+.accessories {
+  flex: 0 0 auto;
+  max-height: 42%;
+  margin-top: var(--space-3);
+  overflow-y: auto;
+}
+
 .drawing {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;

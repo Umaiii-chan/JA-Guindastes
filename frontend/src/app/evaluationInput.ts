@@ -13,6 +13,7 @@ export function buildEvaluationInput(
   craneState: CraneState | null,
   configurationId: string,
   loadWeightText: string,
+  accessoryIds: readonly string[] = [],
 ): EvaluationInputResult {
   if (craneState === null) return { input: null, problem: 'Aguardando a cena 3D.' }
   const trimmedId = configurationId.trim()
@@ -35,6 +36,8 @@ export function buildEvaluationInput(
       turretRotationDeg: craneState.turretRotationDeg,
       cableLengthM: craneState.cableLengthM,
       loadWeightKg,
+      // Só vai ao backend com acessórios escolhidos (TASK-056; RN-014).
+      ...(accessoryIds.length > 0 ? { accessoryIds } : {}),
     },
     problem: null,
   }

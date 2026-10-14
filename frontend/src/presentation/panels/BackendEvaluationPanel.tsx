@@ -160,6 +160,16 @@ export function BackendEvaluationPanel({
                   : '—'}
               </Metric>
             </dl>
+            {shown?.accessoriesWeightKg !== null && shown?.accessoriesWeightKg !== undefined && (
+              <>
+                <span className={styles.partsOperator} aria-hidden="true">
+                  +
+                </span>
+                <dl className={styles.part}>
+                  <Metric label="Acessórios">{kilograms(shown.accessoriesWeightKg)}</Metric>
+                </dl>
+              </>
+            )}
             <span className={styles.partsOperator} aria-hidden="true">
               =
             </span>
@@ -267,6 +277,14 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
     rows.push({
       label: 'Peso comparado (carga + gancho)',
       value: `${kilograms(result.comparedWeightKg)}${result.hookBlockWeightKg !== null ? ` (gancho ${kilograms(result.hookBlockWeightKg)})` : ''}`,
+    })
+  }
+  if (result.accessories !== undefined && result.accessories.length > 0) {
+    rows.push({
+      label: 'Acessórios de içamento (RN-014)',
+      value: result.accessories
+        .map((item) => `${item.name} ${kilograms(item.weightKg)}`)
+        .join(' · '),
     })
   }
   if (result.workingRadiusM !== null) {

@@ -99,6 +99,8 @@ describe('cliente REST da avaliação', () => {
       rotationZoneName: null,
       hookBlockWeightKg: null,
       comparedWeightKg: null,
+      accessoriesWeightKg: null,
+      accessories: [],
     })
   })
 
@@ -114,6 +116,8 @@ describe('cliente REST da avaliação', () => {
       rotationZoneName: null,
       hookBlockWeightKg: null,
       comparedWeightKg: null,
+      accessoriesWeightKg: null,
+      accessories: [],
       reasons: [
         { code: 'CRANE_GEOMETRY_NOT_FOUND', category: 'EVALUATION' },
         { code: 'ACTIVE_LOAD_CHART_NOT_FOUND', category: 'EVALUATION' },

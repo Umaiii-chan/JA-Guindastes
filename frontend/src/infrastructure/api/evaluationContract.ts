@@ -13,6 +13,8 @@ export interface EvaluationRequestDto {
   readonly turret_rotation_deg: number
   readonly cable_length_m: number
   readonly load_weight_kg: number
+  /** TASK-056 (RN-014): só vai com acessórios escolhidos. */
+  readonly accessory_ids?: readonly string[]
 }
 
 export interface Point3DDto {
@@ -67,6 +69,9 @@ export interface EvaluationResponseDto {
   readonly hook_block_weight_kg?: number
   /** Carga + gancho: o valor comparado com a capacidade. */
   readonly compared_weight_kg?: number
+  /** TASK-056 (RN-014): soma dos acessórios (`null` sem acessórios) e a lista somada. */
+  readonly accessories_weight_kg?: number | null
+  readonly accessories?: readonly { id: string; name: string; weight_kg: number }[]
 }
 
 export function toEvaluationRequestDto(input: EvaluationInput): EvaluationRequestDto {
@@ -77,5 +82,8 @@ export function toEvaluationRequestDto(input: EvaluationInput): EvaluationReques
     turret_rotation_deg: input.turretRotationDeg,
     cable_length_m: input.cableLengthM,
     load_weight_kg: input.loadWeightKg,
+    ...(input.accessoryIds && input.accessoryIds.length > 0
+      ? { accessory_ids: input.accessoryIds }
+      : {}),
   }
 }

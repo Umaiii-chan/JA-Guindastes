@@ -48,6 +48,8 @@ describe('mensagens do WebSocket de avaliação', () => {
         rotationZoneName: null,
         hookBlockWeightKg: null,
         comparedWeightKg: null,
+        accessoriesWeightKg: null,
+        accessories: [],
       },
     })
   })

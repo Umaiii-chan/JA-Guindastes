@@ -1,5 +1,6 @@
 import { type Ref, useEffect, useImperativeHandle, useRef } from 'react'
 
+import type { SceneAccessory } from '../../three/accessories/AccessoryChain'
 import type { CameraPreset } from '../../three/camera/cameraPresets'
 import type { CraneCommands, CraneSetup } from '../../three/crane/types'
 import type { LoadDimensions } from '../../three/scene/loadBox'
@@ -47,6 +48,14 @@ interface CraneViewportProps {
    * decide). `null` = nenhuma. Não remonta a cena.
    */
   activeZoneCode?: string | null
+  /**
+   * Cadeia de acessórios de içamento entre o gancho e a carga (TASK-056; RN-014): cada um ocupa
+   * `riggingHeightM` abaixo do gancho e a carga desce a soma. Sem ela (padrão), nada muda na cena.
+   * Não remonta a cena.
+   */
+  accessories?: readonly SceneAccessory[] | null
+  /** Avisado quando o modelo 3D de um acessório chega (`true`) ou não pôde ser carregado (`false`). */
+  onAccessoryModelResult?: (accessoryId: string, loaded: boolean) => void
   /** API imperativa (`CraneViewportHandle`). */
   ref?: Ref<CraneViewportHandle>
 }
@@ -64,6 +73,8 @@ export function CraneViewport({
   cameraPreset,
   rotationZones = null,
   activeZoneCode = null,
+  accessories = null,
+  onAccessoryModelResult,
   ref,
 }: CraneViewportProps) {
   const canvasHostRef = useRef<HTMLDivElement>(null)
@@ -75,6 +86,8 @@ export function CraneViewport({
   const zonesRef = useRef<readonly SceneRotationZone[]>(rotationZones ?? [])
   const activeZoneRef = useRef(activeZoneCode)
   const appliedPresetRef = useRef<CameraPreset | undefined>(undefined)
+  const accessoriesRef = useRef<readonly SceneAccessory[]>(accessories ?? [])
+  const accessoryResultRef = useRef(onAccessoryModelResult)
 
   useImperativeHandle(
     ref,
@@ -92,8 +105,11 @@ export function CraneViewport({
     const host = canvasHostRef.current
     if (!host) return
 
-    const handle = mountCraneScene(host, setup)
+    const handle = mountCraneScene(host, setup, {
+      onAccessoryModelResult: (id, loaded) => accessoryResultRef.current?.(id, loaded),
+    })
     sceneRef.current = handle
+    handle.setAccessories(accessoriesRef.current)
     handle.setEvaluationStatus(statusRef.current)
     handle.setLoad(loadRef.current)
     handle.setRotationZones(zonesRef.current)
@@ -109,6 +125,10 @@ export function CraneViewport({
       handle.dispose()
     }
   }, [setup, onCraneChange])
+
+  useEffect(() => {
+    accessoryResultRef.current = onAccessoryModelResult
+  }, [onAccessoryModelResult])
 
   useEffect(() => {
     statusRef.current = evaluationStatus
@@ -135,6 +155,14 @@ export function CraneViewport({
     zonesRef.current = zones
     sceneRef.current?.setRotationZones(zones)
   }, [zonesKey])
+
+  // Dependência no conteúdo da cadeia, não no array: a UI pode mandar um array novo a cada render.
+  const accessoriesKey = JSON.stringify(accessories ?? [])
+  useEffect(() => {
+    const chain = JSON.parse(accessoriesKey) as SceneAccessory[]
+    accessoriesRef.current = chain
+    sceneRef.current?.setAccessories(chain)
+  }, [accessoriesKey])
 
   useEffect(() => {
     activeZoneRef.current = activeZoneCode
