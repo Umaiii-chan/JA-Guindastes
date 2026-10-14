@@ -35,6 +35,7 @@ from app.domain.value_objects.conservative_capacity_result import (
 from app.domain.value_objects.interpolated_capacity_result import InterpolatedCapacityFound
 from app.domain.value_objects.operational_geometry import OperationalGeometry, Point3D
 from app.presentation.api.load_chart_schemas import LoadChartPointResponse
+from app.presentation.api.outrigger_schemas import OutriggersRequest
 
 
 class EvaluationRequest(BaseModel):
@@ -73,6 +74,10 @@ class EvaluationRequest(BaseModel):
         "(ADR-013 C-3).",
     )
     load_weight_kg: float = Field(ge=0, description="Peso da carga, em quilogramas.")
+    outriggers: OutriggersRequest | None = Field(
+        default=None,
+        description="Patolas (TASK-054). Opcional; validado, mas ainda sem uso no cálculo.",
+    )
 
 
 class Point3DResponse(BaseModel):

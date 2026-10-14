@@ -11,6 +11,7 @@ import type {
   EvaluationInput,
   EvaluationResult,
 } from '../../domain/evaluation/evaluation'
+import { type OutriggersDto, toOutriggersDto } from '../api/evaluationContract'
 import {
   ContractViolationError,
   type JsonRecord,
@@ -39,6 +40,8 @@ export interface OperationalStatePayloadDto {
   readonly turret_rotation_deg: number
   readonly cable_length_m: number
   readonly load_weight_kg: number
+  /** Patolas (TASK-054); omitido quando a tela não as informa. */
+  readonly outriggers?: OutriggersDto
 }
 
 /** Cliente → servidor. O backend recusa campo desconhecido (`INVALID_MESSAGE`). */
@@ -107,6 +110,7 @@ export function toStateChangedMessage(
       turret_rotation_deg: input.turretRotationDeg,
       cable_length_m: input.cableLengthM,
       load_weight_kg: input.loadWeightKg,
+      ...toOutriggersDto(input),
     },
   }
 }
