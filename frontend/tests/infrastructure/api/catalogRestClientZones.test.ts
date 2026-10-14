@@ -37,7 +37,7 @@ function clientAnswering(response: Response) {
   return createCatalogRestClient({ fetchFn })
 }
 
-describe('cliente REST do catálogo — zonas de giro e gancho (TASK-046)', () => {
+describe('cliente REST do catálogo — zonas de giro e gancho', () => {
   it('lê rotation_zones e hook_block_weight_kg; ausentes = sem zonas e sem gancho', async () => {
     const fetchFn = createFakeCatalogFetch(catalogComZonasFicticio())
     const [withZones, withoutZones] = await createCatalogRestClient({
@@ -117,7 +117,7 @@ describe('cliente REST do catálogo — zonas de giro e gancho (TASK-046)', () =
     expect(error.message).toContain(
       'Esta configuração já tem tabelas importadas sem zona. Crie outra configuração para usar zonas de giro.',
     )
-    expect(error.message).toContain('Detalhe do backend: a configuração já tem tabelas')
+    expect(error.message).toContain('Detalhe do servidor: a configuração já tem tabelas')
     // Na mesma posição de ROTATION_ZONE_IN_USE: depois do 404 e do 422 das zonas.
     const missing = await rejection(
       client.updateConfiguration('CFG-X', { rotationZones: ZONAS_FICTICIAS }),
@@ -212,7 +212,7 @@ describe('cliente REST do catálogo — zonas de giro e gancho (TASK-046)', () =
     expect(missing.code).toBe('NOT_FOUND')
   })
 
-  it('o backend falso também recusa zonas que não cobrem 360° (422)', async () => {
+  it('o servidor falso também recusa zonas que não cobrem 360° (422)', async () => {
     const fetchFn = createFakeCatalogFetch(catalogFicticio())
     const error = await rejection(
       createCatalogRestClient({ fetchFn }).createConfiguration('GUI-A1', {

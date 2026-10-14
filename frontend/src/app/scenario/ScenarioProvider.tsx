@@ -11,7 +11,7 @@ import {
 } from './scenarioContext'
 
 function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : 'Falha inesperada ao falar com o backend.'
+  return error instanceof Error ? error.message : 'Falha inesperada ao falar com o servidor.'
 }
 
 function summaryOf(scenario: ScenarioSummary): ScenarioSummary {

@@ -31,7 +31,7 @@ function renderText(props: Partial<BackendEvaluationPanelProps>): string {
 const withSafety = (tippingRisk: string | null, alerts: unknown[]) =>
   mapEvaluationResponse({ ...REST_EVALUATED, tipping_risk: tippingRisk, alerts })
 
-describe('selo de risco e alertas no HUD (TASK-055)', () => {
+describe('selo de risco e alertas no HUD', () => {
   it.each([
     ['LOW', 'Risco de tombamento: baixo'],
     ['ATTENTION', 'Risco de tombamento: atenção'],
@@ -40,7 +40,7 @@ describe('selo de risco e alertas no HUD (TASK-055)', () => {
     expect(renderText({ result: withSafety(risk, []) })).toContain(label)
   })
 
-  it('lista os alertas com a gravidade e a mensagem do backend', () => {
+  it('lista os alertas com a gravidade e a mensagem do servidor', () => {
     const text = renderText({
       result: withSafety('HIGH', [
         {

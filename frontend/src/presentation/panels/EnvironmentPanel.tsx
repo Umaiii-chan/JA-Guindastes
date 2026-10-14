@@ -5,8 +5,6 @@ import {
   addFeature,
   addObstacle,
   FEATURE_KIND_LABELS,
-  FICTITIOUS_FOOTPRINT_HALF_LENGTH_M,
-  FICTITIOUS_FOOTPRINT_HALF_WIDTH_M,
   MAX_OBSTACLES,
   MAX_TERRAIN_FEATURES,
   OBSTACLE_KIND_LABELS,
@@ -236,8 +234,7 @@ export function EnvironmentPanel({
   return (
     <div className={styles.panel}>
       <Notice tone="info" compact>
-        Valores FICTÍCIOS: o terreno e os obstáculos só são desenhados. A inclinação sob as sapatas
-        vai ao backend como <code>ground_slope_deg</code>, que ainda não a usa.
+        A inclinação do terreno sob o guindaste entra no risco de tombamento.
       </Notice>
 
       <section className={styles.section} aria-labelledby="env-saved">
@@ -295,7 +292,7 @@ export function EnvironmentPanel({
           <Input
             type="text"
             autoComplete="off"
-            placeholder={current?.name ?? 'ex.: Pátio FICTÍCIO com rampa'}
+            placeholder={current?.name ?? 'ex.: Pátio com rampa'}
             value={name}
             onChange={(event) => setName(event.currentTarget.value)}
           />
@@ -436,7 +433,7 @@ export function EnvironmentPanel({
         <p className={styles.fineprint} role="status">
           {groundSlopeDeg === undefined
             ? 'Terreno plano: nenhuma inclinação é enviada à avaliação.'
-            : `Inclinação sob as sapatas FICTÍCIAS (${FICTITIOUS_FOOTPRINT_HALF_LENGTH_M * 2} × ${FICTITIOUS_FOOTPRINT_HALF_WIDTH_M * 2} m): ${groundSlopeDeg.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}°, enviada como ground_slope_deg.`}
+            : `Inclinação sob o guindaste: ${groundSlopeDeg.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}°.`}
         </p>
       </section>
     </div>

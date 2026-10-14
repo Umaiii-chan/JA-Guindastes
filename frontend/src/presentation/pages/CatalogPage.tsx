@@ -247,7 +247,7 @@ export function CatalogPage({
                     title="O catálogo está vazio"
                     description={
                       canEdit
-                        ? 'Comece cadastrando um fabricante (FICTÍCIO).'
+                        ? 'Comece cadastrando um fabricante.'
                         : 'Peça a um administrador para cadastrar os guindastes.'
                     }
                     action={

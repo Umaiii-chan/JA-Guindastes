@@ -12,7 +12,7 @@ import {
 } from '../../fixtures/evaluationResponses'
 
 describe('mensagens do WebSocket de avaliação', () => {
-  it('monta simulation.state.changed com o sequence e o payload do backend', () => {
+  it('monta simulation.state.changed com o sequence e o payload do servidor', () => {
     expect(toStateChangedMessage(7, FICTICIO_INPUT)).toEqual({
       type: 'simulation.state.changed',
       sequence: 7,

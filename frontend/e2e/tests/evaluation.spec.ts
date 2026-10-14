@@ -15,10 +15,10 @@ const seed = {
 // Reasons do backend quando a configuração ou a tabela ativa não existem (evaluate_operation.py).
 const MISSING_DATA_REASONS = ['CRANE_GEOMETRY_NOT_FOUND', 'ACTIVE_LOAD_CHART_NOT_FOUND']
 
-test.describe('avaliação pelo backend', () => {
+test.describe('avaliação pelo servidor', () => {
   test.skip(!hasBackend, 'precisa da stack com backend atrás de /api (defina E2E_BACKEND=1)')
 
-  test('o catálogo carrega do backend e, sem configuração escolhida, a avaliação não é enviada', async ({
+  test('o catálogo carrega do servidor e, sem configuração escolhida, a avaliação não é enviada', async ({
     page,
   }) => {
     await page.goto('/simulador')

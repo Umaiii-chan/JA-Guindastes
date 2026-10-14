@@ -81,7 +81,7 @@ export function TablesPage({ selection, configuration, gateway, canEdit }: Table
               <EmptyState
                 icon={<Settings2 size={24} />}
                 title="Escolha a configuração"
-                description="Cada tabela de carga pertence a uma configuração do guindaste (RN-001). Escolha fabricante, guindaste e configuração ao lado para importar e ver as versões."
+                description="Cada tabela de carga pertence a uma configuração do guindaste. Escolha fabricante, guindaste e configuração ao lado para importar e ver as versões."
               />
             </Panel>
           </div>

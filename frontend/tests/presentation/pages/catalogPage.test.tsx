@@ -281,7 +281,7 @@ describe('página Catálogo', () => {
     expect(screen.getByRole('button', { name: 'Cadastrar fabricante' })).toBeTruthy()
   })
 
-  it('erro do backend: alerta e "Tentar de novo" recarrega', async () => {
+  it('erro do servidor: alerta e "Tentar de novo" recarrega', async () => {
     let failing = true
     vi.stubGlobal(
       'fetch',
@@ -305,7 +305,7 @@ describe('página Catálogo', () => {
   })
 })
 
-describe('página Catálogo — edição com PATCH (TASK-044)', () => {
+describe('página Catálogo — edição com PATCH', () => {
   const ACTIVE_CHART = {
     chart_id: 'TAB-ATIVA',
     version: 'v3',
@@ -406,7 +406,7 @@ describe('página Catálogo — edição com PATCH (TASK-044)', () => {
     expect(patches()).toHaveLength(1)
   })
 
-  it('nada mudou: avisa no Drawer e não chama o backend', async () => {
+  it('nada mudou: avisa no Drawer e não chama o servidor', async () => {
     const { patches } = stubBackend()
     const { detail } = await openEditor()
     fireEvent.click(within(detail).getByRole('button', { name: 'Editar' }))
@@ -432,7 +432,7 @@ describe('página Catálogo — edição com PATCH (TASK-044)', () => {
     ])
   })
 
-  it('422 do backend num campo da ficha vai para o campo', async () => {
+  it('422 do servidor num campo da ficha vai para o campo', async () => {
     const data = catalogFicticio()
     vi.stubGlobal(
       'fetch',

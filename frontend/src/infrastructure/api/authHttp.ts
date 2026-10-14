@@ -35,7 +35,7 @@ const DEFAULT_MESSAGES: Readonly<Record<string, string>> = {
   LAST_ADMIN: 'O sistema precisa de pelo menos um administrador ativo.',
   OWN_ADMIN_ACCESS: 'Você não pode desativar a própria conta nem tirar o próprio perfil de admin.',
   USER_NOT_FOUND: 'Usuário não encontrado.',
-  CSRF_HEADER_MISSING: 'Requisição recusada pelo backend (cabeçalho de proteção ausente).',
+  CSRF_HEADER_MISSING: 'Requisição recusada pelo servidor (cabeçalho de proteção ausente).',
   SCENARIO_NOT_FOUND: 'Cenário não encontrado (talvez já tenha sido apagado).',
 }
 
@@ -56,7 +56,7 @@ export function createSendJson(options: AuthHttpOptions = {}): SendJson {
     } catch {
       throw new AuthRequestError(
         'NETWORK_ERROR',
-        'Não foi possível falar com o backend (falha de rede).',
+        'Não foi possível falar com o servidor (falha de rede).',
       )
     }
     const json = await readBody(response)
@@ -79,7 +79,7 @@ export function errorFromResponse(status: number, body: unknown): AuthRequestErr
   if (status === 422 && Array.isArray(detail)) {
     return new AuthRequestError(
       'VALIDATION',
-      'O backend recusou os dados (HTTP 422). Corrija os campos indicados.',
+      'O servidor recusou os dados (HTTP 422). Corrija os campos indicados.',
       status,
       detail.map(toFieldError),
     )
@@ -95,7 +95,7 @@ export function errorFromResponse(status: number, body: unknown): AuthRequestErr
   }
   return new AuthRequestError(
     'HTTP_ERROR',
-    `O backend respondeu HTTP ${status}${message ? `: ${message}` : ''}.`,
+    `O servidor respondeu HTTP ${status}${message ? `: ${message}` : ''}.`,
     status,
   )
 }

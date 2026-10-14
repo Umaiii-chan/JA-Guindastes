@@ -131,7 +131,7 @@ describe('createLoadChartRestClient — importação', () => {
     expect(error.message).toContain('body.version — Field required')
   })
 
-  it('415 → erro de formato não reconhecido, com o detalhe do backend', async () => {
+  it('415 → erro de formato não reconhecido, com o detalhe do servidor', async () => {
     const { client } = clientAnswering(
       jsonResponse({ detail: 'formato de arquivo não suportado' }, 415),
     )
@@ -222,7 +222,7 @@ describe('createLoadChartRestClient — ativação', () => {
   })
 })
 
-describe('createLoadChartRestClient — validação prévia (TASK-042)', () => {
+describe('createLoadChartRestClient — validação prévia', () => {
   it('envia o mesmo multipart para /validate e devolve VALID com os pontos', async () => {
     const { fetchFn, client } = clientAnswering(
       jsonResponse({ ...IMPORTED_DRAFT, source: undefined, issues: [] }, 200),
@@ -272,7 +272,7 @@ describe('createLoadChartRestClient — validação prévia (TASK-042)', () => {
   })
 })
 
-describe('createLoadChartRestClient — consulta (TASK-042)', () => {
+describe('createLoadChartRestClient — consulta', () => {
   it('GET /load-charts/{id} com o id codificado → tabela gravada', async () => {
     const { fetchFn, client } = clientAnswering(jsonResponse(ACTIVATED_FIRST, 200))
 
@@ -293,7 +293,7 @@ describe('createLoadChartRestClient — consulta (TASK-042)', () => {
   })
 })
 
-describe('createLoadChartRestClient — listagem por configuração (TASK-044)', () => {
+describe('createLoadChartRestClient — listagem por configuração', () => {
   const summary = {
     configuration_id: IMPORTED_DRAFT.configuration_id,
     point_count: IMPORTED_DRAFT.point_count,
@@ -383,7 +383,7 @@ describe('createLoadChartRestClient — listagem por configuração (TASK-044)',
     })
   })
 
-  it('404 → CONFIGURATION_NOT_FOUND com o detalhe do backend', async () => {
+  it('404 → CONFIGURATION_NOT_FOUND com o detalhe do servidor', async () => {
     const { client } = clientAnswering(jsonResponse({ detail: 'Configuração X não existe' }, 404))
     const error = await rejection(client.listConfigurationCharts('CFG-X'))
     expect(error.code).toBe(LOAD_CHART_CLIENT_ERROR_CODES.configurationNotFound)

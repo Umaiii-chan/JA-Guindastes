@@ -164,7 +164,7 @@ describe('GLB do guindaste sobre caminhão (public/models, TASK-043)', () => {
     expect(result.report).toEqual({ errors: [], warnings: [], synthesizedRoles: [] })
   })
 
-  it('o CraneController comanda o rig: o gancho fica em G (ADR-013 C-5) e na vertical da ponta', async () => {
+  it('o CraneController comanda o rig: o gancho fica em G e na vertical da ponta', async () => {
     const result = mapTruckCraneKinematics(await loadModel(), MODEL_CONFIG)
     if (!result.ok) throw new Error(JSON.stringify(result.report))
     const crane = new CraneController(

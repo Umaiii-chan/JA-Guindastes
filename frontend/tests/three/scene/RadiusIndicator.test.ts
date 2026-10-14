@@ -118,7 +118,7 @@ describe('RadiusIndicator', () => {
     expect(ring(target).material.color.equals(colorOf('ok'))).toBe(true)
   })
 
-  it('traço de tinta: anel sem brilho, linha radial e arcos de alcance tracejados (ADR-019)', () => {
+  it('traço de tinta: anel sem brilho, linha radial e arcos de alcance tracejados', () => {
     const target = indicator()
     target.update({ workingRadiusM: 8, turretRotationDeg: 30 })
     target.setStatus('over')

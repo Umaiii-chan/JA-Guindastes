@@ -73,7 +73,7 @@ export function UsersPage({ mode, gateway, currentUserId }: UsersPageProps) {
             icon={<DatabaseZap size={24} />}
             tone="warning"
             title="Modo sem autenticação (sem banco)"
-            description="O backend está sem banco de dados: não há login nem contas. A gestão de usuários só existe com o banco ligado."
+            description="O servidor está sem banco de dados: não há login nem contas. A gestão de usuários só existe com o banco ligado."
           />
         </Panel>
       </Page>

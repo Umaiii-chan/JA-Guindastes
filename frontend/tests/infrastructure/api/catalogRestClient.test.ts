@@ -104,7 +104,7 @@ describe('cliente REST do catálogo — leituras', () => {
 })
 
 describe('cliente REST do catálogo — cadastros', () => {
-  it('envia os pedidos de criação com os nomes de campo do backend', async () => {
+  it('envia os pedidos de criação com os nomes de campo do servidor', async () => {
     const fetchFn = createFakeCatalogFetch(catalogFicticio())
     const client = createCatalogRestClient({ fetchFn })
 
@@ -203,7 +203,7 @@ describe('cliente REST do catálogo — cadastros', () => {
   it.each([
     [404, 'NOT_FOUND', 'Guindaste GUI-X não encontrado.'],
     [409, 'CONFLICT', 'Já existe um registro com o id FICTICIO.'],
-  ] as const)('%i vira %s com o detail do backend', async (status, code, detail) => {
+  ] as const)('%i vira %s com o detail do servidor', async (status, code, detail) => {
     const { client } = clientAnswering(jsonResponse({ detail }, status))
 
     const error = await rejection(
@@ -215,7 +215,7 @@ describe('cliente REST do catálogo — cadastros', () => {
     expect(error.fieldErrors).toEqual([])
   })
 
-  it('PATCH (TASK-044): envia só os campos que mudam, com o cabeçalho CSRF', async () => {
+  it('PATCH: envia só os campos que mudam, com o cabeçalho CSRF', async () => {
     const fetchFn = createFakeCatalogFetch(catalogFicticio())
     const client = createCatalogRestClient({ fetchFn })
 
@@ -274,7 +274,7 @@ describe('cliente REST do catálogo — cadastros', () => {
     expect(missing.code).toBe('NOT_FOUND')
   })
 
-  it('PATCH: 404 vira NOT_FOUND com o detail do backend (sem campo code)', async () => {
+  it('PATCH: 404 vira NOT_FOUND com o detail do servidor (sem campo code)', async () => {
     const detail = "configuração com id 'CFG-X' não existe"
     const { client } = clientAnswering(jsonResponse({ detail }, 404))
     const error = await rejection(client.updateConfiguration('CFG-X', { name: 'Outro' }))

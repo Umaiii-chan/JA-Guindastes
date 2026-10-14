@@ -37,7 +37,7 @@ describe('zonas de giro', () => {
     expect(formatZoneSector(FRONT_110_REAR_250_PRESET[0])).toBe('305° → 55° (110°)')
   })
 
-  it('ψ escolhe a zona na pré-visualização, passando por 0° e com ψ negativo (ADR-013)', () => {
+  it('ψ escolhe a zona na pré-visualização, passando por 0° e com ψ negativo', () => {
     const zones = ZONAS_FICTICIAS
     expect(zoneAtRotation(zones, 0)?.code).toBe('FRONTAL')
     expect(zoneAtRotation(zones, 54.9)?.code).toBe('FRONTAL')

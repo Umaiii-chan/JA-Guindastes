@@ -13,8 +13,8 @@ interface SentBody {
   outriggers?: { extension_percent: number; jacks_set: boolean }
 }
 
-test.describe('patolas, no navegador (TASK-054)', () => {
-  test.skip(hasBackend, 'com backend, o contrato é conferido nos testes do backend')
+test.describe('patolas, no navegador', () => {
+  test.skip(hasBackend, 'com backend, o contrato é conferido nos testes do servidor')
 
   test('estender, apoiar e nivelar avisam enquanto não prontas e vão à avaliação', async ({
     page,

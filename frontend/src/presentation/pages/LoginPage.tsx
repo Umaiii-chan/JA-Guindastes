@@ -2,7 +2,7 @@ import { Eye, EyeOff, LogIn, UserRound } from 'lucide-react'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 
 import { Wordmark } from '../layout/Wordmark'
-import { Badge, Button, Field, Input, Notice, Spinner, type Tone } from '../ui'
+import { Button, Field, Input, Notice, Spinner, type Tone } from '../ui'
 import styles from './LoginPage.module.css'
 
 export type LoginSubmitResult =
@@ -152,13 +152,6 @@ export function LoginPage({ status, notice, onSubmit }: LoginPageProps) {
             </Button>
           </form>
         )}
-
-        <p className={styles.footnote}>
-          <Badge tone="warning" variant="outline">
-            FICTÍCIO
-          </Badge>
-          Ambiente acadêmico: guindastes, tabelas e resultados são dados de demonstração.
-        </p>
       </section>
     </main>
   )

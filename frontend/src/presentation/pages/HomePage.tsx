@@ -30,7 +30,7 @@ const INDEX: readonly {
     sheet: '02',
     title: 'Simulador',
     description:
-      'Escolha o guindaste, descreva a carga e posicione a lança. O backend devolve capacidade, utilização e raio.',
+      'Escolha o guindaste, descreva a carga e posicione a lança. O servidor devolve capacidade, utilização e raio.',
   },
   {
     to: ROUTES.catalog,
@@ -70,7 +70,7 @@ export function HomePage({ catalog, onRetryCatalog }: HomePageProps) {
             <div className={styles.openingText}>
               <p className={styles.lead}>
                 Posicione o guindaste na cena 3D e veja, em tempo real, se a carga cabe na
-                capacidade da tabela ativa. O resultado que vale é sempre o do backend.<sup>3</sup>
+                capacidade da tabela ativa. O resultado que vale é sempre o do servidor.<sup>3</sup>
               </p>
               <div className={styles.actions}>
                 <Link to={ROUTES.simulator} className={buttonClassName('primary', 'md')}>
@@ -155,7 +155,7 @@ export function HomePage({ catalog, onRetryCatalog }: HomePageProps) {
                 </Button>
               )}
             </div>
-            <p className={styles.blockNote}>Lido do backend agora.</p>
+            <p className={styles.blockNote}>Lido do servidor agora.</p>
             <CatalogSummaryView catalog={catalog} onRetry={onRetryCatalog} />
           </section>
 
@@ -170,24 +170,10 @@ export function HomePage({ catalog, onRetryCatalog }: HomePageProps) {
             </div>
             <ol className={styles.footnotes}>
               <li role="note">
-                <strong>Dados FICTÍCIOS</strong>
+                <strong>O servidor decide</strong>
                 <span>
-                  Guindastes, fichas e tabelas usados até agora são fictícios, até a empresa
-                  fornecer os dados oficiais (ADR-012). Não use os valores em operação real.
-                </span>
-              </li>
-              <li role="note">
-                <strong>Estratégia PROVISÓRIA</strong>
-                <span>
-                  A capacidade vem da consulta conservadora: um ponto da tabela, do lado seguro, sem
-                  interpolação (ADR-015). Não é o valor definitivo.
-                </span>
-              </li>
-              <li role="note">
-                <strong>O backend decide</strong>
-                <span>
-                  A geometria desenhada no navegador é só pré-visualização. Capacidade e utilização
-                  são calculadas no backend (RN-008).
+                  Capacidade e utilização são calculadas no servidor, com a tabela de carga ativa da
+                  configuração.
                 </span>
               </li>
             </ol>
@@ -230,7 +216,7 @@ function CatalogSummaryView({
         title="Não foi possível ler o catálogo"
         description={
           <>
-            {catalog.message} Confira se o backend está no ar (com o banco configurado) e tente de
+            {catalog.message} Confira se o servidor está no ar (com o banco configurado) e tente de
             novo.
           </>
         }

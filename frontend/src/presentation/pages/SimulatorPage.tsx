@@ -1,4 +1,7 @@
-import type { ReactNode } from 'react'
+import { Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
+
+import { cx } from '../ui'
 
 import styles from './SimulatorPage.module.css'
 
@@ -37,16 +40,83 @@ export function SimulatorPage({
   recording,
   environment,
 }: SimulatorPageProps) {
+  const stageRef = useRef<HTMLDivElement>(null)
+  // Tela cheia (Fullscreen API) e painel recolhido: deixam a cena ocupar o espaço (TASK-062).
+  const [fullscreen, setFullscreen] = useState(false)
+  const [panelHidden, setPanelHidden] = useState(false)
+
+  // Sai do modo com Esc; sincroniza quando o navegador sai da tela cheia por conta própria.
+  useEffect(() => {
+    if (!fullscreen) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setFullscreen(false)
+    }
+    const onChange = () => {
+      if (!document.fullscreenElement) setFullscreen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('fullscreenchange', onChange)
+    }
+  }, [fullscreen])
+
+  // Tenta a tela cheia do navegador; se ela for bloqueada, a classe `.full` cobre a janela.
+  const toggleFullscreen = () => {
+    if (fullscreen) {
+      setFullscreen(false)
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
+      return
+    }
+    setFullscreen(true)
+    void stageRef.current?.requestFullscreen?.().catch(() => undefined)
+  }
+
   return (
-    <div className={styles.stage}>
-      <div className={styles.procedure}>
+    <div
+      ref={stageRef}
+      className={cx(styles.stage, panelHidden && styles.panelHidden, fullscreen && styles.full)}
+    >
+      <div className={styles.procedure} hidden={panelHidden}>
         {steps}
-        {accessories && <div className={styles.accessories}>{accessories}</div>}
+        {accessories && (
+          <details className={styles.section}>
+            <summary className={styles.sectionTitle}>Acessórios de içamento</summary>
+            {accessories}
+          </details>
+        )}
         {environment}
       </div>
       <div className={styles.drawing}>
-        <div>
-          {statusBar}
+        <div className={styles.header}>
+          <div className={styles.headerBar}>
+            {statusBar}
+            <div className={styles.viewActions}>
+              <button
+                type="button"
+                className={styles.viewAction}
+                onClick={() => setPanelHidden((hidden) => !hidden)}
+                aria-pressed={panelHidden}
+                title={
+                  panelHidden ? 'Mostrar o painel de controles' : 'Ocultar o painel de controles'
+                }
+              >
+                {panelHidden ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+                <span>{panelHidden ? 'Mostrar painel' : 'Ocultar painel'}</span>
+              </button>
+              <button
+                type="button"
+                className={styles.viewAction}
+                onClick={toggleFullscreen}
+                aria-pressed={fullscreen}
+                title={fullscreen ? 'Sair da tela cheia (Esc)' : 'Simulação em tela cheia'}
+              >
+                {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                <span>{fullscreen ? 'Sair da tela cheia' : 'Tela cheia'}</span>
+              </button>
+            </div>
+          </div>
           {recording}
         </div>
         <div className={styles.scene}>

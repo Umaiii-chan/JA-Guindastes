@@ -6,7 +6,6 @@ import { mapEvaluationResponse } from '../../../src/infrastructure/api/evaluatio
 import {
   BackendEvaluationPanel,
   type BackendEvaluationPanelProps,
-  PROVISIONAL_MARK,
 } from '../../../src/presentation/panels/BackendEvaluationPanel'
 import { REST_EVALUATED, REST_NOT_EVALUABLE } from '../../fixtures/evaluationResponses'
 
@@ -28,21 +27,19 @@ function renderText(props: Partial<BackendEvaluationPanelProps>): string {
 }
 
 describe('BackendEvaluationPanel', () => {
-  it('mostra o resultado avaliado com capacidade, utilização, ponto usado e a marca provisória', () => {
+  it('mostra o resultado avaliado com capacidade, utilização, ponto usado e a estratégia', () => {
     const text = renderText({
       result: mapEvaluationResponse(REST_EVALUATED),
       transport: 'websocket',
     })
 
-    expect(text).toContain(PROVISIONAL_MARK)
     expect(text).toContain('Avaliado')
     expect(text).toContain('Capacidade admissível 2.000 kg')
     expect(text).toContain('Utilização 75,00 %')
     expect(text).toContain('Ponto tabelado usado L 20,00 m · R 21,50 m · 2.000 kg')
     expect(text).toContain('Raio consultado 18,82 m')
-    expect(text).toContain('conservadora provisória (ADR-015)')
+    expect(text).toContain('ponto da tabela')
     expect(text).toContain('LC-FICTICIO-AVALIACAO-001 (versão FICTICIO-AVALIACAO-v1)')
-    expect(text).toContain('Recebida por WebSocket')
   })
 
   it('mostra "não avaliável" com os motivos e sem utilização', () => {
@@ -52,24 +49,23 @@ describe('BackendEvaluationPanel', () => {
     })
 
     expect(text).toContain('Não avaliável')
-    expect(text).toContain('CRANE_GEOMETRY_NOT_FOUND (EVALUATION)')
-    expect(text).toContain('ACTIVE_LOAD_CHART_NOT_FOUND (EVALUATION)')
+    expect(text).toContain('A configuração não tem ficha técnica cadastrada.')
+    expect(text).toContain('A configuração não tem tabela de carga ativa.')
     // O medidor continua na tela (rótulo "Utilização"), mas sem valor (TASK-039).
     expect(text).not.toMatch(/Utilização \d/)
     expect(text).toContain('sem utilização')
-    expect(text).toContain(PROVISIONAL_MARK)
   })
 
   it('exibe o erro com código, em role="alert"', () => {
     const html = renderToStaticMarkup(
       createElement(BackendEvaluationPanel, {
         ...BASE,
-        error: { code: 'NETWORK_ERROR', message: 'Não foi possível falar com o backend.' },
+        error: { code: 'NETWORK_ERROR', message: 'Não foi possível falar com o servidor.' },
       }),
     )
 
     expect(html).toContain('role="alert"')
-    expect(html).toContain('Não foi possível falar com o backend.')
+    expect(html).toContain('Não foi possível falar com o servidor.')
     expect(html).toContain('NETWORK_ERROR')
   })
 
@@ -80,7 +76,7 @@ describe('BackendEvaluationPanel', () => {
     expect(waiting).toContain('Sem avaliação')
   })
 
-  it('não mostra nível de alerta (PEND-004)', () => {
+  it('não mostra nível de alerta', () => {
     const text = renderText({
       result: mapEvaluationResponse({ ...REST_EVALUATED, utilization_percent: 150 }),
     })
@@ -89,7 +85,7 @@ describe('BackendEvaluationPanel', () => {
     expect(text).not.toMatch(/WARNING|CRITICAL|NORMAL|crítico|atenção/i)
   })
 
-  it('situação com cor: abaixo, igual e acima de 100 % e "não avaliável" (TASK-039)', () => {
+  it('situação com cor: abaixo, igual e acima de 100 % e "não avaliável"', () => {
     const situation = (props: Partial<BackendEvaluationPanelProps>) =>
       renderToStaticMarkup(createElement(BackendEvaluationPanel, { ...BASE, ...props })).match(
         /data-tone="(\w+)"[^>]*>(?:<span[^>]*><\/span>)?<span>([^<]+)</,

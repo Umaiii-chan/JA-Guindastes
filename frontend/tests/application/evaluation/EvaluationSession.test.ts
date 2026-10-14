@@ -323,12 +323,12 @@ describe('EvaluationSession', () => {
       session.update(FICTICIO_INPUT)
       vi.advanceTimersByTime(WAIT_MS)
 
-      calls[0].reject({ code: 'NETWORK_ERROR', message: 'Não foi possível falar com o backend.' })
+      calls[0].reject({ code: 'NETWORK_ERROR', message: 'Não foi possível falar com o servidor.' })
       await Promise.resolve()
 
       expect(session.getState().error).toEqual({
         code: 'NETWORK_ERROR',
-        message: 'Não foi possível falar com o backend.',
+        message: 'Não foi possível falar com o servidor.',
       })
     })
 
@@ -348,7 +348,7 @@ describe('EvaluationSession', () => {
     })
   })
 
-  describe('resposta que não chega (TASK-050)', () => {
+  describe('resposta que não chega', () => {
     const REPLY_TIMEOUT_MS = 2000
     const SLOW_AFTER_MS = 1000
 
@@ -409,7 +409,7 @@ describe('EvaluationSession', () => {
       expect(session.getState()).toMatchObject({ pending: false, slow: false })
     })
 
-    it('avisa que o backend está demorando e limpa o aviso quando ele responde', async () => {
+    it('avisa que o servidor está demorando e limpa o aviso quando ele responde', async () => {
       const { calls, session } = timedSetup()
 
       session.update(withLoad(1000))

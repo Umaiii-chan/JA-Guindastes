@@ -31,7 +31,7 @@ function calculateFicticio(
 }
 
 describe('calculateOperationalGeometry (ADR-013 C-5, parâmetros FICTÍCIOS)', () => {
-  describe('paridade com os casos calculados à mão no backend', () => {
+  describe('paridade com os casos calculados à mão no servidor', () => {
     it.each(GEOMETRY_PARITY_CASES)('$id', ({ parameters, inputs, expected }) => {
       const result = calculateOperationalGeometry(inputs, parameters)
 

@@ -62,7 +62,7 @@ describe('cliente REST da área de operação', () => {
     ])
   })
 
-  it('sem passos, o corpo leva só lança e carga (valem os padrões do backend)', async () => {
+  it('sem passos, o corpo leva só lança e carga (valem os padrões do servidor)', async () => {
     const fetchFn = vi.fn<typeof fetch>(async () => json(OPERATING_AREA_BODY))
     await createOperatingAreaRestClient({ fetchFn }).compute(REQUEST)
 
@@ -72,7 +72,7 @@ describe('cliente REST da área de operação', () => {
     })
   })
 
-  it('HTTP 422 e 404 viram erro com a mensagem do backend', async () => {
+  it('HTTP 422 e 404 viram erro com a mensagem do servidor', async () => {
     const fetchFn = vi.fn<typeof fetch>(async () =>
       json({ detail: 'boom_length_m fora da faixa' }, 422),
     )

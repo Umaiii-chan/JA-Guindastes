@@ -113,7 +113,7 @@ function ConfigurationSummary({ configuration }: { readonly configuration: Crane
         title="Configuração sem ficha técnica"
         icon={<TriangleAlert size={14} />}
       >
-        Sem a ficha, os controles usam limites FICTÍCIOS e o backend responde “não avaliável”.
+        Sem a ficha técnica, a operação não pode ser avaliada.
       </Notice>
     )
   }

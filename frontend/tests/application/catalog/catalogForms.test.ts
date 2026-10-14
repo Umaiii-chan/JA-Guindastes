@@ -120,9 +120,9 @@ describe('formulário da ficha técnica', () => {
   })
 })
 
-describe('erros do backend no formulário', () => {
+describe('erros do servidor no formulário', () => {
   it('422: um erro por campo (o primeiro) e o resumo', () => {
-    const error = new CatalogRequestError('VALIDATION', 'O backend recusou os dados.', [
+    const error = new CatalogRequestError('VALIDATION', 'O servidor recusou os dados.', [
       { field: 'name', message: 'String should match pattern' },
       { field: 'geometry.boomLengthMinM', message: 'Input should be greater than or equal to 0' },
       { field: 'geometry.boomLengthMinM', message: 'segundo erro do mesmo campo' },
@@ -135,7 +135,7 @@ describe('erros do backend no formulário', () => {
         'geometry.boomLengthMinM': 'Input should be greater than or equal to 0',
         geometry: 'Value error, faixa de L inválida',
       },
-      message: 'O backend recusou os dados.',
+      message: 'O servidor recusou os dados.',
     })
   })
 
@@ -160,7 +160,7 @@ describe('erros do backend no formulário', () => {
   })
 })
 
-describe('alteração de configuração (TASK-044)', () => {
+describe('alteração de configuração', () => {
   const ORIGINAL = { id: 'CFG-1', craneId: 'GUI-1', name: 'Config', geometry: SHEET_FICTICIA }
 
   it('só manda o que mudou: nome aparado e ficha diferente', () => {

@@ -94,10 +94,10 @@ describe('useOperatingArea', () => {
     expect(calls[0].loadWeightKg).toBe(1400)
   })
 
-  it('erro do backend vira mensagem e apaga a grade', async () => {
+  it('erro do servidor vira mensagem e apaga a grade', async () => {
     const client: OperatingAreaRestClient = {
       compute: async () => {
-        throw new EvaluationClientError('HTTP_ERROR', 'O backend respondeu HTTP 500.')
+        throw new EvaluationClientError('HTTP_ERROR', 'O servidor respondeu HTTP 500.')
       },
     }
     const { result } = renderHook(() => useOperatingArea({ ...BASE, enabled: true, client }))
@@ -109,7 +109,7 @@ describe('useOperatingArea', () => {
     expect(result.current).toEqual({
       area: null,
       loading: false,
-      error: 'O backend respondeu HTTP 500.',
+      error: 'O servidor respondeu HTTP 500.',
     })
   })
 

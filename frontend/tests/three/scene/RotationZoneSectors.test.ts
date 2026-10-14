@@ -41,7 +41,7 @@ describe('RotationZoneSectors', () => {
     expect(theta.thetaLength).toBeCloseTo((110 * Math.PI) / 180)
   })
 
-  it('o setor frontal fica em volta de +Z e o lateral/traseiro cobre −Z (ADR-013)', () => {
+  it('o setor frontal fica em volta de +Z e o lateral/traseiro cobre −Z', () => {
     const sectors = new RotationZoneSectors(RADII)
     expect(sectors.setZones(ZONES)).toBe(true)
     const [front, rear] = fills(sectors)

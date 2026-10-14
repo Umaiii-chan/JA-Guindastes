@@ -169,9 +169,6 @@ export function ActivationDialog({
               )}
             </div>
           )}
-          <p className={styles.footnote}>
-            Tabelas de demonstração são FICTÍCIAS e a estratégia de cálculo é PROVISÓRIA (ADR-015).
-          </p>
         </div>
       )}
     </Dialog>

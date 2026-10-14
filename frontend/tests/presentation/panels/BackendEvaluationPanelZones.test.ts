@@ -34,7 +34,7 @@ function renderText(props: Partial<BackendEvaluationPanelProps>): string {
     .trim()
 }
 
-describe('avaliação com zona de giro e gancho (TASK-046)', () => {
+describe('avaliação com zona de giro e gancho', () => {
   it('REST e WebSocket leem a zona, o gancho e o peso comparado', () => {
     const rest = mapEvaluationResponse(REST_EVALUATED_ZONA)
     expect(rest).toMatchObject({
@@ -67,7 +67,7 @@ describe('avaliação com zona de giro e gancho (TASK-046)', () => {
   it('não avaliável por falta de tabela ativa na zona: mostra a zona nos motivos', () => {
     const text = renderText({ result: mapEvaluationResponse(REST_NOT_EVALUABLE_ZONA) })
     expect(text).toContain('Motivos (zona Lateral e traseira FICTÍCIA):')
-    expect(text).toContain('ACTIVE_LOAD_CHART_NOT_FOUND (EVALUATION)')
+    expect(text).toContain('A configuração não tem tabela de carga ativa.')
   })
 
   it('sem zonas (resposta anterior à TASK-046): sem linha de zona, gancho e comparado "—"', () => {

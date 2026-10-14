@@ -39,7 +39,7 @@ function worldXyz(object: Object3D): Xyz {
 }
 
 describe('geometria na cena: nós do guindaste provisório × ADR-013', () => {
-  describe('casos de paridade do backend (valores calculados à mão)', () => {
+  describe('casos de paridade do servidor (valores calculados à mão)', () => {
     it.each(GEOMETRY_PARITY_CASES)('$id', ({ parameters, inputs, expected }) => {
       const rig = createProvisionalCrane(PARITY_DIMENSIONS, parameters)
       const controller = new CraneController(rig, PARITY_LIMITS, parameters, inputs)

@@ -67,7 +67,7 @@ export function createSimulationRecordingRestClient(
     } catch {
       throw new RecordingRequestError(
         'NETWORK_ERROR',
-        'Não foi possível falar com o backend (falha de rede).',
+        'Não foi possível falar com o servidor (falha de rede).',
       )
     }
     let json: unknown
@@ -136,7 +136,7 @@ function errorFrom(status: number, body: unknown): RecordingRequestError {
   if (status === 422 && isRecord(body) && Array.isArray(body.detail)) {
     return new RecordingRequestError(
       'VALIDATION',
-      'O backend recusou os dados da gravação (HTTP 422).',
+      'O servidor recusou os dados da gravação (HTTP 422).',
       status,
     )
   }
@@ -147,7 +147,7 @@ function errorFrom(status: number, body: unknown): RecordingRequestError {
       status,
     )
   }
-  return new RecordingRequestError('HTTP_ERROR', `O backend respondeu HTTP ${status}.`, status)
+  return new RecordingRequestError('HTTP_ERROR', `O servidor respondeu HTTP ${status}.`, status)
 }
 
 function mapSummary(json: unknown, path: string): SimulationRecordingSummary {

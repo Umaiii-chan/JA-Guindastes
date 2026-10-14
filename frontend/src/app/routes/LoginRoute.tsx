@@ -34,7 +34,7 @@ export function LoginRoute() {
       tone: 'warning',
       title: 'Modo sem autenticação (sem banco)',
       description:
-        'O backend está sem banco de dados: não há login e todas as ações ficam abertas.',
+        'O servidor está sem banco de dados: não há login e todas as ações ficam abertas.',
     })
   }, [auth.status, toast])
 

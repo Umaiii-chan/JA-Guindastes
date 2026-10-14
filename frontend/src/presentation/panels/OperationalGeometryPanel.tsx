@@ -29,11 +29,7 @@ function formatMeters(value: number): string {
  * PRÉ-VISUALIZAÇÃO: o valor oficial é o do backend, e capacidade e segurança não são decididas no
  * frontend (ADR-013 C-7; RN-008).
  */
-export function OperationalGeometryPanel({
-  geometry,
-  parameters,
-  parametersFromSheet = false,
-}: OperationalGeometryPanelProps) {
+export function OperationalGeometryPanel({ geometry }: OperationalGeometryPanelProps) {
   const titleId = `${useId()}-title`
 
   const rows = [
@@ -50,7 +46,7 @@ export function OperationalGeometryPanel({
   return (
     <section className={styles.geometry} aria-labelledby={titleId}>
       <h2 id={titleId} className={styles.geometryTitle}>
-        Geometria <Badge tone="neutral">pré-visualização — frontend</Badge>
+        Geometria <Badge tone="neutral">prévia</Badge>
       </h2>
       <dl className={styles.geometryValues}>
         {rows.map((row) => (
@@ -66,18 +62,7 @@ export function OperationalGeometryPanel({
           </div>
         ))}
       </dl>
-      <p className={styles.fineprint}>
-        Calculada no navegador (ADR-013), com parâmetros{' '}
-        {parametersFromSheet ? 'da ficha técnica da configuração' : 'FICTÍCIOS'}
-        {parameters && (
-          <>
-            {' '}
-            (a = {formatMeters(parameters.boomPivotOffsetM)}, h ={' '}
-            {formatMeters(parameters.boomPivotHeightM)})
-          </>
-        )}
-        . Sem deflexão da lança. Não é o valor oficial: quem valida a operação é o backend.
-      </p>
+      <p className={styles.fineprint}>Prévia; o valor oficial é o da avaliação.</p>
     </section>
   )
 }

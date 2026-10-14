@@ -73,7 +73,7 @@ export function OutriggerPanel({
       <p className={styles.fieldStatus}>
         Macacos {state.jacksSet ? 'apoiados' : 'recolhidos'} · nivelamento{' '}
         {state.levelingDeg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}° de até{' '}
-        {maxLevelingDeg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}° (valor FICTÍCIO)
+        {maxLevelingDeg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}°
       </p>
       {ready ? (
         <Notice tone="ok" compact role="status" title="Patolas prontas">
@@ -81,14 +81,14 @@ export function OutriggerPanel({
         </Notice>
       ) : (
         <Notice tone="warning" compact role="status" title="Patolas não prontas">
-          A tabela de carga pressupõe patolas estendidas a 100 % e apoiadas (RN-013). Até lá, o
-          resultado não vale para a operação.
+          A tabela de carga pressupõe patolas estendidas a 100 % e apoiadas. Até lá, o resultado não
+          vale para a operação.
         </Notice>
       )}
       {!modelAvailable && (
         <p className={styles.sourceNote}>
           <span>
-            O modelo 3D atual não traz as patolas: o estado é enviado ao backend, mas a cena ainda
+            O modelo 3D atual não traz as patolas: o estado é enviado ao servidor, mas a cena ainda
             não as desenha.
           </span>
         </p>

@@ -19,7 +19,7 @@ export function HelpButton() {
         open={open}
         onClose={() => setOpen(false)}
         title="Como ler o simulador"
-        description="O que vem do backend, o que é pré-visualização e como mexer na cena."
+        description="O que vem do servidor, o que é pré-visualização e como mexer na cena."
         footer={
           <Button variant="primary" onClick={() => setOpen(false)}>
             Entendi
@@ -28,12 +28,10 @@ export function HelpButton() {
       >
         <dl className={styles.list}>
           <div>
-            <dt>
-              Resultado <Badge tone="info">backend</Badge>
-            </dt>
+            <dt>Resultado</dt>
             <dd>
-              Capacidade, utilização e “não avaliável” vêm do backend, com a tabela ativa da
-              configuração. É o valor que vale (RN-008).
+              Capacidade, utilização e “não avaliável” vêm do servidor, com a tabela ativa da
+              configuração.
             </dd>
           </div>
           <div>
@@ -41,8 +39,8 @@ export function HelpButton() {
               Geometria <Badge tone="neutral">pré-visualização</Badge>
             </dt>
             <dd>
-              O raio e as alturas calculados no navegador servem só para acompanhar a cena (ADR-013
-              C-7).
+              O raio e as alturas mostrados ao lado da cena são uma prévia; o resultado oficial é o
+              da avaliação.
             </dd>
           </div>
           <div>
@@ -51,18 +49,8 @@ export function HelpButton() {
               <Badge tone="neutral">cinza</Badge>
             </dt>
             <dd>
-              Verde: carga dentro da capacidade. Vermelho: acima da capacidade. Cinza: sem avaliação
-              ou não avaliável. Não há níveis de alerta definidos (PEND-004), por isso o âmbar de
-              “atenção” ainda não é usado.
-            </dd>
-          </div>
-          <div>
-            <dt>
-              Marcas <Badge tone="warning">FICTÍCIO</Badge> <Badge tone="warning">PROVISÓRIO</Badge>
-            </dt>
-            <dd>
-              Os dados de teste são fictícios (ADR-012) e a capacidade vem da consulta conservadora
-              provisória (ADR-015).
+              Verde: dentro da capacidade. Âmbar: perto do limite do guindaste. Vermelho: acima do
+              limite. Cinza: sem avaliação ou fora da tabela de carga.
             </dd>
           </div>
           <div>

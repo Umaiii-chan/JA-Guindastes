@@ -28,7 +28,7 @@ export function TechnicalSheetFields({
 
   return (
     <fieldset className={styles.sheetFieldset} disabled={disabled}>
-      <legend className={styles.legend}>Ficha técnica (ADR-013 C-4)</legend>
+      <legend className={styles.legend}>Ficha técnica</legend>
       {sheetError && (
         <Notice tone="danger" role="alert" compact>
           {sheetError}

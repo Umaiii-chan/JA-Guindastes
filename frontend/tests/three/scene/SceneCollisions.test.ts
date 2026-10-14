@@ -49,7 +49,7 @@ describe('SceneCollisions', () => {
     expect(collisions.currentBody.boxes.map((box) => box.id)).toContain('crane-turret')
   })
 
-  it('o cabo para quando a carga toca o chão (RN-012)', () => {
+  it('o cabo para quando a carga toca o chão', () => {
     const { contents, states } = sceneWithGuard()
     contents.hookLoad.setLoad(LOAD)
 

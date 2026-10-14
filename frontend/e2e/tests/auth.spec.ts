@@ -16,7 +16,7 @@ import {
 } from './auth.js'
 import { mockCatalog } from './catalogMock.js'
 
-test.describe('login e perfis com o backend', () => {
+test.describe('login e perfis com o servidor', () => {
   test.skip(
     !hasBackend || !hasAdminCredentials,
     'precisa da stack com backend e banco (E2E_BACKEND=1) e do admin de E2E (E2E_ADMIN_USERNAME, E2E_ADMIN_PASSWORD)',
@@ -26,7 +26,6 @@ test.describe('login e perfis com o backend', () => {
     await page.goto('/tabelas')
     await expect(page).toHaveURL(/\/login$/)
     await expect(page.getByRole('heading', { level: 1, name: 'Entrar' })).toBeVisible()
-    await expect(page.getByText('FICTÍCIO', { exact: true })).toBeVisible()
 
     await loginViaForm(page, adminCredentials)
     await expect(page).toHaveURL(/\/tabelas$/)

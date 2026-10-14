@@ -166,7 +166,7 @@ test.describe('zonas de giro, no navegador', () => {
     await capture(page, 'catalogo-editor-zonas-erro')
     await rows.nth(0).getByLabel(/^Fim/).fill('55')
     await expect(drawer.getByText('Zonas de giro inválidas')).toHaveCount(0)
-    await drawer.getByRole('group', { name: 'Zonas de giro (ADR-018)' }).scrollIntoViewIfNeeded()
+    await drawer.getByRole('group', { name: 'Zonas de giro' }).scrollIntoViewIfNeeded()
     await capture(page, 'catalogo-editor-zonas')
   })
 })

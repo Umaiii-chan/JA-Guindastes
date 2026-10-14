@@ -60,7 +60,7 @@ export function createOperatingAreaRestClient(
         if (signal?.aborted) throw error
         throw new EvaluationClientError(
           CLIENT_ERROR_CODES.network,
-          'Não foi possível falar com o backend (falha de rede).',
+          'Não foi possível falar com o servidor (falha de rede).',
         )
       }
 
@@ -70,7 +70,7 @@ export function createOperatingAreaRestClient(
           response.status === 422 || response.status === 404
             ? CLIENT_ERROR_CODES.invalidRequest
             : CLIENT_ERROR_CODES.http,
-          `O backend não calculou a área de operação (HTTP ${response.status})${detail}.`,
+          `O servidor não calculou a área de operação (HTTP ${response.status})${detail}.`,
         )
       }
       let json: unknown

@@ -87,12 +87,12 @@ export function createEvaluationRestClient(
         if (controller.signal.aborted) {
           throw new EvaluationClientError(
             CLIENT_ERROR_CODES.timeout,
-            `O backend não respondeu em ${Math.round(timeoutMs / 1000)} s.`,
+            `O servidor não respondeu em ${Math.round(timeoutMs / 1000)} s.`,
           )
         }
         throw new EvaluationClientError(
           CLIENT_ERROR_CODES.network,
-          'Não foi possível falar com o backend (falha de rede).',
+          'Não foi possível falar com o servidor (falha de rede).',
         )
       } finally {
         clearTimeout(timer)
@@ -102,13 +102,13 @@ export function createEvaluationRestClient(
       if (response.status === 422) {
         throw new EvaluationClientError(
           CLIENT_ERROR_CODES.invalidRequest,
-          `O backend recusou o estado enviado (HTTP 422)${describeValidationDetail(body)}.`,
+          `O servidor recusou o estado enviado (HTTP 422)${describeValidationDetail(body)}.`,
         )
       }
       if (!response.ok) {
         throw new EvaluationClientError(
           CLIENT_ERROR_CODES.http,
-          `O backend respondeu HTTP ${response.status}.`,
+          `O servidor respondeu HTTP ${response.status}.`,
         )
       }
       try {
