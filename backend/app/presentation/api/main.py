@@ -23,9 +23,11 @@ from app.application.ports.load_chart_listing import LoadChartListing
 from app.application.ports.load_chart_parser import LoadChartParser
 from app.application.ports.scenario_repository import ScenarioRepository
 from app.application.ports.simulation_recording_repository import SimulationRecordingRepository
+from app.application.use_cases.ai_assistant import AiAssistant
 from app.application.use_cases.authentication import GetCurrentUser
 from app.application.use_cases.evaluate_operation import EvaluateOperation
 from app.presentation.api.accessories import create_accessories_router
+from app.presentation.api.ai import create_ai_router
 from app.presentation.api.auth import create_auth_router
 from app.presentation.api.authorization import (
     ApiError,
@@ -41,6 +43,7 @@ from app.presentation.api.configuration_load_charts import (
 from app.presentation.api.evaluations import (
     EvaluateOperationDependency,
     EvaluationDependencies,
+    as_evaluate_operation_dependency,
     create_evaluations_router,
 )
 from app.presentation.api.health import DatabaseHealthCheck, create_health_router
@@ -53,8 +56,13 @@ from app.presentation.api.operating_area import (
     ComputeOperatingAreaDependency,
     create_operating_area_router,
 )
+from app.presentation.api.planning import (
+    RecommendLiftPlanDependency,
+    create_planning_router,
+)
 from app.presentation.api.scenarios import create_scenarios_router
 from app.presentation.api.simulations import create_simulations_router
+from app.presentation.api.tandem import create_tandem_router
 from app.presentation.api.upload_limits import UploadLimits
 from app.presentation.api.users import create_users_router
 from app.presentation.api.validation_errors import request_validation_error_handler
@@ -77,6 +85,8 @@ def create_app(
     accessory_repository: AccessoryRepository | None = None,
     simulation_recordings: SimulationRecordingRepository | None = None,
     scenario_repository: ScenarioRepository | None = None,
+    ai_assistant: AiAssistant | None = None,
+    planning: RecommendLiftPlanDependency | None = None,
 ) -> FastAPI:
     """Monta a aplicação com as rotas cujos adapters foram recebidos.
 
@@ -98,6 +108,11 @@ def create_app(
       para qualquer perfil logado, escrita para `ADMIN`;
     - os cenários (`/api/v1/scenarios`, TASK-052) só entram com `scenario_repository` **e** `auth`:
       todo usuário logado lista e abre; só o autor ou um `ADMIN` edita e apaga;
+    - o assistente de IA (`/api/v1/ai*`, TASK-076; ADR-039): `GET /ai/status` entra sempre, com
+      `enabled: false` sem `ai_assistant`; as rotas de uso só entram com ele. O relatório de
+      içamento precisa de `evaluation` e a revisão de gravação, de `simulation_recordings`;
+    - o planejamento da operação (`/api/v1/planning/recommend`, TASK-075) só entra com `planning`
+      (dependência do caso de uso), com a mesma autorização da avaliação;
     - `on_shutdown` roda quando a aplicação encerra (a composição libera o pool do banco);
     - `auth` (TASK-038, ADR-016) liga a autenticação: cabeçalho CSRF nos métodos inseguros, sessão
       exigida em toda rota exceto a saúde e `GET /auth/session`, perfil `ADMIN` nos cadastros e
@@ -149,11 +164,15 @@ def create_app(
 
     if evaluation is not None:
         app.include_router(create_evaluations_router(evaluation), dependencies=session_required)
+        app.include_router(create_tandem_router(evaluation), dependencies=session_required)
 
     if operating_area is not None:
         app.include_router(
             create_operating_area_router(operating_area), dependencies=session_required
         )
+
+    if planning is not None:
+        app.include_router(create_planning_router(planning), dependencies=session_required)
 
     if evaluation_websocket is not None:
         app.include_router(
@@ -202,6 +221,17 @@ def create_app(
             ),
             dependencies=session_required,
         )
+
+    # Assistente de IA (TASK-076; ADR-039): sessão de qualquer perfil, como a avaliação.
+    app.include_router(
+        create_ai_router(
+            ai_assistant,
+            guards=guards,
+            evaluation=None if evaluation is None else as_evaluate_operation_dependency(evaluation),
+            recordings=simulation_recordings if auth is not None else None,
+        ),
+        dependencies=session_required,
+    )
 
     return app
 

@@ -4,7 +4,11 @@ import {
   type CraneBody,
   evaluateCollisions,
 } from '../../domain/collision/collisions'
-import { EMPTY_SCENARIO, type ScenarioSpec } from '../../domain/environment/environment'
+import {
+  EMPTY_SCENARIO,
+  type Obstacle,
+  type ScenarioSpec,
+} from '../../domain/environment/environment'
 import type { CraneGeometryParameters } from '../../domain/geometry/operationalGeometry'
 import type { CraneRig } from '../crane/CraneController'
 import { measureCraneBody } from '../crane/craneBody'
@@ -22,6 +26,9 @@ export class SceneCollisions implements CollisionGuard {
   readonly highlight = new CollisionHighlight()
 
   private scenario: ScenarioSpec = EMPTY_SCENARIO
+  /** Carga apoiada no chão (TASK-073): vale como obstáculo até ser engatada. */
+  private groundCargo: Obstacle | null = null
+  private effective: ScenarioSpec = EMPTY_SCENARIO
   private body: CraneBody
   private latest: CollisionState = {
     hits: [],
@@ -50,6 +57,11 @@ export class SceneCollisions implements CollisionGuard {
     return this.scenario
   }
 
+  /** Cenário com a carga apoiada no chão (TASK-073), como a guarda o enxerga. */
+  get effectiveScenario(): ScenarioSpec {
+    return this.effective
+  }
+
   /** Último estado de colisão informado pela guarda. */
   get state(): CollisionState {
     return this.latest
@@ -57,6 +69,22 @@ export class SceneCollisions implements CollisionGuard {
 
   setScenario(spec: ScenarioSpec): void {
     this.scenario = spec
+    this.rebuildEffective()
+  }
+
+  /**
+   * Carga apoiada no chão (TASK-073; ADR-035), como caixa que o gancho, o guindaste e a lança não
+   * podem atravessar; `null` quando a carga está engatada (ela então colide pendurada) ou não existe.
+   */
+  setGroundCargo(cargo: Obstacle | null): void {
+    this.groundCargo = cargo
+    this.rebuildEffective()
+  }
+
+  private rebuildEffective(): void {
+    this.effective = this.groundCargo
+      ? { ...this.scenario, obstacles: [...this.scenario.obstacles, this.groundCargo] }
+      : this.scenario
   }
 
   /** Mede o corpo de novo, depois da troca do guindaste provisório pelo modelo 3D. */
@@ -73,7 +101,7 @@ export class SceneCollisions implements CollisionGuard {
     return evaluateCollisions({
       state,
       geometryParameters: this.geometryParameters,
-      scenario: this.scenario,
+      scenario: this.effective,
       body: this.body,
       load: this.hookLoad.currentLayout,
       hook: this.hookLoad.currentHookBox,

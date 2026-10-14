@@ -1,0 +1,151 @@
+/* Ficha do içamento com dois guindastes: uma célula por guindaste e os alertas ao lado. */
+.hud {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  min-height: 36px;
+  padding: 3px var(--space-2) 3px var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-1);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.rule {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.waiting {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.cells {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  min-height: 0;
+}
+
+.craneCell {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  min-width: 0;
+  border-right: 1px solid var(--color-border);
+}
+
+.craneCell:nth-child(2) {
+  border-right: 0;
+}
+
+.craneCell[data-status='over'] {
+  box-shadow: inset 3px 0 0 var(--color-danger, #b42318);
+}
+
+.craneCell[data-status='warning'] {
+  box-shadow: inset 3px 0 0 var(--color-warning, #b7791f);
+}
+
+.craneHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.craneName {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px var(--space-3);
+  margin: 0;
+}
+
+.metric {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.metric dt {
+  font-size: var(--font-size-3xs);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+  color: var(--color-text-2);
+}
+
+.metric dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.percent {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.alerts {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  list-style: none;
+  min-width: 0;
+}
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+/* Campos estáveis (TASK-078). */
+.pending {
+  flex: none;
+  min-width: 11ch;
+  white-space: nowrap;
+}
+
+.alerts {
+  max-height: 72px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

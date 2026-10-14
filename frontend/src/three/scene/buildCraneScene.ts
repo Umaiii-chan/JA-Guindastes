@@ -1,4 +1,4 @@
-import { Group, Mesh, type Object3D, Quaternion, type Scene, Vector3 } from 'three'
+import { Group, type Object3D, Quaternion, type Scene, Vector3 } from 'three'
 
 import { craneAttitude } from '../../domain/environment/craneAttitude'
 import { EMPTY_SCENARIO, type ScenarioSpec } from '../../domain/environment/environment'
@@ -13,9 +13,12 @@ import { findOperatorEye } from '../crane/rigLandmarks'
 import { SwitchableCrane } from '../crane/SwitchableCrane'
 import type { CraneSetup } from '../crane/types'
 import { addEnvironment, type SceneEnvironment } from './addEnvironment'
+import { CargoOperation } from './CargoOperation'
 import { createScene } from './createScene'
+import { enableShadows } from './enableShadows'
 import { disposeObject3D } from './disposeObject3D'
 import { HookLoad } from './HookLoad'
+import { MultiCrane } from './MultiCrane'
 import { OperatingAreaOverlay } from './OperatingAreaOverlay'
 import { ObstacleMeshes } from './ObstacleMeshes'
 import { RadiusIndicator } from './RadiusIndicator'
@@ -68,7 +71,10 @@ export class CraneSceneContents {
   readonly soil: SoilOverlay
   /** Seta do vento (TASK-066). */
   readonly wind: WindArrow
-
+  /** Carga no chão, ponto de entrega, engatar e soltar (TASK-073). */
+  readonly cargo: CargoOperation
+  /** Guindastes adicionais, tandem e colisões entre guindastes (TASK-074). */
+  readonly multi: MultiCrane
   private currentRig: CraneRig
   private currentRoot: Object3D
   private eye: Vec3 | null
@@ -91,6 +97,7 @@ export class CraneSceneContents {
     obstacles: ObstacleMeshes
     soil: SoilOverlay
     wind: WindArrow
+    cargo: CargoOperation
   }) {
     this.scene = parts.scene
     this.environment = parts.environment
@@ -107,7 +114,10 @@ export class CraneSceneContents {
     this.obstacles = parts.obstacles
     this.soil = parts.soil
     this.wind = parts.wind
+    this.cargo = parts.cargo
+    this.cargo.bindCrane(this.crane)
     this.eye = findOperatorEye(parts.rig)
+    this.multi = new MultiCrane(this)
   }
 
   /** Rig desenhado agora (provisório ou do modelo 3D). */
@@ -171,6 +181,7 @@ export class CraneSceneContents {
     }
     this.appliedScenario = spec
     this.applyCraneAttitude(spec)
+    this.cargo.setScenario(spec)
   }
 
   /**
@@ -198,16 +209,6 @@ export class CraneSceneContents {
     this.environment.followCrane(x, attitude.groundY, z)
     this.wind.setWind(spec.wind, { x, y: attitude.groundY, z })
   }
-}
-
-/** Sombras suaves no chão (CA-1): malhas opacas projetam e recebem; vidro só recebe. */
-function enableShadows(root: Object3D): void {
-  root.traverse((object) => {
-    if (!(object instanceof Mesh)) return
-    const materials = Array.isArray(object.material) ? object.material : [object.material]
-    object.castShadow = !materials.some((material) => material.transparent)
-    object.receiveShadow = true
-  })
 }
 
 /**
@@ -263,6 +264,13 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
   scene.add(soil.root)
   const wind = new WindArrow()
   scene.add(wind.root)
+  const cargo = new CargoOperation({
+    hookLoad,
+    collisions,
+    geometryParameters: setup.geometryParameters,
+    heightAt: (x, z) => environment.heightAt(x, z),
+  })
+  scene.add(cargo.ground.root, cargo.delivery.root)
 
   radiusIndicator.update({
     workingRadiusM: crane.getOperationalGeometry().workingRadiusM,
@@ -283,5 +291,6 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     obstacles,
     soil,
     wind,
+    cargo,
   })
 }

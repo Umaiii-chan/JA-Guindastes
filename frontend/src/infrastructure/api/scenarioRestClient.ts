@@ -9,7 +9,10 @@
 // - `DELETE /scenarios/{id}` → 204; 403; 404.
 
 import {
+  type CargoPlacement,
   type CranePlacement,
+  type DeliveryPoint,
+  type ExtraCrane,
   type Obstacle,
   type ScenarioSpec,
   SOIL_KINDS,
@@ -27,6 +30,7 @@ import {
   type JsonRecord,
   readArray,
   readNullableNumber,
+  readNullableString,
   readNumber,
   readRecord,
   readString,
@@ -42,7 +46,7 @@ const FEATURE_KINDS: readonly TerrainFeature['kind'][] = [
   'ramp',
   'flatten',
 ]
-const OBSTACLE_KINDS: readonly Obstacle['kind'][] = ['box', 'cylinder']
+const OBSTACLE_KINDS: readonly Obstacle['kind'][] = ['box', 'cylinder', 'model']
 
 /** `ScenarioSpec` no JSON do backend. */
 export function toScenarioSpecDto(spec: ScenarioSpec): Record<string, unknown> {
@@ -65,6 +69,7 @@ export function toScenarioSpecDto(spec: ScenarioSpec): Record<string, unknown> {
       id: obstacle.id,
       label: obstacle.label,
       kind: obstacle.kind,
+      ...(obstacle.modelId === undefined ? {} : { model_id: obstacle.modelId }),
       center_x: obstacle.centerX,
       center_z: obstacle.centerZ,
       width_m: obstacle.widthM,
@@ -86,6 +91,38 @@ export function toScenarioSpecDto(spec: ScenarioSpec): Record<string, unknown> {
       : {}),
     ...(spec.wind
       ? { wind: { speed_ms: spec.wind.speedMs, direction_deg: spec.wind.directionDeg } }
+      : {}),
+    ...(spec.cranes && spec.cranes.length > 0
+      ? {
+          cranes: spec.cranes.map((extra) => ({
+            id: extra.id,
+            configuration_id: extra.configurationId,
+            placement: {
+              x: extra.placement.x,
+              z: extra.placement.z,
+              heading_deg: extra.placement.headingDeg,
+            },
+          })),
+        }
+      : {}),
+    ...(spec.cargo
+      ? {
+          cargo: {
+            x: spec.cargo.x,
+            z: spec.cargo.z,
+            rotation_y_deg: spec.cargo.rotationYDeg,
+          },
+        }
+      : {}),
+    ...(spec.delivery
+      ? {
+          delivery: {
+            x: spec.delivery.x,
+            z: spec.delivery.z,
+            rotation_y_deg: spec.delivery.rotationYDeg,
+            radius_m: spec.delivery.radiusM,
+          },
+        }
       : {}),
   }
 }
@@ -122,10 +159,12 @@ function mapFeature(json: unknown, path: string): TerrainFeature {
 
 function mapObstacle(json: unknown, path: string): Obstacle {
   const record = readRecord(json, path)
+  const modelId = readNullableString(record, 'model_id', path)
   return {
     id: readString(record, 'id', path),
     label: readString(record, 'label', path),
     kind: readOneOf(record, 'kind', path, OBSTACLE_KINDS),
+    ...(modelId === null ? {} : { modelId }),
     centerX: readNumber(record, 'center_x', path),
     centerZ: readNumber(record, 'center_z', path),
     widthM: readNumber(record, 'width_m', path),
@@ -151,6 +190,25 @@ function mapWind(json: unknown, path: string): WindSpec {
   return {
     speedMs: readNumber(record, 'speed_ms', path),
     directionDeg: readNumber(record, 'direction_deg', path),
+  }
+}
+
+function mapCargo(json: unknown, path: string): CargoPlacement {
+  const record = readRecord(json, path)
+  return {
+    x: readNumber(record, 'x', path),
+    z: readNumber(record, 'z', path),
+    rotationYDeg: readNumber(record, 'rotation_y_deg', path),
+  }
+}
+
+function mapDelivery(json: unknown, path: string): DeliveryPoint {
+  const record = readRecord(json, path)
+  return {
+    x: readNumber(record, 'x', path),
+    z: readNumber(record, 'z', path),
+    rotationYDeg: readNumber(record, 'rotation_y_deg', path),
+    radiusM: readNumber(record, 'radius_m', path),
   }
 }
 
@@ -184,6 +242,32 @@ export function mapScenarioSpec(json: unknown, path: string): ScenarioSpec {
         }
       : {}),
     ...(record.wind != null ? { wind: mapWind(record.wind, `${path}.wind`) } : {}),
+    // Campos opcionais: cenários salvos antes deles não os têm (ausente ou `null`).
+    ...(Array.isArray(record.cranes) && record.cranes.length > 0
+      ? {
+          cranes: record.cranes.map((item, index) =>
+            mapExtraCrane(item, `${path}.cranes[${index}]`),
+          ),
+        }
+      : {}),
+    ...(record.cargo != null ? { cargo: mapCargo(record.cargo, `${path}.cargo`) } : {}),
+    ...(record.delivery != null
+      ? { delivery: mapDelivery(record.delivery, `${path}.delivery`) }
+      : {}),
+  }
+}
+
+function mapExtraCrane(json: unknown, path: string): ExtraCrane {
+  const record = readRecord(json, path)
+  const placement = readRecord(record.placement, `${path}.placement`)
+  return {
+    id: readString(record, 'id', path),
+    configurationId: readString(record, 'configuration_id', path),
+    placement: {
+      x: readNumber(placement, 'x', `${path}.placement`),
+      z: readNumber(placement, 'z', `${path}.placement`),
+      headingDeg: readNumber(placement, 'heading_deg', `${path}.placement`),
+    },
   }
 }
 

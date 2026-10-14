@@ -6,6 +6,7 @@
 //
 // Os campos opcionais vêm das outras tarefas da leva E (patolas, acessórios, colisões) e podem faltar.
 
+import type { CargoState } from '../../domain/cargo/cargoOperation'
 import type { OutriggerState } from '../../domain/crane/outriggers'
 import type { EvaluationResult } from '../../domain/evaluation/evaluation'
 import type { ScenarioSpec } from '../../domain/environment/environment'
@@ -34,11 +35,18 @@ export interface RecordingSnapshot {
   readonly outriggers?: OutriggerState
   readonly accessoryIds?: readonly string[]
   readonly collisions?: readonly RecordedCollision[]
+  /**
+   * Onde a carga está (no chão ou no gancho), com o resultado da entrega (TASK-073; ADR-035). Ausente
+   * em gravações antigas e sem carga posicionada: aí a carga pende do gancho.
+   */
+  readonly cargo?: CargoState | null
   /** Medidas da carga desenhada (m); `null` sem carga desenhada (TASK-068). */
   readonly load?: {
     readonly lengthM: number
     readonly widthM: number
     readonly heightM: number
+    /** Tipo de carga (leva F; campo aditivo): ausente em gravações antigas = caixa simples. */
+    readonly cargoType?: string
   } | null
 }
 
@@ -85,7 +93,7 @@ export interface SimulationRecording extends SimulationRecordingSummary {
 /** Marcador da linha do tempo. */
 export interface TimelineMarker {
   readonly tMs: number
-  readonly kind: 'alert' | 'collision'
+  readonly kind: 'alert' | 'collision' | 'engage' | 'release'
   /** Texto curto para o título do marcador. */
   readonly label: string
 }

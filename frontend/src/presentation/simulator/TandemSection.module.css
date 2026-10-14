@@ -1,0 +1,39 @@
+.stack {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.intro,
+.state {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.state {
+  color: var(--color-text-1);
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  grid-column: 1 / -1;
+  padding: 0;
+  font-size: var(--font-size-3xs);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+  color: var(--color-text-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

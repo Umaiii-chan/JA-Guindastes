@@ -133,6 +133,25 @@ export class CraneController implements CraneCommands {
     return value
   }
 
+  /** Aplica de uma vez os campos informados (cada um limitado à faixa) e devolve o estado. */
+  setState(state: Partial<CraneState>): CraneState {
+    const next = {
+      turretRotationDeg: this.clampTo(
+        'turretRotationDeg',
+        state.turretRotationDeg ?? this.state.turretRotationDeg,
+      ),
+      boomAngleDeg: this.clampTo('boomAngleDeg', state.boomAngleDeg ?? this.state.boomAngleDeg),
+      boomLengthM: this.clampTo('boomLengthM', state.boomLengthM ?? this.state.boomLengthM),
+      cableLengthM: this.clampTo('cableLengthM', state.cableLengthM ?? this.state.cableLengthM),
+    }
+    this.state = next
+    this.applyTurretRotation()
+    this.applyBoomAngle()
+    this.applyBoomLength()
+    this.applyCableLength()
+    return { ...next }
+  }
+
   private clampTo(key: LimitKey, value: number): number {
     if (!Number.isFinite(value)) {
       throw new RangeError(`${key}: valor precisa ser um número finito (recebido ${value}).`)

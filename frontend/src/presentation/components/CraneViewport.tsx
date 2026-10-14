@@ -1,5 +1,6 @@
 import { type Ref, useEffect, useImperativeHandle, useRef } from 'react'
 
+import type { CargoState, CargoStatus } from '../../domain/cargo/cargoOperation'
 import type { CollisionState } from '../../domain/collision/collisions'
 import type { ScenarioSpec } from '../../domain/environment/environment'
 import type { OutriggerState } from '../../domain/crane/outriggers'
@@ -13,6 +14,13 @@ import {
   type CraneSceneHandle,
   mountCraneScene,
 } from '../../three/scene/mountCraneScene'
+import type {
+  ExtraCraneInput,
+  ReleaseResult,
+  TandemSceneConfig,
+  TandemSceneFrame,
+} from '../../three/scene/MultiCrane'
+import type { EngageResult } from '../../domain/tandem/tandem'
 import type { EvaluationStatus } from '../../three/scene/palette'
 import type { SceneRotationZone } from '../../three/scene/RotationZoneSectors'
 import type { SceneEditorCallbacks, SceneEditorConfig } from '../../three/scene/SceneEditor'
@@ -27,6 +35,20 @@ export interface CraneViewportEditor {
 export interface CraneViewportHandle {
   /** Leva a câmera à predefinição, mesmo que seja a mesma de antes (reenquadra o estado atual). */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
+  /** Engata a carga que está no chão, se o gancho estiver perto dela (TASK-073). */
+  engageCargo(): boolean
+  /** Solta a carga engatada, se ela estiver perto do chão (TASK-073). */
+  releaseCargo(): boolean
+  /** Situação atual da coleta e entrega na cena (`null` sem cena; TASK-073). */
+  getCargoStatus(): CargoStatus | null
+  /** Mostra o estado da carga de uma gravação em reprodução; `null` volta ao estado ao vivo. */
+  setCargoPlayback(state: CargoState | null): void
+  /** Engata os dois ganchos nos pontos de içamento (TASK-074); `null` sem tandem ou sem cena. */
+  engageTandem(): EngageResult | null
+  /** Solta a carga do tandem, se ela estiver apoiada no chão (TASK-074). */
+  releaseTandem(): ReleaseResult
+  /** Do gancho ao ponto de amarração das lingas, medido na cena; `null` sem cena (TASK-075). */
+  hookAttachOffsetM(): number | null
 }
 
 interface CraneViewportProps {
@@ -66,6 +88,8 @@ interface CraneViewportProps {
   scenario?: ScenarioSpec | null
   /** Recebe o estado de colisão da carga quando ele muda (TASK-053; RN-012). Não remonta a cena. */
   onCollisionChange?: (state: CollisionState) => void
+  /** Recebe a situação da coleta e entrega da carga quando ela muda (TASK-073). Não remonta a cena. */
+  onCargoChange?: (status: CargoStatus) => void
   /**
    * Patolas (TASK-054): extensão, macacos e nivelamento, animados na cena. Só move os nós de patola
    * que o modelo 3D tiver. Sem a prop, nada muda. Não remonta a cena.
@@ -86,6 +110,23 @@ interface CraneViewportProps {
   onAccessoryModelResult?: (accessoryId: string, loaded: boolean) => void
   /** Editor 3D do ambiente (TASK-066). Não remonta a cena. */
   editor?: CraneViewportEditor | null
+  /**
+   * Guindastes adicionais do cenário (TASK-074), cada um com o rig completo e os próprios comandos.
+   * Não remonta a cena.
+   */
+  extraCranes?: readonly ExtraCraneInput[]
+  /** Recebe os comandos dos guindastes adicionais quando a lista muda (TASK-074). */
+  onExtraCranesChange?: (commands: ReadonlyMap<string, CraneCommands>) => void
+  /**
+   * Carga do tandem no chão, com os pontos de içamento marcados (TASK-074); `null` = sem tandem.
+   * Não remonta a cena.
+   */
+  tandem?: TandemSceneConfig | null
+  /** Quadro do tandem engatado a cada comando, e `null` quando ele se desfaz (TASK-074). */
+  onTandemFrame?: (frame: TandemSceneFrame | null) => void
+  /** Situação (cor) do gancho de cada guindaste adicional e da carga do tandem (TASK-074). */
+  extraStatuses?: Readonly<Record<string, EvaluationStatus>>
+  tandemStatus?: EvaluationStatus
   /** API imperativa (`CraneViewportHandle`). */
   ref?: Ref<CraneViewportHandle>
 }
@@ -105,11 +146,18 @@ export function CraneViewport({
   activeZoneCode = null,
   scenario,
   onCollisionChange,
+  onCargoChange,
   outriggers,
   operatingArea = null,
   accessories = null,
   onAccessoryModelResult,
   editor = null,
+  extraCranes,
+  onExtraCranesChange,
+  tandem = null,
+  onTandemFrame,
+  extraStatuses,
+  tandemStatus = 'unknown',
   ref,
 }: CraneViewportProps) {
   const canvasHostRef = useRef<HTMLDivElement>(null)
@@ -122,12 +170,19 @@ export function CraneViewport({
   const activeZoneRef = useRef(activeZoneCode)
   const scenarioRef = useRef(scenario)
   const collisionCallbackRef = useRef(onCollisionChange)
+  const cargoCallbackRef = useRef(onCargoChange)
   const operatingAreaRef = useRef(operatingArea)
   const appliedPresetRef = useRef<CameraPreset | undefined>(undefined)
   const outriggersRef = useRef(outriggers)
   const accessoriesRef = useRef<readonly SceneAccessory[]>(accessories ?? [])
   const accessoryResultRef = useRef(onAccessoryModelResult)
   const editorRef = useRef(editor)
+  const extraCranesRef = useRef(extraCranes)
+  const extraChangeRef = useRef(onExtraCranesChange)
+  const tandemRef = useRef(tandem)
+  const tandemFrameRef = useRef(onTandemFrame)
+  const extraStatusesRef = useRef(extraStatuses)
+  const tandemStatusRef = useRef(tandemStatus)
 
   useImperativeHandle(
     ref,
@@ -136,6 +191,19 @@ export function CraneViewport({
         cameraPresetRef.current = preset
         appliedPresetRef.current = preset
         sceneRef.current?.setCameraPreset(preset, options)
+      },
+      engageCargo: () => sceneRef.current?.engageCargo() ?? false,
+      releaseCargo: () => sceneRef.current?.releaseCargo() ?? false,
+      getCargoStatus: () => sceneRef.current?.getCargoStatus() ?? null,
+      setCargoPlayback: (state) => sceneRef.current?.setCargoPlayback(state),
+      engageTandem() {
+        return sceneRef.current?.engageTandem() ?? null
+      },
+      releaseTandem() {
+        return sceneRef.current?.releaseTandem() ?? { released: false, reason: 'not-engaged' }
+      },
+      hookAttachOffsetM() {
+        return sceneRef.current?.hookAttachOffsetM() ?? null
       },
     }),
     [],
@@ -147,7 +215,10 @@ export function CraneViewport({
 
     const handle = mountCraneScene(host, setup, {
       onCollisionChange: (state) => collisionCallbackRef.current?.(state),
+      onCargoChange: (status) => cargoCallbackRef.current?.(status),
       onAccessoryModelResult: (id, loaded) => accessoryResultRef.current?.(id, loaded),
+      onExtraCranesChange: (commands) => extraChangeRef.current?.(commands),
+      onTandemFrame: (frame) => tandemFrameRef.current?.(frame),
     })
     sceneRef.current = handle
     handle.setAccessories(accessoriesRef.current)
@@ -159,6 +230,12 @@ export function CraneViewport({
     if (outriggersRef.current) handle.setOutriggers(outriggersRef.current)
     handle.setOperatingArea(operatingAreaRef.current)
     handle.setScenario(scenarioRef.current ?? null)
+    handle.setExtraCranes(extraCranesRef.current ?? [])
+    handle.setTandemCargo(tandemRef.current)
+    handle.setTandemEvaluationStatus(tandemStatusRef.current)
+    for (const [id, status] of Object.entries(extraStatusesRef.current ?? {})) {
+      handle.setExtraEvaluationStatus(id, status)
+    }
     const preset = cameraPresetRef.current
     if (preset) handle.setCameraPreset(preset, { animate: false })
     appliedPresetRef.current = preset
@@ -178,6 +255,40 @@ export function CraneViewport({
   }, [editor])
 
   useEffect(() => {
+    extraChangeRef.current = onExtraCranesChange
+    tandemFrameRef.current = onTandemFrame
+  }, [onExtraCranesChange, onTandemFrame])
+
+  // Dependência no conteúdo da lista, não no array: a UI pode mandar um array novo a cada render.
+  const extraCranesKey = JSON.stringify(extraCranes ?? [])
+  useEffect(() => {
+    const list = JSON.parse(extraCranesKey) as ExtraCraneInput[]
+    extraCranesRef.current = list
+    sceneRef.current?.setExtraCranes(list)
+  }, [extraCranesKey])
+
+  const tandemKey = JSON.stringify(tandem)
+  useEffect(() => {
+    const config = JSON.parse(tandemKey) as TandemSceneConfig | null
+    tandemRef.current = config
+    sceneRef.current?.setTandemCargo(config)
+  }, [tandemKey])
+
+  useEffect(() => {
+    tandemStatusRef.current = tandemStatus
+    sceneRef.current?.setTandemEvaluationStatus(tandemStatus)
+  }, [tandemStatus])
+
+  const extraStatusesKey = JSON.stringify(extraStatuses ?? {})
+  useEffect(() => {
+    const statuses = JSON.parse(extraStatusesKey) as Record<string, EvaluationStatus>
+    extraStatusesRef.current = statuses
+    for (const [id, status] of Object.entries(statuses)) {
+      sceneRef.current?.setExtraEvaluationStatus(id, status)
+    }
+  }, [extraStatusesKey, extraCranesKey])
+
+  useEffect(() => {
     accessoryResultRef.current = onAccessoryModelResult
   }, [onAccessoryModelResult])
 
@@ -190,14 +301,15 @@ export function CraneViewport({
   const lengthM = load?.lengthM
   const widthM = load?.widthM
   const heightM = load?.heightM
+  const cargoType = load?.cargoType
   useEffect(() => {
     const next =
       lengthM === undefined || widthM === undefined || heightM === undefined
         ? null
-        : { lengthM, widthM, heightM }
+        : { lengthM, widthM, heightM, ...(cargoType === undefined ? {} : { cargoType }) }
     loadRef.current = next
     sceneRef.current?.setLoad(next)
-  }, [lengthM, widthM, heightM])
+  }, [lengthM, widthM, heightM, cargoType])
 
   // Dependência no conteúdo das zonas, não no array: a UI pode mandar um array novo a cada render.
   const zonesKey = JSON.stringify(rotationZones ?? [])
@@ -218,6 +330,10 @@ export function CraneViewport({
   useEffect(() => {
     collisionCallbackRef.current = onCollisionChange
   }, [onCollisionChange])
+
+  useEffect(() => {
+    cargoCallbackRef.current = onCargoChange
+  }, [onCargoChange])
 
   useEffect(() => {
     // TASK-052 desenha o cenário; TASK-053 usa os mesmos dados para colidir.

@@ -47,7 +47,11 @@ export const SOIL_KIND_LABELS: Readonly<Record<SoilKind, string>> = {
 export const OBSTACLE_KIND_LABELS: Readonly<Record<Obstacle['kind'], string>> = {
   box: 'Caixa',
   cylinder: 'Cilindro',
+  model: 'Objeto',
 }
+
+/** Obstáculos criados por forma (caixa e cilindro); os objetos da biblioteca entram por `addModelAt`. */
+export type PrimitiveObstacleKind = Exclude<Obstacle['kind'], 'model'>
 
 /**
  * O rumo do cenário (`CranePlacement.headingDeg`) gira a cena como `rotation.y` (anti-horário visto
@@ -103,7 +107,7 @@ export function newFeature(
   return base
 }
 
-export function newObstacle(kind: Obstacle['kind'], existing: readonly Obstacle[]): Obstacle {
+export function newObstacle(kind: PrimitiveObstacleKind, existing: readonly Obstacle[]): Obstacle {
   const id = nextId(
     kind,
     existing.map((obstacle) => obstacle.id),
@@ -160,7 +164,7 @@ export function removeFeature(spec: ScenarioSpec, id: string): ScenarioSpec {
   return withTerrain(spec, { ...spec.terrain, features })
 }
 
-export function addObstacle(spec: ScenarioSpec, kind: Obstacle['kind']): ScenarioSpec {
+export function addObstacle(spec: ScenarioSpec, kind: PrimitiveObstacleKind): ScenarioSpec {
   if (spec.obstacles.length >= MAX_OBSTACLES) return spec
   return { ...spec, obstacles: [...spec.obstacles, newObstacle(kind, spec.obstacles)] }
 }
@@ -168,7 +172,7 @@ export function addObstacle(spec: ScenarioSpec, kind: Obstacle['kind']): Scenari
 export function updateObstacle(
   spec: ScenarioSpec,
   id: string,
-  changes: Partial<Omit<Obstacle, 'id' | 'kind'>>,
+  changes: Partial<Omit<Obstacle, 'id' | 'kind' | 'modelId'>>,
 ): ScenarioSpec {
   return {
     ...spec,
@@ -206,7 +210,9 @@ export function environmentSummary(spec: ScenarioSpec): string {
     features === 0 &&
     spec.obstacles.length === 0 &&
     !spec.soilZones?.length &&
-    !(spec.wind && spec.wind.speedMs > 0)
+    !(spec.wind && spec.wind.speedMs > 0) &&
+    !spec.cargo &&
+    !spec.delivery
   )
     return 'Terreno plano, sem obstáculos'
   const soil = spec.soilZones?.length ?? 0
@@ -220,6 +226,8 @@ export function environmentSummary(spec: ScenarioSpec): string {
     spec.wind && spec.wind.speedMs > 0
       ? `vento ${spec.wind.speedMs.toLocaleString('pt-BR')} m/s`
       : null,
+    spec.cargo ? 'carga posicionada' : null,
+    spec.delivery ? 'ponto de entrega' : null,
   ]
   return parts.filter(Boolean).join(' · ')
 }

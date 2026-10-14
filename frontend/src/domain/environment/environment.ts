@@ -43,8 +43,14 @@ export const FLAT_TERRAIN: TerrainSpec = { slopeXPercent: 0, slopeZPercent: 0, f
 export interface Obstacle {
   readonly id: string
   readonly label: string
-  /** `cylinder` usa `widthM` como diâmetro e ignora `depthM` e a rotação. */
-  readonly kind: 'box' | 'cylinder'
+  /**
+   * `cylinder` usa `widthM` como diâmetro e ignora `depthM` e a rotação. `model` (TASK-072) é um objeto
+   * da biblioteca (`objectLibrary.ts`, id em `modelId`): `widthM`, `depthM` e `heightM` são o tamanho
+   * já escalado e as caixas de colisão vêm da biblioteca.
+   */
+  readonly kind: 'box' | 'cylinder' | 'model'
+  /** Só `model`: id do objeto na biblioteca. */
+  readonly modelId?: string
   readonly centerX: number
   readonly centerZ: number
   readonly widthM: number
@@ -59,6 +65,16 @@ export interface CranePlacement {
   readonly z: number
   readonly headingDeg: number
 }
+
+/** Guindaste adicional do cenário (TASK-074): configuração do catálogo e posição. O principal é `crane`. */
+export interface ExtraCrane {
+  readonly id: string
+  readonly configurationId: string
+  readonly placement: CranePlacement
+}
+
+/** Máximo de guindastes adicionais (backend). */
+export const MAX_EXTRA_CRANES = 3
 
 export const DEFAULT_CRANE_PLACEMENT: CranePlacement = { x: 0, z: 0, headingDeg: 0 }
 
@@ -85,6 +101,27 @@ export interface WindSpec {
   readonly directionDeg: number
 }
 
+/**
+ * Posição inicial da carga no chão (TASK-073; ADR-035): centro em (x, z) e giro em torno de Y. A caixa
+ * usa as medidas e o peso do passo "Carga"; a base assenta no terreno.
+ */
+export interface CargoPlacement {
+  readonly x: number
+  readonly z: number
+  readonly rotationYDeg: number
+}
+
+/** Ponto de entrega (TASK-073; ADR-035): alvo no chão; soltar a carga dentro de `radiusM` entrega. */
+export interface DeliveryPoint {
+  readonly x: number
+  readonly z: number
+  readonly rotationYDeg: number
+  readonly radiusM: number
+}
+
+/** Raio de tolerância padrão do ponto de entrega (m). */
+export const DEFAULT_DELIVERY_RADIUS_M = 2
+
 /** Cenário completo, como é salvo (TASK-052) e copiado na gravação (TASK-057). */
 export interface ScenarioSpec {
   readonly terrain: TerrainSpec
@@ -94,6 +131,12 @@ export interface ScenarioSpec {
   readonly soilZones?: readonly SoilZone[]
   /** Vento (TASK-066); ausente = sem vento. */
   readonly wind?: WindSpec
+  /** Guindastes adicionais (TASK-074); ausente = só o principal. */
+  readonly cranes?: readonly ExtraCrane[]
+  /** Carga no chão (TASK-073); ausente = a carga já nasce pendurada no gancho, como antes. */
+  readonly cargo?: CargoPlacement
+  /** Ponto de entrega (TASK-073); ausente = sem alvo. */
+  readonly delivery?: DeliveryPoint
 }
 
 export const EMPTY_SCENARIO: ScenarioSpec = {

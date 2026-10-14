@@ -4,13 +4,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { DEFAULT_BRUSH, type Brush, withWind } from '../../application/environment/editorOps'
+import { removeCargo, removeDelivery } from '../../application/environment/cargoEditing'
 import { removeObstacle } from '../../application/environment/scenarioEditing'
 import type { SoilKind, WindSpec } from '../../domain/environment/environment'
+import { OBJECT_LIBRARY } from '../../domain/environment/objectLibrary'
 import type { CraneViewportEditor } from '../../presentation/components/CraneViewport'
 import {
+  CARGO_SELECTION_ID,
   CRANE_SELECTION_ID,
+  DELIVERY_SELECTION_ID,
   type EditorTool,
   type EditorTransformMode,
+  extraCraneIdOf,
+  extraCraneSelectionId,
 } from '../../three/scene/SceneEditor'
 import { useScenario } from '../scenario/scenarioContext'
 
@@ -29,19 +35,58 @@ export function useEnvironmentEditor() {
   const [soilKind, setSoilKind] = useState<SoilKind>('clay')
   const [lowerTerrain, setLowerTerrain] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Objeto da biblioteca que o clique no chão coloca (TASK-072); lembra a última escolha.
+  const [modelId, setModelId] = useState<string | null>(OBJECT_LIBRARY[0]?.id ?? null)
 
   const selectedObstacle =
     selectedId === null ? undefined : spec.obstacles.find((obstacle) => obstacle.id === selectedId)
+  const selectedExtraId = extraCraneIdOf(selectedId)
+  const selectedExtraIndex =
+    selectedExtraId === null ? -1 : (spec.cranes ?? []).findIndex((c) => c.id === selectedExtraId)
   const selectedLabel =
-    selectedId === CRANE_SELECTION_ID ? 'Guindaste' : (selectedObstacle?.label ?? null)
-  const canDelete = selectedObstacle !== undefined
+    selectedId === CRANE_SELECTION_ID
+      ? 'Guindaste 1'
+      : selectedExtraIndex >= 0
+        ? `Guindaste ${selectedExtraIndex + 2}`
+        : selectedId === CARGO_SELECTION_ID
+          ? 'Carga'
+          : selectedId === DELIVERY_SELECTION_ID
+            ? 'Ponto de entrega'
+            : (selectedObstacle?.label ?? null)
+  const canDelete =
+    selectedObstacle !== undefined ||
+    selectedExtraIndex >= 0 ||
+    (selectedId === CARGO_SELECTION_ID && spec.cargo !== undefined) ||
+    (selectedId === DELIVERY_SELECTION_ID && spec.delivery !== undefined)
 
   const deleteSelected = useCallback(() => {
     if (selectedId === null || selectedId === CRANE_SELECTION_ID) return
+    const extraId = extraCraneIdOf(selectedId)
     checkpoint()
-    setSpec(removeObstacle(getSpec(), selectedId))
+    const current = getSpec()
+    if (extraId !== null) {
+      const cranes = (current.cranes ?? []).filter((item) => item.id !== extraId)
+      setSpec({ ...current, cranes })
+    } else {
+      setSpec(
+        selectedId === CARGO_SELECTION_ID
+          ? removeCargo(current)
+          : selectedId === DELIVERY_SELECTION_ID
+            ? removeDelivery(current)
+            : removeObstacle(current, selectedId),
+      )
+    }
     setSelectedId(null)
   }, [selectedId, checkpoint, setSpec, getSpec])
+
+  /** Seleciona o guindaste adicional recém criado, para a pessoa já poder arrastá-lo. */
+  const selectExtraCrane = useCallback(
+    (id: string) => {
+      setTool('select')
+      setSelectedId(extraCraneSelectionId(id))
+    },
+    [setTool, setSelectedId],
+  )
 
   const toggle = useCallback(() => {
     setActive((current) => !current)
@@ -92,7 +137,7 @@ export function useEnvironmentEditor() {
     () =>
       active
         ? {
-            config: { tool, transformMode, brush, soilKind, lowerTerrain, selectedId },
+            config: { tool, transformMode, brush, soilKind, lowerTerrain, selectedId, modelId },
             callbacks: {
               getSpec,
               onChange: setSpec,
@@ -110,6 +155,7 @@ export function useEnvironmentEditor() {
       soilKind,
       lowerTerrain,
       selectedId,
+      modelId,
       getSpec,
       setSpec,
       checkpoint,
@@ -131,9 +177,12 @@ export function useEnvironmentEditor() {
     setSoilKind,
     lowerTerrain,
     setLowerTerrain,
+    modelId,
+    setModelId,
     selectedLabel,
     canDelete,
     deleteSelected,
+    selectExtraCrane,
     changeWind,
     canUndo,
     undo,

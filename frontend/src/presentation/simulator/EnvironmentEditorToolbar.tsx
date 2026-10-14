@@ -9,6 +9,7 @@ import { SOIL_COLORS, toCssHex } from '../../three/scene/palette'
 import type { EditorTool, EditorTransformMode } from '../../three/scene/SceneEditor'
 import { cx } from '../ui'
 import styles from './EnvironmentEditorToolbar.module.css'
+import { ObjectLibraryPalette } from './ObjectLibraryPalette'
 import toggleStyles from './OperatingAreaToggle.module.css'
 
 /** Botão da barra da cena que liga e desliga o modo de edição do ambiente. */
@@ -36,9 +37,28 @@ export function EditEnvironmentToggle({
 
 const TOOLS: readonly { readonly id: EditorTool; readonly label: string; readonly hint: string }[] =
   [
-    { id: 'select', label: 'Selecionar', hint: 'Clique num obstáculo ou no guindaste para mover' },
+    {
+      id: 'select',
+      label: 'Selecionar',
+      hint: 'Clique num obstáculo, na carga, no ponto de entrega ou num guindaste para mover',
+    },
     { id: 'add-box', label: 'Caixa', hint: 'Clique no chão para colocar uma caixa' },
     { id: 'add-cylinder', label: 'Cilindro', hint: 'Clique no chão para colocar um cilindro' },
+    {
+      id: 'place-cargo',
+      label: 'Posicionar carga',
+      hint: 'Clique no chão para escolher onde a carga começa. Ela usa as medidas do passo Carga',
+    },
+    {
+      id: 'place-delivery',
+      label: 'Ponto de entrega',
+      hint: 'Clique no chão para marcar onde a carga deve ser entregue',
+    },
+    {
+      id: 'add-model',
+      label: 'Biblioteca',
+      hint: 'Escolha um objeto e clique no chão para colocá-lo; depois mova, gire ou redimensione',
+    },
     {
       id: 'sculpt',
       label: 'Esculpir',
@@ -73,15 +93,22 @@ export interface EnvironmentEditorToolbarProps {
   onSoilKindChange(kind: SoilKind): void
   readonly lowerTerrain: boolean
   onLowerTerrainChange(lower: boolean): void
+  /** Objeto da biblioteca escolhido na paleta (TASK-072), ou `null`. */
+  readonly modelId: string | null
+  onModelChange(id: string): void
   readonly wind: WindSpec | undefined
   onWindChange(wind: WindSpec): void
-  /** Nome do que está selecionado ("Caixa 1", "Guindaste"), ou `null`. */
+  /** Nome do que está selecionado ("Caixa 1", "Guindaste", "Carga"), ou `null`. */
   readonly selectedLabel: string | null
   readonly canDelete: boolean
   onDelete(): void
   readonly canUndo: boolean
   onUndo(): void
   onDone(): void
+  /** Abre a escolha de um guindaste adicional do catálogo (TASK-074). */
+  onAddCrane(): void
+  /** Falso quando o cenário já tem o máximo de guindaste adicionais. */
+  readonly canAddCrane: boolean
 }
 
 /**
@@ -109,6 +136,19 @@ export function EnvironmentEditorToolbar(props: EnvironmentEditorToolbarProps) {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          className={styles.action}
+          disabled={!props.canAddCrane}
+          title={
+            props.canAddCrane
+              ? 'Escolha um guindaste do catálogo e posicione-o no cenário'
+              : 'O cenário já tem o máximo de guindastes'
+          }
+          onClick={props.onAddCrane}
+        >
+          Adicionar guindaste
+        </button>
         <div className={styles.spacer} />
         <button
           type="button"
@@ -149,6 +189,10 @@ export function EnvironmentEditorToolbar(props: EnvironmentEditorToolbarProps) {
               Excluir
             </button>
           </>
+        )}
+
+        {tool === 'add-model' && (
+          <ObjectLibraryPalette selectedId={props.modelId} onSelect={props.onModelChange} />
         )}
 
         {tool === 'sculpt' && (

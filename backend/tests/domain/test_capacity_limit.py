@@ -83,3 +83,27 @@ def test_without_limits_the_defaults_apply() -> None:
 
 def test_zero_effective_capacity_has_no_limit_result() -> None:
     assert evaluate_capacity_limit(Mass(0.0), Mass(10.0)) is None
+
+
+def test_extra_factor_reduces_the_effective_capacity_on_top_of_the_model_limit() -> None:
+    # Tandem (RN-016): 10 000 kg x 85 % do modelo x 0,75 = 6 375 kg.
+    result = evaluate_capacity_limit(
+        Mass(10_000.0),
+        Mass(6_000.0),
+        CraneLimits(capacity_limit_percent=85.0),
+        extra_factor=0.75,
+    )
+
+    assert result is not None
+    assert result.effective_capacity_kg == pytest.approx(6_375.0)
+    assert result.extra_factor == 0.75
+    assert result.limit_utilization_percent == pytest.approx(6_000 / 6_375 * 100)
+    assert result.level is CapacityLimitLevel.WARNING
+
+
+def test_without_extra_factor_nothing_changes() -> None:
+    result = evaluate_capacity_limit(Mass(10_000.0), Mass(6_000.0))
+
+    assert result is not None
+    assert result.extra_factor == 1.0
+    assert result.effective_capacity_kg == pytest.approx(10_000.0)

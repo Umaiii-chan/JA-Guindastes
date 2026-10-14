@@ -19,6 +19,7 @@ import {
   type TerrainSpec,
   terrainHeightAt,
 } from '../environment/environment'
+import { findLibraryObject, scaledCollisionBoxes } from '../environment/objectLibrary'
 import type { LoadBoxLayout } from './loadBox'
 import {
   applyTransform,
@@ -36,6 +37,9 @@ import {
 } from './obb'
 
 const DEG = Math.PI / 180
+
+/** Id do obstáculo que representa a carga apoiada no chão, enquanto ela não está engatada (TASK-073). */
+export const GROUND_CARGO_ID = 'carga-no-chao'
 
 /** Estado do guindaste que importa aqui: os mesmos ψ, θ, L e c do `CraneState`. */
 export interface CollisionCraneState {
@@ -87,12 +91,20 @@ export interface CollisionInput {
   readonly hook: HookBox | null
 }
 
-export type CollisionSubject = 'load' | 'hook'
+/**
+ * O que colide: a carga, o gancho sem carga ou, com dois guindastes (TASK-074), o próprio guindaste
+ * (lança contra lança, lança contra o corpo do outro).
+ */
+export type CollisionSubject = 'load' | 'hook' | 'crane'
 
 export type CollisionTarget =
   | { readonly kind: 'terrain' }
   | { readonly kind: 'crane'; readonly part: string; readonly obb: Obb }
   | { readonly kind: 'obstacle'; readonly id: string; readonly label: string; readonly obb: Obb }
+  /** Outro guindaste do cenário (TASK-074); `part` diz quais peças se tocam. */
+  | { readonly kind: 'other-crane'; readonly part: string; readonly obb: Obb }
+  /** No tandem, o guindaste que acompanha não alcança o ponto de içamento dele (TASK-074). */
+  | { readonly kind: 'tandem-reach'; readonly craneLabel: string }
 
 /** O que encostou em quê (a carga, ou o gancho sem carga). */
 export interface CollisionHit {
@@ -163,6 +175,29 @@ export function obstacleObb(obstacle: Obstacle, terrain: TerrainSpec): Obb {
   )
 }
 
+/**
+ * Caixas de colisão de um obstáculo no mundo. Caixa e cilindro dão uma só (`obstacleObb`); um objeto da
+ * biblioteca (TASK-072) dá as caixas dele (paredes, teto e a abertura do barracão, por exemplo), cada
+ * uma escalada para o tamanho do obstáculo e girada com ele em torno do centro da planta, com a base na
+ * altura do terreno no centro. Um `modelId` que a biblioteca não conhece volta à caixa que o envolve.
+ */
+export function obstacleObbs(obstacle: Obstacle, terrain: TerrainSpec): readonly Obb[] {
+  const object = obstacle.kind === 'model' ? findLibraryObject(obstacle.modelId) : undefined
+  if (!object) return [obstacleObb(obstacle, terrain)]
+  const ground = terrainHeightAt(terrain, obstacle.centerX, obstacle.centerZ)
+  const frame: Transform = {
+    rot: rotY(obstacle.rotationYDeg * DEG),
+    pos: { x: obstacle.centerX, y: ground, z: obstacle.centerZ },
+  }
+  return scaledCollisionBoxes(obstacle, object).map((box) =>
+    obbFromFrame(
+      frame,
+      { x: box.x, y: box.y + box.h / 2, z: box.z },
+      { x: box.w / 2, y: box.h / 2, z: box.d / 2 },
+    ),
+  )
+}
+
 /** Caixas do corpo do guindaste no mundo, para o estado dado. */
 export function craneBodyObbs(
   body: CraneBody,
@@ -189,7 +224,7 @@ export function craneBodyObbs(
 }
 
 /** Pontos G, T e P no mundo e o referencial do gancho (eixos da torre, origem em G). */
-function suspension(input: CollisionInput): {
+function suspension(input: Pick<CollisionInput, 'state' | 'geometryParameters' | 'scenario'>): {
   hookFrame: Transform
   hook: Vec3
   tip: Vec3
@@ -211,6 +246,20 @@ function suspension(input: CollisionInput): {
 const ZERO: Vec3 = { x: 0, y: 0, z: 0 }
 
 /**
+ * Referencial do gancho no mundo (origem em G; eixos da torre, com Y para cima) e o giro dele em
+ * torno de Y (graus: rumo do chassi mais o giro da torre). Usado para engatar e soltar a carga
+ * (TASK-073; ADR-035).
+ */
+export function hookWorldFrame(
+  input: Pick<CollisionInput, 'state' | 'geometryParameters' | 'scenario'>,
+): { readonly frame: Transform; readonly yawDeg: number } {
+  return {
+    frame: suspension(input).hookFrame,
+    yawDeg: input.scenario.crane.headingDeg + input.state.turretRotationDeg,
+  }
+}
+
+/**
  * Caixa da carga e do gancho no mundo. O cabo pende na vertical (S-2), então os eixos são os da
  * torre (girada em ψ) com Y para cima, como no nó do gancho da cena.
  */
@@ -226,11 +275,18 @@ export function payloadObbs(
     })
   }
   if (input.load) {
-    const { center, size } = input.load
-    parts.push({
-      subject: 'load',
-      obb: obbFromFrame(hookFrame, center, { x: size.x / 2, y: size.y / 2, z: size.z / 2 }),
-    })
+    const { center, size, yawDeg } = input.load
+    const half = { x: size.x / 2, y: size.y / 2, z: size.z / 2 }
+    if (yawDeg === undefined) {
+      parts.push({ subject: 'load', obb: obbFromFrame(hookFrame, center, half) })
+    } else {
+      // Carga engatada fora do eixo e girada (TASK-073): a caixa gira em torno do próprio centro.
+      const frame = compose(hookFrame, {
+        rot: rotY(yawDeg * DEG),
+        pos: { x: center.x, y: 0, z: center.z },
+      })
+      parts.push({ subject: 'load', obb: obbFromFrame(frame, { x: 0, y: center.y, z: 0 }, half) })
+    }
   }
   return parts
 }
@@ -263,7 +319,7 @@ export function evaluateCollisions(input: CollisionInput): CollisionReport {
   const hits: CollisionHit[] = []
   const obstacles = scenario.obstacles.map((obstacle) => ({
     obstacle,
-    obb: obstacleObb(obstacle, scenario.terrain),
+    obbs: obstacleObbs(obstacle, scenario.terrain),
   }))
   const bodyObbs = input.body ? craneBodyObbs(input.body, input.state, scenario) : []
 
@@ -282,14 +338,16 @@ export function evaluateCollisions(input: CollisionInput): CollisionReport {
         penetrationM += depth
       }
     }
-    for (const { obstacle, obb: obstacleBox } of obstacles) {
-      const depth = obbPenetration(obb, obstacleBox)
-      if (depth > 0) {
-        penetrationM += depth
-        hits.push({
-          subject,
-          target: { kind: 'obstacle', id: obstacle.id, label: obstacle.label, obb: obstacleBox },
-        })
+    for (const { obstacle, obbs } of obstacles) {
+      for (const obstacleBox of obbs) {
+        const depth = obbPenetration(obb, obstacleBox)
+        if (depth > 0) {
+          penetrationM += depth
+          hits.push({
+            subject,
+            target: { kind: 'obstacle', id: obstacle.id, label: obstacle.label, obb: obstacleBox },
+          })
+        }
       }
     }
   }
@@ -297,10 +355,14 @@ export function evaluateCollisions(input: CollisionInput): CollisionReport {
   const alerts: CollisionAlert[] = []
   if (obstacles.length > 0) {
     const { hook, tip, pivot } = suspension(input)
-    for (const { obstacle, obb } of obstacles) {
+    for (const { obstacle, obbs } of obstacles) {
       const entry = { obstacleId: obstacle.id, label: obstacle.label }
-      if (segmentIntersectsObb(tip, hook, obb)) alerts.push({ segment: 'cable', ...entry })
-      if (segmentIntersectsObb(pivot, tip, obb)) alerts.push({ segment: 'boom', ...entry })
+      if (obbs.some((obb) => segmentIntersectsObb(tip, hook, obb))) {
+        alerts.push({ segment: 'cable', ...entry })
+      }
+      if (obbs.some((obb) => segmentIntersectsObb(pivot, tip, obb))) {
+        alerts.push({ segment: 'boom', ...entry })
+      }
     }
   }
   return { hits, alerts, penetrationM }
@@ -314,16 +376,27 @@ export function describeTarget(target: CollisionTarget): string {
     case 'crane':
       return 'o guindaste'
     case 'obstacle':
-      return `o obstáculo «${target.label}»`
+      return target.id === GROUND_CARGO_ID ? 'a carga no chão' : `o obstáculo «${target.label}»`
+    case 'other-crane':
+      return `o outro guindaste (${target.part})`
+    case 'tandem-reach':
+      return `o limite de alcance do ${target.craneLabel}`
   }
 }
 
 export function describeHit(hit: CollisionHit): string {
+  if (hit.target.kind === 'tandem-reach') {
+    return `O ${hit.target.craneLabel} não alcançaria o ponto de içamento dele.`
+  }
+  if (hit.subject === 'crane') return `Os guindastes colidiriam: ${describeTarget(hit.target)}.`
   const subject = hit.subject === 'load' ? 'A carga' : 'O gancho'
   return `${subject} atingiria ${describeTarget(hit.target)}.`
 }
 
 export function describeAlert(alert: CollisionAlert): string {
+  if (alert.obstacleId === GROUND_CARGO_ID) {
+    return `${alert.segment === 'cable' ? 'O cabo' : 'A lança'} atravessa a carga no chão.`
+  }
   const segment = alert.segment === 'cable' ? 'O cabo' : 'A lança'
   return `${segment} atravessa o obstáculo «${alert.label}».`
 }
@@ -335,7 +408,11 @@ export function collisionStateKey(state: CollisionState): string {
       ? `${hit.subject}:terrain`
       : hit.target.kind === 'crane'
         ? `${hit.subject}:crane:${hit.target.part}`
-        : `${hit.subject}:obstacle:${hit.target.id}`,
+        : hit.target.kind === 'other-crane'
+          ? `${hit.subject}:other-crane:${hit.target.part}`
+          : hit.target.kind === 'tandem-reach'
+            ? `${hit.subject}:tandem-reach:${hit.target.craneLabel}`
+            : `${hit.subject}:obstacle:${hit.target.id}`,
   )
   const alerts = state.alerts.map((alert) => `${alert.segment}:${alert.obstacleId}`)
   return JSON.stringify([state.blocked, hits, alerts])

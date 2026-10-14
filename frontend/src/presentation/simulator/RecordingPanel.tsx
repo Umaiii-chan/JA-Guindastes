@@ -4,6 +4,7 @@ import { type FormEvent, useId, useState } from 'react'
 import type { SimulationRecordingController } from '../../app/simulator/useSimulationRecording'
 import { formatClock } from '../../application/recording/playback'
 import { PLAYBACK_SPEEDS, type PlaybackSpeed } from '../../application/recording/recording'
+import { ReviewRecordingButton } from '../ai'
 import { Button, cx } from '../ui'
 import styles from './RecordingPanel.module.css'
 
@@ -16,6 +17,20 @@ export interface RecordingPanelProps {
 function speedLabel(speed: PlaybackSpeed): string {
   return `${String(speed).replace('.', ',')}×`
 }
+
+const MARKER_STYLE = {
+  alert: 'alert',
+  collision: 'collision',
+  engage: 'engage',
+  release: 'release',
+} as const
+
+const MARKER_TEXT = {
+  alert: 'Alerta',
+  collision: 'Colisão',
+  engage: 'Carga engatada',
+  release: 'Carga solta',
+} as const
 
 const DATE_FORMAT = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 
@@ -161,6 +176,7 @@ export function RecordingPanel({ controller, canDelete }: RecordingPanelProps) {
                   >
                     Reproduzir
                   </Button>
+                  <ReviewRecordingButton recordingId={item.id} recordingName={item.name} />
                   {canDelete(item.authorUserId) && (
                     <Button
                       size="sm"
@@ -242,16 +258,13 @@ export function RecordingPanel({ controller, canDelete }: RecordingPanelProps) {
                 <button
                   key={`${marker.kind}-${marker.tMs}-${index}`}
                   type="button"
-                  className={cx(
-                    styles.marker,
-                    marker.kind === 'collision' ? styles.collision : styles.alert,
-                  )}
+                  className={cx(styles.marker, styles[MARKER_STYLE[marker.kind]])}
                   style={{
                     left: `${(marker.tMs / Math.max(1, player.recording?.durationMs ?? 1)) * 100}%`,
                   }}
                   data-kind={marker.kind}
-                  title={`${marker.kind === 'collision' ? 'Colisão' : 'Alerta'} em ${formatClock(marker.tMs, true)}: ${marker.label}`}
-                  aria-label={`${marker.kind === 'collision' ? 'Colisão' : 'Alerta'} em ${formatClock(marker.tMs, true)}`}
+                  title={`${MARKER_TEXT[marker.kind]} em ${formatClock(marker.tMs, true)}: ${marker.label}`}
+                  aria-label={`${MARKER_TEXT[marker.kind]} em ${formatClock(marker.tMs, true)}`}
                   onClick={() => player.seek(marker.tMs)}
                 />
               ))}

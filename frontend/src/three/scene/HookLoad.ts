@@ -15,11 +15,14 @@ import {
 } from 'three'
 
 import { measureHookExtent } from '../crane/rigLandmarks'
+import { cargoModelId, cargoModelInstance, cargoModels, loadCargoModel } from './CargoModels'
 import {
   computeLoadBox,
   HOOK_ATTACH_OFFSET_M,
+  type HookedCargoPose,
   type LoadBoxLayout,
   type LoadDimensions,
+  sameHookedPose,
   sameLoad,
 } from './loadBox'
 import { type EvaluationStatus, SCENE_COLORS, STATUS_COLORS, statusColor } from './palette'
@@ -35,6 +38,8 @@ export const HOOK_LOAD_NAMES = {
   edges: 'hook-load-edges',
   slings: 'hook-load-slings',
   halo: 'hook-load-halo',
+  /** Modelo 3D do tipo de carga, no lugar da caixa (leva F). */
+  model: 'hook-load-model',
 } as const
 
 /** Halo sem carga e sem medida do gancho: esfera em volta do gancho provisório (m, locais de G). */
@@ -99,7 +104,14 @@ export class HookLoad {
   })
   private highlighted = false
   private loadParts: Object3D[] = []
+  /** Caixa e arestas da carga e o modelo 3D do tipo (leva F), quando já chegou; ele toma o lugar da caixa. */
+  private boxMesh: Mesh | null = null
+  private edgesLines: LineSegments | null = null
+  private cargoModel: Object3D | null = null
+  private onModelReady: (() => void) | null = null
   private load: LoadDimensions | null = null
+  /** Posição da carga em relação ao gancho depois de engatada (TASK-073); `null` = centrada nele. */
+  private hookedPose: HookedCargoPose | null = null
   private layout: LoadBoxLayout | null = null
   private hook: Object3D
   private attachOffsetM = HOOK_ATTACH_OFFSET_M
@@ -155,8 +167,9 @@ export class HookLoad {
   }
 
   /** Mostra a caixa da carga pendurada pelas lingas, ou só o gancho com `null` ou medidas inválidas. */
-  setLoad(load: LoadDimensions | null | undefined): void {
-    if (sameLoad(load, this.load)) return
+  setLoad(load: LoadDimensions | null | undefined, hooked: HookedCargoPose | null = null): void {
+    if (sameLoad(load, this.load) && sameHookedPose(hooked, this.hookedPose)) return
+    this.hookedPose = hooked
     this.rebuild(load)
   }
 
@@ -184,6 +197,12 @@ export class HookLoad {
     this.highlighted = on
     this.boxMaterial.color.setHex(on ? STATUS_COLORS.over : SCENE_COLORS.load)
     this.edgesMaterial.color.setHex(on ? STATUS_COLORS.over : SCENE_COLORS.loadEdges)
+    this.syncCargoModelVisibility()
+  }
+
+  /** `true` quando o modelo 3D do tipo de carga está aparecendo no lugar da caixa. */
+  get showsCargoModel(): boolean {
+    return this.cargoModel !== null && this.cargoModel.visible
   }
 
   /** Quanto a carga desce abaixo do gancho pela cadeia de acessórios (m; TASK-056). */
@@ -263,7 +282,7 @@ export class HookLoad {
     this.clearLoad()
     this.showBuiltInHook(!this.hookReplaced)
     const attach = this.hookReplaced ? REPLACED_HOOK_ATTACH_M : this.attachOffsetM
-    this.layout = computeLoadBox(load, attach, this.accessoriesDropM)
+    this.layout = computeLoadBox(load, attach, this.accessoriesDropM, this.hookedPose)
     if (this.accessoriesRoot) {
       this.accessoriesRoot.position.set(0, -attach, 0)
       if (this.accessoriesRoot.parent !== this.root) this.root.add(this.accessoriesRoot)
@@ -285,12 +304,14 @@ export class HookLoad {
     const box = new Mesh(boxGeometry, this.boxMaterial)
     box.name = HOOK_LOAD_NAMES.box
     box.position.set(layout.center.x, layout.center.y, layout.center.z)
+    box.rotation.y = ((layout.yawDeg ?? 0) * Math.PI) / 180
     box.castShadow = true
     box.receiveShadow = true
 
     const edges = new LineSegments(new EdgesGeometry(boxGeometry), this.edgesMaterial)
     edges.name = HOOK_LOAD_NAMES.edges
     edges.position.copy(box.position)
+    edges.rotation.copy(box.rotation)
 
     const top = new Vector3(layout.slingTop.x, layout.slingTop.y, layout.slingTop.z)
     const slingPoints: Vector3[] = []
@@ -312,7 +333,51 @@ export class HookLoad {
     slings.name = HOOK_LOAD_NAMES.slings
 
     this.loadParts = [box, edges, slings]
+    this.boxMesh = box
+    this.edgesLines = edges
     this.root.add(...this.loadParts)
+    this.attachCargoModel(layout, box)
+  }
+
+  /**
+   * Tipo de carga com modelo 3D (leva F): o modelo, escalado para as medidas, toma o lugar da caixa
+   * assim que chega (a caixa fica enquanto carrega ou se o arquivo falhar). Com a carga destacada por
+   * uma colisão, volta a caixa vermelha. Só desenho: a colisão é pela caixa.
+   */
+  private attachCargoModel(layout: LoadBoxLayout, box: Mesh): void {
+    const load = this.load
+    if (!load || cargoModelId(load) === undefined) return
+    const place = (): void => {
+      // O quadro já pode ter sido refeito (medidas novas, outro gancho): só vale para a caixa atual.
+      if (this.layout !== layout || this.boxMesh !== box) return
+      const model = cargoModelInstance(load)
+      if (!model) return
+      model.name = HOOK_LOAD_NAMES.model
+      // O modelo tem a origem no centro da base; a caixa, no centro.
+      model.position.set(layout.center.x, layout.center.y - layout.size.y / 2, layout.center.z)
+      model.rotation.y = box.rotation.y
+      this.root.add(model)
+      this.loadParts.push(model)
+      this.cargoModel = model
+      this.syncCargoModelVisibility()
+      this.onModelReady?.()
+    }
+    if (cargoModels.peek(cargoModelId(load) ?? '')) place()
+    else void loadCargoModel(load).then((loaded) => loaded && place())
+  }
+
+  /** Quem é avisado quando o modelo 3D da carga entra na cena (pede novo quadro). */
+  setOnModelReady(callback: (() => void) | null): void {
+    this.onModelReady = callback
+  }
+
+  private syncCargoModelVisibility(): void {
+    const model = this.cargoModel
+    if (!model) return
+    const showModel = !this.highlighted
+    model.visible = showModel
+    if (this.boxMesh) this.boxMesh.visible = !showModel
+    if (this.edgesLines) this.edgesLines.visible = !showModel
   }
 
   private clearLoad(): void {
@@ -321,6 +386,9 @@ export class HookLoad {
       if (part instanceof Mesh || part instanceof LineSegments) part.geometry.dispose()
     }
     this.loadParts = []
+    this.boxMesh = null
+    this.edgesLines = null
+    this.cargoModel = null
     this.layout = null
     this.load = null
   }

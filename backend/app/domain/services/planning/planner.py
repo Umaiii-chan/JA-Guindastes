@@ -1,0 +1,676 @@
+"""Planejador de um guindaste: posição, lança e caminho da carga (TASK-075; ADR-038).
+
+Para uma configuração com tabela ativa, procura a posição do guindaste numa grade ao redor da coleta
+e da entrega, descartando as posições sobre obstáculos ou com inclinação ou solo fora do limite. Em
+cada posição calcula raio e giro na coleta e na entrega, escolhe o sentido do giro (o mais curto que
+não cruza obstáculo), a altura de transporte (topo do obstáculo mais alto no caminho + 1 m) e o
+comprimento de lança que minimiza a utilização máxima ao longo do caminho.
+
+Capacidade e segurança vêm do `StateEvaluator` (o cálculo determinístico do backend); este módulo só
+gera os estados a avaliar e escolhe entre eles (RN-004, RN-008).
+"""
+
+import math
+import time
+from collections import Counter
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+
+from app.domain.entities.scenario import (
+    CranePlacementSpec,
+    ObstacleSpec,
+    ScenarioSpec,
+)
+from app.domain.entities.scenario import SoilKind as ScenarioSoilKind
+from app.domain.services.environment_factors import (
+    SOIL_BEARING_CAPACITY_KPA,
+    SoilKind,
+    pad_pressure_kpa,
+)
+from app.domain.services.planning.crane_body import (
+    BODY_HEIGHT_M,
+    crane_body_overlaps_obstacle,
+    distance_to_crane_body_m,
+)
+from app.domain.services.planning.models import (
+    CranePlan,
+    CraneStateValues,
+    PlanLoad,
+    PlannerCrane,
+    PlanPoint,
+    StateAssessment,
+    StateEvaluator,
+)
+from app.domain.services.planning.scene import (
+    azimuth_deg,
+    direction,
+    distance_to_obstacle_m,
+    obstacle_circumradius_m,
+    obstacle_top_y,
+    wrap_180,
+)
+from app.domain.services.planning.terrain import (
+    ground_slope_under_crane_deg,
+    soil_kinds_under_shoes,
+    terrain_height_at,
+)
+from app.domain.services.planning.trajectory import HOIST_M_PER_S, SLEW_DEG_PER_S
+from app.domain.services.safety_assessment import TippingRisk
+
+POSITION_STEP_M = 2.0
+"""Passo da grade de posições do guindaste."""
+PATH_SEGMENTS = 12
+"""Trechos em que o giro é amostrado, da coleta à entrega."""
+CLEARANCE_M = 1.0
+"""Folga entre a base da carga e o topo do obstáculo mais alto no caminho."""
+HOOK_ATTACH_M = 1.05
+"""Do gancho ao ponto de amarração das lingas, sem medida da cena (`HOOK_ATTACH_OFFSET_M` do
+frontend); a tela manda o valor medido no gancho do modelo 3D em uso."""
+REST_CLEARANCE_M = 0.03
+"""Folga entre a base da carga e o chão quando ela é pousada ou pega, para não encostar."""
+ENGAGE_GAP_M = 0.25
+"""No quadro "Engatar", o fim do gancho fica esta altura acima do topo da carga no chão: dentro da
+faixa de engate da cena (até 0,5 m; TASK-073), sem encostar na caixa."""
+DEFAULT_MAX_POSITIONS = 30
+DEFAULT_KEEP = 3
+REFINE_TOP = 6
+_ANGLE_TOLERANCE_DEG = 1e-6
+_RISK_RANK: dict[TippingRisk | None, int] = {
+    TippingRisk.LOW: 0,
+    TippingRisk.ATTENTION: 1,
+    TippingRisk.HIGH: 2,
+    None: 3,
+}
+
+
+def risk_rank(risk: TippingRisk | None) -> int:
+    return _RISK_RANK[risk]
+
+
+def sling_drop_m(load: PlanLoad) -> float:
+    """Altura das lingas entre o gancho e o topo da carga (`slingDropM` do frontend)."""
+    return min(3.0, max(0.6, max(load.length_m, load.width_m) / 2))
+
+
+def _load_below_hook_m(load: PlanLoad, accessory_drop_m: float, hook_attach_m: float) -> float:
+    """Distância do gancho à base da carga pendurada."""
+    return hook_attach_m + accessory_drop_m + sling_drop_m(load) + load.height_m
+
+
+@dataclass(frozen=True, slots=True)
+class PlanSearch:
+    """Resultado da busca para uma configuração: os melhores planos e por que o resto caiu."""
+
+    plans: tuple[CranePlan, ...]
+    rejections: dict[str, int]
+    timed_out: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class _Site:
+    """Posição candidata do guindaste, com tudo que não depende do giro nem da lança."""
+
+    placement: CranePlacementSpec
+    pick_radius_m: float
+    delivery_radius_m: float
+    pick_azimuth_deg: float
+    delivery_azimuth_deg: float
+    ground_y: float
+    slope_deg: float
+    soil_kinds: tuple[SoilKind, ...]
+    conflicts: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _Swing:
+    sign: int
+    arc_deg: float
+    points: tuple[tuple[float, float], ...]
+    crossed: tuple[ObstacleSpec, ...]
+    bottom_y: float
+    """Altura absoluta da base da carga durante o giro."""
+    crosses_body: bool = False
+    """O caminho passa sobre o corpo do próprio guindaste."""
+
+
+@dataclass(frozen=True, slots=True)
+class _Option:
+    site: _Site
+    swing: _Swing
+    boom_length_m: float
+    path: tuple[CraneStateValues, ...]
+    pick_state: CraneStateValues
+    delivery_state: CraneStateValues
+    utilization_percent: float
+    risk: TippingRisk | None
+    messages: tuple[str, ...]
+
+
+def _to_env_soil(kinds: Sequence[ScenarioSoilKind]) -> tuple[SoilKind, ...]:
+    return tuple(SoilKind(kind.value) for kind in kinds)
+
+
+def _centered_heading(crane: PlannerCrane, az_pick: float, az_delivery: float) -> float:
+    """Rumo do chassi que põe o meio do giro curto no centro do arco permitido (ψ = 0 se livre)."""
+    delta = wrap_180(az_delivery - az_pick)
+    bisector = az_pick + delta / 2
+    geometry = crane.geometry
+    center = 0.0
+    if geometry.turret_rotation_min is not None and geometry.turret_rotation_max is not None:
+        center = (geometry.turret_rotation_min.degrees + geometry.turret_rotation_max.degrees) / 2
+    return bisector - center
+
+
+_HEADING_STEPS_DEG = (0.0, 90.0, 180.0, 270.0)
+"""Rumos testados em cada posição: o centrado no giro e os girados de 90° em 90° (com o giro livre),
+para a carga não passar sobre a cabine e o corpo do guindaste quando houver um lado melhor."""
+
+
+def _site_at(
+    crane: PlannerCrane,
+    scenario: ScenarioSpec,
+    pick: PlanPoint,
+    delivery: PlanPoint,
+    load: PlanLoad,
+    compared_kg: float,
+    placement: CranePlacementSpec,
+) -> _Site | str:
+    """A posição com este rumo, ou a chave do motivo de descarte."""
+    x, z = placement.x, placement.z
+    radius_load = math.hypot(load.length_m, load.width_m) / 2
+    if any(crane_body_overlaps_obstacle(placement, obstacle) for obstacle in scenario.obstacles):
+        return "obstaculo"
+    if any(
+        distance_to_crane_body_m(placement, point.x, point.z) < radius_load
+        for point in (pick, delivery)
+    ):
+        return "corpo"
+    slope = round(ground_slope_under_crane_deg(scenario.terrain, placement), 2)
+    if slope > crane.profile.max_ground_slope_deg:
+        return "inclinacao"
+    soils = _to_env_soil(soil_kinds_under_shoes(scenario, placement))
+    if soils:
+        pressure = pad_pressure_kpa(compared_kg, crane.profile)
+        if any(pressure > SOIL_BEARING_CAPACITY_KPA[kind] for kind in soils):
+            return "solo"
+    rp = math.hypot(pick.x - x, pick.z - z)
+    rd = math.hypot(delivery.x - x, delivery.z - z)
+    reach = max(rp, rd)
+    conflicts = tuple(
+        sorted(
+            obstacle.id
+            for obstacle in scenario.obstacles
+            if math.hypot(obstacle.center_x - x, obstacle.center_z - z)
+            - obstacle_circumradius_m(obstacle)
+            <= reach
+        )
+    )
+    return _Site(
+        placement=placement,
+        pick_radius_m=rp,
+        delivery_radius_m=rd,
+        pick_azimuth_deg=azimuth_deg(pick.x - x, pick.z - z),
+        delivery_azimuth_deg=azimuth_deg(delivery.x - x, delivery.z - z),
+        ground_y=terrain_height_at(scenario.terrain, x, z),
+        slope_deg=slope,
+        soil_kinds=soils,
+        conflicts=conflicts,
+    )
+
+
+def _sites(
+    crane: PlannerCrane,
+    scenario: ScenarioSpec,
+    pick: PlanPoint,
+    delivery: PlanPoint,
+    load: PlanLoad,
+    weight_with_extras_kg: float,
+    rejections: Counter[str],
+    max_positions: int,
+) -> list[_Site]:
+    geometry = crane.geometry
+    pivot = geometry.boom_pivot_offset_m
+    max_reach = min(
+        crane.max_radius_m,
+        pivot
+        + geometry.boom_length_max.meters * math.cos(math.radians(geometry.boom_angle_min.degrees)),
+    )
+    min_reach = pivot + geometry.boom_length_min.meters * math.cos(
+        math.radians(geometry.boom_angle_max.degrees)
+    )
+    free_turret = geometry.turret_rotation_min is None or geometry.turret_rotation_max is None
+    mid_x = (pick.x + delivery.x) / 2
+    mid_z = (pick.z + delivery.z) / 2
+    steps_x = math.ceil((abs(pick.x - delivery.x) / 2 + max_reach) / POSITION_STEP_M)
+    steps_z = math.ceil((abs(pick.z - delivery.z) / 2 + max_reach) / POSITION_STEP_M)
+    compared_kg = weight_with_extras_kg + crane.hook_block_weight_kg
+
+    sites: list[_Site] = []
+    for i in range(-steps_x, steps_x + 1):
+        for j in range(-steps_z, steps_z + 1):
+            x = mid_x + i * POSITION_STEP_M
+            z = mid_z + j * POSITION_STEP_M
+            rp = math.hypot(pick.x - x, pick.z - z)
+            rd = math.hypot(delivery.x - x, delivery.z - z)
+            if max(rp, rd) > max_reach + 1e-9 or min(rp, rd) < min_reach - 1e-9:
+                continue  # fora do alcance da lança (não conta como descarte: é a maior parte)
+            base_heading = _centered_heading(
+                crane,
+                azimuth_deg(pick.x - x, pick.z - z),
+                azimuth_deg(delivery.x - x, delivery.z - z),
+            )
+            best: tuple[float, _Site] | None = None
+            reason = "obstaculo"
+            for step in _HEADING_STEPS_DEG if free_turret else (0.0,):
+                placement = CranePlacementSpec(x=x, z=z, heading_deg=base_heading + step)
+                result = _site_at(crane, scenario, pick, delivery, load, compared_kg, placement)
+                if isinstance(result, str):
+                    reason = result
+                    continue
+                swing = _swings(result, scenario, load, pick, delivery)[0]
+                cost = _swing_seconds(swing, scenario, pick, delivery)
+                if best is None or cost < best[0] - 1e-9:
+                    best = (cost, result)
+            if best is None:
+                rejections[reason] += 1
+            else:
+                sites.append(best[1])
+    sites.sort(
+        key=lambda site: (
+            max(site.pick_radius_m, site.delivery_radius_m),
+            site.placement.x,
+            site.placement.z,
+        )
+    )
+    return sites[:max_positions]
+
+
+def _ends_ground(scenario: ScenarioSpec, pick: PlanPoint, delivery: PlanPoint) -> float:
+    return max(
+        terrain_height_at(scenario.terrain, pick.x, pick.z),
+        terrain_height_at(scenario.terrain, delivery.x, delivery.z),
+    )
+
+
+def _swing_seconds(
+    swing: _Swing, scenario: ScenarioSpec, pick: PlanPoint, delivery: PlanPoint
+) -> float:
+    """Tempo estimado do giro, com a subida e a descida extras da altura de transporte."""
+    minimum_bottom_y = _ends_ground(scenario, pick, delivery) + CLEARANCE_M
+    extra_lift_m = max(0.0, swing.bottom_y - minimum_bottom_y)
+    return swing.arc_deg / SLEW_DEG_PER_S + 2 * extra_lift_m / HOIST_M_PER_S
+
+
+def _swings(
+    site: _Site,
+    scenario: ScenarioSpec,
+    load: PlanLoad,
+    pick: PlanPoint,
+    delivery: PlanPoint,
+) -> list[_Swing]:
+    """Os sentidos do giro, do preferido ao último.
+
+    Vale o de menor tempo estimado: o giro mais a subida e a descida extras para passar sobre os
+    obstáculos do caminho e sobre o corpo do guindaste (a carga vai a topo do mais alto + 1 m).
+    Assim, o sentido curto é o escolhido mesmo cruzando um obstáculo baixo, e o longo só vence
+    quando o obstáculo do curto é alto demais para valer a subida; se o curto não tem lança
+    possível, tenta-se o outro.
+    """
+    delta = wrap_180(site.delivery_azimuth_deg - site.pick_azimuth_deg)
+    short_sign = -1 if delta < 0 else 1
+    options = [(short_sign, abs(delta))]
+    if abs(delta) > 0.5:
+        options.append((-short_sign, 360.0 - abs(delta)))
+    radius_load = math.hypot(load.length_m, load.width_m) / 2
+    ends_ground = _ends_ground(scenario, pick, delivery)
+    swings: list[_Swing] = []
+    for sign, arc in options:
+        points: list[tuple[float, float]] = []
+        for k in range(PATH_SEGMENTS + 1):
+            t = k / PATH_SEGMENTS
+            radius = site.pick_radius_m + (site.delivery_radius_m - site.pick_radius_m) * t
+            dx, dz = direction(site.pick_azimuth_deg + sign * arc * t)
+            points.append((site.placement.x + radius * dx, site.placement.z + radius * dz))
+        crossed = tuple(
+            obstacle
+            for obstacle in scenario.obstacles
+            if min(distance_to_obstacle_m(obstacle, x, z) for x, z in points) <= radius_load
+        )
+        crosses_body = (
+            min(distance_to_crane_body_m(site.placement, x, z) for x, z in points) <= radius_load
+        )
+        tops = [ends_ground]
+        tops += [terrain_height_at(scenario.terrain, x, z) for x, z in points]
+        tops += [obstacle_top_y(scenario.terrain, obstacle) for obstacle in crossed]
+        if crosses_body:
+            tops.append(site.ground_y + BODY_HEIGHT_M)
+        swings.append(
+            _Swing(sign, arc, tuple(points), crossed, max(tops) + CLEARANCE_M, crosses_body)
+        )
+
+    swings.sort(
+        key=lambda swing: (
+            round(_swing_seconds(swing, scenario, pick, delivery), 3),
+            bool(swing.crossed) or swing.crosses_body,
+            swing.arc_deg,
+        )
+    )
+    return swings
+
+
+def _boom_angle_deg(crane: PlannerCrane, boom_length_m: float, radius_m: float) -> float | None:
+    """θ que dá o raio `radius_m` com a lança `boom_length_m` (R = a + L·cos θ), dentro da faixa."""
+    geometry = crane.geometry
+    cosine = (radius_m - geometry.boom_pivot_offset_m) / boom_length_m
+    if cosine > 1 + 1e-9 or cosine < -1e-9:
+        return None
+    angle = math.degrees(math.acos(min(1.0, max(-1.0, cosine))))
+    if not (
+        geometry.boom_angle_min.degrees - _ANGLE_TOLERANCE_DEG
+        <= angle
+        <= geometry.boom_angle_max.degrees + _ANGLE_TOLERANCE_DEG
+    ):
+        return None
+    return angle
+
+
+def _cable_m(
+    crane: PlannerCrane, boom_length_m: float, angle_deg: float, hook_y_rel: float
+) -> float | None:
+    """Cabo c que põe o gancho na altura `hook_y_rel` (relativa ao plano de apoio), na faixa."""
+    geometry = crane.geometry
+    cable = (
+        geometry.boom_pivot_height.meters
+        + boom_length_m * math.sin(math.radians(angle_deg))
+        - hook_y_rel
+    )
+    cable_max = geometry.cable_length_max.meters if geometry.cable_length_max else math.inf
+    if cable < geometry.cable_length_min.meters - 1e-9 or cable > cable_max + 1e-9:
+        return None
+    return cable
+
+
+def _assess(
+    evaluator: StateEvaluator,
+    crane: PlannerCrane,
+    site: _Site,
+    state: CraneStateValues,
+    weight_kg: float,
+    wind_speed_ms: float | None,
+) -> StateAssessment:
+    return evaluator(
+        configuration_id=crane.configuration_id,
+        state=state,
+        load_weight_kg=weight_kg,
+        ground_slope_deg=site.slope_deg if site.slope_deg > 0 else None,
+        soil_kinds=site.soil_kinds,
+        wind_speed_ms=wind_speed_ms,
+        obstacle_conflicts=site.conflicts,
+    )
+
+
+def _worst(
+    assessments: Sequence[StateAssessment], capacity_share: float
+) -> tuple[float, TippingRisk | None, tuple[str, ...]] | str:
+    """Pior utilização e pior risco; ou o motivo, se algum estado não for avaliável."""
+    worst_util = 0.0
+    worst_rank = 0
+    worst_risk: TippingRisk | None = TippingRisk.LOW
+    messages: list[str] = []
+    for assessment in assessments:
+        if not assessment.evaluable:
+            return assessment.reason or "tabela"
+        worst_util = max(worst_util, assessment.utilization_percent / capacity_share)
+        rank = risk_rank(assessment.risk)
+        if rank > worst_rank:
+            worst_rank = rank
+            worst_risk = assessment.risk
+        for message in assessment.messages:
+            if message not in messages:
+                messages.append(message)
+    return worst_util, worst_risk, tuple(messages)
+
+
+def _try_length(
+    *,
+    crane: PlannerCrane,
+    site: _Site,
+    swing: _Swing,
+    boom_length_m: float,
+    load: PlanLoad,
+    accessory_drop_m: float,
+    hook_attach_m: float,
+    pick: PlanPoint,
+    delivery: PlanPoint,
+    scenario: ScenarioSpec,
+    evaluator: StateEvaluator,
+    weight_kg: float,
+    capacity_share: float,
+    wind_speed_ms: float | None,
+    rejections: Counter[str],
+) -> _Option | None:
+    below_hook = _load_below_hook_m(load, accessory_drop_m, hook_attach_m)
+    transport_hook_y = swing.bottom_y + below_hook - site.ground_y
+    pick_ground = terrain_height_at(scenario.terrain, pick.x, pick.z)
+    delivery_ground = terrain_height_at(scenario.terrain, delivery.x, delivery.z)
+    # Na coleta, o gancho desce até o topo da carga apoiada (as lingas ainda não estão nela): é aí
+    # que a cena engata (TASK-073). Depois de engatada, a carga pende `below_hook` abaixo do gancho.
+    pick_hook_y = (
+        pick_ground
+        + load.height_m
+        + hook_attach_m
+        + accessory_drop_m
+        + ENGAGE_GAP_M
+        - site.ground_y
+    )
+    delivery_hook_y = delivery_ground + REST_CLEARANCE_M + below_hook - site.ground_y
+    psi_pick = wrap_180(site.pick_azimuth_deg - site.placement.heading_deg)
+
+    path: list[CraneStateValues] = []
+    for k in range(PATH_SEGMENTS + 1):
+        t = k / PATH_SEGMENTS
+        radius = site.pick_radius_m + (site.delivery_radius_m - site.pick_radius_m) * t
+        angle = _boom_angle_deg(crane, boom_length_m, radius)
+        if angle is None:
+            rejections["lanca"] += 1
+            return None
+        cable = _cable_m(crane, boom_length_m, angle, transport_hook_y)
+        if cable is None:
+            rejections["cabo"] += 1
+            return None
+        path.append(
+            CraneStateValues(boom_length_m, angle, psi_pick + swing.sign * swing.arc_deg * t, cable)
+        )
+    first, last = path[0], path[-1]
+    pick_cable = _cable_m(crane, boom_length_m, first.boom_angle_deg, pick_hook_y)
+    delivery_cable = _cable_m(crane, boom_length_m, last.boom_angle_deg, delivery_hook_y)
+    if pick_cable is None or delivery_cable is None:
+        rejections["cabo"] += 1
+        return None
+    pick_state = CraneStateValues(
+        boom_length_m, first.boom_angle_deg, first.turret_rotation_deg, pick_cable
+    )
+    delivery_state = CraneStateValues(
+        boom_length_m, last.boom_angle_deg, last.turret_rotation_deg, delivery_cable
+    )
+
+    sampled = (pick_state, path[PATH_SEGMENTS // 2], delivery_state)
+    result = _worst(
+        [_assess(evaluator, crane, site, s, weight_kg, wind_speed_ms) for s in sampled],
+        capacity_share,
+    )
+    if isinstance(result, str):
+        rejections[result] += 1
+        return None
+    util, risk, messages = result
+    return _Option(
+        site, swing, boom_length_m, tuple(path), pick_state, delivery_state, util, risk, messages
+    )
+
+
+def _option_key(option: _Option) -> tuple[bool, float, int]:
+    valid = option.utilization_percent <= 100.0 and option.risk is not TippingRisk.HIGH
+    return (not valid, option.utilization_percent, risk_rank(option.risk))
+
+
+def plan_crane(
+    *,
+    crane: PlannerCrane,
+    scenario: ScenarioSpec,
+    load: PlanLoad,
+    pick: PlanPoint,
+    delivery: PlanPoint,
+    evaluator: StateEvaluator,
+    share_kg: float | None = None,
+    extra_weight_kg: float = 0.0,
+    accessory_drop_m: float = 0.0,
+    hook_attach_m: float = HOOK_ATTACH_M,
+    capacity_share: float = 1.0,
+    wind_speed_ms: float | None = None,
+    max_positions: int = DEFAULT_MAX_POSITIONS,
+    keep: int = DEFAULT_KEEP,
+    deadline: float | None = None,
+    clock: Callable[[], float] = time.monotonic,
+    hoist_pick: tuple[float, float] | None = None,
+    hoist_delivery: tuple[float, float] | None = None,
+) -> PlanSearch:
+    """Melhores planos de `crane` para levar a carga de `pick` a `delivery`.
+
+    `share_kg` é o peso que este guindaste leva (a carga inteira, se omitido); `capacity_share` é a
+    fração da capacidade que ele pode usar (0,75 no tandem). `pick` e `delivery` são os pontos onde
+    o gancho deste guindaste prende a carga.
+    """
+    weight_kg = load.weight_kg if share_kg is None else share_kg
+    rejections: Counter[str] = Counter()
+    sites = _sites(
+        crane,
+        scenario,
+        pick,
+        delivery,
+        load,
+        weight_kg + extra_weight_kg,
+        rejections,
+        max_positions,
+    )
+    options: list[_Option] = []
+    timed_out = False
+    for site in sites:
+        if deadline is not None and clock() > deadline:
+            timed_out = True
+            break
+        best: _Option | None = None
+        for swing in _swings(site, scenario, load, pick, delivery):
+            candidates = [
+                option
+                for length in crane.boom_lengths_m
+                if (
+                    option := _try_length(
+                        crane=crane,
+                        site=site,
+                        swing=swing,
+                        boom_length_m=length,
+                        load=load,
+                        accessory_drop_m=accessory_drop_m,
+                        hook_attach_m=hook_attach_m,
+                        pick=pick,
+                        delivery=delivery,
+                        scenario=scenario,
+                        evaluator=evaluator,
+                        weight_kg=weight_kg,
+                        capacity_share=capacity_share,
+                        wind_speed_ms=wind_speed_ms,
+                        rejections=rejections,
+                    )
+                )
+                is not None
+            ]
+            if candidates:
+                best = min(candidates, key=_option_key)
+                break
+        if best is not None:
+            options.append(best)
+
+    options.sort(key=_option_key)
+    plans: list[CranePlan] = []
+    for option in options[: max(REFINE_TOP, keep)]:
+        plan = _refine(
+            crane=crane,
+            option=option,
+            evaluator=evaluator,
+            weight_kg=weight_kg,
+            capacity_share=capacity_share,
+            wind_speed_ms=wind_speed_ms,
+            load=load,
+            pick=pick,
+            scenario=scenario,
+            hoist_pick=hoist_pick,
+            hoist_delivery=hoist_delivery,
+        )
+        if plan is not None:
+            plans.append(plan)
+    plans.sort(key=plan_sort_key)
+    return PlanSearch(tuple(plans[:keep]), dict(rejections), timed_out)
+
+
+def plan_sort_key(plan: CranePlan) -> tuple[bool, float, int]:
+    """Válidas primeiro, depois a menor utilização máxima (a 0,1 %) e o menor risco."""
+    return (not plan.valid, round(plan.max_utilization_percent, 1), risk_rank(plan.tipping_risk))
+
+
+def _refine(
+    *,
+    crane: PlannerCrane,
+    option: _Option,
+    evaluator: StateEvaluator,
+    weight_kg: float,
+    capacity_share: float,
+    wind_speed_ms: float | None,
+    load: PlanLoad,
+    pick: PlanPoint,
+    scenario: ScenarioSpec,
+    hoist_pick: tuple[float, float] | None,
+    hoist_delivery: tuple[float, float] | None,
+) -> CranePlan | None:
+    """Avalia todas as amostras do caminho e monta o plano com o pior ponto."""
+    site = option.site
+    states = (option.pick_state, *option.path, option.delivery_state)
+    result = _worst(
+        [_assess(evaluator, crane, site, s, weight_kg, wind_speed_ms) for s in states],
+        capacity_share,
+    )
+    if isinstance(result, str):
+        return None
+    util, risk, messages = result
+    valid = util <= 100.0 and risk is not TippingRisk.HIGH
+    swing = option.swing
+    pick_ground = terrain_height_at(scenario.terrain, pick.x, pick.z)
+    return CranePlan(
+        configuration_id=crane.configuration_id,
+        label=crane.label,
+        placement=site.placement,
+        boom_length_m=option.boom_length_m,
+        pick_radius_m=site.pick_radius_m,
+        delivery_radius_m=site.delivery_radius_m,
+        swing_deg=swing.sign * swing.arc_deg,
+        pick_state=option.pick_state,
+        delivery_state=option.delivery_state,
+        path=option.path,
+        transport_height_m=swing.bottom_y - pick_ground,
+        crossed_obstacle_ids=tuple(obstacle.id for obstacle in swing.crossed),
+        crosses_body=swing.crosses_body,
+        max_utilization_percent=util,
+        tipping_risk=risk,
+        valid=valid,
+        share_kg=weight_kg,
+        boom_angle_pick_deg=option.pick_state.boom_angle_deg,
+        boom_angle_delivery_deg=option.delivery_state.boom_angle_deg,
+        messages=messages,
+        ground_slope_deg=site.slope_deg,
+        manufacturer_id=crane.manufacturer_id,
+        crane_id=crane.crane_id,
+        hoist_pick=hoist_pick,
+        hoist_delivery=hoist_delivery,
+    )
+
+
+__all__ = ["PlanSearch", "PlannerCrane", "plan_crane", "plan_sort_key", "risk_rank", "sling_drop_m"]

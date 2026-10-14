@@ -33,6 +33,8 @@ class CapacityLimit:
     level: CapacityLimitLevel
     slope_factor: float = 1.0
     wind_factor: float = 1.0
+    extra_factor: float = 1.0
+    """Fator adicional de segurança sobre a capacidade efetiva (RN-016: 0,75 no tandem)."""
 
 
 def evaluate_capacity_limit(
@@ -42,14 +44,15 @@ def evaluate_capacity_limit(
     *,
     slope_factor: float = 1.0,
     wind_factor: float = 1.0,
+    extra_factor: float = 1.0,
     blocked: bool = False,
 ) -> CapacityLimit | None:
     """Aplica o limite do modelo à capacidade da tabela.
 
     Devolve `None` se a capacidade efetiva for zero (a utilização contra o limite é indefinida).
     Sem `limits`, vale o padrão (100 % e faixa de 90 %). Os fatores de inclinação e de vento
-    reduzem a capacidade efetiva; com `blocked` (terreno inclinado demais ou vento acima do limite),
-    o nível é sempre `OVER`.
+    reduzem a capacidade efetiva, assim como `extra_factor` (RN-016: 0,75 no tandem); com `blocked`
+    (terreno inclinado demais ou vento acima do limite), o nível é sempre `OVER`.
     """
     settings = CraneLimits() if limits is None else limits
     effective_kg = (
@@ -58,6 +61,7 @@ def evaluate_capacity_limit(
         / 100
         * slope_factor
         * wind_factor
+        * extra_factor
     )
     if effective_kg <= 0:
         return None
@@ -76,4 +80,5 @@ def evaluate_capacity_limit(
         level=level,
         slope_factor=slope_factor,
         wind_factor=wind_factor,
+        extra_factor=extra_factor,
     )

@@ -48,7 +48,7 @@ export class CollisionHighlight {
   show(state: CollisionState): void {
     const boxes: Obb[] = []
     for (const hit of state.hits) {
-      if (hit.target.kind !== 'terrain') boxes.push(hit.target.obb)
+      if ('obb' in hit.target) boxes.push(hit.target.obb)
     }
     this.clear()
     for (const obb of boxes) {

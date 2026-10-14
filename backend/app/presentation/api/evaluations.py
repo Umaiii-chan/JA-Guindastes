@@ -105,9 +105,10 @@ def shared_evaluate_operation(use_case: EvaluateOperation) -> EvaluateOperationD
     return provide_evaluate_operation
 
 
-def _as_dependency(
+def as_evaluate_operation_dependency(
     dependencies: EvaluationDependencies | EvaluateOperationDependency,
 ) -> EvaluateOperationDependency:
+    """Dependência do caso de uso da avaliação (relatório TASK-076 e tandem TASK-074)."""
     if isinstance(dependencies, EvaluationDependencies):
         return shared_evaluate_operation(
             EvaluateOperation(
@@ -127,7 +128,7 @@ def create_evaluations_router(
     dependencies: EvaluationDependencies | EvaluateOperationDependency,
 ) -> APIRouter:
     """Monta o router da avaliação com provedores fixos ou com uma dependência por requisição."""
-    use_case_dependency = _as_dependency(dependencies)
+    use_case_dependency = as_evaluate_operation_dependency(dependencies)
     router = APIRouter(prefix=EVALUATIONS_PATH, tags=["evaluations"])
 
     @router.post(

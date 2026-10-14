@@ -301,6 +301,7 @@ class EvaluateOperation:
         soil_kinds: Sequence[SoilKind] = (),
         wind_speed_ms: float | None = None,
         obstacle_conflicts: Sequence[str] = (),
+        capacity_factor: float = 1.0,
     ) -> OperationEvaluation:
         """Avalia como `_evaluate_load_chart` e acrescenta o risco de tombamento e os alertas.
 
@@ -308,6 +309,9 @@ class EvaluateOperation:
         no risco e geram alertas INFO de "não informado" (RN-013). `soil_kinds`, `wind_speed_ms` e
         `obstacle_conflicts` (RN-015; ADR-033) também são opcionais, mas ausentes não geram alerta.
         A inclinação e o vento reduzem a capacidade efetiva (`capacity_limit`).
+
+        `capacity_factor` (RN-016; TASK-074) é um fator adicional sobre a capacidade efetiva, para
+        o içamento com dois guindastes (0,75). O padrão (1) não muda nada.
         """
         profile = self.safety_profile(configuration_id)
         evaluation = self._evaluate_load_chart(
@@ -318,6 +322,7 @@ class EvaluateOperation:
             ground_slope_deg=ground_slope_deg,
             wind_speed_ms=wind_speed_ms,
             profile=profile,
+            capacity_factor=capacity_factor,
         )
         capacity = evaluation.capacity
         if isinstance(capacity, CapacityFound):
@@ -325,7 +330,9 @@ class EvaluateOperation:
                 evaluation.compared_weight.kilograms,
                 capacity.max_capacity.kilograms,
                 profile,
-                slope_factor(ground_slope_deg, profile) * wind_factor(wind_speed_ms),
+                slope_factor(ground_slope_deg, profile)
+                * wind_factor(wind_speed_ms)
+                * capacity_factor,
             )
         else:
             level = None
@@ -362,6 +369,7 @@ class EvaluateOperation:
         ground_slope_deg: float | None = None,
         wind_speed_ms: float | None = None,
         profile: SafetyProfile | None = None,
+        capacity_factor: float = 1.0,
     ) -> OperationEvaluation:
         """Avalia `state` com o peso da carga `load_weight` na configuração `configuration_id`.
 
@@ -446,6 +454,7 @@ class EvaluateOperation:
                 self._crane_limits(configuration_id),
                 slope_factor=slope_factor(ground_slope_deg, safety_profile),
                 wind_factor=wind_factor(wind_speed_ms),
+                extra_factor=capacity_factor,
                 blocked=slope_blocks(ground_slope_deg, safety_profile)
                 or wind_blocks(wind_speed_ms),
             ),

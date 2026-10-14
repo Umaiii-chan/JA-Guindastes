@@ -1,0 +1,34 @@
+.group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--color-border-ink);
+}
+
+.option {
+  height: 28px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface-1);
+  color: var(--color-text-2);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.option:last-child {
+  border-right: 0;
+}
+
+.option:hover {
+  color: var(--color-text-1);
+}
+
+.on {
+  background: var(--color-text-1);
+  color: var(--color-surface-1);
+}
+
+.on:hover {
+  color: var(--color-surface-1);
+}

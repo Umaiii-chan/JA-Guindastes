@@ -1,5 +1,6 @@
 import { type CollisionState, describeAlert, describeHit } from '../../domain/collision/collisions'
 import { Notice } from '../ui'
+import styles from './CollisionAlerts.module.css'
 
 export interface CollisionAlertsProps {
   readonly collision: CollisionState
@@ -12,20 +13,25 @@ export interface CollisionAlertsProps {
  */
 export function CollisionAlerts({ collision }: CollisionAlertsProps) {
   const { hits, alerts, blocked } = collision
-  if (hits.length === 0 && alerts.length === 0) return null
+  // Um objeto da biblioteca tem várias caixas de colisão: a mesma frase não se repete.
+  const hitMessages = [...new Set(hits.map(describeHit))]
+  // Sem nada a avisar, o espaço continua reservado (altura fixa): o aviso não empurra a ficha.
+  // Só guindaste contra guindaste (TASK-074): o título não fala da carga.
+  const onlyCranes = hits.every((hit) => hit.subject === 'crane')
+  const hitsTitle = onlyCranes ? 'Colisão entre os guindastes' : 'Colisão da carga'
   return (
-    <div className="collision-alerts" role="group" aria-label="Colisões">
-      {hits.length > 0 && (
+    <div className={styles.box} role="group" aria-label="Colisões">
+      {hitMessages.length > 0 && (
         <Notice
           tone="danger"
           role={blocked ? 'alert' : 'status'}
-          title={blocked ? 'Colisão: comando bloqueado' : 'Colisão da carga'}
+          title={blocked ? 'Colisão: comando bloqueado' : hitsTitle}
           compact
         >
           {blocked && <p>O movimento parou no último estado seguro.</p>}
           <ul>
-            {hits.map((hit, index) => (
-              <li key={index}>{describeHit(hit)}</li>
+            {hitMessages.map((message) => (
+              <li key={message}>{message}</li>
             ))}
           </ul>
         </Notice>

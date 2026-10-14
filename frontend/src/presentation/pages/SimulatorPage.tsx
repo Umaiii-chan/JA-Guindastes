@@ -17,6 +17,8 @@ export interface SimulatorPageProps {
   readonly geometry?: ReactNode
   /** Faixa de título do quadro: conexão e vistas da câmera. */
   readonly statusBar: ReactNode
+  /** Içamento com dois guindastes (TASK-074): seção recolhível sob os passos. */
+  readonly tandem?: ReactNode
   /** Acessórios de içamento (TASK-056): sob os passos, trocáveis a qualquer momento. */
   readonly accessories?: ReactNode
   /** Faixa de gravação e reprodução (TASK-057), sob a faixa de título. */
@@ -25,6 +27,10 @@ export interface SimulatorPageProps {
   readonly environment?: ReactNode
   /** Faixa de ferramentas do editor 3D do ambiente (TASK-066), sob a faixa de título. */
   readonly editorToolbar?: ReactNode
+  /** Faixa de coleta e entrega da carga (TASK-073), sob as ferramentas do editor. */
+  readonly operationBar?: ReactNode
+  /** Seção "Planejar operação" (TASK-075), recolhida, abaixo dos passos. */
+  readonly planning?: ReactNode
 }
 
 /**
@@ -39,10 +45,13 @@ export function SimulatorPage({
   result,
   geometry,
   statusBar,
+  tandem,
   accessories,
   recording,
   environment,
   editorToolbar,
+  operationBar,
+  planning,
 }: SimulatorPageProps) {
   const stageRef = useRef<HTMLDivElement>(null)
   // Tela cheia (Fullscreen API) e painel recolhido: deixam a cena ocupar o espaço (TASK-062).
@@ -84,6 +93,12 @@ export function SimulatorPage({
     >
       <div className={styles.procedure} hidden={panelHidden}>
         {steps}
+        {tandem}
+        {planning && (
+          <CollapsibleSection id="planning" title="Planejar operação">
+            {planning}
+          </CollapsibleSection>
+        )}
         {accessories && (
           <CollapsibleSection id="accessories" title="Acessórios de içamento">
             {accessories}
@@ -122,6 +137,7 @@ export function SimulatorPage({
           </div>
           {recording}
           {editorToolbar}
+          {operationBar}
         </div>
         <div className={styles.scene}>
           {viewport}

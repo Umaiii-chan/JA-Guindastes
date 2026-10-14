@@ -1,0 +1,6 @@
+/* Alertas de colisão: altura fixa (aparecer ou sumir não empurra a ficha) e rolagem por dentro. */
+.box {
+  height: 64px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

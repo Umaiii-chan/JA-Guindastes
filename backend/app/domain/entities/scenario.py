@@ -8,9 +8,15 @@ Regras (valores FICTÍCIOS e configuráveis até haver dado oficial):
 - números finitos; inclinação do plano de -100 a 100 %;
 - feição: `radius_m` > 0, `height_m` >= 0 (no `flatten`, `height_m` é o nível absoluto e pode ser
   negativo); `direction_deg` e `width_m` só na rampa (`width_m` > 0);
-- obstáculo: dimensões > 0 (o cilindro usa `width_m` como diâmetro);
+- obstáculo: dimensões > 0 (o cilindro usa `width_m` como diâmetro); o tipo `model` (TASK-072) é
+  um objeto da biblioteca do editor e exige `model_id` (1 a 64 caracteres; a biblioteca é do
+  frontend, o backend só guarda o id), com as dimensões já escaladas;
 - zonas de solo (TASK-066): `radius_m` > 0, no máximo 200, ids únicos; vento: velocidade de 0 a 100
   m/s e direção finita (ambos opcionais no cenário);
+- carga e ponto de entrega (TASK-073; ADR-035), ambos opcionais: posição e giro finitos; o ponto de
+  entrega tem `radius_m` entre 0,5 e 30 m;
+- guindastes adicionais (TASK-074): no máximo 3, ids únicos, `configuration_id` de 1 a 64 caracteres
+  e posição finita;
 - no máximo 50 feições e 100 obstáculos; ids únicos dentro de cada lista;
 - nome do cenário: 1 a 120 caracteres, sem espaços nas pontas.
 """
@@ -29,7 +35,10 @@ SLOPE_PERCENT_LIMIT = 100.0
 MAX_TERRAIN_FEATURES = 50
 MAX_OBSTACLES = 100
 MAX_SOIL_ZONES = 200
+MAX_EXTRA_CRANES = 3
 MAX_WIND_SPEED_MS = 100.0
+DELIVERY_RADIUS_MIN_M = 0.5
+DELIVERY_RADIUS_MAX_M = 30.0
 ID_MAX_LENGTH = 64
 LABEL_MAX_LENGTH = 120
 
@@ -52,6 +61,7 @@ class SoilKind(StrEnum):
 class ObstacleKind(StrEnum):
     BOX = "box"
     CYLINDER = "cylinder"
+    MODEL = "model"
 
 
 def _finite(path: str, value: float) -> None:
@@ -149,12 +159,19 @@ class ObstacleSpec:
     depth_m: float
     height_m: float
     rotation_y_deg: float
+    model_id: str | None = None
 
     def validate(self, path: str) -> None:
         _text(f"{path}.id", self.id, ID_MAX_LENGTH)
         _text(f"{path}.label", self.label, LABEL_MAX_LENGTH)
         if not isinstance(self.kind, ObstacleKind):
             raise InvalidScenarioError(f"{path}.kind", "tipo de obstáculo desconhecido")
+        if self.kind is ObstacleKind.MODEL:
+            _text(f"{path}.model_id", self.model_id or "", ID_MAX_LENGTH)
+        elif self.model_id is not None:
+            raise InvalidScenarioError(
+                f"{path}.model_id", "só um objeto da biblioteca (tipo model) tem model_id"
+            )
         _finite(f"{path}.center_x", self.center_x)
         _finite(f"{path}.center_z", self.center_z)
         _positive(f"{path}.width_m", self.width_m)
@@ -211,12 +228,64 @@ class CranePlacementSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class ExtraCraneSpec:
+    """Guindaste adicional do cenário (TASK-074; ADR-037): configuração do catálogo e posição."""
+
+    id: str
+    configuration_id: str
+    placement: CranePlacementSpec = field(default_factory=CranePlacementSpec)
+
+    def validate(self, path: str) -> None:
+        _text(f"{path}.id", self.id, ID_MAX_LENGTH)
+        _text(f"{path}.configuration_id", self.configuration_id, ID_MAX_LENGTH)
+        self.placement.validate(f"{path}.placement")
+
+
+@dataclass(frozen=True, slots=True)
+class CargoPlacementSpec:
+    """Posição inicial da carga no chão: centro em (x, z) e giro em torno de Y."""
+
+    x: float
+    z: float
+    rotation_y_deg: float
+
+    def validate(self, path: str) -> None:
+        _finite(f"{path}.x", self.x)
+        _finite(f"{path}.z", self.z)
+        _finite(f"{path}.rotation_y_deg", self.rotation_y_deg)
+
+
+@dataclass(frozen=True, slots=True)
+class DeliveryPointSpec:
+    """Ponto de entrega: alvo no chão com raio de tolerância."""
+
+    x: float
+    z: float
+    rotation_y_deg: float
+    radius_m: float
+
+    def validate(self, path: str) -> None:
+        _finite(f"{path}.x", self.x)
+        _finite(f"{path}.z", self.z)
+        _finite(f"{path}.rotation_y_deg", self.rotation_y_deg)
+        _finite(f"{path}.radius_m", self.radius_m)
+        if not DELIVERY_RADIUS_MIN_M <= self.radius_m <= DELIVERY_RADIUS_MAX_M:
+            raise InvalidScenarioError(
+                f"{path}.radius_m",
+                f"o raio deve ficar entre {DELIVERY_RADIUS_MIN_M:g} e {DELIVERY_RADIUS_MAX_M:g} m",
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class ScenarioSpec:
     terrain: TerrainSpec = field(default_factory=TerrainSpec)
     obstacles: tuple[ObstacleSpec, ...] = ()
     crane: CranePlacementSpec = field(default_factory=CranePlacementSpec)
     soil_zones: tuple[SoilZoneSpec, ...] = ()
     wind: WindSpec | None = None
+    cargo: CargoPlacementSpec | None = None
+    delivery: DeliveryPointSpec | None = None
+    cranes: tuple[ExtraCraneSpec, ...] = ()
 
     def __post_init__(self) -> None:
         self.terrain.validate("spec.terrain")
@@ -235,6 +304,17 @@ class ScenarioSpec:
             zone.validate(f"spec.soil_zones[{index}]")
         if self.wind is not None:
             self.wind.validate("spec.wind")
+        if self.cargo is not None:
+            self.cargo.validate("spec.cargo")
+        if self.delivery is not None:
+            self.delivery.validate("spec.delivery")
+        if len(self.cranes) > MAX_EXTRA_CRANES:
+            raise InvalidScenarioError(
+                "spec.cranes", f"no máximo {MAX_EXTRA_CRANES} guindastes adicionais"
+            )
+        _unique_ids("spec.cranes", [crane.id for crane in self.cranes])
+        for index, extra in enumerate(self.cranes):
+            extra.validate(f"spec.cranes[{index}]")
 
 
 @dataclass(frozen=True, slots=True)
@@ -292,6 +372,7 @@ def scenario_spec_to_dict(spec: ScenarioSpec) -> dict[str, object]:
                 "depth_m": o.depth_m,
                 "height_m": o.height_m,
                 "rotation_y_deg": o.rotation_y_deg,
+                **({} if o.model_id is None else {"model_id": o.model_id}),
             }
             for o in spec.obstacles
         ],
@@ -311,6 +392,33 @@ def scenario_spec_to_dict(spec: ScenarioSpec) -> dict[str, object]:
         ]
     if spec.wind is not None:
         data["wind"] = {"speed_ms": spec.wind.speed_ms, "direction_deg": spec.wind.direction_deg}
+    if spec.cranes:
+        data["cranes"] = [
+            {
+                "id": c.id,
+                "configuration_id": c.configuration_id,
+                "placement": {
+                    "x": c.placement.x,
+                    "z": c.placement.z,
+                    "heading_deg": c.placement.heading_deg,
+                },
+            }
+            for c in spec.cranes
+        ]
+    # Campos opcionais da TASK-073: só entram no JSON quando existem.
+    if spec.cargo is not None:
+        data["cargo"] = {
+            "x": spec.cargo.x,
+            "z": spec.cargo.z,
+            "rotation_y_deg": spec.cargo.rotation_y_deg,
+        }
+    if spec.delivery is not None:
+        data["delivery"] = {
+            "x": spec.delivery.x,
+            "z": spec.delivery.z,
+            "rotation_y_deg": spec.delivery.rotation_y_deg,
+            "radius_m": spec.delivery.radius_m,
+        }
     return data
 
 
@@ -351,6 +459,7 @@ def scenario_spec_from_dict(data: Mapping[str, Any]) -> ScenarioSpec:
                 depth_m=float(o["depth_m"]),
                 height_m=float(o["height_m"]),
                 rotation_y_deg=float(o["rotation_y_deg"]),
+                model_id=None if o.get("model_id") is None else str(o["model_id"]),
             )
             for o in data["obstacles"]
         ),
@@ -373,6 +482,37 @@ def scenario_spec_from_dict(data: Mapping[str, Any]) -> ScenarioSpec:
             else WindSpec(
                 speed_ms=float(data["wind"]["speed_ms"]),
                 direction_deg=float(data["wind"]["direction_deg"]),
+            )
+        ),
+        cranes=tuple(
+            ExtraCraneSpec(
+                id=str(c["id"]),
+                configuration_id=str(c["configuration_id"]),
+                placement=CranePlacementSpec(
+                    x=float(c["placement"]["x"]),
+                    z=float(c["placement"]["z"]),
+                    heading_deg=float(c["placement"]["heading_deg"]),
+                ),
+            )
+            for c in data.get("cranes") or []
+        ),
+        cargo=(
+            None
+            if data.get("cargo") is None
+            else CargoPlacementSpec(
+                x=float(data["cargo"]["x"]),
+                z=float(data["cargo"]["z"]),
+                rotation_y_deg=float(data["cargo"]["rotation_y_deg"]),
+            )
+        ),
+        delivery=(
+            None
+            if data.get("delivery") is None
+            else DeliveryPointSpec(
+                x=float(data["delivery"]["x"]),
+                z=float(data["delivery"]["z"]),
+                rotation_y_deg=float(data["delivery"]["rotation_y_deg"]),
+                radius_m=float(data["delivery"]["radius_m"]),
             )
         ),
     )

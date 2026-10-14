@@ -156,3 +156,25 @@
 .collision {
   background: var(--color-danger, #c0392b);
 }
+
+.engage {
+  background: var(--color-accent, #d9480f);
+}
+
+.release {
+  background: var(--color-success, #2f6b3a);
+}
+
+/* Campos estáveis (TASK-078): o cronômetro e o tempo da reprodução não mudam de largura. */
+.status {
+  display: inline-block;
+  min-width: 27ch;
+  white-space: nowrap;
+}
+
+.clock {
+  display: inline-block;
+  min-width: 15ch;
+  text-align: center;
+  white-space: nowrap;
+}

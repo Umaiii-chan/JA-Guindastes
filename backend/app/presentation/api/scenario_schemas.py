@@ -11,7 +11,10 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.entities.scenario import (
+    CargoPlacementSpec,
     CranePlacementSpec,
+    DeliveryPointSpec,
+    ExtraCraneSpec,
     FeatureKind,
     ObstacleKind,
     ObstacleSpec,
@@ -83,7 +86,10 @@ class ObstaclePayload(BaseModel):
 
     id: str
     label: str
-    kind: Literal["box", "cylinder"]
+    kind: Literal["box", "cylinder", "model"]
+    model_id: str | None = Field(
+        default=None, description="Só no tipo `model`: id do objeto da biblioteca do editor."
+    )
     center_x: float
     center_z: float
     width_m: float = Field(description="Largura; no cilindro, o diâmetro.")
@@ -102,6 +108,7 @@ class ObstaclePayload(BaseModel):
             depth_m=self.depth_m,
             height_m=self.height_m,
             rotation_y_deg=self.rotation_y_deg,
+            model_id=self.model_id,
         )
 
     @classmethod
@@ -110,6 +117,7 @@ class ObstaclePayload(BaseModel):
             id=obstacle.id,
             label=obstacle.label,
             kind=obstacle.kind.value,
+            model_id=obstacle.model_id,
             center_x=obstacle.center_x,
             center_z=obstacle.center_z,
             width_m=obstacle.width_m,
@@ -125,6 +133,35 @@ class CranePlacementPayload(BaseModel):
     x: float
     z: float
     heading_deg: float
+
+
+class ExtraCranePayload(BaseModel):
+    """Guindaste adicional (TASK-074): configuração do catálogo e posição no cenário."""
+
+    model_config = _STRICT_INPUT
+
+    id: str
+    configuration_id: str
+    placement: CranePlacementPayload
+
+    def to_domain(self) -> ExtraCraneSpec:
+        return ExtraCraneSpec(
+            id=self.id,
+            configuration_id=self.configuration_id,
+            placement=CranePlacementSpec(
+                x=self.placement.x, z=self.placement.z, heading_deg=self.placement.heading_deg
+            ),
+        )
+
+    @classmethod
+    def from_domain(cls, crane: ExtraCraneSpec) -> ExtraCranePayload:
+        return cls(
+            id=crane.id,
+            configuration_id=crane.configuration_id,
+            placement=CranePlacementPayload(
+                x=crane.placement.x, z=crane.placement.z, heading_deg=crane.placement.heading_deg
+            ),
+        )
 
 
 class SoilZonePayload(BaseModel):
@@ -165,6 +202,23 @@ class WindPayload(BaseModel):
     direction_deg: float = Field(description="Direção para onde sopra, em graus a partir de +X.")
 
 
+class CargoPlacementPayload(BaseModel):
+    model_config = _STRICT_INPUT
+
+    x: float = Field(description="Posição X do centro da carga, em metros.")
+    z: float = Field(description="Posição Z do centro da carga, em metros.")
+    rotation_y_deg: float = Field(description="Giro em torno de Y, em graus.")
+
+
+class DeliveryPointPayload(BaseModel):
+    model_config = _STRICT_INPUT
+
+    x: float
+    z: float
+    rotation_y_deg: float
+    radius_m: float = Field(description="Raio de tolerância da entrega, em metros; de 0,5 a 30.")
+
+
 class ScenarioSpecPayload(BaseModel):
     """`ScenarioSpec` do frontend, em `snake_case`."""
 
@@ -177,6 +231,15 @@ class ScenarioSpecPayload(BaseModel):
         default=None, description="Zonas de solo pintadas; opcional (TASK-066)."
     )
     wind: WindPayload | None = Field(default=None, description="Vento; opcional (TASK-066).")
+    cranes: list[ExtraCranePayload] | None = Field(
+        default=None, description="Guindastes adicionais (até 3); opcional (TASK-074)."
+    )
+    cargo: CargoPlacementPayload | None = Field(
+        default=None, description="Posição inicial da carga no chão; opcional (TASK-073)."
+    )
+    delivery: DeliveryPointPayload | None = Field(
+        default=None, description="Ponto de entrega; opcional (TASK-073)."
+    )
 
     def to_domain(self) -> ScenarioSpec:
         """Monta e valida o `ScenarioSpec` (`InvalidScenarioError` se violar uma regra)."""
@@ -195,6 +258,24 @@ class ScenarioSpecPayload(BaseModel):
                 None
                 if self.wind is None
                 else WindSpec(speed_ms=self.wind.speed_ms, direction_deg=self.wind.direction_deg)
+            ),
+            cranes=tuple(extra.to_domain() for extra in self.cranes or []),
+            cargo=(
+                None
+                if self.cargo is None
+                else CargoPlacementSpec(
+                    x=self.cargo.x, z=self.cargo.z, rotation_y_deg=self.cargo.rotation_y_deg
+                )
+            ),
+            delivery=(
+                None
+                if self.delivery is None
+                else DeliveryPointSpec(
+                    x=self.delivery.x,
+                    z=self.delivery.z,
+                    rotation_y_deg=self.delivery.rotation_y_deg,
+                    radius_m=self.delivery.radius_m,
+                )
             ),
         )
 
@@ -215,6 +296,24 @@ class ScenarioSpecPayload(BaseModel):
                 None
                 if spec.wind is None
                 else WindPayload(speed_ms=spec.wind.speed_ms, direction_deg=spec.wind.direction_deg)
+            ),
+            cranes=[ExtraCranePayload.from_domain(c) for c in spec.cranes] or None,
+            cargo=(
+                None
+                if spec.cargo is None
+                else CargoPlacementPayload(
+                    x=spec.cargo.x, z=spec.cargo.z, rotation_y_deg=spec.cargo.rotation_y_deg
+                )
+            ),
+            delivery=(
+                None
+                if spec.delivery is None
+                else DeliveryPointPayload(
+                    x=spec.delivery.x,
+                    z=spec.delivery.z,
+                    rotation_y_deg=spec.delivery.rotation_y_deg,
+                    radius_m=spec.delivery.radius_m,
+                )
             ),
         )
 

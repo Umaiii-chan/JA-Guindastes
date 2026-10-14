@@ -37,6 +37,9 @@ avaliação). `build_catalog_repository` hoje só é usado pelos testes (`docs/k
 As edições do catálogo e a listagem das tabelas de uma configuração (TASK-044) também só existem
 com `DATABASE_URL`; a listagem não depende de `FILE_STORAGE_DIR`.
 
+Assistente de IA (TASK-076; ADR-039): `build_ai_assistant` (`app.ai_composition`) liga o Gemini com
+`GEMINI_API_KEY`; sem a chave, `GET /ai/status` responde `enabled: false`.
+
 Rodar a API completa, em `backend/`: `uv run uvicorn app.main:app --reload`.
 """
 
@@ -49,6 +52,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.ai_composition import build_ai_assistant
 from app.application.ports.accessory_repository import AccessoryProvider
 from app.application.ports.active_load_chart_provider import ActiveLoadChartProvider
 from app.application.ports.configuration_load_rules_provider import (
@@ -58,6 +62,7 @@ from app.application.ports.crane_geometry_provider import CraneGeometryProvider
 from app.application.ports.crane_limits_provider import CraneLimitsProvider
 from app.application.use_cases.compute_operating_area import ComputeOperatingArea
 from app.application.use_cases.evaluate_operation import EvaluateOperation
+from app.application.use_cases.recommend_lift_plan import RecommendLiftPlan
 from app.auth_composition import build_auth
 from app.domain.entities.load_chart import LoadChart
 from app.domain.services.linear_interpolation_lookup import LinearInterpolationLookup
@@ -92,6 +97,7 @@ from app.presentation.api.operating_area import (
     ComputeOperatingAreaDependency,
     shared_compute_operating_area,
 )
+from app.presentation.api.planning import RecommendLiftPlanDependency
 from app.presentation.api.upload_limits import UploadLimits
 
 logger = logging.getLogger(__name__)
@@ -217,6 +223,22 @@ def operating_area_per_request(engine: Engine) -> ComputeOperatingAreaDependency
     return provide
 
 
+def planning_per_request(engine: Engine) -> RecommendLiftPlanDependency:
+    """Dependência FastAPI do planejamento (TASK-075): uma conexão do pool por requisição."""
+
+    def provide() -> Iterator[RecommendLiftPlan]:
+        with engine.connect() as connection:
+            session_factory = sessionmaker(bind=connection)
+            yield RecommendLiftPlan(
+                catalog=SqlAlchemyCraneCatalogRepository(session_factory),
+                active_load_chart_provider=SqlAlchemyLoadChartRepository(session_factory),
+                load_chart_interpolator=load_chart_interpolator,
+                accessory_provider=SqlAlchemyAccessoryRepository(session_factory),
+            )
+
+    return provide
+
+
 def evaluate_operation_per_request(engine: Engine) -> EvaluateOperationDependency:
     """Dependência FastAPI da avaliação REST: uma conexão do pool por requisição.
 
@@ -279,6 +301,7 @@ def create_database_app(engine: Engine, environ: Mapping[str, str] | None = None
         upload_limits=UploadLimits(),
         evaluation=evaluate_operation_per_request(engine),
         operating_area=operating_area_per_request(engine),
+        planning=planning_per_request(engine),
         evaluation_websocket=build_database_evaluate_operation(session_factory),
         database_health_check=database_health_check(engine),
         # Catálogo (TASK-030) e suas edições (TASK-044) no mesmo engine da avaliação: um pool só.
@@ -295,6 +318,8 @@ def create_database_app(engine: Engine, environ: Mapping[str, str] | None = None
         simulation_recordings=SqlAlchemySimulationRecordingRepository(session_factory),
         # Cenários com terreno e obstáculos (TASK-052): mesmo engine; exigem a autenticação.
         scenario_repository=SqlAlchemyScenarioRepository(session_factory),
+        # Assistente de IA (TASK-076; ADR-039): só liga com GEMINI_API_KEY.
+        ai_assistant=build_ai_assistant(environ),
         on_shutdown=engine.dispose,
     )
 
@@ -319,6 +344,7 @@ def create_app_without_database() -> FastAPI:
             )
         ),
         evaluation_websocket=use_case,
+        ai_assistant=build_ai_assistant(),
     )
 
 
