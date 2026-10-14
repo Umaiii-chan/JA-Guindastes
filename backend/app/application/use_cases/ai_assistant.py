@@ -18,7 +18,7 @@ import json
 import math
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import timedelta, timezone
 from typing import Any
 
@@ -408,6 +408,10 @@ def _draft_from_json(completion: LlmCompletion) -> ScenarioDraft:
     summary = data.get("summary")
     # O modelo erra coordenadas: o que cair sobre o guindaste, a coleta ou a entrega é deslocado
     # por código (TASK-081) e cada deslocamento vira uma suposição para a pessoa revisar.
+    # O modelo às vezes repete o guindaste da operação como objeto da biblioteca, no mesmo lugar:
+    # esse duplicado sai (um "guindaste estacionado" longe dele continua).
+    spec, removed = _without_main_crane_duplicates(spec)
+    assumptions = (*assumptions, *removed)
     layout = make_scenario_layout_safe(spec, load_length_m=length, load_width_m=width)
     assumptions = (*assumptions, *(move.describe() for move in layout.moves))
     return ScenarioDraft(
@@ -485,3 +489,31 @@ def _obstacle(item: Any, index: int) -> ObstacleSpec:
         height_m=_num(item, "height_m", where, minimum=0.05, maximum=MAX_SIZE_M),
         rotation_y_deg=_num(item, "rotation_y_deg", where, minimum=-3600, maximum=3600),
     )
+
+
+# Distância (m) até o guindaste da operação abaixo da qual um "guindaste" em obstáculos é duplicata.
+MAIN_CRANE_DUPLICATE_RADIUS_M = 10.0
+
+
+def _without_main_crane_duplicates(spec: ScenarioSpec) -> tuple[ScenarioSpec, tuple[str, ...]]:
+    """Tira de `obstacles` o guindaste repetido sobre o guindaste da operação (`crane`)."""
+    kept: list[ObstacleSpec] = []
+    removed: list[str] = []
+    for obstacle in spec.obstacles:
+        crane_like = (
+            obstacle.model_id == "guindaste-estacionado"
+            or "guindaste" in (obstacle.label or "").lower()
+        )
+        near = (
+            math.hypot(obstacle.center_x - spec.crane.x, obstacle.center_z - spec.crane.z)
+            < MAIN_CRANE_DUPLICATE_RADIUS_M
+        )
+        if crane_like and near:
+            removed.append(
+                f"{obstacle.label} removido: era o próprio guindaste da operação repetido."
+            )
+        else:
+            kept.append(obstacle)
+    if not removed:
+        return spec, ()
+    return replace(spec, obstacles=tuple(kept)), tuple(removed)

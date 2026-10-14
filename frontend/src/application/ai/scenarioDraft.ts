@@ -2,6 +2,7 @@
 // Funções puras. A proposta já veio validada pelo backend; aqui só se traduz para a tela e para o
 // formulário da carga.
 
+import { guessCargoType } from '../../domain/cargo/cargoTypes'
 import type { Obstacle } from '../../domain/environment/environment'
 import { findLibraryObject } from '../../domain/environment/objectLibrary'
 import type { LoadFormValues } from '../load/loadForm'
@@ -50,6 +51,8 @@ export function loadFormFromDraft(load: AiLoadDraft): LoadFormValues {
   return {
     ...EMPTY_LOAD_FORM,
     description: load.description,
+    // O assistente só descreve a carga em texto: o tipo (e o modelo 3D) sai das palavras dela.
+    cargoType: guessCargoType(load.description),
     weightKg: String(load.weightKg),
     lengthM: String(load.lengthM),
     widthM: String(load.widthM),

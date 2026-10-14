@@ -109,3 +109,24 @@ export function cargoModelScale(
   if (!base) return null
   return { x: load.widthM / base.w, y: load.heightM / base.h, z: load.lengthM / base.d }
 }
+
+/** Palavras da descrição → tipo de carga com modelo 3D (ordem importa: o mais específico primeiro). */
+const DESCRIPTION_KEYWORDS: ReadonlyArray<readonly [RegExp, CargoTypeId]> = [
+  [/transformador/, 'transformador'],
+  [/gerador|grupo gerador/, 'gerador'],
+  [/conteiner|container/, 'conteiner'],
+  [/tubo|tubula|feixe/, 'feixe-tubos'],
+  [/viga.*calha|calha/, 'viga-concreto-calha'],
+  [/viga|longarina|pre-?moldad/, 'viga-concreto'],
+  [/madeira|engradado|pallet|palete/, 'caixa-madeira'],
+  [/caixa|bloco|equipamento|maquina/, 'caixa'],
+]
+
+/**
+ * Tipo de carga sugerido pela descrição em texto (ex.: a do assistente de IA), para a carga já
+ * aparecer com o modelo 3D certo. `undefined` quando nenhuma palavra conhecida aparece.
+ */
+export function guessCargoType(description: string): CargoTypeId | undefined {
+  const text = description.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  return DESCRIPTION_KEYWORDS.find(([pattern]) => pattern.test(text))?.[1]
+}

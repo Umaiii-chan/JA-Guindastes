@@ -315,7 +315,7 @@ export function PlanningPanel({
               <Button
                 size="sm"
                 icon={<Play size={14} />}
-                disabled={!canRun || !applied}
+                disabled={!canRun || !applied || !selected.valid}
                 onClick={playback.onStart}
               >
                 Executar trajetória
@@ -330,6 +330,13 @@ export function PlanningPanel({
               Passo a passo
             </Button>
           </div>
+          {!selected.valid && (
+            <Notice tone="danger" role="alert" compact>
+              Esta opção não atende ({percent(selected.maxLimitUtilizationPercent)} do limite): a
+              trajetória fica bloqueada. Escolha uma opção que atenda, use dois guindastes ou reduza
+              a carga ou a distância.
+            </Notice>
+          )}
           {operationMessage && (
             <Notice tone="warning" role="alert" compact>
               {operationMessage}
