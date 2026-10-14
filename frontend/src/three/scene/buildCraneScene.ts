@@ -14,6 +14,7 @@ import { addEnvironment, type SceneEnvironment } from './addEnvironment'
 import { createScene } from './createScene'
 import { disposeObject3D } from './disposeObject3D'
 import { HookLoad } from './HookLoad'
+import { OperatingAreaOverlay } from './OperatingAreaOverlay'
 import { RadiusIndicator } from './RadiusIndicator'
 import { RotationZoneSectors } from './RotationZoneSectors'
 import { SceneCollisions } from './SceneCollisions'
@@ -47,6 +48,8 @@ export class CraneSceneContents {
   readonly rotationZones: RotationZoneSectors
   /** Colisões da carga: cenário, corpo medido, guarda de comandos e destaque vermelho (TASK-053). */
   readonly collisions: SceneCollisions
+  /** Área de operação verde, amarela e vermelha no chão (TASK-055); vazia até a UI mandar. */
+  readonly operatingArea: OperatingAreaOverlay
   /** Limites e a/h com que a cena foi montada (ficha técnica ou FICTÍCIOS). */
   readonly setup: CraneSetup
 
@@ -64,6 +67,7 @@ export class CraneSceneContents {
     hookLoad: HookLoad
     rotationZones: RotationZoneSectors
     collisions: SceneCollisions
+    operatingArea: OperatingAreaOverlay
     setup: CraneSetup
   }) {
     this.scene = parts.scene
@@ -75,6 +79,7 @@ export class CraneSceneContents {
     this.hookLoad = parts.hookLoad
     this.rotationZones = parts.rotationZones
     this.collisions = parts.collisions
+    this.operatingArea = parts.operatingArea
     this.setup = parts.setup
     this.eye = findOperatorEye(parts.rig)
   }
@@ -171,6 +176,8 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
   scene.add(rotationZones.root)
   const collisions = new SceneCollisions(rig, hookLoad, setup.geometryParameters)
   scene.add(collisions.highlight.root)
+  const operatingArea = new OperatingAreaOverlay()
+  scene.add(operatingArea.root)
 
   radiusIndicator.update({
     workingRadiusM: crane.getOperationalGeometry().workingRadiusM,
@@ -185,6 +192,7 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     hookLoad,
     rotationZones,
     collisions,
+    operatingArea,
     setup,
   })
 }

@@ -11,6 +11,8 @@ import {
   LINEAR_INTERPOLATION_STRATEGY,
   type EvaluationError,
   type EvaluationResult,
+  type SafetyAlertSeverity,
+  type TippingRisk,
 } from '../../domain/evaluation/evaluation'
 import {
   Badge,
@@ -61,6 +63,19 @@ const STATUS_PRESENTATION: Record<EvaluationStatus, { tone: Tone; label: string 
   warning: { tone: 'warning', label: 'Perto do limite' },
   over: { tone: 'danger', label: 'Acima da capacidade' },
   unknown: { tone: 'neutral', label: 'Sem avaliação' },
+}
+
+/** Selo do risco de tombamento por regras (RN-013; TASK-055): cor e texto de cada nível. */
+const TIPPING_RISK_PRESENTATION: Record<TippingRisk, { tone: Tone; label: string }> = {
+  LOW: { tone: 'ok', label: 'Risco de tombamento: baixo' },
+  ATTENTION: { tone: 'warning', label: 'Risco de tombamento: atenção' },
+  HIGH: { tone: 'danger', label: 'Risco de tombamento: alto' },
+}
+
+const ALERT_PRESENTATION: Record<SafetyAlertSeverity, { tone: Tone; label: string }> = {
+  INFO: { tone: 'info', label: 'Informação' },
+  ATTENTION: { tone: 'warning', label: 'Atenção' },
+  CRITICAL: { tone: 'danger', label: 'Crítico' },
 }
 
 function formatNumber(value: number, fractionDigits: number): string {
@@ -131,6 +146,11 @@ export function BackendEvaluationPanel({
           <span className={styles.kind} title="A tabela de carga cobre o estado">
             Avaliado
           </span>
+        )}
+        {shown?.tippingRisk != null && (
+          <StatusPill tone={TIPPING_RISK_PRESENTATION[shown.tippingRisk].tone} size="lg">
+            {TIPPING_RISK_PRESENTATION[shown.tippingRisk].label}
+          </StatusPill>
         )}
         <StatusPill tone={presentation.tone} size="lg" live pulse={waitingFirst && pending}>
           {presentation.label}
@@ -239,6 +259,19 @@ export function BackendEvaluationPanel({
             <p className={styles.waiting}>Aguardando a primeira avaliação do backend…</p>
           ) : (
             <EvaluationDetails result={result} />
+          )}
+
+          {shown !== null && shown.alerts !== undefined && shown.alerts.length > 0 && (
+            <ul className={styles.alerts} aria-label="Alertas de segurança">
+              {shown.alerts.map((alert) => (
+                <li key={alert.code} className={styles.alert} data-severity={alert.severity}>
+                  <Badge tone={ALERT_PRESENTATION[alert.severity].tone}>
+                    {ALERT_PRESENTATION[alert.severity].label}
+                  </Badge>
+                  <span>{alert.message}</span>
+                </li>
+              ))}
+            </ul>
           )}
 
           {slow && pending && inputProblem === null && (

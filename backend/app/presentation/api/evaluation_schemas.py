@@ -23,6 +23,12 @@ from app.application.use_cases.evaluate_operation import (
 )
 from app.domain.exceptions.geometry_errors import OperationalLimitViolation
 from app.domain.services.capacity_limit import CapacityLimit, CapacityLimitLevel
+from app.domain.services.safety_assessment import (
+    AlertSeverity,
+    OutriggerSetting,
+    SafetyAlert,
+    TippingRisk,
+)
 from app.domain.value_objects.capacity_result import (
     CapacityFound,
     CapacityResult,
@@ -35,7 +41,30 @@ from app.domain.value_objects.conservative_capacity_result import (
 from app.domain.value_objects.interpolated_capacity_result import InterpolatedCapacityFound
 from app.domain.value_objects.operational_geometry import OperationalGeometry, Point3D
 from app.presentation.api.load_chart_schemas import LoadChartPointResponse
-from app.presentation.api.outrigger_schemas import OutriggersRequest
+
+
+class OutriggersRequest(BaseModel):
+    """Estado das patolas (leva E; RN-013): extensão de 0 a 100 % e macacos apoiados."""
+
+    model_config = ConfigDict(strict=True, allow_inf_nan=False, extra="forbid", frozen=True)
+
+    extension_percent: float = Field(ge=0, le=100, description="Extensão das vigas, de 0 a 100 %.")
+    jacks_set: bool = Field(description="Macacos descidos e apoiados no chão.")
+
+    def to_setting(self) -> OutriggerSetting:
+        return OutriggerSetting(extension_percent=self.extension_percent, jacks_set=self.jacks_set)
+
+
+class SafetyAlertResponse(BaseModel):
+    """Alerta de segurança (RN-013), com mensagem em pt-BR."""
+
+    code: str = Field(description="Código do alerta, legível por máquina.")
+    severity: AlertSeverity
+    message: str = Field(description="Mensagem para o usuário, em pt-BR.")
+
+    @classmethod
+    def from_alert(cls, alert: SafetyAlert) -> SafetyAlertResponse:
+        return cls(code=alert.code, severity=alert.severity, message=alert.message)
 
 
 class EvaluationRequest(BaseModel):
@@ -76,7 +105,14 @@ class EvaluationRequest(BaseModel):
     load_weight_kg: float = Field(ge=0, description="Peso da carga, em quilogramas.")
     outriggers: OutriggersRequest | None = Field(
         default=None,
-        description="Patolas (TASK-054). Opcional; validado, mas ainda sem uso no cálculo.",
+        description="Estado das patolas (opcional). Ausente, gera o alerta INFO "
+        "`OUTRIGGERS_NOT_INFORMED` e não entra no risco de tombamento (RN-013).",
+    )
+    ground_slope_deg: float | None = Field(
+        default=None,
+        ge=0,
+        description="Inclinação residual do terreno sob o guindaste, em graus (opcional). "
+        "Ausente, gera o alerta INFO `GROUND_SLOPE_NOT_INFORMED` (RN-013).",
     )
 
 
@@ -300,6 +336,14 @@ class EvaluationResponse(BaseModel):
         "tabela ativa, consulta à tabela, utilização); nunca vazio nesse caso. Sempre vazio em "
         "`EVALUATED`."
     )
+    tipping_risk: TippingRisk | None = Field(
+        default=None,
+        description="Risco de tombamento por regras (RN-013; ADR-025): `LOW`, `ATTENTION` ou "
+        "`HIGH`; `null` quando não há capacidade para comparar e nenhuma regra dispara.",
+    )
+    alerts: list[SafetyAlertResponse] = Field(
+        default_factory=list, description="Alertas de segurança, em pt-BR (RN-013)."
+    )
 
     @classmethod
     def from_evaluation(
@@ -326,6 +370,8 @@ class EvaluationResponse(BaseModel):
                     hook_block_weight_kg=hook_kg,
                     compared_weight_kg=compared_kg,
                     capacity_limit=CapacityLimitResponse.from_limit(evaluation.capacity_limit),
+                    tipping_risk=evaluation.tipping_risk,
+                    alerts=[SafetyAlertResponse.from_alert(a) for a in evaluation.alerts],
                 )
             case NotEvaluableOperation():
                 return cls(
@@ -333,6 +379,8 @@ class EvaluationResponse(BaseModel):
                     rotation_zone_name=zone_name,
                     hook_block_weight_kg=hook_kg,
                     compared_weight_kg=compared_kg,
+                    tipping_risk=evaluation.tipping_risk,
+                    alerts=[SafetyAlertResponse.from_alert(a) for a in evaluation.alerts],
                     status="NOT_EVALUABLE",
                     configuration_id=configuration_id,
                     geometry=(

@@ -83,6 +83,8 @@ def test_status_only_distinguishes_evaluated_from_not_evaluable(openapi: dict[st
         "hook_block_weight_kg",
         "compared_weight_kg",
         "reasons",
+        "tipping_risk",
+        "alerts",
     }
 
 

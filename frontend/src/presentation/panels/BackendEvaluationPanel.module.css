@@ -263,3 +263,20 @@
 .cellNotes .note > p {
   font-size: var(--font-size-sm);
 }
+
+/* Alertas de segurança (RN-013; TASK-055): uma linha por alerta, com a gravidade em selo. */
+.alerts {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.alert {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-1);
+}

@@ -45,6 +45,10 @@ from app.presentation.api.load_chart_persistence import (
     create_load_chart_persistence_router,
 )
 from app.presentation.api.load_charts import create_load_charts_router
+from app.presentation.api.operating_area import (
+    ComputeOperatingAreaDependency,
+    create_operating_area_router,
+)
 from app.presentation.api.upload_limits import UploadLimits
 from app.presentation.api.users import create_users_router
 from app.presentation.api.validation_errors import request_validation_error_handler
@@ -63,6 +67,7 @@ def create_app(
     load_chart_persistence: LoadChartPersistenceDependencies | None = None,
     auth: AuthDependencies | None = None,
     load_chart_listing: LoadChartListing | None = None,
+    operating_area: ComputeOperatingAreaDependency | None = None,
 ) -> FastAPI:
     """Monta a aplicação com as rotas cujos adapters foram recebidos.
 
@@ -78,6 +83,8 @@ def create_app(
     - a listagem das tabelas de uma configuração (TASK-044) só entra com `catalog_repository` e
       `load_chart_listing` (não depende do armazenamento de arquivos);
     - as edições do catálogo (`PATCH`, TASK-044) entram com as demais rotas do catálogo;
+    - a área de operação (TASK-055) só entra com `operating_area` (dependência do caso de uso), com
+      a mesma autorização da avaliação;
     - `on_shutdown` roda quando a aplicação encerra (a composição libera o pool do banco);
     - `auth` (TASK-038, ADR-016) liga a autenticação: cabeçalho CSRF nos métodos inseguros, sessão
       exigida em toda rota exceto a saúde e `GET /auth/session`, perfil `ADMIN` nos cadastros e
@@ -129,6 +136,11 @@ def create_app(
 
     if evaluation is not None:
         app.include_router(create_evaluations_router(evaluation), dependencies=session_required)
+
+    if operating_area is not None:
+        app.include_router(
+            create_operating_area_router(operating_area), dependencies=session_required
+        )
 
     if evaluation_websocket is not None:
         app.include_router(

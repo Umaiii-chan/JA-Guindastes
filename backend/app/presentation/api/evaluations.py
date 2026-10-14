@@ -46,6 +46,7 @@ from app.application.ports.configuration_load_rules_provider import (
 )
 from app.application.ports.crane_geometry_provider import CraneGeometryProvider
 from app.application.ports.crane_limits_provider import CraneLimitsProvider
+from app.application.ports.safety_profile_provider import SafetyProfileProvider
 from app.application.use_cases.evaluate_operation import EvaluateOperation
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
 from app.domain.value_objects.angle import Angle
@@ -74,6 +75,8 @@ class EvaluationDependencies:
     """Zonas de giro e peso do gancho (TASK-046); sem ele, sem zonas e sem gancho."""
     crane_limits_provider: CraneLimitsProvider | None = None
     """Limite de capacidade do modelo (TASK-051); sem ele, valem os limites padrão."""
+    safety_profile_provider: SafetyProfileProvider | None = None
+    """Limite, faixa de atenção e inclinação máxima (TASK-051); sem ele, padrões FICTÍCIOS."""
 
 
 type EvaluateOperationDependency = Callable[[], Iterator[EvaluateOperation]]
@@ -105,6 +108,7 @@ def _as_dependency(
                 load_chart_interpolator=dependencies.load_chart_interpolator,
                 configuration_load_rules_provider=dependencies.configuration_load_rules_provider,
                 crane_limits_provider=dependencies.crane_limits_provider,
+                safety_profile_provider=dependencies.safety_profile_provider,
             )
         )
     return dependencies
@@ -159,6 +163,8 @@ def create_evaluations_router(
             configuration_id=request.configuration_id,
             state=state,
             load_weight=Mass(request.load_weight_kg),
+            outriggers=None if request.outriggers is None else request.outriggers.to_setting(),
+            ground_slope_deg=request.ground_slope_deg,
         )
         return EvaluationResponse.from_evaluation(request.configuration_id, evaluation)
 

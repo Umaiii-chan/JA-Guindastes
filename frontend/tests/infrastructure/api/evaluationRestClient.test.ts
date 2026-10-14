@@ -97,6 +97,8 @@ describe('cliente REST da avaliação', () => {
       loadChartVersion: 'FICTICIO-AVALIACAO-v1',
       rotationZoneCode: null,
       rotationZoneName: null,
+      tippingRisk: null,
+      alerts: [],
       hookBlockWeightKg: null,
       comparedWeightKg: null,
     })
@@ -112,6 +114,8 @@ describe('cliente REST da avaliação', () => {
       loadChartVersion: null,
       rotationZoneCode: null,
       rotationZoneName: null,
+      tippingRisk: null,
+      alerts: [],
       hookBlockWeightKg: null,
       comparedWeightKg: null,
       reasons: [

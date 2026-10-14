@@ -37,6 +37,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from app.application.use_cases.evaluate_operation import EvaluateOperation, OperationEvaluation
 from app.domain.exceptions.domain_errors import DomainError
+from app.domain.services.safety_assessment import OutriggerSetting
 from app.domain.value_objects.angle import Angle
 from app.domain.value_objects.length import Length
 from app.domain.value_objects.mass import Mass
@@ -241,5 +242,16 @@ def _evaluate(
         # O schema já recusa o que os value objects recusam; isto é só defesa em profundidade.
         raise _MessageRejected(ErrorCode.INVALID_MESSAGE, str(error)) from None
     return evaluate_operation.execute(
-        configuration_id=payload.configuration_id, state=state, load_weight=load_weight
+        configuration_id=payload.configuration_id,
+        state=state,
+        load_weight=load_weight,
+        outriggers=(
+            None
+            if payload.outriggers is None
+            else OutriggerSetting(
+                extension_percent=payload.outriggers.extension_percent,
+                jacks_set=payload.outriggers.jacks_set,
+            )
+        ),
+        ground_slope_deg=payload.ground_slope_deg,
     )

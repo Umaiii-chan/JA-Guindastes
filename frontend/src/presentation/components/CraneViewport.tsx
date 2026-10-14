@@ -3,6 +3,7 @@ import { type Ref, useEffect, useImperativeHandle, useRef } from 'react'
 import type { CollisionState } from '../../domain/collision/collisions'
 import type { ScenarioSpec } from '../../domain/environment/environment'
 import type { OutriggerState } from '../../domain/crane/outriggers'
+import type { OperatingArea } from '../../domain/evaluation/operatingArea'
 import type { CameraPreset } from '../../three/camera/cameraPresets'
 import type { CraneCommands, CraneSetup } from '../../three/crane/types'
 import type { LoadDimensions } from '../../three/scene/loadBox'
@@ -62,6 +63,11 @@ interface CraneViewportProps {
    * que o modelo 3D tiver. Sem a prop, nada muda. Não remonta a cena.
    */
   outriggers?: OutriggerState
+  /**
+   * Área de operação (TASK-055; ADR-025), desenhada no chão; `null` (padrão) não desenha nada. Não
+   * remonta a cena.
+   */
+  operatingArea?: OperatingArea | null
   /** API imperativa (`CraneViewportHandle`). */
   ref?: Ref<CraneViewportHandle>
 }
@@ -82,6 +88,7 @@ export function CraneViewport({
   scenario,
   onCollisionChange,
   outriggers,
+  operatingArea = null,
   ref,
 }: CraneViewportProps) {
   const canvasHostRef = useRef<HTMLDivElement>(null)
@@ -94,6 +101,7 @@ export function CraneViewport({
   const activeZoneRef = useRef(activeZoneCode)
   const scenarioRef = useRef(scenario)
   const collisionCallbackRef = useRef(onCollisionChange)
+  const operatingAreaRef = useRef(operatingArea)
   const appliedPresetRef = useRef<CameraPreset | undefined>(undefined)
   const outriggersRef = useRef(outriggers)
 
@@ -123,6 +131,7 @@ export function CraneViewport({
     handle.setRotationZones(zonesRef.current)
     handle.setActiveRotationZone(activeZoneRef.current)
     if (outriggersRef.current) handle.setOutriggers(outriggersRef.current)
+    handle.setOperatingArea(operatingAreaRef.current)
     const preset = cameraPresetRef.current
     if (preset) handle.setCameraPreset(preset, { animate: false })
     appliedPresetRef.current = preset
@@ -195,6 +204,11 @@ export function CraneViewport({
     outriggersRef.current = next
     sceneRef.current?.setOutriggers(next)
   }, [outriggerExtension, outriggerJacksSet, outriggerLeveling])
+
+  useEffect(() => {
+    operatingAreaRef.current = operatingArea
+    sceneRef.current?.setOperatingArea(operatingArea)
+  }, [operatingArea])
 
   useEffect(() => {
     cameraPresetRef.current = cameraPreset

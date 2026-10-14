@@ -35,7 +35,7 @@ Não grava nada. Quem o chama: `POST /api/v1/evaluations` (TASK-024) e o WebSock
 (`app.main`, TASK-029).
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 
 from app.application.ports.active_load_chart_provider import ActiveLoadChartProvider
@@ -45,6 +45,7 @@ from app.application.ports.configuration_load_rules_provider import (
 )
 from app.application.ports.crane_geometry_provider import CraneGeometryProvider
 from app.application.ports.crane_limits_provider import CraneLimitsProvider
+from app.application.ports.safety_profile_provider import SafetyProfileProvider
 from app.domain.entities.load import Load
 from app.domain.entities.load_chart import LoadChart, LoadChartStatus
 from app.domain.exceptions.domain_errors import UndefinedUtilizationError
@@ -57,6 +58,13 @@ from app.domain.services.capacity_limit import CapacityLimit, evaluate_capacity_
 from app.domain.services.compared_load_weight import weight_compared_with_capacity
 from app.domain.services.geometry_service import calculate_operational_geometry
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
+from app.domain.services.safety_assessment import (
+    OutriggerSetting,
+    SafetyAlert,
+    TippingRisk,
+    assess_safety,
+    limit_level,
+)
 from app.domain.services.utilization import calculate_utilization_percent
 from app.domain.value_objects.capacity_query import CapacityQuery
 from app.domain.value_objects.capacity_result import (
@@ -70,6 +78,7 @@ from app.domain.value_objects.mass import Mass
 from app.domain.value_objects.operational_geometry import OperationalGeometry
 from app.domain.value_objects.operational_state import OperationalState
 from app.domain.value_objects.rotation_zone import RotationZone
+from app.domain.value_objects.safety_profile import SafetyProfile
 
 ZERO_MASS = Mass(0.0)
 
@@ -123,6 +132,8 @@ class EvaluatedOperation:
     hook_block_weight: Mass = ZERO_MASS
     rotation_zone: RotationZone | None = None
     capacity_limit: CapacityLimit | None = None
+    tipping_risk: TippingRisk | None = None
+    alerts: tuple[SafetyAlert, ...] = ()
 
     @property
     def compared_weight(self) -> Mass:
@@ -171,6 +182,8 @@ class NotEvaluableOperation:
     load_weight: Mass = ZERO_MASS
     hook_block_weight: Mass = ZERO_MASS
     rotation_zone: RotationZone | None = None
+    tipping_risk: TippingRisk | None = None
+    alerts: tuple[SafetyAlert, ...] = ()
 
     def __post_init__(self) -> None:
         reasons = tuple(self.reasons)
@@ -231,12 +244,14 @@ class EvaluateOperation:
         load_chart_interpolator: LoadChartInterpolator,
         configuration_load_rules_provider: ConfigurationLoadRulesProvider | None = None,
         crane_limits_provider: CraneLimitsProvider | None = None,
+        safety_profile_provider: SafetyProfileProvider | None = None,
     ) -> None:
         self._crane_geometry_provider = crane_geometry_provider
         self._active_load_chart_provider = active_load_chart_provider
         self._load_chart_interpolator = load_chart_interpolator
         self._configuration_load_rules_provider = configuration_load_rules_provider
         self._crane_limits_provider = crane_limits_provider
+        self._safety_profile_provider = safety_profile_provider
 
     def execute_for_load(
         self, *, configuration_id: str, state: OperationalState, load: Load
@@ -253,6 +268,50 @@ class EvaluateOperation:
         return self.execute(configuration_id=configuration_id, state=state, load_weight=load.weight)
 
     def execute(
+        self,
+        *,
+        configuration_id: str,
+        state: OperationalState,
+        load_weight: Mass,
+        outriggers: OutriggerSetting | None = None,
+        ground_slope_deg: float | None = None,
+    ) -> OperationEvaluation:
+        """Avalia como `_evaluate_load_chart` e acrescenta o risco de tombamento e os alertas.
+
+        `outriggers` e `ground_slope_deg` são opcionais (leva E; ADR-025): ausentes, não entram
+        no risco e geram alertas INFO de "não informado" (RN-013).
+        """
+        evaluation = self._evaluate_load_chart(
+            configuration_id=configuration_id, state=state, load_weight=load_weight
+        )
+        profile = self.safety_profile(configuration_id)
+        capacity = evaluation.capacity
+        if isinstance(capacity, CapacityFound):
+            level = limit_level(
+                evaluation.compared_weight.kilograms, capacity.max_capacity.kilograms, profile
+            )
+        else:
+            level = None
+        outside_chart = any(
+            isinstance(reason, CapacityUnsupportedReason) for reason in evaluation.reasons
+        )
+        assessment = assess_safety(
+            profile=profile,
+            load_weight_kg=load_weight.kilograms,
+            level=level,
+            outside_chart=outside_chart,
+            outriggers=outriggers,
+            ground_slope_deg=ground_slope_deg,
+        )
+        return replace(evaluation, tipping_risk=assessment.tipping_risk, alerts=assessment.alerts)
+
+    def safety_profile(self, configuration_id: str) -> SafetyProfile:
+        """Parâmetros de segurança da configuração; sem provedor ou sem dado, os padrões."""
+        provider = self._safety_profile_provider
+        profile = None if provider is None else provider.get_safety_profile(configuration_id)
+        return SafetyProfile() if profile is None else profile
+
+    def _evaluate_load_chart(
         self, *, configuration_id: str, state: OperationalState, load_weight: Mass
     ) -> OperationEvaluation:
         """Avalia `state` com o peso da carga `load_weight` na configuração `configuration_id`.

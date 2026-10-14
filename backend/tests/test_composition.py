@@ -69,6 +69,20 @@ NOT_EVALUABLE_WITHOUT_DATA = {
         {"code": "CRANE_GEOMETRY_NOT_FOUND", "category": "EVALUATION"},
         {"code": "ACTIVE_LOAD_CHART_NOT_FOUND", "category": "EVALUATION"},
     ],
+    # Leva E (TASK-055): sem capacidade nem regra, não há risco; entradas ausentes viram INFO.
+    "tipping_risk": None,
+    "alerts": [
+        {
+            "code": "OUTRIGGERS_NOT_INFORMED",
+            "severity": "INFO",
+            "message": "Estado das patolas não informado: não entrou na avaliação do risco.",
+        },
+        {
+            "code": "GROUND_SLOPE_NOT_INFORMED",
+            "severity": "INFO",
+            "message": "Inclinação do terreno não informada: não entrou na avaliação do risco.",
+        },
+    ],
 }
 
 

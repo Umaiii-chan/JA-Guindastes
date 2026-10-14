@@ -13,8 +13,10 @@ export interface EvaluationRequestDto {
   readonly turret_rotation_deg: number
   readonly cable_length_m: number
   readonly load_weight_kg: number
-  /** Patolas (TASK-054); omitido quando a tela não as informa. */
+  /** Patolas (TASK-054); omitido quando a tela nÃ£o as informa. */
   readonly outriggers?: OutriggersDto
+  /** InclinaÃ§Ã£o residual sob o guindaste (TASK-052/055). */
+  readonly ground_slope_deg?: number
 }
 
 /** Estado das patolas no JSON (leva E; TASK-054). */
@@ -85,6 +87,13 @@ export interface EvaluationResponseDto {
   readonly hook_block_weight_kg?: number
   /** Carga + gancho: o valor comparado com a capacidade. */
   readonly compared_weight_kg?: number
+  /** TASK-055 (RN-013). */
+  readonly tipping_risk?: 'LOW' | 'ATTENTION' | 'HIGH' | null
+  readonly alerts?: readonly {
+    readonly code: string
+    readonly severity: 'INFO' | 'ATTENTION' | 'CRITICAL'
+    readonly message: string
+  }[]
   /** TASK-051 (RN-011): limite de capacidade do modelo e nível; `null` em `NOT_EVALUABLE`. */
   readonly capacity_limit?: CapacityLimitDto | null
 }
@@ -107,5 +116,6 @@ export function toEvaluationRequestDto(input: EvaluationInput): EvaluationReques
     cable_length_m: input.cableLengthM,
     load_weight_kg: input.loadWeightKg,
     ...toOutriggersDto(input),
+    ...(input.groundSlopeDeg !== undefined && { ground_slope_deg: input.groundSlopeDeg }),
   }
 }
