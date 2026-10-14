@@ -14,6 +14,7 @@ export function buildEvaluationInput(
   configurationId: string,
   loadWeightText: string,
   outriggers?: OutriggerInput,
+  accessoryIds: readonly string[] = [],
 ): EvaluationInputResult {
   if (craneState === null) return { input: null, problem: 'Aguardando a cena 3D.' }
   const trimmedId = configurationId.trim()
@@ -37,6 +38,8 @@ export function buildEvaluationInput(
       cableLengthM: craneState.cableLengthM,
       loadWeightKg,
       ...(outriggers ? { outriggers } : {}),
+      // Só vai ao backend com acessórios escolhidos (TASK-056; RN-014).
+      ...(accessoryIds.length > 0 ? { accessoryIds } : {}),
     },
     problem: null,
   }

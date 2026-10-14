@@ -40,6 +40,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 
+from app.application.ports.accessory_repository import AccessoryProvider
 from app.application.ports.active_load_chart_provider import ActiveLoadChartProvider
 from app.application.ports.configuration_load_rules_provider import (
     ConfigurationLoadRulesProvider,
@@ -77,6 +78,9 @@ class EvaluationDependencies:
     """Limite de capacidade do modelo (TASK-051); sem ele, valem os limites padrão."""
     safety_profile_provider: SafetyProfileProvider | None = None
     """Limite, faixa de atenção e inclinação máxima (TASK-051); sem ele, padrões FICTÍCIOS."""
+    accessory_provider: AccessoryProvider | None = None
+    """Catálogo de acessórios de içamento (TASK-056); sem ele, qualquer `accessory_ids` é
+    `ACCESSORY_NOT_FOUND`."""
 
 
 type EvaluateOperationDependency = Callable[[], Iterator[EvaluateOperation]]
@@ -109,6 +113,7 @@ def _as_dependency(
                 configuration_load_rules_provider=dependencies.configuration_load_rules_provider,
                 crane_limits_provider=dependencies.crane_limits_provider,
                 safety_profile_provider=dependencies.safety_profile_provider,
+                accessory_provider=dependencies.accessory_provider,
             )
         )
     return dependencies
@@ -165,6 +170,7 @@ def create_evaluations_router(
             load_weight=Mass(request.load_weight_kg),
             outriggers=None if request.outriggers is None else request.outriggers.to_setting(),
             ground_slope_deg=request.ground_slope_deg,
+            accessory_ids=request.accessory_ids,
         )
         return EvaluationResponse.from_evaluation(request.configuration_id, evaluation)
 

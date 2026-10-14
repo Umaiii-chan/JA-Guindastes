@@ -49,6 +49,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.application.ports.accessory_repository import AccessoryProvider
 from app.application.ports.active_load_chart_provider import ActiveLoadChartProvider
 from app.application.ports.configuration_load_rules_provider import (
     ConfigurationLoadRulesProvider,
@@ -65,6 +66,9 @@ from app.domain.value_objects.safety_profile import SafetyProfile
 from app.infrastructure.database.config import DATABASE_URL_ENV_VAR, DatabaseSettings
 from app.infrastructure.database.engine import create_database_engine, create_session_factory
 from app.infrastructure.importers.csv_load_chart_parser import CsvLoadChartParser
+from app.infrastructure.repositories.sqlalchemy_accessory_repository import (
+    SqlAlchemyAccessoryRepository,
+)
 from app.infrastructure.repositories.sqlalchemy_crane_catalog_repository import (
     SqlAlchemyCraneCatalogRepository,
 )
@@ -134,12 +138,14 @@ def build_evaluate_operation(
     active_load_chart_provider: ActiveLoadChartProvider,
     configuration_load_rules_provider: ConfigurationLoadRulesProvider | None = None,
     crane_limits_provider: CraneLimitsProvider | None = None,
+    accessory_provider: AccessoryProvider | None = None,
 ) -> EvaluateOperation:
     """Monta o caso de uso com a estratégia da composição (a mesma para REST e WebSocket).
 
     `configuration_load_rules_provider` (TASK-046): zonas de giro e peso do gancho; sem ele, a
     configuração é avaliada sem zonas e sem gancho (composição sem banco).
     `crane_limits_provider` (TASK-051): limite de capacidade do modelo; sem ele, valem os padrões.
+    `accessory_provider` (TASK-056): catálogo de acessórios de içamento.
     """
     return EvaluateOperation(
         crane_geometry_provider=crane_geometry_provider,
@@ -152,6 +158,7 @@ def build_evaluate_operation(
             if crane_limits_provider is not None
             else None
         ),
+        accessory_provider=accessory_provider,
     )
 
 
@@ -159,7 +166,11 @@ def build_database_evaluate_operation(session_factory: sessionmaker[Session]) ->
     """Caso de uso ligado aos repositórios da TASK-022 sobre `session_factory`."""
     catalog = SqlAlchemyCraneCatalogRepository(session_factory)
     return build_evaluate_operation(
-        catalog, SqlAlchemyLoadChartRepository(session_factory), catalog, catalog
+        catalog,
+        SqlAlchemyLoadChartRepository(session_factory),
+        catalog,
+        catalog,
+        SqlAlchemyAccessoryRepository(session_factory),
     )
 
 
@@ -263,6 +274,8 @@ def create_database_app(engine: Engine, environ: Mapping[str, str] | None = None
         database_health_check=database_health_check(engine),
         # Catálogo (TASK-030) e suas edições (TASK-044) no mesmo engine da avaliação: um pool só.
         catalog_repository=SqlAlchemyCraneCatalogRepository(session_factory),
+        # Catálogo de acessórios de içamento (TASK-056): mesmo engine.
+        accessory_repository=SqlAlchemyAccessoryRepository(session_factory),
         # Listagem das tabelas de uma configuração (TASK-044): só banco, sem FILE_STORAGE_DIR.
         load_chart_listing=SqlAlchemyLoadChartRepository(session_factory),
         # Importação com gravação e ativação (TASK-031): mesmo engine; exige FILE_STORAGE_DIR.

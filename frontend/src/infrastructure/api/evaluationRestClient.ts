@@ -20,6 +20,7 @@ import {
 } from '../shared/readJson'
 import { readCapacityLimit } from '../shared/evaluationCapacityLimit'
 import { readSafety } from '../shared/evaluationSafety'
+import { readAccessories } from '../shared/evaluationAccessories'
 import { readZoneAndWeights } from '../shared/evaluationZone'
 import { createApiFetch } from './apiFetch'
 import { EVALUATIONS_PATH, toEvaluationRequestDto } from './evaluationContract'
@@ -155,6 +156,7 @@ export function mapEvaluationResponse(json: unknown): EvaluationResult {
     ...readZoneAndWeights(body, path),
     ...readCapacityLimit(body, path),
     ...readSafety(body, path),
+    ...readAccessories(body, path),
   }
 
   if (status === 'EVALUATED') {

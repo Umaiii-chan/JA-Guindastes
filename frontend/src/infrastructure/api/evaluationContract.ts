@@ -13,10 +13,12 @@ export interface EvaluationRequestDto {
   readonly turret_rotation_deg: number
   readonly cable_length_m: number
   readonly load_weight_kg: number
-  /** Patolas (TASK-054); omitido quando a tela nÃ£o as informa. */
+  /** Patolas (TASK-054); omitido quando a tela não as informa. */
   readonly outriggers?: OutriggersDto
-  /** InclinaÃ§Ã£o residual sob o guindaste (TASK-052/055). */
+  /** Inclinação residual sob o guindaste (TASK-052/055). */
   readonly ground_slope_deg?: number
+  /** TASK-056 (RN-014): só vai com acessórios escolhidos. */
+  readonly accessory_ids?: readonly string[]
 }
 
 /** Estado das patolas no JSON (leva E; TASK-054). */
@@ -87,6 +89,9 @@ export interface EvaluationResponseDto {
   readonly hook_block_weight_kg?: number
   /** Carga + gancho: o valor comparado com a capacidade. */
   readonly compared_weight_kg?: number
+  /** TASK-056 (RN-014): soma dos acessórios (`null` sem acessórios) e a lista somada. */
+  readonly accessories_weight_kg?: number | null
+  readonly accessories?: readonly { id: string; name: string; weight_kg: number }[]
   /** TASK-055 (RN-013). */
   readonly tipping_risk?: 'LOW' | 'ATTENTION' | 'HIGH' | null
   readonly alerts?: readonly {
@@ -117,5 +122,8 @@ export function toEvaluationRequestDto(input: EvaluationInput): EvaluationReques
     load_weight_kg: input.loadWeightKg,
     ...toOutriggersDto(input),
     ...(input.groundSlopeDeg !== undefined && { ground_slope_deg: input.groundSlopeDeg }),
+    ...(input.accessoryIds && input.accessoryIds.length > 0
+      ? { accessory_ids: input.accessoryIds }
+      : {}),
   }
 }

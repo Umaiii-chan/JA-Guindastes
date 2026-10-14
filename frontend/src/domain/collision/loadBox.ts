@@ -59,17 +59,20 @@ export function isValidLoad(load: LoadDimensions | null | undefined): load is Lo
 export function computeLoadBox(
   load: LoadDimensions | null | undefined,
   attachOffsetM: number = HOOK_ATTACH_OFFSET_M,
+  accessoriesDropM = 0,
 ): LoadBoxLayout | null {
   if (!isValidLoad(load)) return null
   const attach =
     Number.isFinite(attachOffsetM) && attachOffsetM > 0 ? attachOffsetM : HOOK_ATTACH_OFFSET_M
-  const topY = -(attach + slingDropM(load))
+  // TASK-056 (RN-014): a cadeia de acessórios desce o ponto das lingas e a caixa.
+  const drop = Number.isFinite(accessoriesDropM) && accessoriesDropM > 0 ? accessoriesDropM : 0
+  const topY = -(attach + drop + slingDropM(load))
   const halfX = load.widthM / 2
   const halfZ = load.lengthM / 2
   return {
     size: { x: load.widthM, y: load.heightM, z: load.lengthM },
     center: { x: 0, y: topY - load.heightM / 2, z: 0 },
-    slingTop: { x: 0, y: -attach, z: 0 },
+    slingTop: { x: 0, y: -(attach + drop), z: 0 },
     slingBottoms: [
       { x: -halfX, y: topY, z: -halfZ },
       { x: halfX, y: topY, z: -halfZ },

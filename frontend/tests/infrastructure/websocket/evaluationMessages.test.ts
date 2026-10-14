@@ -50,6 +50,8 @@ describe('mensagens do WebSocket de avaliação', () => {
         alerts: [],
         hookBlockWeightKg: null,
         comparedWeightKg: null,
+        accessoriesWeightKg: null,
+        accessories: [],
       },
     })
   })

@@ -254,4 +254,5 @@ def _evaluate(
             )
         ),
         ground_slope_deg=payload.ground_slope_deg,
+        accessory_ids=payload.accessory_ids,
     )

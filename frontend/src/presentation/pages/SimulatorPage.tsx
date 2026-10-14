@@ -13,6 +13,8 @@ export interface SimulatorPageProps {
   readonly geometry?: ReactNode
   /** Faixa de título do quadro: conexão e vistas da câmera. */
   readonly statusBar: ReactNode
+  /** Acessórios de içamento (TASK-056): sob os passos, trocáveis a qualquer momento. */
+  readonly accessories?: ReactNode
 }
 
 /**
@@ -27,10 +29,14 @@ export function SimulatorPage({
   result,
   geometry,
   statusBar,
+  accessories,
 }: SimulatorPageProps) {
   return (
     <div className={styles.stage}>
-      <div className={styles.procedure}>{steps}</div>
+      <div className={styles.procedure}>
+        {steps}
+        {accessories && <div className={styles.accessories}>{accessories}</div>}
+      </div>
       <div className={styles.drawing}>
         {statusBar}
         <div className={styles.scene}>

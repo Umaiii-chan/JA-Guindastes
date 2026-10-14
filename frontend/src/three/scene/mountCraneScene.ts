@@ -23,6 +23,11 @@ import {
   NO_COLLISION,
 } from '../../domain/collision/collisions'
 import type { ScenarioSpec } from '../../domain/environment/environment'
+import {
+  AccessoryChain,
+  type AccessoryModelLoader,
+  type SceneAccessory,
+} from '../accessories/AccessoryChain'
 import { buildCraneScene } from './buildCraneScene'
 import { disposeObject3D } from './disposeObject3D'
 import type { LoadDimensions } from './loadBox'
@@ -53,6 +58,13 @@ export interface MountCraneSceneOptions {
    * uma vez na montagem, com o estado sem colisão.
    */
   readonly onCollisionChange?: (state: CollisionState) => void
+  /**
+   * Carregador dos modelos 3D dos acessórios de içamento (TASK-056). Padrão: `loadGltf`. `null`:
+   * os acessórios entram só no peso e na distância, sem malha.
+   */
+  readonly loadAccessoryModel?: AccessoryModelLoader | null
+  /** Avisado quando o modelo de um acessório chega (`true`) ou não pôde ser carregado (`false`). */
+  readonly onAccessoryModelResult?: (accessoryId: string, loaded: boolean) => void
 }
 
 /** Opções de `setCameraPreset`. */
@@ -80,6 +92,11 @@ export interface CraneSceneHandle {
    * desenho: o nível de cada célula vem do backend (RN-008).
    */
   setOperatingArea(area: OperatingArea | null): void
+  /**
+   * Cadeia de acessórios de içamento entre o gancho e a carga (TASK-056; RN-014), na ordem do gancho
+   * para a carga. A carga desce a soma de `riggingHeightM`. Lista vazia remove. Só desenho.
+   */
+  setAccessories(accessories: readonly SceneAccessory[]): void
   /** Leva a câmera a uma predefinição, enquadrando o estado atual do guindaste. */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
   /**
@@ -239,6 +256,12 @@ export function mountCraneScene(
     dirty = true
   }
 
+  const accessoryChain = new AccessoryChain({
+    loader: options.loadAccessoryModel,
+    onModelResult: options.onAccessoryModelResult,
+    onChange: invalidate,
+  })
+
   const resize = (): void => {
     const width = container.clientWidth
     const height = container.clientHeight
@@ -347,6 +370,11 @@ export function mountCraneScene(
       crane.revalidate()
       invalidate()
     },
+    setAccessories(accessories) {
+      if (disposed || !accessoryChain.setAccessories(accessories)) return
+      hookLoad.setAccessories(accessoryChain.root, accessoryChain.totalDropM)
+      invalidate()
+    },
     setRotationZones(zones) {
       if (disposed || !rotationZones.setZones(zones)) return
       removeZoneLabels()
@@ -419,6 +447,7 @@ export function mountCraneScene(
       collisions.dispose()
       hookLoad.dispose()
       disposeObject3D(scene)
+      accessoryChain.dispose()
       renderer.dispose()
       // Libera o contexto WebGL já, sem esperar o coletor de lixo: o navegador limita quantos
       // contextos podem existir (o StrictMode do React monta e desmonta a cena duas vezes em dev).
