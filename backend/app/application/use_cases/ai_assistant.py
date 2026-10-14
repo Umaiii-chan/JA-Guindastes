@@ -55,6 +55,7 @@ from app.domain.entities.scenario import (
 )
 from app.domain.entities.simulation_recording import SimulationRecording
 from app.domain.exceptions.domain_errors import DomainError
+from app.domain.services.scenario_layout import make_scenario_layout_safe
 from app.domain.value_objects.length import Length
 from app.domain.value_objects.load_dimensions import LoadDimensions
 from app.domain.value_objects.mass import Mass
@@ -405,8 +406,12 @@ def _draft_from_json(completion: LlmCompletion) -> ScenarioDraft:
         if isinstance(item, str) and item.strip()
     )[:10]
     summary = data.get("summary")
+    # O modelo erra coordenadas: o que cair sobre o guindaste, a coleta ou a entrega é deslocado
+    # por código (TASK-081) e cada deslocamento vira uma suposição para a pessoa revisar.
+    layout = make_scenario_layout_safe(spec, load_length_m=length, load_width_m=width)
+    assumptions = (*assumptions, *(move.describe() for move in layout.moves))
     return ScenarioDraft(
-        spec=spec,
+        spec=layout.spec,
         load=LoadDraft(
             description=description[:120],
             weight_kg=weight,

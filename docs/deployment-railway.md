@@ -31,6 +31,7 @@ site fica na mesma origem, como em `http://127.0.0.1:8080`.
 | `AI_PROVIDER` | `groq` |
 | `GROQ_API_KEY` | (chave do Groq; só no painel) |
 | `GROQ_MODEL` | `openai/gpt-oss-120b` |
+| `GROQ_REASONING_EFFORT` | `high` |
 
 `GEMINI_API_KEY` é opcional. Com `AI_PROVIDER=auto` em vez de `groq`, o Gemini vira reserva do Groq.
 

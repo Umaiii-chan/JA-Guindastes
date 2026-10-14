@@ -124,3 +124,12 @@ def test_auto_order_is_openai_then_groq_then_gemini() -> None:
     assert openai_first is not None and openai_first.model == "gpt-5-mini"
     assert openai_first.fallback_models[0] == "openai/gpt-oss-120b"
     assert forced_groq is not None and forced_groq.fallback_models == ()
+
+
+def test_reasoning_effort_env_is_read_and_invalid_values_are_ignored() -> None:
+    valid = build_ai_assistant({**GROQ_ENV, "GROQ_REASONING_EFFORT": " HIGH "})
+    invalid = build_ai_assistant({**GROQ_ENV, "GROQ_REASONING_EFFORT": "extremo"})
+
+    assert valid is not None and invalid is not None
+    assert valid._provider._reasoning_effort == "high"  # type: ignore[attr-defined]
+    assert invalid._provider._reasoning_effort is None  # type: ignore[attr-defined]

@@ -36,12 +36,17 @@ services:
         sync: false
       - key: OPENAI_FALLBACK_MODELS
         sync: false
+      # Esforço de raciocínio (low, medium ou high); vazio = não enviar.
+      - key: OPENAI_REASONING_EFFORT
+        sync: false
       # Groq (API compatível com a da OpenAI): GROQ_API_KEY, GROQ_MODEL (padrão openai/gpt-oss-120b).
       - key: GROQ_API_KEY
         sync: false
       - key: GROQ_MODEL
         sync: false
       - key: GROQ_FALLBACK_MODELS
+        sync: false
+      - key: GROQ_REASONING_EFFORT
         sync: false
       - key: AI_PROVIDER
         sync: false

@@ -12,6 +12,10 @@ Variáveis (ver `.env.example`; nenhuma tem valor no repositório):
   `OPENAI_FALLBACK_MODELS` (padrão vazio, separados por vírgula);
 - `GROQ_API_KEY`: chave do Groq (API compatível com a da OpenAI, em `api.groq.com/openai/v1`);
   `GROQ_MODEL` (padrão `openai/gpt-oss-120b`) e `GROQ_FALLBACK_MODELS` (padrão vazio);
+- `OPENAI_REASONING_EFFORT` e `GROQ_REASONING_EFFORT` (`low`, `medium` ou `high`; vazio = não
+  enviar além do comportamento padrão dos modelos gpt-5/o*): esforço de raciocínio enviado a
+  qualquer modelo daquele provedor; valor inválido é ignorado com aviso. Se o provedor recusar o
+  parâmetro, o adaptador o tira e repete o pedido;
 - `GEMINI_API_KEY`: chave do Google AI Studio; `GEMINI_MODEL` (`gemini-3.7-flash`) e
   `GEMINI_FALLBACK_MODELS` (`gemini-3-flash-preview,gemini-flash-lite-latest`);
 - sem a chave do provedor escolhido, a IA fica **desligada** (`GET /ai/status` responde
@@ -50,6 +54,9 @@ OPENAI_FALLBACK_MODELS_ENV_VAR = "OPENAI_FALLBACK_MODELS"
 GROQ_API_KEY_ENV_VAR = "GROQ_API_KEY"
 GROQ_MODEL_ENV_VAR = "GROQ_MODEL"
 GROQ_FALLBACK_MODELS_ENV_VAR = "GROQ_FALLBACK_MODELS"
+OPENAI_REASONING_EFFORT_ENV_VAR = "OPENAI_REASONING_EFFORT"
+GROQ_REASONING_EFFORT_ENV_VAR = "GROQ_REASONING_EFFORT"
+_REASONING_EFFORTS = frozenset({"low", "medium", "high"})
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b"
 PROVIDER_ENV_VAR = "AI_PROVIDER"
@@ -103,6 +110,7 @@ def _openai(source: Mapping[str, str], deadline: float | None) -> openai_provide
             source.get(OPENAI_FALLBACK_MODELS_ENV_VAR), openai_provider.DEFAULT_FALLBACK_MODELS
         ),
         total_deadline_seconds=total,
+        reasoning_effort=_reasoning_effort(source, OPENAI_REASONING_EFFORT_ENV_VAR),
     )
 
 
@@ -114,7 +122,18 @@ def _groq(source: Mapping[str, str], deadline: float | None) -> openai_provider.
         _split_models(source.get(GROQ_FALLBACK_MODELS_ENV_VAR)),
         total_deadline_seconds=total,
         base_url=GROQ_BASE_URL,
+        reasoning_effort=_reasoning_effort(source, GROQ_REASONING_EFFORT_ENV_VAR),
     )
+
+
+def _reasoning_effort(source: Mapping[str, str], name: str) -> str | None:
+    raw = source.get(name, "").strip().lower()
+    if not raw:
+        return None
+    if raw not in _REASONING_EFFORTS:
+        logger.warning("%s inválido: ignorado", name)
+        return None
+    return raw
 
 
 def _split_models(raw: str | None) -> tuple[str, ...]:

@@ -81,6 +81,7 @@ ser deixada (posição, giro e raio da área de entrega, de 1 a 5 m).
 dentro de um obstáculo. Distâncias que o texto informar (por exemplo, "a 20 m") valem entre os \
 pontos citados.
 - "obstacles": construções, veículos, árvores e outros objetos do local. PREFIRA SEMPRE um objeto da biblioteca (kind "model") quando houver um parecido: árvore, casa, galpão, barracão, caminhão, carreta, carro, van, contêiner. Um barracão ou galpão de onde a carga sai é o "barracao-aberto", com a carga DENTRO e o guindaste FORA, de frente para a porta. Só use caixa ou cilindro para o que não existe na biblioteca (muro, pilha de material, poste, tanque). No máximo 20 obstáculos; use "label" em português, curto e legível (ex.: "Árvore 1", "Carreta").
+- Área livre: em volta do guindaste (cerca de 14 m de comprimento por 8 m de largura, contando as patolas) não pode haver NENHUM obstáculo; nada pode ficar sobre a carga na coleta (deixe pelo menos 2 m de folga) e, sobre o ponto de entrega, só a carreta ou caminhão plataforma de destino, nunca carro, árvore ou outro objeto. Escolha as coordenadas com cuidado e confira cada obstáculo contra essas áreas. O simulador confere as posições depois e afasta o que estiver em cima dessas áreas.
 - Inclinação do terreno em % (subida em metros a cada 100 m) só se o texto falar em terreno \
 inclinado; senão 0. Vento (m/s) e tipo de solo só se o texto falar deles; senão null.
 - "summary": uma ou duas frases em português descrevendo o que você montou. "assumptions": lista de \
