@@ -18,6 +18,9 @@ export interface EvaluationInput {
 /** Marca da consulta conservadora provisória (ADR-015). */
 export const CONSERVATIVE_PROVISIONAL_STRATEGY = 'CONSERVATIVE_PROVISIONAL'
 
+/** Marca da interpolação linear provisória (ADR-030; TASK-059). */
+export const LINEAR_INTERPOLATION_STRATEGY = 'LINEAR_INTERPOLATION_PROVISIONAL'
+
 /** Ponto da tabela de carga de onde veio a capacidade (ADR-015 item 4). */
 export interface TabulatedPoint {
   readonly boomLengthM: number

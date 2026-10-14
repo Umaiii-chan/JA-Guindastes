@@ -35,6 +35,7 @@ from app.domain.value_objects.conservative_capacity_result import (
     CapacityLookupStrategy,
     ConservativeCapacityFound,
 )
+from app.domain.value_objects.interpolated_capacity_result import InterpolatedCapacityFound
 from app.domain.value_objects.operational_geometry import OperationalGeometry, Point3D
 
 STATE_CHANGED_TYPE = "simulation.state.changed"
@@ -143,9 +144,34 @@ class CapacityMessage(BaseModel):
     )
     queried_radius_m: float | None = Field(description="Raio consultado na tabela, em metros.")
     used_point: TabulatedPointMessage | None = Field(description="Ponto tabelado usado.")
+    interpolated_points: list[TabulatedPointMessage] | None = Field(
+        default=None,
+        description="Pontos tabelados usados na interpolação linear (ADR-030).",
+    )
 
     @classmethod
     def from_capacity(cls, capacity: CapacityFound) -> CapacityMessage:
+        if isinstance(capacity, InterpolatedCapacityFound):
+            points = [
+                TabulatedPointMessage(
+                    boom_length_m=point.boom_length.meters,
+                    working_radius_m=point.working_radius.meters,
+                    max_capacity_kg=point.max_capacity.kilograms,
+                )
+                for point in capacity.points
+            ]
+            lowest = capacity.lowest_point
+            return cls(
+                maximum_capacity_kg=capacity.max_capacity.kilograms,
+                strategy=capacity.strategy,
+                queried_radius_m=capacity.queried_radius.meters,
+                used_point=TabulatedPointMessage(
+                    boom_length_m=lowest.boom_length.meters,
+                    working_radius_m=lowest.working_radius.meters,
+                    max_capacity_kg=lowest.max_capacity.kilograms,
+                ),
+                interpolated_points=points,
+            )
         if isinstance(capacity, ConservativeCapacityFound):
             point = capacity.used_point
             return cls(

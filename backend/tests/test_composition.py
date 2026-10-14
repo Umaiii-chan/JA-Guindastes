@@ -27,7 +27,7 @@ from app.auth_composition import (
     AuthConfigurationError,
     session_cookie_secure,
 )
-from app.domain.services.conservative_tabulated_lookup import ConservativeTabulatedLookup
+from app.domain.services.linear_interpolation_lookup import LinearInterpolationLookup
 from app.infrastructure.database.config import DatabaseConfigurationError
 from app.main import (
     compose_app,
@@ -98,8 +98,8 @@ def app_without_database() -> TestClient:
     return TestClient(compose_app({}))
 
 
-def test_composition_uses_the_conservative_provisional_strategy() -> None:
-    assert isinstance(load_chart_interpolator, ConservativeTabulatedLookup)
+def test_composition_uses_the_linear_interpolation_strategy() -> None:
+    assert isinstance(load_chart_interpolator, LinearInterpolationLookup)
 
 
 def test_without_database_url_the_evaluation_is_not_evaluable_without_inventing_data(
