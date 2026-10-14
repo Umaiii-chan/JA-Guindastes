@@ -169,7 +169,10 @@ function fitModel(model: Object3D, heightM: number): Object3D {
   holder.add(model)
   holder.updateMatrixWorld(true)
   const size = new Box3().setFromObject(model).getSize(new Vector3())
-  if (heightM > 0 && size.y > 0) model.scale.multiplyScalar(heightM / size.y)
+  // Modelos de terceiros vêm em qualquer orientação: o maior lado (deitado ou em pé) cabe na
+  // altura do acessório, para nunca passar do tamanho real (TASK-065).
+  const largest = Math.max(size.x, size.y, size.z)
+  if (heightM > 0 && largest > 0) model.scale.multiplyScalar(heightM / largest)
   holder.updateMatrixWorld(true)
   const box = new Box3().setFromObject(model)
   if (!box.isEmpty()) {
