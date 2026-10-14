@@ -172,6 +172,10 @@ class GeminiProvider:
         if status == 200:
             return self._read_text(model, raw)
         logger.warning("IA: o modelo %s respondeu HTTP %s", model, status)
+        if status == 400:
+            # O corpo do 400 diz o que está malformado (esquema, campo); a chave vai no cabeçalho e
+            # não aparece nele. Só a mensagem, cortada.
+            logger.warning("IA: detalhe do HTTP 400 de %s: %s", model, _error_detail(raw))
         if status in _TRANSIENT_STATUSES:
             return LlmError(LlmErrorKind.UNAVAILABLE, _MSG_UNAVAILABLE), True
         if status == 429:
@@ -218,6 +222,16 @@ class GeminiProvider:
             logger.warning("IA: a resposta do modelo %s foi cortada por tamanho", model)
             return LlmError(LlmErrorKind.BAD_RESPONSE, _MSG_TOO_LONG), False
         return text
+
+
+def _error_detail(raw: bytes) -> str:
+    """Mensagem do erro do Gemini (`error.message`), cortada; vazia se o corpo for outro."""
+    try:
+        data = json.loads(raw.decode("utf-8", errors="replace"))
+        message = data.get("error", {}).get("message", "") if isinstance(data, dict) else ""
+    except ValueError, AttributeError:
+        message = ""
+    return str(message)[:500]
 
 
 def _encode(request: LlmRequest, *, thinking: bool) -> bytes:

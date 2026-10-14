@@ -69,6 +69,8 @@ def test_scenario_prefers_library_objects_and_unknown_model_ids_become_boxes() -
     obstacle_schema = schema["properties"]["obstacles"]["items"]["properties"]
     assert "model" in obstacle_schema["kind"]["enum"]
     assert "barracao-aberto" in obstacle_schema["model_id"]["enum"]
+    # O Gemini recusa (HTTP 400) enum junto com nullable.
+    assert "nullable" not in obstacle_schema["model_id"]
 
 
 def test_scenario_request_is_structured_and_treats_the_text_as_data() -> None:

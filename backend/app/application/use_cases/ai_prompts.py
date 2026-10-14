@@ -31,6 +31,9 @@ LIBRARY_MODELS: dict[str, str] = {
 """Objetos da biblioteca do editor 3D (TASK-072), espelho de `frontend/src/domain/environment/
 objectLibrary.ts`: o backend só guarda o `model_id`, e a IA escolhe por esta lista (TASK-076)."""
 
+NO_MODEL_ID = "nenhum"
+"""Valor de `model_id` em caixa e cilindro (o esquema do Gemini não aceita enum com null)."""
+
 _LIBRARY_LIST = "; ".join(f'"{key}" ({text})' for key, text in LIBRARY_MODELS.items())
 
 LIMITS = """\
@@ -57,7 +60,7 @@ dentro de 60 m do guindaste.
 (kind "box": width_m ao longo do comprimento, depth_m na profundidade) ou um cilindro (kind \
 "cylinder": width_m é o diâmetro). center_x e center_z são o centro da base no chão; height_m é a \
 altura; width_m, depth_m e height_m são as medidas reais aproximadas do objeto. Em caixa e cilindro, \
-"model_id" é null.
+"model_id" é "nenhum".
 - Biblioteca de objetos: {_LIBRARY_LIST}."""
 
 SCENARIO_SYSTEM = f"""\
@@ -128,11 +131,8 @@ SCENARIO_RESPONSE_SCHEMA: dict[str, Any] = _object(
                 {
                     "label": {"type": "STRING"},
                     "kind": {"type": "STRING", "enum": ["model", "box", "cylinder"]},
-                    "model_id": {
-                        "type": "STRING",
-                        "enum": list(LIBRARY_MODELS),
-                        "nullable": True,
-                    },
+                    # Enum com `nullable` é recusado pelo Gemini (HTTP 400): "nenhum" faz o papel do null.
+                    "model_id": {"type": "STRING", "enum": [*LIBRARY_MODELS, NO_MODEL_ID]},
                     "center_x": _number(),
                     "center_z": _number(),
                     "width_m": _number(),
