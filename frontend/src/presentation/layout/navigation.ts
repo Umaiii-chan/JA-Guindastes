@@ -35,7 +35,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     path: ROUTES.simulator,
     label: 'Simulador',
-    description: 'Guindaste, carga e posição, com o resultado do backend',
+    description: 'Guindaste, carga e posição, com o resultado do servidor',
     sheet: '02',
     section: 'main',
     fullBleed: true,

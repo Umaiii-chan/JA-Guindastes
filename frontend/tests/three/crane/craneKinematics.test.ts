@@ -111,7 +111,7 @@ describe('mapCraneKinematics sobre o GLB de exemplo FICTÍCIO', () => {
     expect(result.rig.boomRetractedLengthM).toBe(CONFIG.boomRetractedLengthM)
   })
 
-  it('o CraneController comanda o rig importado e o gancho fica em G (ADR-013) em todos os estados', async () => {
+  it('o CraneController comanda o rig importado e o gancho fica em G em todos os estados', async () => {
     const result = await mapExample()
     if (!result.ok) throw new Error(JSON.stringify(result.report))
 

@@ -7,7 +7,7 @@ import { toStateChangedMessage } from '../../src/infrastructure/websocket/evalua
 // FICTÍCIO: estado de sliders só para testar o envio das patolas.
 const STATE = { turretRotationDeg: 10, boomAngleDeg: 30, boomLengthM: 20, cableLengthM: 1 }
 
-describe('patolas no envio da avaliação (TASK-054)', () => {
+describe('patolas no envio da avaliação', () => {
   it('sem patolas, o corpo REST e a mensagem WebSocket não ganham o campo', () => {
     const { input } = buildEvaluationInput(STATE, 'CFG', '100')
 

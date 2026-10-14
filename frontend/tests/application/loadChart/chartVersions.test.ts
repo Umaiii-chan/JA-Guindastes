@@ -30,7 +30,7 @@ function chart(chartId: string, patch: Partial<StoredLoadChart> = {}): StoredLoa
   }
 }
 
-describe('ativas por zona (TASK-046)', () => {
+describe('ativas por zona', () => {
   const versions = [
     summaryOf(chart('F2', { rotationZoneCode: 'FRONTAL' })),
     summaryOf(chart('F1', { rotationZoneCode: 'FRONTAL', status: 'ACTIVE' })),
@@ -42,7 +42,7 @@ describe('ativas por zona (TASK-046)', () => {
     { rotationZoneCode: 'FRONTAL', chartId: 'FORA-DA-LISTA' },
   ]
 
-  it('uma ativa por zona, pela active_charts do backend', () => {
+  it('uma ativa por zona, pela active_charts do servidor', () => {
     const byZone = activeVersionsByZone(versions, activeCharts)
     expect(byZone.get('FRONTAL')?.chartId).toBe('F1')
     expect(byZone.get('LATERAL_TRASEIRA')?.chartId).toBe('L1')
@@ -71,7 +71,7 @@ describe('activeVersion', () => {
     summaryOf(chart('V0', { status: 'SUPERSEDED' })),
   ]
 
-  it('usa a ativa indicada pelo backend (active_chart_id)', () => {
+  it('usa a ativa indicada pelo servidor (active_chart_id)', () => {
     expect(activeVersion(versions, 'V1')?.chartId).toBe('V1')
   })
 
@@ -109,7 +109,7 @@ describe('createLoadChartCache', () => {
     expect(cache.peek('V1')).toBe(first)
   })
 
-  it('guarda a tabela que já veio inteira (importação, ativação) sem ir ao backend', async () => {
+  it('guarda a tabela que já veio inteira (importação, ativação) sem ir ao servidor', async () => {
     const getChart = vi.fn(async (id: string) => chart(id))
     const cache = createLoadChartCache({ getChart })
 

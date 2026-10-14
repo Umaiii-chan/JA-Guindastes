@@ -22,7 +22,7 @@ describe('sceneRotationZoneCode', () => {
     ).toBeNull()
   })
 
-  it('com resultado atual, vale a zona do backend (mesmo que ψ aponte para outra)', () => {
+  it('com resultado atual, vale a zona do servidor (mesmo que ψ aponte para outra)', () => {
     expect(
       sceneRotationZoneCode({
         zones: ZONAS_FICTICIAS,
@@ -58,7 +58,7 @@ describe('sceneRotationZoneCode', () => {
     ).toBeNull()
   })
 
-  it('zona do backend que a configuração não tem mais cai na prévia', () => {
+  it('zona do servidor que a configuração não tem mais cai na prévia', () => {
     const stale = mapEvaluationResponse({ ...REST_EVALUATED_ZONA, rotation_zone_code: 'ANTIGA' })
     expect(
       sceneRotationZoneCode({

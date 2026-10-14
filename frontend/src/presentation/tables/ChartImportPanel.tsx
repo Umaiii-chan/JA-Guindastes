@@ -70,7 +70,7 @@ function dropzoneText(state: ChartFileState): { title?: string; description: str
     case 'validating':
       return {
         title: `Validando ${state.file.name}…`,
-        description: 'O backend confere o arquivo sem gravar nada.',
+        description: 'O servidor confere o arquivo sem gravar nada.',
       }
     case 'valid':
       return {
@@ -189,7 +189,7 @@ export function ChartImportPanel({
         fileCheck.showIssues(outcome.issues)
         toast.show({
           tone: 'danger',
-          title: 'O backend recusou a tabela',
+          title: 'O servidor recusou a tabela',
           description: `${outcome.issues.length} problemas no arquivo. Nada foi gravado.`,
         })
       }
@@ -235,7 +235,7 @@ export function ChartImportPanel({
                 label="Zona de giro"
                 required
                 error={touched || zoneBackendError !== null ? zoneError : undefined}
-                hint="Cada zona tem a sua tabela ativa (ADR-018). Ativar esta versão só muda a zona escolhida."
+                hint="Cada zona tem a sua tabela ativa. Ativar esta versão só muda a zona escolhida."
                 className={styles.importZoneField}
               >
                 <Select

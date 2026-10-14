@@ -45,7 +45,7 @@ describe('limites dos sliders a partir da configuração', () => {
       max: PROVISIONAL_CRANE_LIMITS.cableLengthM.max,
     })
     expect(choice.notes.turretRotationDeg).toContain('Giro contínuo')
-    expect(choice.notes.cableLengthM).toContain('FICTÍCIO')
+    expect(choice.notes.cableLengthM).toContain('padrão')
   })
 
   it('sem c_max e com c_min acima do máximo FICTÍCIO, o máximo acompanha o mínimo', () => {
@@ -71,7 +71,7 @@ describe('limites dos sliders a partir da configuração', () => {
     expect(choice.fromSheet).toBe(false)
     expect(choice.setup).toBe(PROVISIONAL_CRANE_SETUP)
     expect(choice.notice).toContain(reason)
-    expect(choice.notice).toContain('FICTÍCIOS')
+    expect(choice.notice).toContain('padrão')
   })
 
   it('a cena montada com a ficha limita os comandos e calcula com a/h da ficha', () => {

@@ -17,11 +17,11 @@ export interface ConnectionStatusBarProps {
 
 const CONNECTION: Record<ConnectionStatus, { tone: Tone; label: string; pulse: boolean }> = {
   idle: { tone: 'neutral', label: 'Conexão não iniciada', pulse: false },
-  connecting: { tone: 'info', label: 'Conectando ao backend…', pulse: true },
-  connected: { tone: 'ok', label: 'Tempo real (WebSocket)', pulse: false },
-  reconnecting: { tone: 'warning', label: 'Reconectando — avaliação por REST', pulse: true },
+  connecting: { tone: 'info', label: 'Conectando ao servidor…', pulse: true },
+  connected: { tone: 'ok', label: 'Tempo real', pulse: false },
+  reconnecting: { tone: 'warning', label: 'Reconectando…', pulse: true },
   closed: { tone: 'neutral', label: 'Conexão fechada', pulse: false },
-  rest: { tone: 'ok', label: 'Avaliação por REST', pulse: false },
+  rest: { tone: 'ok', label: 'Conectado', pulse: false },
 }
 
 /**
@@ -31,7 +31,6 @@ const CONNECTION: Record<ConnectionStatus, { tone: Tone; label: string; pulse: b
  */
 export function ConnectionStatusBar({
   connectionStatus,
-  transport,
   pending,
   slow = false,
   cameraActions,
@@ -39,22 +38,14 @@ export function ConnectionStatusBar({
   const connection = CONNECTION[connectionStatus]
   return (
     <div className={styles.bar} role="group" aria-label="Status da conexão e câmera">
-      <span className={cx(styles.cell, styles.title)} aria-hidden="true">
-        Vista 3D
-      </span>
       <span className={styles.cell}>
         <StatusPill tone={connection.tone} pulse={connection.pulse} size="sm" live>
           {connection.label}
         </StatusPill>
       </span>
-      <span className={cx(styles.cell, styles.transport)}>
-        {transport === null
-          ? 'Nenhuma avaliação recebida'
-          : `Último resultado por ${transport === 'websocket' ? 'WebSocket' : 'REST'}`}
-      </span>
       {pending && (
         <span className={cx(styles.cell, styles.pending)}>
-          <Spinner size={10} /> {slow ? 'aguardando o backend…' : 'atualizando…'}
+          <Spinner size={10} /> {slow ? 'aguardando o servidor…' : 'atualizando…'}
         </span>
       )}
       <span className={styles.spacer} aria-hidden="true" />

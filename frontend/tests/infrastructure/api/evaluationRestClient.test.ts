@@ -38,7 +38,7 @@ async function rejection(promise: Promise<unknown>): Promise<EvaluationClientErr
 }
 
 describe('cliente REST da avaliação', () => {
-  it('desiste depois do tempo máximo com o código TIMEOUT (TASK-050)', async () => {
+  it('desiste depois do tempo máximo com o código TIMEOUT', async () => {
     vi.useFakeTimers()
     try {
       const fetchFn = vi.fn<typeof fetch>(
@@ -60,7 +60,7 @@ describe('cliente REST da avaliação', () => {
     }
   })
 
-  it('envia POST /api/v1/evaluations com os nomes de campo do backend', async () => {
+  it('envia POST /api/v1/evaluations com os nomes de campo do servidor', async () => {
     const { fetchFn, client } = clientAnswering(jsonResponse(REST_EVALUATED))
 
     await client.evaluate(FICTICIO_INPUT)

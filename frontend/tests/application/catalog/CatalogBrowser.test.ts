@@ -110,7 +110,7 @@ describe('CatalogBrowser — listas encadeadas', () => {
     expect(ids(browser.getState().cranes.items)).toEqual(['GUI-B1'])
   })
 
-  it('erro ao listar aparece na lista, com a mensagem do backend', async () => {
+  it('erro ao listar aparece na lista, com a mensagem do servidor', async () => {
     const { browser } = browserWith((_method, path) =>
       path === '/api/v1/manufacturers' ? jsonResponse({ detail: 'Not Found' }, 404) : undefined,
     )
@@ -204,7 +204,7 @@ describe('CatalogBrowser — cadastros', () => {
     expect(ids(browser.getState().configurations.items)).toEqual(['CFG-A1-FICHA', 'CFG-A1-SEM'])
   })
 
-  it('alterar (TASK-044): recarrega a lista do nível e mantém a seleção', async () => {
+  it('alterar: recarrega a lista do nível e mantém a seleção', async () => {
     const { browser } = browserWith()
     await browser.loadManufacturers()
     await browser.selectManufacturer('FAB-A')

@@ -52,7 +52,7 @@ export function UserMenu({ user, onSignOut }: UserMenuProps) {
     return (
       <div
         className={styles.placeholder}
-        title="Backend sem banco de dados: não há login e todas as ações ficam abertas (só para desenvolvimento)."
+        title="Servidor sem banco de dados: não há login e todas as ações ficam abertas (só para desenvolvimento)."
         data-testid="user-menu"
         role="note"
       >

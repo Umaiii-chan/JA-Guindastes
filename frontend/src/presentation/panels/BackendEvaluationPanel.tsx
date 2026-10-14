@@ -26,6 +26,7 @@ import {
   type Tone,
 } from '../ui'
 import styles from './BackendEvaluationPanel.module.css'
+import { reasonLabel } from './reasonLabels'
 
 export type EvaluationTransportLabel = 'websocket' | 'rest'
 
@@ -44,15 +45,10 @@ export interface BackendEvaluationPanelProps {
 }
 
 export const SLOW_BACKEND_MESSAGE =
-  'O backend está demorando para responder. Se estava parado, ele leva até 1 minuto para acordar.'
+  'O servidor está demorando para responder. Se estava parado, ele leva até 1 minuto para acordar.'
 
-export const PROVISIONAL_MARK = 'PROVISÓRIO — consulta conservadora (ADR-015)'
-export const INTERPOLATED_MARK = 'PROVISÓRIO — interpolado entre pontos da tabela (ADR-030)'
-
-const TRANSPORT_LABEL: Record<EvaluationTransportLabel, string> = {
-  websocket: 'WebSocket',
-  rest: 'REST',
-}
+export const PROVISIONAL_MARK = 'PROVISÓRIO — consulta conservadora'
+export const INTERPOLATED_MARK = 'PROVISÓRIO — interpolado entre pontos da tabela'
 
 /**
  * Cor e texto de cada situação (ADR-019 § 1). Com `capacityLimit` (TASK-051; RN-011), a situação é o
@@ -101,7 +97,6 @@ export function BackendEvaluationPanel({
   result,
   error,
   pending,
-  transport,
   inputProblem,
   loadWeightKg = null,
   slow = false,
@@ -128,13 +123,12 @@ export function BackendEvaluationPanel({
     : [{ from: 0, to: FULL_CAPACITY_PERCENT, tone: 'ok' }]
   // Zona de giro usada pelo backend (TASK-046); some numa configuração sem zonas.
   const zoneLabel = shown ? (shown.rotationZoneName ?? shown.rotationZoneCode) : null
-  const interpolated = shown?.capacity?.strategy === LINEAR_INTERPOLATION_STRATEGY
 
   return (
     <section className={styles.hud} aria-labelledby={titleId} aria-busy={pending}>
       <header className={styles.header}>
         <h2 id={titleId} className={styles.title}>
-          Avaliação <Badge tone="info">backend</Badge>
+          Avaliação
         </h2>
         {pending && (
           <span className={styles.pending}>
@@ -190,7 +184,7 @@ export function BackendEvaluationPanel({
                 </span>
               </Metric>
             )}
-            <Metric label="Raio (backend)" loading={waitingFirst && pending}>
+            <Metric label="Raio" loading={waitingFirst && pending}>
               {shown?.workingRadiusM !== null && shown?.workingRadiusM !== undefined
                 ? meters(shown.workingRadiusM)
                 : '—'}
@@ -266,7 +260,7 @@ export function BackendEvaluationPanel({
               }
             />
           ) : result === null ? (
-            <p className={styles.waiting}>Aguardando a primeira avaliação do backend…</p>
+            <p className={styles.waiting}>Aguardando a primeira avaliação do servidor…</p>
           ) : (
             <EvaluationDetails result={result} />
           )}
@@ -288,25 +282,6 @@ export function BackendEvaluationPanel({
             <p className={styles.waiting} role="status">
               {SLOW_BACKEND_MESSAGE}
             </p>
-          )}
-
-          <p className={styles.provisional} role="note">
-            <strong>
-              <span className={styles.provisionalStamp}>PROVISÓRIO</span>
-              <span>
-                {(interpolated ? INTERPOLATED_MARK : PROVISIONAL_MARK).slice('PROVISÓRIO'.length)}
-              </span>
-            </strong>
-            <span>
-              {' '}
-              {interpolated
-                ? 'Capacidade interpolada linearmente entre pontos da tabela; não é valor definitivo.'
-                : 'Capacidade tirada de um ponto da tabela, do lado seguro; não é valor definitivo.'}
-            </span>
-          </p>
-
-          {transport !== null && result !== null && error === null && inputProblem === null && (
-            <p className={styles.meta}>Recebida por {TRANSPORT_LABEL[transport]}.</p>
           )}
         </div>
       </div>
@@ -370,14 +345,14 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
   }
   if (result.accessories !== undefined && result.accessories.length > 0) {
     rows.push({
-      label: 'Acessórios de içamento (RN-014)',
+      label: 'Acessórios de içamento',
       value: result.accessories
         .map((item) => `${item.name} ${kilograms(item.weightKg)}`)
         .join(' · '),
     })
   }
   if (result.workingRadiusM !== null) {
-    rows.push({ label: 'Raio de trabalho (backend)', value: meters(result.workingRadiusM) })
+    rows.push({ label: 'Raio de trabalho', value: meters(result.workingRadiusM) })
   }
   if (capacity?.queriedRadiusM !== null && capacity?.queriedRadiusM !== undefined) {
     rows.push({ label: 'Raio consultado', value: meters(capacity.queriedRadiusM) })
@@ -394,10 +369,10 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
       label: 'Estratégia',
       value:
         capacity.strategy === CONSERVATIVE_PROVISIONAL_STRATEGY
-          ? 'conservadora provisória (ADR-015)'
+          ? 'ponto da tabela'
           : capacity.strategy === LINEAR_INTERPOLATION_STRATEGY
-            ? 'interpolação linear provisória (ADR-030)'
-            : (capacity.strategy ?? 'não informada pelo backend'),
+            ? 'interpolada entre pontos da tabela'
+            : (capacity.strategy ?? '—'),
     })
   }
   if (result.loadChartId !== null || result.loadChartVersion !== null) {
@@ -420,10 +395,7 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
           </p>
           <ul>
             {result.reasons.map((reason, index) => (
-              <li key={`${reason.code}-${index}`}>
-                <code>{reason.code}</code>
-                {reason.category !== null && <span> ({reason.category})</span>}
-              </li>
+              <li key={`${reason.code}-${index}`}>{reasonLabel(reason.code)}</li>
             ))}
           </ul>
         </div>
@@ -442,8 +414,8 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
           {result.kind === 'EVALUATED' && (
             <p className={cx(styles.meta, styles.detailsNote)}>
               {result.capacityLimit
-                ? 'A cor é o nível devolvido pelo backend: o peso comparado (carga + gancho) contra a capacidade efetiva do modelo (RN-011).'
-                : 'A cor só compara o peso comparado (carga + gancho) com a capacidade: não há níveis de alerta definidos (PEND-004).'}
+                ? 'A cor é o nível devolvido pelo servidor: o peso comparado (carga + gancho) contra a capacidade efetiva do modelo.'
+                : 'A cor compara o peso comparado (carga + gancho) com a capacidade da tabela.'}
             </p>
           )}
         </details>

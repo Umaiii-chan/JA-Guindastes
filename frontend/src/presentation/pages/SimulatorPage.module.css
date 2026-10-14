@@ -16,15 +16,99 @@
 .procedure {
   display: flex;
   flex-direction: column;
+  gap: var(--space-3);
   min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
-/* Acessórios de içamento (TASK-056): sob os passos, com rolagem própria se faltar altura. */
-.accessories {
+.procedure[hidden] {
+  display: none;
+}
+
+/* Painel recolhido ou tela cheia: a cena ocupa a largura (TASK-062). */
+.panelHidden {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.full {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--color-bg, var(--paper));
+}
+
+.header {
+  min-width: 0;
+}
+
+.headerBar {
+  display: flex;
+  min-width: 0;
+}
+
+.headerBar > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.viewActions {
+  display: flex;
   flex: 0 0 auto;
-  max-height: 42%;
-  margin-top: var(--space-3);
-  overflow-y: auto;
+  border-bottom: 1px solid var(--color-border-ink);
+  border-left: 1px solid var(--color-border-ink);
+}
+
+.viewAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface-1);
+  color: var(--color-text-1);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.viewAction:last-child {
+  border-right: 0;
+}
+
+.viewAction:hover,
+.viewAction[aria-pressed='true'] {
+  background: var(--color-surface-2, var(--color-surface-1));
+}
+
+/* Em espaço estreito, só os ícones. */
+@media (width < 1500px) {
+  .viewAction span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
+
+/* Seções recolhíveis da coluna (acessórios). */
+.section {
+  flex: 0 0 auto;
+  border: 1px solid var(--color-border-ink);
+  background: var(--color-surface-1);
+}
+
+.sectionTitle {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+  color: var(--color-text-1);
+  cursor: pointer;
 }
 
 .drawing {

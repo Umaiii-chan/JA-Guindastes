@@ -100,7 +100,7 @@ describe('HookLoad', () => {
     expect(hookLoad.haloIntensity).toBe(HALO_INTENSITY_UNKNOWN)
   })
 
-  it('o halo usa mistura normal sobre o papel, sem brilho aditivo (ADR-019)', () => {
+  it('o halo usa mistura normal sobre o papel, sem brilho aditivo', () => {
     const { hook } = setup()
     const halo = hook.getObjectByName(HOOK_LOAD_NAMES.halo) as Mesh<SphereGeometry, ShaderMaterial>
 

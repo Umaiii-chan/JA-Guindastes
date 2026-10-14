@@ -36,7 +36,7 @@ async function rejection(promise: Promise<unknown>): Promise<LoadChartClientErro
   return error as LoadChartClientError
 }
 
-describe('createLoadChartRestClient — zonas de giro (TASK-046)', () => {
+describe('createLoadChartRestClient — zonas de giro', () => {
   it('a importação manda rotation_zone_code só quando há zona; a validação prévia nunca', async () => {
     const fetchFn = vi.fn<typeof fetch>(async () =>
       jsonResponse({ ...IMPORTED_DRAFT, rotation_zone_code: 'FRONTAL' }, 201),

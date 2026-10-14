@@ -50,7 +50,7 @@ describe('buildCraneScene', () => {
     expect(rig.hook.getObjectByName(HOOK_LOAD_NAMES.halo)).toBeInstanceOf(Mesh)
   })
 
-  it('o anel e a carga não mudam a geometria operacional (ADR-013 C-7)', () => {
+  it('o anel e a carga não mudam a geometria operacional', () => {
     const before = buildCraneScene().crane.getOperationalGeometry()
     const { crane, hookLoad, radiusIndicator } = buildCraneScene()
 

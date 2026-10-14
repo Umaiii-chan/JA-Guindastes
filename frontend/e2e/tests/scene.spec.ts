@@ -53,8 +53,6 @@ test('o Início carrega com a casca, os atalhos, o resumo do catálogo e os avis
   ).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Atalhos' }).getByRole('link')).toHaveCount(3)
   await expect(page.getByRole('list', { name: 'Contagens do catálogo' })).toBeVisible()
-  await expect(page.getByText('Dados FICTÍCIOS')).toBeVisible()
-  await expect(page.getByText('Estratégia PROVISÓRIA')).toBeVisible()
   expect(pageErrors).toEqual([])
 })
 

@@ -82,7 +82,7 @@ describe('CatalogSelectionPanel', () => {
           manufacturers: {
             status: 'error',
             items: [],
-            error: 'Não foi possível falar com o backend',
+            error: 'Não foi possível falar com o servidor',
           },
           cranes: { status: 'loaded', items: [], error: null },
           configurations: { status: 'loading', items: [], error: null },
@@ -90,14 +90,14 @@ describe('CatalogSelectionPanel', () => {
       ),
     )
 
-    expect(text).toContain('Não foi possível falar com o backend')
+    expect(text).toContain('Não foi possível falar com o servidor')
     expect(text).toContain('Nenhum guindaste cadastrado neste fabricante.')
     expect(text).toContain('Carregando…')
   })
 })
 
 describe('TechnicalSheetFields', () => {
-  it('mostra o erro do backend (422) embaixo do campo e marca o campo inválido', () => {
+  it('mostra o erro do servidor (422) embaixo do campo e marca o campo inválido', () => {
     const html = renderToStaticMarkup(
       createElement(TechnicalSheetFields, {
         values: EMPTY_SHEET_FORM,

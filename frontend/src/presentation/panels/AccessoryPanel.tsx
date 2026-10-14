@@ -78,7 +78,7 @@ export function AccessoryPanel({
             role="alert"
             title="Não foi possível carregar os acessórios"
           >
-            {errorMessage ?? 'Falha ao falar com o backend.'}{' '}
+            {errorMessage ?? 'Falha ao falar com o servidor.'}{' '}
             {onRetry && (
               <Button size="sm" variant="ghost" onClick={onRetry}>
                 Tentar de novo
@@ -159,7 +159,7 @@ export function AccessoryPanel({
 
         {resolved.unknownIds.length > 0 && (
           <Notice tone="warning" compact title="Acessório fora do catálogo">
-            O backend não avalia a operação enquanto houver acessório que ele não conhece. Remova-o
+            O servidor não avalia a operação enquanto houver acessório que ele não conhece. Remova-o
             da cadeia.
           </Notice>
         )}
@@ -167,7 +167,7 @@ export function AccessoryPanel({
         {resolved.accessories.length > 0 && (
           <p className={styles.summary}>
             Prévia: {formatNumber(resolved.weightKg)} kg · a carga desce{' '}
-            {formatNumber(resolved.riggingHeightM)} m. O peso comparado oficial vem do backend.
+            {formatNumber(resolved.riggingHeightM)} m. O peso comparado oficial vem do servidor.
           </p>
         )}
       </div>

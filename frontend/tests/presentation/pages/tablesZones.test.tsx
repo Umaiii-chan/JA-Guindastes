@@ -101,7 +101,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('página Tabelas — zonas de giro (TASK-046)', () => {
+describe('página Tabelas — zonas de giro', () => {
   it('a importação pede a zona; sem ela não envia; com ela, manda rotation_zone_code', async () => {
     const { imports } = stubBackend()
     await renderTables()
@@ -224,7 +224,7 @@ describe('página Tabelas — zonas de giro (TASK-046)', () => {
     expect(screen.getAllByText('A importação falhou').length).toBeGreaterThan(0)
   })
 
-  it('422 ROTATION_ZONE_NOT_ALLOWED: o backend não tem zonas nesta configuração', async () => {
+  it('422 ROTATION_ZONE_NOT_ALLOWED: o servidor não tem zonas nesta configuração', async () => {
     stubBackend([], { zonesByConfiguration: {} })
     await renderTables()
     await chooseConfiguration()
@@ -234,6 +234,6 @@ describe('página Tabelas — zonas de giro (TASK-046)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Importar como rascunho' }))
 
     const alerts = await screen.findAllByText(/ROTATION_ZONE_NOT_ALLOWED/)
-    expect(alerts[0].textContent).toContain('não tem zonas de giro no backend')
+    expect(alerts[0].textContent).toContain('não tem zonas de giro no servidor')
   })
 })

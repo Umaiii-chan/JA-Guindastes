@@ -83,7 +83,7 @@ export function createAccessoryRestClient(
     } catch {
       throw new AccessoryRequestError(
         'NETWORK_ERROR',
-        'Não foi possível falar com o backend (falha de rede).',
+        'Não foi possível falar com o servidor (falha de rede).',
       )
     }
     if (response.ok) return response
@@ -95,16 +95,16 @@ export function createAccessoryRestClient(
       throw new AccessoryRequestError('CONFLICT', detail ?? 'Acessório já existe.')
     }
     if (response.status === 422) {
-      throw new AccessoryRequestError('VALIDATION', detail ?? 'O backend recusou os dados.')
+      throw new AccessoryRequestError('VALIDATION', detail ?? 'O servidor recusou os dados.')
     }
-    throw new AccessoryRequestError('HTTP_ERROR', `O backend respondeu HTTP ${response.status}.`)
+    throw new AccessoryRequestError('HTTP_ERROR', `O servidor respondeu HTTP ${response.status}.`)
   }
 
   async function readJsonBody(response: Response): Promise<unknown> {
     try {
       return (await response.json()) as unknown
     } catch {
-      throw new AccessoryRequestError('INVALID_RESPONSE', 'Resposta do backend não é JSON.')
+      throw new AccessoryRequestError('INVALID_RESPONSE', 'Resposta do servidor não é JSON.')
     }
   }
 

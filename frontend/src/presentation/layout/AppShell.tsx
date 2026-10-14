@@ -112,7 +112,7 @@ export function AppShell({
             aria-expanded={!collapsed}
             onClick={() => setCollapsed((value) => !value)}
           />
-          <span className={styles.version}>v{REVISION} · fictício</span>
+          <span className={styles.version}>v{REVISION}</span>
         </div>
       </nav>
       <div className={styles.main}>

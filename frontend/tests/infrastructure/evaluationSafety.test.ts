@@ -27,7 +27,7 @@ const SAFETY = {
   ],
 }
 
-describe('risco de tombamento e alertas (TASK-055)', () => {
+describe('risco de tombamento e alertas', () => {
   it('REST: mapeia tipping_risk e alerts', () => {
     const result = mapEvaluationResponse({ ...REST_EVALUATED, ...SAFETY })
 

@@ -2,7 +2,7 @@
 
 | Campo                  | Valor                                                    |
 | ---------------------- | -------------------------------------------------------- |
-| **Status**             | Proposto                                                 |
+| **Status** | Aceito (Anderson Sehnem, em chat em 2026-10-14) |
 | **Data**               | 2026-10-14                                               |
 | **Tarefa relacionada** | TASK-057 (leva E)                                        |
 | **Regras**             | RN-005 (versão da tabela registrada), RN-008, ADR-016    |

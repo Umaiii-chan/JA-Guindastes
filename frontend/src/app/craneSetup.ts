@@ -26,7 +26,7 @@ export interface CraneSetupChoice {
 export const CONTINUOUS_TURRET_RANGE = { min: -180, max: 180 } as const
 
 const FICTITIOUS_NOTICE_SUFFIX =
-  'limites e parâmetros a/h FICTÍCIOS do guindaste provisório. Sem cálculo de capacidade no navegador.'
+  'limites padrão do guindaste de exemplo. Cadastre a ficha técnica para avaliar.'
 
 function provisional(reason: string): CraneSetupChoice {
   return {
@@ -46,7 +46,7 @@ export function chooseCraneSetup(configuration: CraneConfiguration | null): Cran
   // O modelo provisório desenha a lança recolhida com L_min; comprimento zero não tem desenho.
   if (!(sheet.boomLengthMinM > 0)) {
     return provisional(
-      `A ficha de "${configuration.name}" tem lança mínima de 0 m, que o modelo provisório não desenha`,
+      `A ficha de "${configuration.name}" tem lança mínima de 0 m, que o modelo 3D não desenha`,
     )
   }
 
@@ -63,7 +63,7 @@ export function chooseCraneSetup(configuration: CraneConfiguration | null): Cran
     cableMax = sheet.cableLengthMaxM
   } else {
     cableMax = Math.max(sheet.cableLengthMinM, PROVISIONAL_CRANE_LIMITS.cableLengthM.max)
-    notes.cableLengthM = 'Máximo FICTÍCIO: a ficha não tem cabo máximo (c_max).'
+    notes.cableLengthM = 'A ficha não informa o cabo máximo; usado o padrão.'
   }
 
   return {

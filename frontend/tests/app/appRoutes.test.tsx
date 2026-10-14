@@ -100,8 +100,6 @@ describe('página Início', () => {
         .getAllByRole('link')
         .map((link) => link.getAttribute('href')),
     ).toEqual(['/simulador', '/catalogo', '/tabelas'])
-    expect(screen.getByText('Dados FICTÍCIOS')).toBeTruthy()
-    expect(screen.getByText('Estratégia PROVISÓRIA')).toBeTruthy()
     expect(screen.getByText('Carregando o resumo do catálogo…')).toBeTruthy()
 
     const counts = await screen.findByRole('list', { name: 'Contagens do catálogo' })
@@ -129,7 +127,7 @@ describe('página Início', () => {
     )
   })
 
-  it('erro do backend: mensagem em alerta e "Tentar de novo" recarrega', async () => {
+  it('erro do servidor: mensagem em alerta e "Tentar de novo" recarrega', async () => {
     let failing = true
     vi.stubGlobal(
       'fetch',

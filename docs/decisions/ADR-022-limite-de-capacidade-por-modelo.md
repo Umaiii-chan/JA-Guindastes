@@ -1,6 +1,6 @@
 # ADR-022 — Limite de capacidade por modelo
 
-**Status:** Proposto — **Data:** 2026-10-14 — **Tarefa:** TASK-051 — **Regra:** RN-011
+**Status:** Aceito (Anderson Sehnem, em chat em 2026-10-14) — **Data:** 2026-10-14 — **Tarefa:** TASK-051 — **Regra:** RN-011
 
 ## Contexto
 Cada modelo de guindaste precisa de um limite de uso da capacidade da tabela e de uma faixa de atenção.

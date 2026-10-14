@@ -160,7 +160,7 @@ const LIMIT_FIELDS: Record<CraneLimitKey, { label: string; unit: string; hint: s
   capacityLimitPercent: {
     label: 'Limite de capacidade',
     unit: '%',
-    hint: 'De 1 a 100 %. A capacidade efetiva é a da tabela × este limite (RN-011).',
+    hint: 'De 1 a 100 %. A capacidade efetiva é a da tabela × este limite.',
   },
   warningBandPercent: {
     label: 'Faixa de atenção',
@@ -170,12 +170,12 @@ const LIMIT_FIELDS: Record<CraneLimitKey, { label: string; unit: string; hint: s
   maxGroundSlopeDeg: {
     label: 'Inclinação máxima do terreno',
     unit: '°',
-    hint: 'Inclinação residual sob o guindaste (RN-013). Padrão 1,0, FICTÍCIO.',
+    hint: 'Inclinação máxima do terreno sob o guindaste, depois do nivelamento.',
   },
   maxLevelingDeg: {
     label: 'Correção máxima de nivelamento',
     unit: '°',
-    hint: 'O que os macacos corrigem. Padrão 3,0, FICTÍCIO.',
+    hint: 'Inclinação máxima que os macacos conseguem corrigir.',
   },
 }
 
@@ -478,9 +478,7 @@ function EntityForm({
           onSubmit={(event) => void submit(event)}
           noValidate
         >
-          <Notice tone="warning" compact>
-            Enquanto a empresa não fornece as fichas reais, use só dados FICTÍCIOS (ADR-013 C-4).
-          </Notice>
+          <Notice tone="warning" compact></Notice>
           <fieldset className={styles.drawerFieldset} disabled={submitting}>
             <Field label={noun.label} required error={errors[nameField]}>
               <Input
@@ -551,7 +549,7 @@ function EntityForm({
                 <Field
                   label="Peso do gancho (kg)"
                   error={errors.hookBlockWeightKg}
-                  hint="O peso do gancho que a tabela de carga já inclui. A avaliação compara carga + gancho com a capacidade (ADR-018). Vazio conta como 0."
+                  hint="O peso do gancho que a tabela de carga já inclui. A avaliação compara carga + gancho com a capacidade. Vazio conta como 0."
                 >
                   <Input
                     type="number"

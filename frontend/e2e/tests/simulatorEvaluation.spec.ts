@@ -65,7 +65,7 @@ function hudMetric(page: Parameters<typeof mockCatalog>[0], label: string) {
     .first()
 }
 
-test.describe('resultado da simulação, no navegador (TASK-050)', () => {
+test.describe('resultado da simulação, no navegador', () => {
   test.skip(hasBackend, 'com backend, a avaliação de verdade fica em evaluation.spec.ts')
 
   test('o peso sozinho já é avaliado e a lança livre continua avaliada entre colunas', async ({

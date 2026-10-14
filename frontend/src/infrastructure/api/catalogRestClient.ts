@@ -94,7 +94,7 @@ export function createCatalogRestClient(options: CatalogRestClientOptions = {}):
     } catch {
       throw new CatalogRequestError(
         'NETWORK_ERROR',
-        'Não foi possível falar com o backend (falha de rede).',
+        'Não foi possível falar com o servidor (falha de rede).',
       )
     }
     const json = await readBody(response)
@@ -199,7 +199,7 @@ function errorFromResponse(status: number, body: unknown): CatalogRequestError {
         'As zonas precisam cobrir os 360° sem sobreposição, com pelo menos 2 zonas.'
       return new CatalogRequestError(
         'VALIDATION',
-        'O backend recusou as zonas de giro (HTTP 422 INVALID_ROTATION_ZONES).',
+        'O servidor recusou as zonas de giro (HTTP 422 INVALID_ROTATION_ZONES).',
         [
           { field: 'rotationZones', message: zoneMessage },
           ...fieldErrors.filter((item) => item.field !== 'rotationZones'),
@@ -209,7 +209,7 @@ function errorFromResponse(status: number, body: unknown): CatalogRequestError {
     }
     return new CatalogRequestError(
       'VALIDATION',
-      'O backend recusou os dados (HTTP 422). Corrija os campos indicados.',
+      'O servidor recusou os dados (HTTP 422). Corrija os campos indicados.',
       fieldErrors,
       apiCode,
     )
@@ -222,7 +222,7 @@ function errorFromResponse(status: number, body: unknown): CatalogRequestError {
       'CONFLICT',
       'Uma zona que já tem tabelas de carga foi removida ou mudou de código (HTTP 409 ' +
         'ROTATION_ZONE_IN_USE). Mantenha o código dessa zona; o nome e os ângulos podem mudar.' +
-        (message ? ` Detalhe do backend: ${message}` : ''),
+        (message ? ` Detalhe do servidor: ${message}` : ''),
       [],
       apiCode,
     )
@@ -231,7 +231,7 @@ function errorFromResponse(status: number, body: unknown): CatalogRequestError {
     return new CatalogRequestError(
       'CONFLICT',
       `${ZONELESS_LOAD_CHARTS_MESSAGE} (HTTP 409 ZONELESS_LOAD_CHARTS_EXIST)` +
-        (message ? ` Detalhe do backend: ${message}` : ''),
+        (message ? ` Detalhe do servidor: ${message}` : ''),
       [],
       apiCode,
     )
@@ -241,7 +241,7 @@ function errorFromResponse(status: number, body: unknown): CatalogRequestError {
   }
   return new CatalogRequestError(
     'HTTP_ERROR',
-    `O backend respondeu HTTP ${status}${message ? `: ${message}` : ''}.`,
+    `O servidor respondeu HTTP ${status}${message ? `: ${message}` : ''}.`,
   )
 }
 

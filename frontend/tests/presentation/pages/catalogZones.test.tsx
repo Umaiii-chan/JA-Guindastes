@@ -102,7 +102,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('página Catálogo — zonas de giro e gancho (TASK-046)', () => {
+describe('página Catálogo — zonas de giro e gancho', () => {
   it('o detalhe mostra o gancho, as zonas com o setor e a tabela ativa de cada uma', async () => {
     stubBackend(catalogComZonasFicticio(), [
       chartRow('F1', 'v1', 'FRONTAL', 'ACTIVE'),
@@ -317,7 +317,7 @@ describe('página Catálogo — zonas de giro e gancho (TASK-046)', () => {
     expect(writes()).toHaveLength(1)
   })
 
-  it('422 INVALID_ROTATION_ZONES do backend vai para o editor de zonas', async () => {
+  it('422 INVALID_ROTATION_ZONES do servidor vai para o editor de zonas', async () => {
     stubBackend(catalogFicticio(), [], {}, (method) =>
       method === 'PATCH'
         ? jsonResponse(
@@ -337,7 +337,7 @@ describe('página Catálogo — zonas de giro e gancho (TASK-046)', () => {
     expect(zonesAlert.closest('[role="alert"]')?.textContent).toContain('Zonas de giro inválidas')
     expect(
       within(drawer).getByText(
-        'O backend recusou as zonas de giro (HTTP 422 INVALID_ROTATION_ZONES).',
+        'O servidor recusou as zonas de giro (HTTP 422 INVALID_ROTATION_ZONES).',
       ),
     ).toBeTruthy()
   })

@@ -74,7 +74,7 @@ export function RotationZonesEditor({
       aria-describedby={`${legendId}-hint`}
     >
       <legend id={legendId} className={styles.zonesLegend}>
-        Zonas de giro (ADR-018)
+        Zonas de giro
       </legend>
       <p id={`${legendId}-hint`} className={styles.drawerHint}>
         Quando a tabela do fabricante separa a capacidade por setor de giro, cada zona tem a sua

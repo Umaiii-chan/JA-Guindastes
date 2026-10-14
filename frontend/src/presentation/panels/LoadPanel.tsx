@@ -26,7 +26,7 @@ const DESCRIPTION: FieldSpec = {
   field: 'description',
   label: 'Descrição',
   type: 'text',
-  placeholder: 'ex.: Viga FICTÍCIA',
+  placeholder: 'ex.: Viga metálica',
 }
 const WEIGHT: FieldSpec = { field: 'weightKg', label: 'Peso (kg)', type: 'number', unit: 'kg' }
 
@@ -101,10 +101,6 @@ export function LoadPanel({ values, onChange }: LoadPanelProps) {
             ? 'Carga incompleta ou inválida: a avaliação aguarda uma carga válida.'
             : `Carga válida: ${load.weightKg.toLocaleString('pt-BR')} kg vão para a avaliação.`}
         </span>
-      </p>
-      <p className={styles.fineprint}>
-        Validações provisórias (TASK-028): peso &gt; 0, dimensões &gt; 0 e centro de gravidade
-        dentro da caixa.
       </p>
     </section>
   )

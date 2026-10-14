@@ -84,20 +84,16 @@ describe('GuidedStepsPanel', () => {
 })
 
 describe('ConnectionStatusBar', () => {
-  it('mostra a conexão e por onde veio o último resultado', () => {
+  it('mostra a conexão (o transporte do resultado fica no HUD; TASK-062)', () => {
     const { rerender } = render(
       <ConnectionStatusBar connectionStatus="connected" transport="websocket" pending={false} />,
     )
     const bar = screen.getByRole('group', { name: 'Status da conexão e câmera' })
-    expect(within(bar).getByRole('status').textContent).toContain('Tempo real (WebSocket)')
-    expect(bar.textContent).toContain('Último resultado por WebSocket')
+    expect(within(bar).getByRole('status').textContent).toContain('Tempo real')
     expect(bar.textContent).toContain('Arraste para girar')
 
     rerender(<ConnectionStatusBar connectionStatus="reconnecting" transport="rest" pending />)
-    expect(within(bar).getByRole('status').textContent).toContain(
-      'Reconectando — avaliação por REST',
-    )
-    expect(bar.textContent).toContain('Último resultado por REST')
+    expect(within(bar).getByRole('status').textContent).toContain('Reconectando…')
     expect(bar.textContent).toContain('atualizando')
   })
 
@@ -128,6 +124,5 @@ describe('ConnectionStatusBar', () => {
     )
     expect(screen.getByRole('button', { name: 'Topo' })).toBeTruthy()
     expect(screen.queryByText(/Arraste para girar/)).toBeNull()
-    expect(screen.getByText('Nenhuma avaliação recebida')).toBeTruthy()
   })
 })

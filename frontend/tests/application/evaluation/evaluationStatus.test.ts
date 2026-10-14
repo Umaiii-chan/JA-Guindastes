@@ -46,7 +46,7 @@ describe('evaluationStatus', () => {
     expect(evaluationStatus(evaluated(101))).toBe('over')
   })
 
-  it('com capacityLimit: usa o level do backend, não a utilização contra a tabela', () => {
+  it('com capacityLimit: usa o level do servidor, não a utilização contra a tabela', () => {
     expect(evaluationStatus(evaluated(50, { level: 'OK' }))).toBe('ok')
     expect(evaluationStatus(evaluated(50, { level: 'WARNING' }))).toBe('warning')
     // Abaixo de 100 % da tabela, mas acima do limite do modelo.

@@ -111,7 +111,7 @@ export function createLoadChartRestClient(
       throw new LoadChartClientError(
         LOAD_CHART_CLIENT_ERROR_CODES.network,
         null,
-        'Não foi possível falar com o backend (falha de rede).',
+        'Não foi possível falar com o servidor (falha de rede).',
       )
     }
   }
@@ -212,7 +212,7 @@ function guard<T>(map: () => T): T {
 /** ` Detalhe do backend: <detail>.` quando o corpo é `{"detail": str}`; vazio caso contrário. */
 function backendDetail(body: unknown): string {
   if (!isRecord(body) || typeof body.detail !== 'string' || body.detail.trim() === '') return ''
-  return ` Detalhe do backend: ${body.detail}`
+  return ` Detalhe do servidor: ${body.detail}`
 }
 
 /** Primeiro item do `detail` do 422 do FastAPI, ex.: ` Campo body.version — Field required.`. */
@@ -245,7 +245,7 @@ function importError(status: number, body: unknown): LoadChartClientError {
       return new LoadChartClientError(
         codes.tooLarge,
         status,
-        `Arquivo grande demais (HTTP 413): passou do limite de tamanho aceito pelo backend.${detail}`,
+        `Arquivo grande demais (HTTP 413): passou do limite de tamanho aceito pelo servidor.${detail}`,
       )
     case 415:
       return new LoadChartClientError(
@@ -257,10 +257,10 @@ function importError(status: number, body: unknown): LoadChartClientError {
       return new LoadChartClientError(
         codes.invalidRequest,
         status,
-        `O backend recusou a requisição (HTTP 422).${detail || fastApiDetail(body)}`,
+        `O servidor recusou a requisição (HTTP 422).${detail || fastApiDetail(body)}`,
       )
     default:
-      return new LoadChartClientError(codes.http, status, `O backend respondeu HTTP ${status}.`)
+      return new LoadChartClientError(codes.http, status, `O servidor respondeu HTTP ${status}.`)
   }
 }
 
@@ -279,7 +279,7 @@ const ZONE_IMPORT_MESSAGES: Readonly<Record<string, string>> = {
   [ZONE_IMPORT_ERROR_CODES.unknown]:
     'A zona escolhida não existe nesta configuração (HTTP 422 UNKNOWN_ROTATION_ZONE): ela pode ter mudado no Catálogo. Recarregue a página e escolha outra.',
   [ZONE_IMPORT_ERROR_CODES.notAllowed]:
-    'Esta configuração não tem zonas de giro no backend (HTTP 422 ROTATION_ZONE_NOT_ALLOWED): ela pode ter mudado no Catálogo. Recarregue a página e importe sem zona.',
+    'Esta configuração não tem zonas de giro no servidor (HTTP 422 ROTATION_ZONE_NOT_ALLOWED): ela pode ter mudado no Catálogo. Recarregue a página e importe sem zona.',
 }
 
 function zoneImportError(code: string, body: unknown): LoadChartClientError {
@@ -287,7 +287,7 @@ function zoneImportError(code: string, body: unknown): LoadChartClientError {
   return new LoadChartClientError(
     code,
     422,
-    `${ZONE_IMPORT_MESSAGES[code] ?? `O backend recusou a zona (HTTP 422 ${code}).`}${detail ? ` Detalhe do backend: ${detail}` : ''}`,
+    `${ZONE_IMPORT_MESSAGES[code] ?? `O servidor recusou a zona (HTTP 422 ${code}).`}${detail ? ` Detalhe do servidor: ${detail}` : ''}`,
   )
 }
 
@@ -309,7 +309,7 @@ function activationError(status: number, body: unknown): LoadChartClientError {
           `(INVALID, ACTIVE ou SUPERSEDED) ou mudou ao mesmo tempo.${detail}`,
       )
     default:
-      return new LoadChartClientError(codes.http, status, `O backend respondeu HTTP ${status}.`)
+      return new LoadChartClientError(codes.http, status, `O servidor respondeu HTTP ${status}.`)
   }
 }
 
@@ -322,7 +322,7 @@ function listError(status: number, body: unknown): LoadChartClientError {
       `A configuração não existe mais (HTTP 404): escolha outra ou recarregue o catálogo.${backendDetail(body)}`,
     )
   }
-  return new LoadChartClientError(codes.http, status, `O backend respondeu HTTP ${status}.`)
+  return new LoadChartClientError(codes.http, status, `O servidor respondeu HTTP ${status}.`)
 }
 
 function readStatus(record: Readonly<Record<string, unknown>>, path: string): LoadChartStatus {
