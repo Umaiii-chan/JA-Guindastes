@@ -20,6 +20,7 @@ from fastapi.exceptions import RequestValidationError
 from app.application.ports.crane_catalog_listing import CraneCatalogStore
 from app.application.ports.load_chart_listing import LoadChartListing
 from app.application.ports.load_chart_parser import LoadChartParser
+from app.application.ports.simulation_recording_repository import SimulationRecordingRepository
 from app.application.use_cases.authentication import GetCurrentUser
 from app.application.use_cases.evaluate_operation import EvaluateOperation
 from app.presentation.api.auth import create_auth_router
@@ -45,6 +46,7 @@ from app.presentation.api.load_chart_persistence import (
     create_load_chart_persistence_router,
 )
 from app.presentation.api.load_charts import create_load_charts_router
+from app.presentation.api.simulations import create_simulations_router
 from app.presentation.api.upload_limits import UploadLimits
 from app.presentation.api.users import create_users_router
 from app.presentation.api.validation_errors import request_validation_error_handler
@@ -63,6 +65,7 @@ def create_app(
     load_chart_persistence: LoadChartPersistenceDependencies | None = None,
     auth: AuthDependencies | None = None,
     load_chart_listing: LoadChartListing | None = None,
+    simulation_recordings: SimulationRecordingRepository | None = None,
 ) -> FastAPI:
     """Monta a aplicação com as rotas cujos adapters foram recebidos.
 
@@ -161,6 +164,10 @@ def create_app(
             create_configuration_load_charts_router(catalog_repository, load_chart_listing),
             dependencies=session_required,
         )
+
+    # Gravações de simulação (TASK-057; ADR-027): só com banco e autenticação (o autor é o logado).
+    if simulation_recordings is not None and auth is not None and guards is not None:
+        app.include_router(create_simulations_router(simulation_recordings, auth, guards))
 
     return app
 

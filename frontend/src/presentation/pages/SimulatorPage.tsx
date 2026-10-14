@@ -13,6 +13,8 @@ export interface SimulatorPageProps {
   readonly geometry?: ReactNode
   /** Faixa de título do quadro: conexão e vistas da câmera. */
   readonly statusBar: ReactNode
+  /** Faixa de gravação e reprodução (TASK-057), sob a faixa de título. */
+  readonly recording?: ReactNode
 }
 
 /**
@@ -27,12 +29,16 @@ export function SimulatorPage({
   result,
   geometry,
   statusBar,
+  recording,
 }: SimulatorPageProps) {
   return (
     <div className={styles.stage}>
       <div className={styles.procedure}>{steps}</div>
       <div className={styles.drawing}>
-        {statusBar}
+        <div>
+          {statusBar}
+          {recording}
+        </div>
         <div className={styles.scene}>
           {viewport}
           <span className={styles.corners} aria-hidden="true" />

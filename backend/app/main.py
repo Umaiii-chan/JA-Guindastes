@@ -68,6 +68,9 @@ from app.infrastructure.repositories.sqlalchemy_crane_catalog_repository import 
 from app.infrastructure.repositories.sqlalchemy_load_chart_repository import (
     SqlAlchemyLoadChartRepository,
 )
+from app.infrastructure.repositories.sqlalchemy_simulation_recording_repository import (
+    SqlAlchemySimulationRecordingRepository,
+)
 from app.load_chart_persistence_composition import build_load_chart_persistence
 from app.presentation.api.evaluations import (
     EvaluateOperationDependency,
@@ -202,6 +205,8 @@ def create_database_app(engine: Engine, environ: Mapping[str, str] | None = None
         load_chart_persistence=build_load_chart_persistence(engine),
         # Login, sessões e perfis (TASK-038): mesmo engine.
         auth=build_auth(engine, environ),
+        # Gravações de simulação (TASK-057): mesmo engine.
+        simulation_recordings=SqlAlchemySimulationRecordingRepository(session_factory),
         on_shutdown=engine.dispose,
     )
 
