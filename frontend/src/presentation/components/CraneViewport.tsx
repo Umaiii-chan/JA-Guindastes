@@ -39,6 +39,8 @@ export interface CraneViewportHandle {
   engageCargo(): boolean
   /** Solta a carga engatada, se ela estiver perto do chão (TASK-073). */
   releaseCargo(): boolean
+  /** Situação atual da coleta e entrega na cena (`null` sem cena; TASK-073). */
+  getCargoStatus(): CargoStatus | null
   /** Mostra o estado da carga de uma gravação em reprodução; `null` volta ao estado ao vivo. */
   setCargoPlayback(state: CargoState | null): void
   /** Engata os dois ganchos nos pontos de içamento (TASK-074); `null` sem tandem ou sem cena. */
@@ -192,6 +194,7 @@ export function CraneViewport({
       },
       engageCargo: () => sceneRef.current?.engageCargo() ?? false,
       releaseCargo: () => sceneRef.current?.releaseCargo() ?? false,
+      getCargoStatus: () => sceneRef.current?.getCargoStatus() ?? null,
       setCargoPlayback: (state) => sceneRef.current?.setCargoPlayback(state),
       engageTandem() {
         return sceneRef.current?.engageTandem() ?? null

@@ -44,6 +44,13 @@ export interface PlanningSectionProps {
   onExtendOutriggers(): void
   /** Do gancho ao ponto de amarração das lingas, medido na cena; `null` sem cena. */
   getHookAttachM(): number | null
+  /**
+   * Engata a carga (TASK-073) ou, no tandem, os dois guindastes (TASK-074), no quadro "Engatar" da
+   * trajetória. Devolve `null` se engatou, ou o motivo; com motivo, a execução para.
+   */
+  onEngage?(tandem: boolean): string | null
+  /** Solta a carga no quadro "Soltar"; devolve `null` ou o motivo, como `onEngage`. */
+  onRelease?(tandem: boolean): string | null
   /** A reprodução de uma gravação trava o simulador. */
   readonly disabled: boolean
 }
@@ -57,6 +64,8 @@ export function PlanningSection({
   onPlaybackChange,
   onExtendOutriggers,
   getHookAttachM,
+  onEngage,
+  onRelease,
   disabled,
 }: PlanningSectionProps) {
   const scenario = useScenario()
@@ -64,6 +73,8 @@ export function PlanningSection({
   const planning = usePlanning()
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [applying, setApplying] = useState(false)
+  // Motivo de a trajetória ter parado ao engatar ou soltar (null = nada a avisar).
+  const [operationMessage, setOperationMessage] = useState<string | null>(null)
   // Estado inicial a aplicar quando a cena nova (outra configuração) entregar os comandos.
   const pendingStart = useRef<PlanCraneState | null>(null)
   const [guideActive, setGuideActive] = useState(false)
@@ -90,6 +101,19 @@ export function PlanningSection({
     getCommands: () => commandsRef.current,
     onMoved: onCraneMoved,
     onPlayingChange: onPlaybackChange,
+    // Coleta e entrega (TASK-073): a trajetória engata no quadro "Engatar" e solta no "Soltar".
+    onKeyframe: (point) => {
+      const tandem = selected?.kind === 'tandem'
+      const problem =
+        point.phase === 'engatar'
+          ? (onEngage?.(tandem) ?? null)
+          : point.phase === 'soltar'
+            ? (onRelease?.(tandem) ?? null)
+            : null
+      if (problem === null) return false
+      setOperationMessage(problem)
+      return true
+    },
   })
 
   const applied =
@@ -245,6 +269,7 @@ export function PlanningSection({
       }}
       onPlan={plan}
       onApply={() => void apply()}
+      operationMessage={operationMessage}
       applying={applying}
       applied={applied}
       canRun={!disabled && commands !== null}
@@ -255,7 +280,10 @@ export function PlanningSection({
         speed: playback.speed,
         speeds: PLAYBACK_SPEEDS,
         onSpeed: playback.setSpeed,
-        onStart: playback.start,
+        onStart: () => {
+          setOperationMessage(null)
+          playback.start()
+        },
         onStop: playback.stop,
       }}
       guide={guide}

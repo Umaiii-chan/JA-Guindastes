@@ -37,3 +37,22 @@ export function obstacleConflictIds(
   }
   return [...ids].sort()
 }
+
+/** Tamanho máximo de cada item de `obstacle_conflicts` no contrato do backend. */
+const CONFLICT_TEXT_MAX = 64
+
+/**
+ * Rótulos legíveis dos obstáculos em conflito, para o alerta do backend falar a língua da tela
+ * ("Árvore (carvalho), Caminhão") em vez dos ids internos. Sem rótulo, fica o id; repetidos saem.
+ */
+export function obstacleConflictLabels(
+  spec: ScenarioSpec,
+  ids: readonly string[],
+): readonly string[] {
+  const labels = new Set<string>()
+  for (const id of ids) {
+    const label = spec.obstacles.find((obstacle) => obstacle.id === id)?.label.trim() || id
+    labels.add(label.slice(0, CONFLICT_TEXT_MAX))
+  }
+  return [...labels]
+}

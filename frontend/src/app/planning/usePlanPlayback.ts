@@ -25,6 +25,12 @@ export interface PlanPlaybackParams {
   /** Avisa a tela de que o estado do guindaste mudou. */
   onMoved(): void
   onPlayingChange(playing: boolean): void
+  /**
+   * Avisa quando a execução passa por um quadro-chave, já com o estado dele aplicado na cena: a
+   * tela usa para engatar a carga no quadro "Engatar" e soltá-la no "Soltar" (TASK-073). Devolve
+   * `true` para parar a execução ali (o engate falhou, por exemplo).
+   */
+  onKeyframe?(point: TrajectoryPoint): boolean
 }
 
 export interface PlanPlayback {
@@ -53,11 +59,23 @@ export function applyPlanState(commands: CraneCommands, state: PlanCraneState): 
   if (!raising) commands.setCableLength(state.cableLengthM)
 }
 
+/** Quadros-chave com instante em (`fromS`, `toS`]; o primeiro quadro conta quando `fromS` é 0. */
+export function keyframesCrossed(
+  points: readonly TrajectoryPoint[],
+  fromS: number,
+  toS: number,
+): readonly TrajectoryPoint[] {
+  return points.filter(
+    (point) => (point.tS > fromS || (fromS === 0 && point.tS === 0)) && point.tS <= toS,
+  )
+}
+
 export function usePlanPlayback({
   points,
   getCommands,
   onMoved,
   onPlayingChange,
+  onKeyframe,
 }: PlanPlaybackParams): PlanPlayback {
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -65,11 +83,11 @@ export function usePlanPlayback({
   const [speed, setSpeed] = useState(PLAYBACK_SPEEDS[0] ?? 1)
   const frame = useRef<number | null>(null)
   const speedRef = useRef(speed)
-  const callbacks = useRef({ getCommands, onMoved, onPlayingChange })
+  const callbacks = useRef({ getCommands, onMoved, onPlayingChange, onKeyframe })
   // As leituras da animação veem sempre o valor mais recente, sem recriar o laço.
   useEffect(() => {
     speedRef.current = speed
-    callbacks.current = { getCommands, onMoved, onPlayingChange }
+    callbacks.current = { getCommands, onMoved, onPlayingChange, onKeyframe }
   })
 
   const cancel = useCallback(() => {
@@ -94,9 +112,24 @@ export function usePlanPlayback({
     let last = performance.now()
     let lastRefresh = 0
     const tick = (now: number) => {
+      const before = elapsed
       elapsed += ((now - last) / 1000) * speedRef.current
       last = now
       const commands = callbacks.current.getCommands()
+      // Quadros-chave cruzados neste passo: cada um é aplicado exatamente antes de seguir.
+      if (commands) {
+        for (const point of keyframesCrossed(points, before, Math.min(elapsed, duration))) {
+          applyPlanState(commands, point.state)
+          if (callbacks.current.onKeyframe?.(point) === true) {
+            frame.current = null
+            setPhase(point.phase)
+            setPlaying(false)
+            callbacks.current.onPlayingChange(false)
+            callbacks.current.onMoved()
+            return
+          }
+        }
+      }
       const sample = sampleTrajectory(points, Math.min(elapsed, duration))
       if (commands && sample) {
         applyPlanState(commands, sample.state)

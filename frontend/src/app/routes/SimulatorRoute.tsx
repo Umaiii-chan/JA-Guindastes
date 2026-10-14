@@ -35,7 +35,10 @@ import {
   soilKindsUnderShoes,
   windSpeedForEvaluation,
 } from '../../application/environment/editorOps'
-import { obstacleConflictIds } from '../../application/environment/obstacleConflicts'
+import {
+  obstacleConflictIds,
+  obstacleConflictLabels,
+} from '../../application/environment/obstacleConflicts'
 import {
   addExtraCrane,
   canAddExtraCrane,
@@ -198,10 +201,10 @@ export function SimulatorRoute() {
   const follower = extraSetups[0] ?? null
 
   // Solo sob as sapatas, vento e obstáculos em conflito vão ao backend só quando existem (TASK-066).
-  const conflicts = obstacleConflictIds(
+  // O backend recebe os rótulos (o alerta mostra "Árvore (carvalho)", não o id interno).
+  const conflicts = obstacleConflictLabels(
     scenario.spec,
-    crane?.geometry.workingRadiusM ?? null,
-    collision,
+    obstacleConflictIds(scenario.spec, crane?.geometry.workingRadiusM ?? null, collision),
   )
   const scenarioExtras = {
     soilKinds: soilKindsUnderShoes(scenario.spec),
@@ -425,6 +428,43 @@ export function SimulatorRoute() {
       return next
     })
   }, [])
+  // Planejamento (TASK-075) com coleta e entrega (TASK-073) e tandem (TASK-074): a trajetória
+  // engata e solta pela cena. Devolve `null` se deu certo, ou o motivo, para a tela parar e mostrar.
+  const engageFromPlan = (tandem: boolean): string | null => {
+    const handle = viewportRef.current
+    if (!handle) return 'A cena ainda não está pronta.'
+    if (tandem) {
+      const result = handle.engageTandem()
+      if (result === null) {
+        return 'Para engatar com dois guindastes, ative o içamento com dois guindastes antes de executar.'
+      }
+      if (!result.reachable) {
+        const names = result.unreachable.map((index) => `Guindaste ${index}`).join(' e ')
+        return `${names} não alcança o ponto de içamento.`
+      }
+      return null
+    }
+    if (handle.engageCargo()) return null
+    const status = handle.getCargoStatus()
+    const reason = status
+      ? cargoGuidance({
+          status,
+          cargoPlaced: scenario.spec.cargo !== undefined,
+          deliveryPlaced: scenario.spec.delivery !== undefined,
+        }).message
+      : ''
+    return `Não deu para engatar a carga. ${reason}`.trim()
+  }
+  const releaseFromPlan = (tandem: boolean): string | null => {
+    const handle = viewportRef.current
+    if (!handle) return 'A cena ainda não está pronta.'
+    if (tandem) {
+      const result = handle.releaseTandem()
+      if (result.released) changeCargo(result.cargo)
+      return result.released ? null : 'Não deu para soltar a carga dos dois guindastes.'
+    }
+    return handle.releaseCargo() ? null : 'Não deu para soltar a carga: baixe-a até perto do chão.'
+  }
   const cargoGuide = cargoGuidance({
     status: cargoStatus,
     cargoPlaced: scenario.spec.cargo !== undefined,
@@ -572,7 +612,9 @@ export function SimulatorRoute() {
     locked || input === null || validLoad === null
       ? null
       : {
-          evaluation: input,
+          // Com a carga no chão ainda não engatada (TASK-073), a avaliação ao vivo usa peso 0; o
+          // relatório é do içamento planejado, então vai com o peso do passo Carga.
+          evaluation: { ...input, loadWeightKg: validLoad.weightKg },
           load: {
             description: validLoad.description,
             lengthM: validLoad.lengthM,
@@ -736,6 +778,8 @@ export function SimulatorRoute() {
             onPlaybackChange={setPlanPlaying}
             onExtendOutriggers={handleExtendOutriggers}
             getHookAttachM={() => viewportRef.current?.hookAttachOffsetM() ?? null}
+            onEngage={engageFromPlan}
+            onRelease={releaseFromPlan}
             disabled={locked}
           />
         }

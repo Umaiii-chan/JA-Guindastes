@@ -58,6 +58,8 @@ export interface PlanningPanelProps {
   onPlan(): void
   onApply(): void
   readonly applying: boolean
+  /** Por que a trajetória parou ao engatar ou soltar a carga (`null` = nada a avisar). */
+  readonly operationMessage?: string | null
   /** Recomendação aplicada na cena (guindaste na posição dela). */
   readonly applied: boolean
   readonly canRun: boolean
@@ -156,6 +158,7 @@ export function PlanningPanel({
   onPlan,
   onApply,
   applying,
+  operationMessage = null,
   applied,
   canRun,
   playback,
@@ -287,9 +290,13 @@ export function PlanningPanel({
           </ul>
           {selected.kind === 'tandem' && (
             <Notice tone="info" compact>
-              O simulador mostra o primeiro guindaste. O segundo fica na posição indicada nas notas.
+              “Aplicar” posiciona os dois guindastes. A trajetória move o Guindaste 1; para o
+              Guindaste 2 acompanhar, ative o içamento com dois guindastes antes de executar.
             </Notice>
           )}
+          <p className={styles.hint}>
+            Opção escolhida: {selected.details.map((item) => item.label).join(' + ')}
+          </p>
           <div className={styles.actions}>
             <Button
               size="sm"
@@ -323,6 +330,11 @@ export function PlanningPanel({
               Passo a passo
             </Button>
           </div>
+          {operationMessage && (
+            <Notice tone="warning" role="alert" compact>
+              {operationMessage}
+            </Notice>
+          )}
           {!applied && (
             <p className={styles.hint}>
               Use “Aplicar” para posicionar o guindaste antes de executar a trajetória.

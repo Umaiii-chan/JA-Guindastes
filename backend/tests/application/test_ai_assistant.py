@@ -51,6 +51,26 @@ def test_scenario_from_text_builds_a_validated_spec_with_cargo_and_delivery() ->
     assert draft.completion.model == "modelo-ficticio"
 
 
+def test_scenario_prefers_library_objects_and_unknown_model_ids_become_boxes() -> None:
+    base = scenario_ia_json()["obstacles"][0]
+    obstacles = [
+        {**base, "label": "Árvore 1", "kind": "model", "model_id": "arvore-carvalho"},
+        {**base, "label": "Coisa", "kind": "model", "model_id": "nave-espacial"},
+    ]
+    provider = FakeLlmProvider([scenario_ia_reply(obstacles=obstacles)])
+
+    draft = assistant(provider).scenario_from_text("u1", "içar perto de uma árvore")
+
+    tree, unknown = draft.spec.obstacles
+    assert (tree.kind.value, tree.model_id) == ("model", "arvore-carvalho")
+    assert (unknown.kind.value, unknown.model_id) == ("box", None)
+    schema = provider.requests[0].json_schema
+    assert schema is not None
+    obstacle_schema = schema["properties"]["obstacles"]["items"]["properties"]
+    assert "model" in obstacle_schema["kind"]["enum"]
+    assert "barracao-aberto" in obstacle_schema["model_id"]["enum"]
+
+
 def test_scenario_request_is_structured_and_treats_the_text_as_data() -> None:
     provider = FakeLlmProvider([scenario_ia_reply()])
 

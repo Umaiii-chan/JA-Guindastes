@@ -32,6 +32,7 @@ from app.application.use_cases.ai_facts import (
 )
 from app.application.use_cases.ai_prompts import (
     EXPLAIN_SYSTEM,
+    LIBRARY_MODELS,
     REPORT_SYSTEM,
     REVIEW_SYSTEM,
     SCENARIO_RESPONSE_SCHEMA,
@@ -458,13 +459,18 @@ def _obstacle(item: Any, index: int) -> ObstacleSpec:
         raise AiOutputError("A IA devolveu um obstáculo fora do formato.")
     where = f"obstacles[{index}]"
     kind = item.get("kind")
-    if kind not in {"box", "cylinder"}:
+    if kind not in {"model", "box", "cylinder"}:
         raise AiOutputError(f"A IA informou um tipo de obstáculo desconhecido em {where}.")
+    # Objeto da biblioteca (TASK-072): só ids conhecidos; um id estranho vira caixa com as medidas.
+    model_id = item.get("model_id")
+    if kind == "model" and model_id not in LIBRARY_MODELS:
+        kind = "box"
     width = _num(item, "width_m", where, minimum=0.05, maximum=MAX_SIZE_M)
     return ObstacleSpec(
         id=f"ia-obstaculo-{index + 1}",
         label=_text(item, "label", where)[:120],
         kind=ObstacleKind(kind),
+        model_id=str(model_id) if kind == "model" else None,
         center_x=_coord(item, "center_x", where),
         center_z=_coord(item, "center_z", where),
         width_m=width,
