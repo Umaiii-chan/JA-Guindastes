@@ -9,6 +9,7 @@ import { selectedConfiguration as findSelectedConfiguration } from '../../applic
 import { evaluationStatus } from '../../application/evaluation/evaluationStatus'
 import { validateLoadForm, loadWeightTextForEvaluation } from '../../application/load/loadForm'
 import { guidedStepStatuses, resolveActiveStep } from '../../application/simulator/guidedSteps'
+import { RETRACTED_OUTRIGGERS, type OutriggerState } from '../../domain/crane/outriggers'
 import type { OperationalGeometry } from '../../domain/geometry/operationalGeometry'
 import {
   CraneViewport,
@@ -25,6 +26,7 @@ import {
 } from '../../presentation/panels/CraneControlPanel'
 import { LoadPanel } from '../../presentation/panels/LoadPanel'
 import { OperationalGeometryPanel } from '../../presentation/panels/OperationalGeometryPanel'
+import { OutriggerPanel } from '../../presentation/panels/OutriggerPanel'
 import {
   CameraPresetButtons,
   type CameraPresetId,
@@ -32,6 +34,7 @@ import {
 import { ConnectionStatusBar } from '../../presentation/simulator/ConnectionStatusBar'
 import { GuidedStepsPanel } from '../../presentation/simulator/GuidedStepsPanel'
 import { buttonClassName, EmptyState } from '../../presentation/ui'
+import { FICTITIOUS_MAX_LEVELING_DEG } from '../../three/crane/OutriggerController'
 import type { CraneCommands, CraneState } from '../../three/crane/types'
 import { useCatalog } from '../catalog/catalogContext'
 import { chooseCraneSetup } from '../craneSetup'
@@ -63,6 +66,7 @@ export function SimulatorRoute() {
   const [crane, setCrane] = useState<CraneBinding | null>(null)
   const [cameraPreset, setCameraPreset] = useState<CameraPresetId | null>(null)
   const viewportRef = useRef<CraneViewportHandle>(null)
+  const [outriggers, setOutriggers] = useState<OutriggerState>(RETRACTED_OUTRIGGERS)
   const { load, setLoad, requestedStep, setRequestedStep } = useSimulatorDraft()
   const { session, state: evaluation } = useEvaluationSession()
   const { catalog, state: catalogState } = useCatalog()
@@ -89,6 +93,7 @@ export function SimulatorRoute() {
     crane?.state ?? null,
     selectedConfiguration?.id ?? '',
     loadWeightText,
+    { extensionPercent: outriggers.extensionPercent, jacksSet: outriggers.jacksSet },
   )
   const { input } = evaluationInput
 
@@ -106,6 +111,8 @@ export function SimulatorRoute() {
     input?.turretRotationDeg,
     input?.cableLengthM,
     input?.loadWeightKg,
+    input?.outriggers?.extensionPercent,
+    input?.outriggers?.jacksSet,
   ])
 
   const handleCraneChange = useCallback((commands: CraneCommands | null) => {
@@ -187,6 +194,7 @@ export function SimulatorRoute() {
         load={sceneLoad}
         rotationZones={rotationZones}
         activeZoneCode={activeZoneCode}
+        outriggers={outriggers}
       />
     </SceneErrorBoundary>
   )
@@ -224,13 +232,20 @@ export function SimulatorRoute() {
             ),
             load: <LoadPanel values={load} onChange={setLoad} />,
             position: (
-              <CraneControlPanel
-                limits={crane?.commands.limits ?? null}
-                state={crane?.state ?? null}
-                notice={craneSetup.notice}
-                notes={craneSetup.notes}
-                onChange={handleControlChange}
-              />
+              <div style={{ display: 'grid', gap: 'var(--space-5)' }}>
+                <CraneControlPanel
+                  limits={crane?.commands.limits ?? null}
+                  state={crane?.state ?? null}
+                  notice={craneSetup.notice}
+                  notes={craneSetup.notes}
+                  onChange={handleControlChange}
+                />
+                <OutriggerPanel
+                  state={outriggers}
+                  maxLevelingDeg={FICTITIOUS_MAX_LEVELING_DEG}
+                  onChange={setOutriggers}
+                />
+              </div>
             ),
           }}
         />

@@ -1,5 +1,6 @@
 import { type Ref, useEffect, useImperativeHandle, useRef } from 'react'
 
+import type { OutriggerState } from '../../domain/crane/outriggers'
 import type { CameraPreset } from '../../three/camera/cameraPresets'
 import type { CraneCommands, CraneSetup } from '../../three/crane/types'
 import type { LoadDimensions } from '../../three/scene/loadBox'
@@ -47,6 +48,11 @@ interface CraneViewportProps {
    * decide). `null` = nenhuma. Não remonta a cena.
    */
   activeZoneCode?: string | null
+  /**
+   * Patolas (TASK-054): extensão, macacos e nivelamento, animados na cena. Só move os nós de patola
+   * que o modelo 3D tiver. Sem a prop, nada muda. Não remonta a cena.
+   */
+  outriggers?: OutriggerState
   /** API imperativa (`CraneViewportHandle`). */
   ref?: Ref<CraneViewportHandle>
 }
@@ -64,6 +70,7 @@ export function CraneViewport({
   cameraPreset,
   rotationZones = null,
   activeZoneCode = null,
+  outriggers,
   ref,
 }: CraneViewportProps) {
   const canvasHostRef = useRef<HTMLDivElement>(null)
@@ -75,6 +82,7 @@ export function CraneViewport({
   const zonesRef = useRef<readonly SceneRotationZone[]>(rotationZones ?? [])
   const activeZoneRef = useRef(activeZoneCode)
   const appliedPresetRef = useRef<CameraPreset | undefined>(undefined)
+  const outriggersRef = useRef(outriggers)
 
   useImperativeHandle(
     ref,
@@ -98,6 +106,7 @@ export function CraneViewport({
     handle.setLoad(loadRef.current)
     handle.setRotationZones(zonesRef.current)
     handle.setActiveRotationZone(activeZoneRef.current)
+    if (outriggersRef.current) handle.setOutriggers(outriggersRef.current)
     const preset = cameraPresetRef.current
     if (preset) handle.setCameraPreset(preset, { animate: false })
     appliedPresetRef.current = preset
@@ -140,6 +149,27 @@ export function CraneViewport({
     activeZoneRef.current = activeZoneCode
     sceneRef.current?.setActiveRotationZone(activeZoneCode)
   }, [activeZoneCode])
+
+  // Dependência nos campos, não no objeto: a UI pode mandar um objeto novo a cada render.
+  const outriggerExtension = outriggers?.extensionPercent
+  const outriggerJacksSet = outriggers?.jacksSet
+  const outriggerLeveling = outriggers?.levelingDeg
+  useEffect(() => {
+    if (
+      outriggerExtension === undefined ||
+      outriggerJacksSet === undefined ||
+      outriggerLeveling === undefined
+    ) {
+      return
+    }
+    const next = {
+      extensionPercent: outriggerExtension,
+      jacksSet: outriggerJacksSet,
+      levelingDeg: outriggerLeveling,
+    }
+    outriggersRef.current = next
+    sceneRef.current?.setOutriggers(next)
+  }, [outriggerExtension, outriggerJacksSet, outriggerLeveling])
 
   useEffect(() => {
     cameraPresetRef.current = cameraPreset

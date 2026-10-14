@@ -36,6 +36,7 @@ from app.domain.value_objects.conservative_capacity_result import (
     ConservativeCapacityFound,
 )
 from app.domain.value_objects.operational_geometry import OperationalGeometry, Point3D
+from app.presentation.api.outrigger_schemas import OutriggersRequest
 
 STATE_CHANGED_TYPE = "simulation.state.changed"
 EVALUATED_TYPE = "simulation.evaluated"
@@ -69,6 +70,10 @@ class OperationalStatePayload(BaseModel):
     turret_rotation_deg: float = Field(description="Giro da torre ψ, em graus (ADR-013).")
     cable_length_m: float = Field(ge=0, description="Queda vertical c, em metros (ADR-013 C-3).")
     load_weight_kg: float = Field(ge=0, description="Massa da carga, em quilogramas.")
+    outriggers: OutriggersRequest | None = Field(
+        default=None,
+        description="Patolas (TASK-054). Opcional; validado, mas ainda sem uso no cálculo.",
+    )
 
 
 class SimulationStateChangedMessage(BaseModel):

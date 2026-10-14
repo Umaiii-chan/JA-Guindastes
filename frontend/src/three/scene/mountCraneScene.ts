@@ -14,6 +14,8 @@ import {
   createOrbitControls,
   keepCameraAboveGround,
 } from '../controls/createOrbitControls'
+import type { OutriggerState } from '../../domain/crane/outriggers'
+import { OutriggerController } from '../crane/OutriggerController'
 import type { CraneCommands, CraneSetup, CraneState } from '../crane/types'
 import { buildCraneScene } from './buildCraneScene'
 import { disposeObject3D } from './disposeObject3D'
@@ -62,6 +64,11 @@ export interface CraneSceneHandle {
   setActiveRotationZone(code: string | null): void
   /** Leva a câmera a uma predefinição, enquadrando o estado atual do guindaste. */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
+  /**
+   * Patolas (TASK-054): estende as vigas, desce os macacos e nivela, animado. Só move os nós
+   * `crane-outrigger-*` que o modelo 3D tiver; sem eles, não desenha nada.
+   */
+  setOutriggers(state: OutriggerState): void
   /** Para o laço de renderização e libera renderer, controles, geometrias e materiais. Idempotente. */
   dispose(): void
 }
@@ -228,8 +235,16 @@ export function mountCraneScene(
     return true
   }
 
+  // Patolas (TASK-054): a animação avança a cada quadro e invalida só enquanto algo se move.
+  const outriggers = new OutriggerController({
+    getRoot: () => contents.rig.base,
+    invalidate,
+    reducedMotion: prefersReducedMotion(),
+  })
+
   const renderFrame = (): void => {
-    const craneChanged = syncWithCrane()
+    const outriggersMoved = outriggers.update(performance.now())
+    const craneChanged = syncWithCrane() || outriggersMoved
     const moving = transition !== null
     if (transition) {
       const { view, done } = transition.sample(performance.now())
@@ -263,6 +278,7 @@ export function mountCraneScene(
   const loadModel = options.loadModel === undefined ? loadDefaultCraneModel : options.loadModel
   if (loadModel) {
     void upgradeCraneModel(contents, loadModel, { signal: modelAbort.signal }).then((result) => {
+      outriggers.reapply()
       invalidate()
       options.onModelResult?.(result)
     })
@@ -314,6 +330,10 @@ export function mountCraneScene(
       }
       transition = new CameraTransition(from, to, CAMERA_TRANSITION_MS, performance.now())
       followedPreset = preset
+    },
+    setOutriggers(state) {
+      if (disposed) return
+      outriggers.setState(state)
     },
     dispose() {
       if (disposed) return

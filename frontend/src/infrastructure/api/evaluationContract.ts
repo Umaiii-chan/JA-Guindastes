@@ -13,6 +13,24 @@ export interface EvaluationRequestDto {
   readonly turret_rotation_deg: number
   readonly cable_length_m: number
   readonly load_weight_kg: number
+  /** Patolas (TASK-054); omitido quando a tela não as informa. */
+  readonly outriggers?: OutriggersDto
+}
+
+/** Estado das patolas no JSON (leva E; TASK-054). */
+export interface OutriggersDto {
+  readonly extension_percent: number
+  readonly jacks_set: boolean
+}
+
+export function toOutriggersDto(input: EvaluationInput): { outriggers?: OutriggersDto } {
+  if (!input.outriggers) return {}
+  return {
+    outriggers: {
+      extension_percent: input.outriggers.extensionPercent,
+      jacks_set: input.outriggers.jacksSet,
+    },
+  }
 }
 
 export interface Point3DDto {
@@ -77,5 +95,6 @@ export function toEvaluationRequestDto(input: EvaluationInput): EvaluationReques
     turret_rotation_deg: input.turretRotationDeg,
     cable_length_m: input.cableLengthM,
     load_weight_kg: input.loadWeightKg,
+    ...toOutriggersDto(input),
   }
 }
