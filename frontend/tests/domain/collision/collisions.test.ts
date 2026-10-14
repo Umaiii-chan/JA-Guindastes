@@ -80,7 +80,7 @@ const withObstacles = (...obstacles: Obstacle[]): ScenarioSpec => ({ ...EMPTY_SC
 
 describe('evaluateCollisions', () => {
   it('a pose inicial, no chão plano, não colide nem alerta', () => {
-    expect(evaluateCollisions(input())).toEqual({ hits: [], alerts: [] })
+    expect(evaluateCollisions(input())).toEqual({ hits: [], alerts: [], penetrationM: 0 })
   })
 
   it('terreno: cabo longo leva a carga ao chão; sem carga, é o gancho', () => {
@@ -131,10 +131,16 @@ describe('evaluateCollisions', () => {
     expect(result.hits.some((h) => h.subject === 'load' && h.target.kind === 'crane')).toBe(true)
   })
 
-  it('o gancho sem carga não é testado contra o corpo (sobe até a ponta)', () => {
+  it('o gancho sem carga não atravessa o chassi nem a torre, mas sobe até a lança', () => {
     const upright = { turretRotationDeg: 0, boomAngleDeg: 80, boomLengthM: 12, cableLengthM: 1 }
-    const result = evaluateCollisions(input({ state: upright, load: null }))
-    expect(result.hits.some((h) => h.target.kind === 'crane')).toBe(false)
+    const nearBoom = evaluateCollisions(input({ state: upright, load: null }))
+    expect(nearBoom.hits.some((h) => h.target.kind === 'crane')).toBe(false)
+
+    // Lança baixa e cabo comprido: o gancho desce sobre a carroceria (o chassi estende-se a +z).
+    const low = { turretRotationDeg: 0, boomAngleDeg: 0, boomLengthM: 4, cableLengthM: 1.5 }
+    const onBody = evaluateCollisions(input({ state: low, load: null }))
+    expect(onBody.hits.some((h) => h.subject === 'hook' && h.target.kind === 'crane')).toBe(true)
+    expect(onBody.penetrationM).toBeGreaterThan(0)
   })
 
   it('segue a posição e o rumo do guindaste no cenário', () => {
@@ -186,7 +192,7 @@ describe('textos e chave', () => {
       'A carga atingiria o terreno.',
     )
     expect(collisionStateKey(NO_COLLISION)).not.toBe(
-      collisionStateKey({ hits, alerts: [], blocked: true }),
+      collisionStateKey({ hits, alerts: [], penetrationM: 1, blocked: true }),
     )
   })
 })

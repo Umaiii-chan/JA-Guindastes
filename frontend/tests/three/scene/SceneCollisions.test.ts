@@ -83,7 +83,7 @@ describe('SceneCollisions', () => {
 
     contents.crane.setCableLength(3)
 
-    expect(states.at(-1)).toEqual({ hits: [], alerts: [], blocked: false })
+    expect(states.at(-1)).toEqual({ hits: [], alerts: [], penetrationM: 0, blocked: false })
     expect(contents.hookLoad.collisionHighlighted).toBe(false)
   })
 
@@ -173,6 +173,36 @@ describe('SceneCollisions', () => {
   })
 })
 
+describe('TASK-063: nenhum comando aumenta a penetração', () => {
+  it('na pose inicial (que já raspa a cabine), giro, lança e cabo nunca pioram a colisão', () => {
+    const contents = buildCraneScene()
+    contents.hookLoad.setLoad(LOAD)
+    contents.crane.setCollisionGuard(contents.collisions)
+    const penetration = () => contents.collisions.evaluate(contents.crane.getState()).penetrationM
+    const start = penetration()
+
+    for (const turret of [-90, -45, 0, 45, 90]) {
+      contents.crane.setTurretRotation(turret)
+      for (const boom of [5, 40, 75]) contents.crane.setBoomAngle(boom)
+      contents.crane.setCableLength(40)
+      contents.crane.setBoomLength(10)
+      contents.crane.setCableLength(0.5)
+      // Cada comando termina sem colisão ou, no máximo, tão fundo quanto o estado de partida.
+      expect(penetration()).toBeLessThanOrEqual(Math.max(start, 0) + 1e-6)
+    }
+  })
+
+  it('sem carga, o gancho não desce para dentro do chassi nem do terreno', () => {
+    const { crane, collisions } = buildCraneScene()
+    crane.setCollisionGuard(collisions)
+    crane.setBoomAngle(5)
+    crane.setCableLength(40)
+    const report = collisions.evaluate(crane.getState())
+    expect(report.hits).toEqual([])
+    expect(crane.getOperationalGeometry().hookHeightM).toBeGreaterThanOrEqual(-1e-3)
+  })
+})
+
 describe('CollisionHighlight', () => {
   it('contorna obstáculo e peça do guindaste atingidos; o terreno não tem contorno', () => {
     const highlight = new CollisionHighlight()
@@ -189,6 +219,7 @@ describe('CollisionHighlight', () => {
     highlight.show({
       blocked: true,
       alerts: [],
+      penetrationM: 1,
       hits: [
         { subject: 'load', target: { kind: 'terrain' } },
         { subject: 'load', target: { kind: 'obstacle', id: 'a', label: 'A', obb } },
@@ -200,7 +231,7 @@ describe('CollisionHighlight', () => {
     expect(highlight.outlineCount).toBe(2)
     expect(highlight.root.children[0].position.toArray()).toEqual([1, 2, 3])
 
-    highlight.show({ blocked: false, alerts: [], hits: [] })
+    highlight.show({ blocked: false, alerts: [], penetrationM: 0, hits: [] })
     expect(highlight.outlineCount).toBe(0)
     highlight.dispose()
   })

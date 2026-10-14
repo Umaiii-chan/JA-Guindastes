@@ -125,6 +125,11 @@ function projectionRadius(obb: Obb, axis: Vec3): number {
  * até `OVERLAP_EPSILON_M`) não conta.
  */
 export function obbOverlap(a: Obb, b: Obb): boolean {
+  return obbPenetration(a, b) > 0
+}
+
+/** Profundidade (m) da interseção de duas caixas: a menor sobreposição entre os eixos de separação; 0 se não se tocam. */
+export function obbPenetration(a: Obb, b: Obb): number {
   const delta = sub(b.center, a.center)
   const axes: Vec3[] = [...a.axes, ...b.axes]
   for (const u of a.axes) {
@@ -134,12 +139,14 @@ export function obbOverlap(a: Obb, b: Obb): boolean {
       if (size > PARALLEL_EPSILON) axes.push({ x: c.x / size, y: c.y / size, z: c.z / size })
     }
   }
+  let depth = Infinity
   for (const axis of axes) {
     const overlap =
       projectionRadius(a, axis) + projectionRadius(b, axis) - Math.abs(dot(delta, axis))
-    if (overlap <= OVERLAP_EPSILON_M) return false
+    if (overlap <= OVERLAP_EPSILON_M) return 0
+    depth = Math.min(depth, overlap)
   }
-  return true
+  return depth
 }
 
 /** O segmento de `from` a `to` atravessa a caixa? Método das lajes (slabs) no referencial da caixa. */
