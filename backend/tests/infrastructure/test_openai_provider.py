@@ -96,6 +96,25 @@ def test_a_regular_model_gets_temperature_and_no_reasoning_effort() -> None:
     assert "reasoning_effort" not in body
 
 
+def test_configured_reasoning_effort_is_sent_to_any_model() -> None:
+    transport = FakeTransport([ok("x")])
+
+    openai(transport, "openai/gpt-oss-120b", reasoning_effort="high").generate(REQUEST)
+
+    body = transport.calls[0][2]
+    assert body["reasoning_effort"] == "high"
+
+
+def test_a_refused_configured_reasoning_effort_is_dropped_and_retried() -> None:
+    transport = FakeTransport([error(400, "não suportado", param="reasoning_effort"), ok("x")])
+
+    completion = openai(transport, "gpt-4.1-mini", reasoning_effort="high").generate(REQUEST)
+
+    assert completion.text == "x"
+    assert transport.calls[0][2]["reasoning_effort"] == "high"
+    assert "reasoning_effort" not in transport.calls[1][2]
+
+
 def test_structured_output_sends_a_converted_json_schema_with_strict_false() -> None:
     transport = FakeTransport([ok("{}")])
     schema = {

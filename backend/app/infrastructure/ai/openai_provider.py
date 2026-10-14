@@ -11,7 +11,9 @@ valendo nos dois casos.
 
 Parâmetros recusados: modelos de raciocínio (família gpt-5, o1, o3) não aceitam `temperature`, e
 modelos comuns não aceitam `reasoning_effort`. Quando o provedor recusa um parâmetro (HTTP 400 com
-`error.param`), ele sai do pedido e a recusa fica lembrada para o modelo.
+`error.param`), ele sai do pedido e a recusa fica lembrada para o modelo. O parâmetro
+`reasoning_effort` do construtor (low|medium|high) força o envio do esforço de raciocínio a
+qualquer modelo; sem ele, só os modelos de raciocínio recebem o nível do pedido.
 
 Resiliência (mesma política do Gemini): erro passageiro (429, 500, 502, 503, 504, rede) é repetido
 com espera curta; esgotadas as tentativas, passa ao próximo modelo da lista de reservas. Cota
@@ -93,6 +95,7 @@ class OpenAiProvider:
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
         base_url: str = OPENAI_BASE_URL,
+        reasoning_effort: str | None = None,
     ) -> None:
         if not api_key.strip():
             raise ValueError("a chave da API da OpenAI deve ser informada")
@@ -111,6 +114,7 @@ class OpenAiProvider:
         self._sleep = sleep
         self._clock = clock
         self._base_url = base_url.rstrip("/")
+        self._reasoning_effort = reasoning_effort
         self._dropped: dict[str, set[str]] = {}
         self._json_object_only: set[str] = set()
 
@@ -202,12 +206,12 @@ class OpenAiProvider:
             payload["max_completion_tokens"] = request.max_output_tokens
         if "temperature" not in dropped and not _is_reasoning_model(model):
             payload["temperature"] = request.temperature
-        if (
-            request.thinking_level is not None
-            and "reasoning_effort" not in dropped
-            and _is_reasoning_model(model)
-        ):
-            payload["reasoning_effort"] = request.thinking_level
+        if "reasoning_effort" not in dropped:
+            if self._reasoning_effort is not None:
+                # Configurado (ex.: Groq com gpt-oss): vale para qualquer modelo.
+                payload["reasoning_effort"] = self._reasoning_effort
+            elif request.thinking_level is not None and _is_reasoning_model(model):
+                payload["reasoning_effort"] = request.thinking_level
         return json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
     def _call(self, model: str, body: bytes, timeout: float) -> str | tuple[LlmError, bool]:
