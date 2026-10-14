@@ -26,6 +26,8 @@ FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
 # /etc/nginx/conf.d (substitui o default.conf da imagem). Só variáveis definidas são substituídas, então
 # as variáveis do próprio nginx ($uri, $host...) ficam intactas.
 ENV API_UPSTREAM=http://backend:8000
+# Exporta NGINX_LOCAL_RESOLVERS (servidores DNS do container) para o template do nginx.
+ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 
