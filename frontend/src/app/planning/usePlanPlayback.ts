@@ -78,6 +78,12 @@ export function keyframesCrossed(
   )
 }
 
+/** O quadro é o primeiro da sua fase (o anterior é de outra fase, ou não existe)? */
+export function startsPhase(points: readonly TrajectoryPoint[], point: TrajectoryPoint): boolean {
+  const index = points.indexOf(point)
+  return index <= 0 || points[index - 1]?.phase !== point.phase
+}
+
 export function usePlanPlayback({
   points,
   getCommands,
