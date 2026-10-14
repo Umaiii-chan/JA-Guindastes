@@ -40,7 +40,8 @@ OPENAI_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_FALLBACK_MODELS: tuple[str, ...] = ()
 
-_MODEL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+# Aceita o prefixo de organização usado por APIs compatíveis (ex.: Groq `openai/gpt-oss-120b`).
+_MODEL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(/[A-Za-z0-9][A-Za-z0-9._-]{0,63})?$")
 _TRANSIENT_STATUSES = frozenset({429, 500, 502, 503, 504})
 _DROPPABLE_PARAMS = ("temperature", "reasoning_effort", "max_completion_tokens")
 

@@ -100,3 +100,27 @@ def test_the_app_without_a_database_answers_the_ai_status(monkeypatch) -> None: 
     client = TestClient(create_app_without_database())
 
     assert client.get("/api/v1/ai/status").json()["enabled"] is False
+
+
+GROQ_ENV = {"GROQ_API_KEY": CHAVE_FICTICIA}
+
+
+def test_groq_uses_the_compatible_endpoint_and_its_default_model() -> None:
+    assistant = build_ai_assistant(GROQ_ENV)
+
+    assert assistant is not None and assistant.model == "openai/gpt-oss-120b"
+    assert assistant._provider._base_url == "https://api.groq.com/openai/v1"  # type: ignore[attr-defined]
+    custom = build_ai_assistant({**GROQ_ENV, "GROQ_MODEL": "llama-3.3-70b-versatile"})
+    assert custom is not None and custom.model == "llama-3.3-70b-versatile"
+
+
+def test_auto_order_is_openai_then_groq_then_gemini() -> None:
+    groq_first = build_ai_assistant({**GROQ_ENV, **GEMINI_ENV})
+    openai_first = build_ai_assistant({**OPENAI_ENV, **GROQ_ENV, **GEMINI_ENV})
+    forced_groq = build_ai_assistant({**OPENAI_ENV, **GROQ_ENV, "AI_PROVIDER": "groq"})
+
+    assert groq_first is not None and groq_first.model == "openai/gpt-oss-120b"
+    assert groq_first.fallback_models[0] == "gemini-3.7-flash"
+    assert openai_first is not None and openai_first.model == "gpt-5-mini"
+    assert openai_first.fallback_models[0] == "openai/gpt-oss-120b"
+    assert forced_groq is not None and forced_groq.fallback_models == ()

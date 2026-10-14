@@ -26,3 +26,10 @@
 ## Próximo passo
 
 Revisor (outra sessão/ferramenta): revisar o diff; a pessoa responsável configura `OPENAI_API_KEY` no Render e testa uma vez.
+
+## Groq (adicionado a pedido da pessoa usuária, 14/10/2026)
+
+- `AI_PROVIDER` aceita `groq`. Em `auto`, a ordem é OpenAI, Groq e Gemini: o primeiro com chave é o primário e o segundo, a reserva.
+- Variáveis: `GROQ_API_KEY` e `GROQ_MODEL` (padrão `openai/gpt-oss-120b`); `GROQ_FALLBACK_MODELS` é opcional.
+- Reaproveita `OpenAiProvider` com `base_url=https://api.groq.com/openai/v1`. O nome do modelo passou a aceitar prefixo de organização (`openai/...`).
+- Testes a escrever depois: chamada real ao Groq com o esquema completo do cenário.
