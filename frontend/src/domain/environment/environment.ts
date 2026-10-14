@@ -85,6 +85,21 @@ export interface WindSpec {
   readonly directionDeg: number
 }
 
+/** Ponto de coleta da carga no chão (TASK-073; contrato da leva F): posição e giro da carga em Y. */
+export interface CargoPlacement {
+  readonly x: number
+  readonly z: number
+  readonly rotationYDeg: number
+}
+
+/** Ponto de entrega da carga (TASK-073): posição, giro da carga e raio da área de entrega. */
+export interface DeliveryPlacement {
+  readonly x: number
+  readonly z: number
+  readonly rotationYDeg: number
+  readonly radiusM: number
+}
+
 /** Cenário completo, como é salvo (TASK-052) e copiado na gravação (TASK-057). */
 export interface ScenarioSpec {
   readonly terrain: TerrainSpec
@@ -94,6 +109,10 @@ export interface ScenarioSpec {
   readonly soilZones?: readonly SoilZone[]
   /** Vento (TASK-066); ausente = sem vento. */
   readonly wind?: WindSpec
+  /** Coleta da carga (TASK-073); ausente = sem ponto marcado. */
+  readonly cargo?: CargoPlacement
+  /** Entrega da carga (TASK-073); ausente = sem ponto marcado. */
+  readonly delivery?: DeliveryPlacement
 }
 
 export const EMPTY_SCENARIO: ScenarioSpec = {

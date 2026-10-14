@@ -18,6 +18,7 @@ import { disposeObject3D } from './disposeObject3D'
 import { HookLoad } from './HookLoad'
 import { OperatingAreaOverlay } from './OperatingAreaOverlay'
 import { ObstacleMeshes } from './ObstacleMeshes'
+import { PlanMarkers } from './PlanMarkers'
 import { RadiusIndicator } from './RadiusIndicator'
 import { RotationZoneSectors } from './RotationZoneSectors'
 import { SceneCollisions } from './SceneCollisions'
@@ -68,6 +69,8 @@ export class CraneSceneContents {
   readonly soil: SoilOverlay
   /** Seta do vento (TASK-066). */
   readonly wind: WindArrow
+  /** Marcadores da coleta e da entrega da carga (TASK-075). */
+  readonly planMarkers: PlanMarkers
 
   private currentRig: CraneRig
   private currentRoot: Object3D
@@ -91,6 +94,7 @@ export class CraneSceneContents {
     obstacles: ObstacleMeshes
     soil: SoilOverlay
     wind: WindArrow
+    planMarkers: PlanMarkers
   }) {
     this.scene = parts.scene
     this.environment = parts.environment
@@ -107,6 +111,7 @@ export class CraneSceneContents {
     this.obstacles = parts.obstacles
     this.soil = parts.soil
     this.wind = parts.wind
+    this.planMarkers = parts.planMarkers
     this.eye = findOperatorEye(parts.rig)
   }
 
@@ -168,6 +173,9 @@ export class CraneSceneContents {
     }
     if (terrainChanged || spec.soilZones !== previous?.soilZones) {
       this.soil.setZones(spec.soilZones ?? [], heightAt)
+    }
+    if (terrainChanged || spec.cargo !== previous?.cargo || spec.delivery !== previous?.delivery) {
+      this.planMarkers.setPoints(spec.cargo, spec.delivery, heightAt)
     }
     this.appliedScenario = spec
     this.applyCraneAttitude(spec)
@@ -263,6 +271,8 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
   scene.add(soil.root)
   const wind = new WindArrow()
   scene.add(wind.root)
+  const planMarkers = new PlanMarkers()
+  scene.add(planMarkers.root)
 
   radiusIndicator.update({
     workingRadiusM: crane.getOperationalGeometry().workingRadiusM,
@@ -283,5 +293,6 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     obstacles,
     soil,
     wind,
+    planMarkers,
   })
 }

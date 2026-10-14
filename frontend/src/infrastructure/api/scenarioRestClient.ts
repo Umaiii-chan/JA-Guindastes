@@ -9,7 +9,9 @@
 // - `DELETE /scenarios/{id}` → 204; 403; 404.
 
 import {
+  type CargoPlacement,
   type CranePlacement,
+  type DeliveryPlacement,
   type Obstacle,
   type ScenarioSpec,
   SOIL_KINDS,
@@ -87,6 +89,25 @@ export function toScenarioSpecDto(spec: ScenarioSpec): Record<string, unknown> {
     ...(spec.wind
       ? { wind: { speed_ms: spec.wind.speedMs, direction_deg: spec.wind.directionDeg } }
       : {}),
+    ...(spec.cargo
+      ? {
+          cargo: {
+            x: spec.cargo.x,
+            z: spec.cargo.z,
+            rotation_y_deg: spec.cargo.rotationYDeg,
+          },
+        }
+      : {}),
+    ...(spec.delivery
+      ? {
+          delivery: {
+            x: spec.delivery.x,
+            z: spec.delivery.z,
+            rotation_y_deg: spec.delivery.rotationYDeg,
+            radius_m: spec.delivery.radiusM,
+          },
+        }
+      : {}),
   }
 }
 
@@ -154,6 +175,25 @@ function mapWind(json: unknown, path: string): WindSpec {
   }
 }
 
+function mapCargo(json: unknown, path: string): CargoPlacement {
+  const record = readRecord(json, path)
+  return {
+    x: readNumber(record, 'x', path),
+    z: readNumber(record, 'z', path),
+    rotationYDeg: readNumber(record, 'rotation_y_deg', path),
+  }
+}
+
+function mapDelivery(json: unknown, path: string): DeliveryPlacement {
+  const record = readRecord(json, path)
+  return {
+    x: readNumber(record, 'x', path),
+    z: readNumber(record, 'z', path),
+    rotationYDeg: readNumber(record, 'rotation_y_deg', path),
+    radiusM: readNumber(record, 'radius_m', path),
+  }
+}
+
 export function mapScenarioSpec(json: unknown, path: string): ScenarioSpec {
   const record = readRecord(json, path)
   const terrain = readRecord(record.terrain, `${path}.terrain`)
@@ -184,6 +224,11 @@ export function mapScenarioSpec(json: unknown, path: string): ScenarioSpec {
         }
       : {}),
     ...(record.wind != null ? { wind: mapWind(record.wind, `${path}.wind`) } : {}),
+    // Coleta e entrega (TASK-073): ausentes em cenários antigos.
+    ...(record.cargo != null ? { cargo: mapCargo(record.cargo, `${path}.cargo`) } : {}),
+    ...(record.delivery != null
+      ? { delivery: mapDelivery(record.delivery, `${path}.delivery`) }
+      : {}),
   }
 }
 

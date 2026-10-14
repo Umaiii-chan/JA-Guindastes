@@ -25,6 +25,8 @@ export interface SimulatorPageProps {
   readonly environment?: ReactNode
   /** Faixa de ferramentas do editor 3D do ambiente (TASK-066), sob a faixa de título. */
   readonly editorToolbar?: ReactNode
+  /** Seção "Planejar operação" (TASK-075), recolhida, abaixo dos passos. */
+  readonly planning?: ReactNode
 }
 
 /**
@@ -43,6 +45,7 @@ export function SimulatorPage({
   recording,
   environment,
   editorToolbar,
+  planning,
 }: SimulatorPageProps) {
   const stageRef = useRef<HTMLDivElement>(null)
   // Tela cheia (Fullscreen API) e painel recolhido: deixam a cena ocupar o espaço (TASK-062).
@@ -84,6 +87,11 @@ export function SimulatorPage({
     >
       <div className={styles.procedure} hidden={panelHidden}>
         {steps}
+        {planning && (
+          <CollapsibleSection id="planning" title="Planejar operação">
+            {planning}
+          </CollapsibleSection>
+        )}
         {accessories && (
           <CollapsibleSection id="accessories" title="Acessórios de içamento">
             {accessories}

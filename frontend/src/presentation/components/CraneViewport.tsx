@@ -27,6 +27,8 @@ export interface CraneViewportEditor {
 export interface CraneViewportHandle {
   /** Leva a câmera à predefinição, mesmo que seja a mesma de antes (reenquadra o estado atual). */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
+  /** Do gancho ao ponto de amarração das lingas, medido na cena; `null` sem cena (TASK-075). */
+  hookAttachOffsetM(): number | null
 }
 
 interface CraneViewportProps {
@@ -136,6 +138,9 @@ export function CraneViewport({
         cameraPresetRef.current = preset
         appliedPresetRef.current = preset
         sceneRef.current?.setCameraPreset(preset, options)
+      },
+      hookAttachOffsetM() {
+        return sceneRef.current?.hookAttachOffsetM() ?? null
       },
     }),
     [],
