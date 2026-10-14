@@ -136,6 +136,9 @@ class SafetyProfileFromCraneLimits:
             capacity_limit_percent=limits.capacity_limit_percent,
             warning_band_percent=limits.warning_band_percent,
             max_ground_slope_deg=limits.max_ground_slope_deg,
+            slope_derating_percent_per_deg=limits.slope_derating_percent_per_deg,
+            crane_mass_kg=limits.crane_mass_kg,
+            outrigger_pad_area_m2=limits.outrigger_pad_area_m2,
         )
 
 

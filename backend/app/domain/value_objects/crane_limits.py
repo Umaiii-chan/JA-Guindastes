@@ -14,6 +14,9 @@ DEFAULT_CAPACITY_LIMIT_PERCENT = 100.0
 DEFAULT_WARNING_BAND_PERCENT = 90.0
 DEFAULT_MAX_GROUND_SLOPE_DEG = 1.0  # FICTÍCIO
 DEFAULT_MAX_LEVELING_DEG = 3.0  # FICTÍCIO
+DEFAULT_SLOPE_DERATING_PERCENT_PER_DEG = 10.0
+DEFAULT_CRANE_MASS_KG = 36000.0  # FICTÍCIO
+DEFAULT_OUTRIGGER_PAD_AREA_M2 = 0.5  # FICTÍCIO
 MAX_SLOPE_DEG = 45.0
 """Limite de sanidade das inclinações cadastradas."""
 
@@ -22,6 +25,20 @@ def _percent_in_range(value: float, name: str) -> float:
     number = require_non_negative_finite(value, name)
     if not 1.0 <= number <= 100.0:
         raise InvalidQuantityError(f"{name} deve estar entre 1 e 100 %, recebido {value!r}")
+    return number
+
+
+def _percent_0_100(value: float, name: str) -> float:
+    number = require_non_negative_finite(value, name)
+    if number > 100.0:
+        raise InvalidQuantityError(f"{name} deve estar entre 0 e 100 %, recebido {value!r}")
+    return number
+
+
+def _positive(value: float, name: str) -> float:
+    number = require_non_negative_finite(value, name)
+    if number <= 0:
+        raise InvalidQuantityError(f"{name} deve ser maior que zero, recebido {value!r}")
     return number
 
 
@@ -41,13 +58,20 @@ class CraneLimits:
     - `capacity_limit_percent`: limite de uso da capacidade, de 1 a 100 % (RN-011);
     - `warning_band_percent`: a partir desta % do limite o status é "atenção", de 1 a 100 %;
     - `max_ground_slope_deg`: inclinação residual máxima do terreno sob o guindaste (RN-013);
-    - `max_leveling_deg`: correção máxima de nivelamento pelos macacos.
+    - `max_leveling_deg`: correção máxima de nivelamento pelos macacos;
+    - `slope_derating_percent_per_deg`: queda da capacidade efetiva por grau de inclinação
+      residual, de 0 a 100 % (RN-015);
+    - `crane_mass_kg`: massa do guindaste, para a pressão nas sapatas (RN-015);
+    - `outrigger_pad_area_m2`: área de cada sapata, para a pressão no solo (RN-015).
     """
 
     capacity_limit_percent: float = DEFAULT_CAPACITY_LIMIT_PERCENT
     warning_band_percent: float = DEFAULT_WARNING_BAND_PERCENT
     max_ground_slope_deg: float = DEFAULT_MAX_GROUND_SLOPE_DEG
     max_leveling_deg: float = DEFAULT_MAX_LEVELING_DEG
+    slope_derating_percent_per_deg: float = DEFAULT_SLOPE_DERATING_PERCENT_PER_DEG
+    crane_mass_kg: float = DEFAULT_CRANE_MASS_KG
+    outrigger_pad_area_m2: float = DEFAULT_OUTRIGGER_PAD_AREA_M2
 
     def __post_init__(self) -> None:
         for name, check in (
@@ -55,5 +79,8 @@ class CraneLimits:
             ("warning_band_percent", _percent_in_range),
             ("max_ground_slope_deg", _slope),
             ("max_leveling_deg", _slope),
+            ("slope_derating_percent_per_deg", _percent_0_100),
+            ("crane_mass_kg", _positive),
+            ("outrigger_pad_area_m2", _positive),
         ):
             object.__setattr__(self, name, check(getattr(self, name), name))

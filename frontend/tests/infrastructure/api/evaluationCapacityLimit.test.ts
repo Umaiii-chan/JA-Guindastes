@@ -29,6 +29,15 @@ describe('capacity_limit no cliente REST', () => {
     expect(result.capacityLimit).toEqual(LIMIT)
   })
 
+  it('mapeia os fatores de inclinação e de vento (RN-015)', () => {
+    const result = mapEvaluationResponse({
+      ...REST_EVALUATED,
+      capacity_limit: { ...LIMIT_DTO, slope_factor: 0.9, wind_factor: 0.75 },
+    })
+
+    expect(result.capacityLimit).toEqual({ ...LIMIT, slopeFactor: 0.9, windFactor: 0.75 })
+  })
+
   it('aceita cada nível', () => {
     for (const level of ['OK', 'WARNING', 'OVER']) {
       const result = mapEvaluationResponse({

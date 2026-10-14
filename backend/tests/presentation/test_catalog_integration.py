@@ -188,6 +188,9 @@ def test_patch_routes_persist_the_edits(client: TestClient) -> None:
         "warning_band_percent": 90.0,
         "max_ground_slope_deg": 1.0,
         "max_leveling_deg": 3.0,
+        "slope_derating_percent_per_deg": 10.0,
+        "crane_mass_kg": 36000.0,
+        "outrigger_pad_area_m2": 0.5,
     }
     assert client.get(f"{CONFIGURATIONS}/{ids['configuration_id']}").json() == {
         "id": ids["configuration_id"],

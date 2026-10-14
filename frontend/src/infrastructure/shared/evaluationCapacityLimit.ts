@@ -37,6 +37,9 @@ export function readCapacityLimit(
       limitUtilizationPercent: readNumber(limit, 'limit_utilization_percent', limitPath),
       warningBandPercent: readNumber(limit, 'warning_band_percent', limitPath),
       level: level as CapacityStatusLevel,
+      // Fatores do ambiente (TASK-067; RN-015); ausentes num backend anterior.
+      ...(typeof limit.slope_factor === 'number' && { slopeFactor: limit.slope_factor }),
+      ...(typeof limit.wind_factor === 'number' && { windFactor: limit.wind_factor }),
     },
   }
 }

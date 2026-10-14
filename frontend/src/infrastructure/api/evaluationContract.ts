@@ -19,6 +19,25 @@ export interface EvaluationRequestDto {
   readonly ground_slope_deg?: number
   /** TASK-056 (RN-014): só vai com acessórios escolhidos. */
   readonly accessory_ids?: readonly string[]
+  /** TASK-067 (RN-015): opcionais; ausentes não têm efeito. */
+  readonly soil_kinds?: readonly string[]
+  readonly wind_speed_ms?: number
+  readonly obstacle_conflicts?: readonly string[]
+}
+
+/** Campos do ambiente da requisição (TASK-067), só os informados. */
+export function toEnvironmentDto(input: EvaluationInput): {
+  soil_kinds?: readonly string[]
+  wind_speed_ms?: number
+  obstacle_conflicts?: readonly string[]
+} {
+  return {
+    ...(input.soilKinds && input.soilKinds.length === 4 ? { soil_kinds: input.soilKinds } : {}),
+    ...(input.windSpeedMs !== undefined && { wind_speed_ms: input.windSpeedMs }),
+    ...(input.obstacleConflicts && input.obstacleConflicts.length > 0
+      ? { obstacle_conflicts: input.obstacleConflicts }
+      : {}),
+  }
 }
 
 /** Estado das patolas no JSON (leva E; TASK-054). */
@@ -110,6 +129,8 @@ export interface CapacityLimitDto {
   readonly limit_utilization_percent: number
   readonly warning_band_percent: number
   readonly level: 'OK' | 'WARNING' | 'OVER'
+  readonly slope_factor?: number
+  readonly wind_factor?: number
 }
 
 export function toEvaluationRequestDto(input: EvaluationInput): EvaluationRequestDto {
@@ -125,5 +146,6 @@ export function toEvaluationRequestDto(input: EvaluationInput): EvaluationReques
     ...(input.accessoryIds && input.accessoryIds.length > 0
       ? { accessory_ids: input.accessoryIds }
       : {}),
+    ...toEnvironmentDto(input),
   }
 }

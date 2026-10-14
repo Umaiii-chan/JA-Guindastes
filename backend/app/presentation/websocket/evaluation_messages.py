@@ -51,6 +51,10 @@ INBOUND_MESSAGE_TYPES = frozenset({STATE_CHANGED_TYPE})
 # --- Entrada -------------------------------------------------------------------------------------
 
 
+SoilKindName = Literal["rock", "compacted", "clay", "loose_fill"]
+"""Tipos de solo aceitos (RN-015)."""
+
+
 class OutriggersPayload(BaseModel):
     """Estado das patolas (leva E; RN-013)."""
 
@@ -93,6 +97,27 @@ class OperationalStatePayload(BaseModel):
         description="Ids de acessórios de içamento do catálogo (TASK-056; RN-014); cada id soma o "
         "peso do acessório ao peso comparado. Id desconhecido: `NOT_EVALUABLE` com "
         "`ACCESSORY_NOT_FOUND`.",
+    )
+    soil_kinds: list[SoilKindName] | None = Field(
+        default=None,
+        min_length=4,
+        max_length=4,
+        description="Solo sob as 4 sapatas, na ordem dianteira esquerda, dianteira direita, "
+        "traseira esquerda, traseira direita (opcional; RN-015). Ausente, não entra na avaliação.",
+    )
+    wind_speed_ms: float | None = Field(
+        default=None,
+        ge=0,
+        description="Velocidade do vento, em m/s (opcional; RN-015). Ausente, não entra na "
+        "avaliação.",
+    )
+    obstacle_conflicts: list[Annotated[str, StringConstraints(min_length=1, max_length=64)]] = (
+        Field(
+            default_factory=list,
+            max_length=50,
+            description="Ids dos obstáculos no raio de giro (opcional; RN-015). Não vazia, o "
+            "risco vira atenção.",
+        )
     )
 
 
@@ -245,6 +270,8 @@ class CapacityLimitMessage(BaseModel):
     )
     warning_band_percent: float
     level: CapacityLimitLevel
+    slope_factor: float = 1.0
+    wind_factor: float = 1.0
 
     @classmethod
     def from_limit(cls, limit: CapacityLimit | None) -> CapacityLimitMessage | None:
@@ -256,6 +283,8 @@ class CapacityLimitMessage(BaseModel):
             limit_utilization_percent=limit.limit_utilization_percent,
             warning_band_percent=limit.warning_band_percent,
             level=limit.level,
+            slope_factor=limit.slope_factor,
+            wind_factor=limit.wind_factor,
         )
 
 

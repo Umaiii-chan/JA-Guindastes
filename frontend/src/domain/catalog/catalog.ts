@@ -20,6 +20,12 @@ export interface CraneLimits {
   readonly maxGroundSlopeDeg: number
   /** Correção máxima de nivelamento pelos macacos, em graus (padrão 3,0; FICTÍCIO). */
   readonly maxLevelingDeg: number
+  /** Redução da capacidade por grau de inclinação residual, em % (padrão 10; TASK-067). */
+  readonly slopeDeratingPercentPerDeg: number
+  /** Massa do guindaste, em kg, usada na pressão das sapatas (padrão 36000; FICTÍCIO). */
+  readonly craneMassKg: number
+  /** Área de cada sapata, em m² (padrão 0,5; FICTÍCIO). */
+  readonly outriggerPadAreaM2: number
 }
 
 /** Os limites ficam ausentes em respostas de um backend anterior à TASK-051. */

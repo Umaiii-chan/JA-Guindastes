@@ -20,7 +20,16 @@ export interface EvaluationInput {
   readonly groundSlopeDeg?: number
   /** Acessórios de içamento pendurados no gancho (TASK-056; RN-014). */
   readonly accessoryIds?: readonly string[]
+  /** Solo sob as 4 sapatas (dianteira esquerda e direita, traseira esquerda e direita; TASK-067). */
+  readonly soilKinds?: readonly SoilKind[]
+  /** Velocidade do vento, em m/s (TASK-067). */
+  readonly windSpeedMs?: number
+  /** Ids dos obstáculos no raio de giro (TASK-067). */
+  readonly obstacleConflicts?: readonly string[]
 }
+
+/** Tipos de solo sob as sapatas (RN-015). */
+export type SoilKind = 'rock' | 'compacted' | 'clay' | 'loose_fill'
 
 /** Estado das patolas enviado ao backend (TASK-054). */
 export interface OutriggerInput {
@@ -44,6 +53,10 @@ export interface CapacityLimitResult {
   /** Início da faixa de atenção, em % do limite. */
   readonly warningBandPercent: number
   readonly level: CapacityStatusLevel
+  /** Fator de inclinação aplicado à capacidade efetiva (1 = sem efeito; RN-015). */
+  readonly slopeFactor?: number
+  /** Fator de vento aplicado à capacidade efetiva (1 = sem efeito; RN-015). */
+  readonly windFactor?: number
 }
 
 /** Risco de tombamento por regras (RN-013; TASK-055). */

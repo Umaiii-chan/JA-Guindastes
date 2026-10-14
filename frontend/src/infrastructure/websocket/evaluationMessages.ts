@@ -11,7 +11,7 @@ import type {
   EvaluationInput,
   EvaluationResult,
 } from '../../domain/evaluation/evaluation'
-import { type OutriggersDto, toOutriggersDto } from '../api/evaluationContract'
+import { type OutriggersDto, toEnvironmentDto, toOutriggersDto } from '../api/evaluationContract'
 import {
   ContractViolationError,
   type JsonRecord,
@@ -47,6 +47,10 @@ export interface OperationalStatePayloadDto {
   readonly ground_slope_deg?: number
   /** TASK-056 (RN-014): só vai com acessórios escolhidos. */
   readonly accessory_ids?: readonly string[]
+  /** TASK-067 (RN-015): opcionais; ausentes não têm efeito. */
+  readonly soil_kinds?: readonly string[]
+  readonly wind_speed_ms?: number
+  readonly obstacle_conflicts?: readonly string[]
 }
 
 /** Cliente → servidor. O backend recusa campo desconhecido (`INVALID_MESSAGE`). */
@@ -127,6 +131,7 @@ export function toStateChangedMessage(
       ...(input.accessoryIds && input.accessoryIds.length > 0
         ? { accessory_ids: input.accessoryIds }
         : {}),
+      ...toEnvironmentDto(input),
     },
   }
 }

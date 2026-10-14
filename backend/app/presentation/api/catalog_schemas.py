@@ -219,6 +219,12 @@ _LIMIT_DESCRIPTIONS = {
     "(padrão 1,0, FICTÍCIO; RN-013).",
     "max_leveling_deg": "Correção máxima de nivelamento pelos macacos, em graus (padrão 3,0, "
     "FICTÍCIO).",
+    "slope_derating_percent_per_deg": "Redução da capacidade por grau de inclinação residual, em % "
+    "(padrão 10; RN-015).",
+    "crane_mass_kg": "Massa do guindaste, em kg, para a pressão nas sapatas (padrão 36000; "
+    "RN-015).",
+    "outrigger_pad_area_m2": "Área de cada sapata, em m², para a pressão no solo (padrão 0,5; "
+    "RN-015).",
 }
 
 
@@ -245,6 +251,18 @@ class CraneCreateRequest(BaseModel):
     )
     max_leveling_deg: float | None = Field(
         default=None, ge=0, le=MAX_SLOPE_DEG, description=_LIMIT_DESCRIPTIONS["max_leveling_deg"]
+    )
+    slope_derating_percent_per_deg: float | None = Field(
+        default=None,
+        ge=0,
+        le=100,
+        description=_LIMIT_DESCRIPTIONS["slope_derating_percent_per_deg"],
+    )
+    crane_mass_kg: float | None = Field(
+        default=None, gt=0, description=_LIMIT_DESCRIPTIONS["crane_mass_kg"]
+    )
+    outrigger_pad_area_m2: float | None = Field(
+        default=None, gt=0, description=_LIMIT_DESCRIPTIONS["outrigger_pad_area_m2"]
     )
 
     def limits(self) -> CraneLimits | None:
@@ -275,6 +293,11 @@ class CraneResponse(BaseModel):
     warning_band_percent: float = Field(description=_LIMIT_DESCRIPTIONS["warning_band_percent"])
     max_ground_slope_deg: float = Field(description=_LIMIT_DESCRIPTIONS["max_ground_slope_deg"])
     max_leveling_deg: float = Field(description=_LIMIT_DESCRIPTIONS["max_leveling_deg"])
+    slope_derating_percent_per_deg: float = Field(
+        description=_LIMIT_DESCRIPTIONS["slope_derating_percent_per_deg"]
+    )
+    crane_mass_kg: float = Field(description=_LIMIT_DESCRIPTIONS["crane_mass_kg"])
+    outrigger_pad_area_m2: float = Field(description=_LIMIT_DESCRIPTIONS["outrigger_pad_area_m2"])
 
     @classmethod
     def from_record(cls, crane: Crane) -> CraneResponse:
@@ -286,6 +309,9 @@ class CraneResponse(BaseModel):
             warning_band_percent=crane.limits.warning_band_percent,
             max_ground_slope_deg=crane.limits.max_ground_slope_deg,
             max_leveling_deg=crane.limits.max_leveling_deg,
+            slope_derating_percent_per_deg=crane.limits.slope_derating_percent_per_deg,
+            crane_mass_kg=crane.limits.crane_mass_kg,
+            outrigger_pad_area_m2=crane.limits.outrigger_pad_area_m2,
         )
 
 
@@ -375,6 +401,18 @@ class CraneUpdateRequest(BaseModel):
     )
     max_leveling_deg: float | None = Field(
         default=None, ge=0, le=MAX_SLOPE_DEG, description=_LIMIT_DESCRIPTIONS["max_leveling_deg"]
+    )
+    slope_derating_percent_per_deg: float | None = Field(
+        default=None,
+        ge=0,
+        le=100,
+        description=_LIMIT_DESCRIPTIONS["slope_derating_percent_per_deg"],
+    )
+    crane_mass_kg: float | None = Field(
+        default=None, gt=0, description=_LIMIT_DESCRIPTIONS["crane_mass_kg"]
+    )
+    outrigger_pad_area_m2: float | None = Field(
+        default=None, gt=0, description=_LIMIT_DESCRIPTIONS["outrigger_pad_area_m2"]
     )
 
     @model_validator(mode="after")

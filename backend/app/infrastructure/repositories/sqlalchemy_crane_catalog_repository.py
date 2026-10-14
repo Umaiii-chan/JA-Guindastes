@@ -70,11 +70,14 @@ def crane_to_model(crane: Crane) -> CraneModel:
 
 
 def write_limit_columns(model: CraneModel, limits: CraneLimits) -> None:
-    """Grava os quatro limites do modelo (TASK-051)."""
+    """Grava os limites do modelo (TASK-051)."""
     model.capacity_limit_percent = limits.capacity_limit_percent
     model.warning_band_percent = limits.warning_band_percent
     model.max_ground_slope_deg = limits.max_ground_slope_deg
     model.max_leveling_deg = limits.max_leveling_deg
+    model.slope_derating_percent_per_deg = limits.slope_derating_percent_per_deg
+    model.crane_mass_kg = limits.crane_mass_kg
+    model.outrigger_pad_area_m2 = limits.outrigger_pad_area_m2
 
 
 def limits_from_model(model: CraneModel) -> CraneLimits:
@@ -83,6 +86,9 @@ def limits_from_model(model: CraneModel) -> CraneLimits:
         warning_band_percent=model.warning_band_percent,
         max_ground_slope_deg=model.max_ground_slope_deg,
         max_leveling_deg=model.max_leveling_deg,
+        slope_derating_percent_per_deg=model.slope_derating_percent_per_deg,
+        crane_mass_kg=model.crane_mass_kg,
+        outrigger_pad_area_m2=model.outrigger_pad_area_m2,
     )
 
 

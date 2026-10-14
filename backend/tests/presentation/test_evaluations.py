@@ -476,7 +476,12 @@ def test_ficticio_outriggers_and_slope_drive_the_risk(client: TestClient) -> Non
     ).json()
 
     assert body["tipping_risk"] == "HIGH"
-    assert [a["code"] for a in body["alerts"]] == ["OUTRIGGERS_NOT_READY", "GROUND_SLOPE_EXCEEDED"]
+    # A inclinação também reduz a capacidade efetiva (RN-015), levando à faixa de atenção.
+    assert [a["code"] for a in body["alerts"]] == [
+        "OUTRIGGERS_NOT_READY",
+        "GROUND_SLOPE_EXCEEDED",
+        "CAPACITY_LIMIT_WARNING",
+    ]
 
 
 def test_ficticio_over_the_limit_is_high_and_warning_band_is_attention(client: TestClient) -> None:

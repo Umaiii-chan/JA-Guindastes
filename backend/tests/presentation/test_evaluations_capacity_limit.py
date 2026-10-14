@@ -38,6 +38,8 @@ LIMIT_KEYS = {
     "limit_utilization_percent",
     "warning_band_percent",
     "level",
+    "slope_factor",
+    "wind_factor",
 }
 
 
