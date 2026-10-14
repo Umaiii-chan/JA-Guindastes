@@ -38,9 +38,10 @@ Causas verificadas no código:
 
 ## 3. Critérios de aceite
 
-- [x] **CA-1** — Com tabela ativa, o slider do comprimento da lança só para em comprimentos tabelados
-  das tabelas ativas da configuração; a seta do teclado leva à coluna vizinha; a nota do slider lista
-  as colunas. Sem tabela lida, o slider continua livre. Nada é interpolado (RN-004).
+- [x] **CA-1** — O slider da lança é livre (0,1 m). Para um comprimento entre colunas, o backend usa a
+  coluna da próxima lança mais longa (ADR-029, decisão de 14/10/2026). Acima da maior coluna, "não
+  avaliável" com `BOOM_LENGTH_ABOVE_CHART_MAX`. Nada é interpolado (RN-004). (Uma primeira versão
+  encaixava o slider nas colunas; foi rejeitada pela pessoa.)
 - [x] **CA-2** — O peso válido vai para a avaliação mesmo com os outros campos da carga incompletos.
 - [x] **CA-3** — Sem resposta do WebSocket em 8 s, o mesmo `sequence` é repetido por REST.
 - [x] **CA-4** — O REST desiste em 75 s com o código `TIMEOUT`, e o erro aparece no HUD.

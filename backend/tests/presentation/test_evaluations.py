@@ -263,8 +263,6 @@ def test_ficticio_configuration_without_active_chart_keeps_the_geometry() -> Non
 @pytest.mark.parametrize(
     ("boom_length_m", "boom_angle_deg", "expected_reason"),
     [
-        # L = 15 m não é comprimento tabelado.
-        (15.0, 0.0, "BOOM_LENGTH_NOT_IN_CHART"),
         # L = 20 m, θ = 80° → R = 1,5 + 20·cos 80° ≈ 4,97 m, abaixo do menor raio (11,5 m).
         (20.0, 80.0, "RADIUS_BELOW_CHART_MIN"),
     ],

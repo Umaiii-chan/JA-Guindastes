@@ -25,9 +25,13 @@ class ConservativeTabulatedLookup(LoadChartInterpolator):
 
     Vale até a empresa responder PEND-001 (interpolação) e PEND-003 (valor conservador):
 
-    1. **Comprimento de lança:** precisa coincidir (±ε) com um comprimento tabelado; senão,
-       `CapacityUnsupported(BOOM_LENGTH_NOT_IN_CHART)`. Não interpola nem arredonda comprimento
-       (ADR-013 C-6).
+    1. **Comprimento de lança** (ADR-029, que substitui o item 1 do ADR-015):
+       - igual (±ε) a um comprimento tabelado → essa coluna;
+       - entre colunas (ou abaixo da menor) → a coluna da **próxima lança mais longa**, como manda a
+         nota padrão das tabelas de fabricante ("para comprimentos entre os listados, use a
+         capacidade da próxima lança mais longa"). Não interpola comprimento;
+       - acima da maior coluna, além de ε → `CapacityUnsupported(BOOM_LENGTH_ABOVE_CHART_MAX)`;
+       - tabela sem pontos → `CapacityUnsupported(BOOM_LENGTH_NOT_IN_CHART)`.
     2. **Raio**, entre os pontos desse comprimento:
        - igual (±ε) a um raio tabelado → capacidade desse ponto;
        - entre dois raios tabelados → a **menor** capacidade dos dois pontos vizinhos, mesmo que a
@@ -46,11 +50,12 @@ class ConservativeTabulatedLookup(LoadChartInterpolator):
     """
 
     def calculate_capacity(self, chart: LoadChart, query: CapacityQuery) -> CapacityResult:
-        column = [
-            point for point in chart.points if _coincides(point.boom_length, query.boom_length)
-        ]
-        if not column:
+        if not chart.points:
             return _unsupported(chart, CapacityUnsupportedReason.BOOM_LENGTH_NOT_IN_CHART)
+        column_length = _column_length(chart, query.boom_length)
+        if column_length is None:
+            return _unsupported(chart, CapacityUnsupportedReason.BOOM_LENGTH_ABOVE_CHART_MAX)
+        column = [point for point in chart.points if _coincides(point.boom_length, column_length)]
 
         radius = query.working_radius
         same_radius = [point for point in column if _coincides(point.working_radius, radius)]
@@ -68,6 +73,15 @@ class ConservativeTabulatedLookup(LoadChartInterpolator):
         neighbor_radii = (max(smaller), min(larger))
         neighbors = [point for point in column if point.working_radius in neighbor_radii]
         return _found(chart, query, _lowest_capacity(neighbors))
+
+
+def _column_length(chart: LoadChart, queried: Length) -> Length | None:
+    """A coluna usada: a igual (±ε) ao comprimento consultado, ou a próxima mais longa (ADR-029)."""
+    lengths = sorted({point.boom_length.meters for point in chart.points})
+    for length in lengths:
+        if length >= queried.meters - NUMERIC_TOLERANCE_M:
+            return Length(length)
+    return None
 
 
 def _coincides(tabulated: Length, queried: Length) -> bool:

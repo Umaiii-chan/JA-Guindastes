@@ -218,14 +218,15 @@ def test_on_a_boundary_a_zone_without_active_chart_makes_it_not_evaluable() -> N
 
 
 def test_on_a_boundary_a_query_outside_one_chart_makes_it_not_evaluable() -> None:
+    # Só a coluna de 5 m: a lança de 10 m passa da maior coluna (ADR-029).
     lateral_without_10m = chart_ficticio(
-        "LC-FICTICIO-LATERAL-SEM-10", ZONA_LATERAL_TRASEIRA_FICTICIA, 3000.0, boom_length_m=20.0
+        "LC-FICTICIO-LATERAL-SO-5", ZONA_LATERAL_TRASEIRA_FICTICIA, 3000.0, boom_length_m=5.0
     )
 
     result = evaluate(FakeProviders(charts=(FRONTAL, lateral_without_10m)), psi=55.0)
 
     assert isinstance(result, NotEvaluableOperation)
-    assert result.reasons == (CapacityUnsupportedReason.BOOM_LENGTH_NOT_IN_CHART,)
+    assert result.reasons == (CapacityUnsupportedReason.BOOM_LENGTH_ABOVE_CHART_MAX,)
     assert zone_code(result) == ZONA_LATERAL_TRASEIRA_FICTICIA
     assert result.load_chart_id == lateral_without_10m.id
 

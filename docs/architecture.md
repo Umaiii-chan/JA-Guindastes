@@ -203,7 +203,7 @@ sequenceDiagram
 - Resultado "não avaliável" (`NOT_EVALUABLE`) traz motivos legíveis por máquina, em três categorias:
   `EVALUATION` (ex.: `CRANE_GEOMETRY_NOT_FOUND`, `ACTIVE_LOAD_CHART_NOT_FOUND`, `UTILIZATION_UNDEFINED`),
   `OPERATIONAL_LIMIT` (faixa da ficha técnica violada) e `LOAD_CHART_DOMAIN` (ex.:
-  `BOOM_LENGTH_NOT_IN_CHART`, `RADIUS_BELOW_CHART_MIN`, `RADIUS_ABOVE_CHART_MAX`).
+  `BOOM_LENGTH_ABOVE_CHART_MAX`, `RADIUS_BELOW_CHART_MIN`, `RADIUS_ABOVE_CHART_MAX`; lança entre colunas usa a próxima mais longa, ADR-029).
 - Zonas de giro e gancho (ADR-018; TASK-046): numa configuração com zonas, ψ escolhe a zona e vale
   a tabela ativa dela; a ±ε (1e-6°) de uma fronteira, as duas zonas vizinhas são consultadas e vale
   a **menor** capacidade (se uma delas não tem tabela ativa ou não cobre a consulta, "não
