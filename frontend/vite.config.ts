@@ -32,7 +32,7 @@ export default defineConfig({
     // backend local (`uv run uvicorn app.main:app`, porta 8000). No container, quem faz isso é o
     // nginx (frontend/nginx.conf.template, TASK-027).
     proxy: {
-      '/api': { target: 'http://localhost:8000', changeOrigin: true, ws: true },
+      '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true, ws: true },
     },
   },
   test: {
