@@ -18,6 +18,7 @@ import type { CraneCommands, CraneSetup, CraneState } from '../crane/types'
 import { buildCraneScene } from './buildCraneScene'
 import { disposeObject3D } from './disposeObject3D'
 import type { LoadDimensions } from './loadBox'
+import type { OperatingArea } from '../../domain/evaluation/operatingArea'
 import type { SceneRotationZone } from './RotationZoneSectors'
 import { type EvaluationStatus, normalizeEvaluationStatus, statusCssColor } from './palette'
 import { createScaleBar, pixelsPerMeter } from './scaleBar'
@@ -60,6 +61,11 @@ export interface CraneSceneHandle {
   setRotationZones(zones: readonly SceneRotationZone[]): void
   /** Destaca o setor da zona atual (`null` = nenhum). A UI decide qual é (resultado ou prévia por ψ). */
   setActiveRotationZone(code: string | null): void
+  /**
+   * Área de operação verde, amarela e vermelha no chão (TASK-055; ADR-025). `null` apaga. Só
+   * desenho: o nível de cada célula vem do backend (RN-008).
+   */
+  setOperatingArea(area: OperatingArea | null): void
   /** Leva a câmera a uma predefinição, enquadrando o estado atual do guindaste. */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
   /** Para o laço de renderização e libera renderer, controles, geometrias e materiais. Idempotente. */
@@ -100,7 +106,8 @@ export function mountCraneScene(
   options: MountCraneSceneOptions = {},
 ): CraneSceneHandle {
   const contents = buildCraneScene(setup)
-  const { scene, crane, environment, radiusIndicator, hookLoad, rotationZones } = contents
+  const { scene, crane, environment, radiusIndicator, hookLoad, rotationZones, operatingArea } =
+    contents
 
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -298,6 +305,10 @@ export function mountCraneScene(
       for (const zoneLabel of zoneLabels) paintZoneLabel(zoneLabel.element, zoneLabel.code === code)
       invalidate()
     },
+    setOperatingArea(area) {
+      if (disposed || !operatingArea.setArea(area)) return
+      invalidate()
+    },
     setCameraPreset(preset, options = {}) {
       if (disposed) return
       const to = presetView(preset)
@@ -329,6 +340,7 @@ export function mountCraneScene(
       labelElement.remove()
       removeZoneLabels()
       rotationZones.dispose()
+      operatingArea.dispose()
       labelRenderer.domElement.remove()
       scaleBar.element.remove()
       hookLoad.dispose()

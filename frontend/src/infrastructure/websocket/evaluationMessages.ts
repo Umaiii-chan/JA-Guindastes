@@ -22,6 +22,7 @@ import {
   readRecord,
   readString,
 } from '../shared/readJson'
+import { readSafety } from '../shared/evaluationSafety'
 import { readZoneAndWeights } from '../shared/evaluationZone'
 
 export const EVALUATION_WEBSOCKET_PATH = '/api/v1/ws/evaluation'
@@ -38,6 +39,9 @@ export interface OperationalStatePayloadDto {
   readonly turret_rotation_deg: number
   readonly cable_length_m: number
   readonly load_weight_kg: number
+  /** Leva E (TASK-055): opcionais. */
+  readonly outriggers?: { readonly extension_percent: number; readonly jacks_set: boolean }
+  readonly ground_slope_deg?: number
 }
 
 /** Cliente → servidor. O backend recusa campo desconhecido (`INVALID_MESSAGE`). */
@@ -72,6 +76,13 @@ export interface SimulationEvaluatedMessageDto {
     readonly load_chart_id: string | null
     readonly load_chart_version: string | null
     readonly reasons: readonly string[]
+    /** TASK-055 (RN-013). */
+    readonly tipping_risk?: 'LOW' | 'ATTENTION' | 'HIGH' | null
+    readonly alerts?: readonly {
+      readonly code: string
+      readonly severity: 'INFO' | 'ATTENTION' | 'CRITICAL'
+      readonly message: string
+    }[]
   }
 }
 
@@ -106,6 +117,13 @@ export function toStateChangedMessage(
       turret_rotation_deg: input.turretRotationDeg,
       cable_length_m: input.cableLengthM,
       load_weight_kg: input.loadWeightKg,
+      ...(input.outriggers && {
+        outriggers: {
+          extension_percent: input.outriggers.extensionPercent,
+          jacks_set: input.outriggers.jacksSet,
+        },
+      }),
+      ...(input.groundSlopeDeg !== undefined && { ground_slope_deg: input.groundSlopeDeg }),
     },
   }
 }
@@ -176,6 +194,7 @@ function mapEvaluatedPayload(payload: JsonRecord): EvaluationResult {
     loadChartId: readNullableString(payload, 'load_chart_id', path),
     loadChartVersion: readNullableString(payload, 'load_chart_version', path),
     ...readZoneAndWeights(payload, path),
+    ...readSafety(payload, path),
   }
   if (result === 'EVALUATED') {
     if (common.capacity === null) throw new ContractViolationError(`${path}.capacity`, 'objeto')

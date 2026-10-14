@@ -30,6 +30,7 @@ import {
   type CameraPresetId,
 } from '../../presentation/simulator/CameraPresetButtons'
 import { ConnectionStatusBar } from '../../presentation/simulator/ConnectionStatusBar'
+import { OperatingAreaToggle } from '../../presentation/simulator/OperatingAreaToggle'
 import { GuidedStepsPanel } from '../../presentation/simulator/GuidedStepsPanel'
 import { buttonClassName, EmptyState } from '../../presentation/ui'
 import type { CraneCommands, CraneState } from '../../three/crane/types'
@@ -39,6 +40,7 @@ import { buildEvaluationInput } from '../evaluationInput'
 import { sceneRotationZoneCode } from '../sceneRotationZone'
 import { useSimulatorDraft } from '../simulator/simulatorDraft'
 import { useEvaluationSession } from '../useEvaluationSession'
+import { useOperatingArea } from '../useOperatingArea'
 
 interface CraneBinding {
   readonly commands: CraneCommands
@@ -62,6 +64,7 @@ function bindCrane(commands: CraneCommands): CraneBinding {
 export function SimulatorRoute() {
   const [crane, setCrane] = useState<CraneBinding | null>(null)
   const [cameraPreset, setCameraPreset] = useState<CameraPresetId | null>(null)
+  const [operatingAreaEnabled, setOperatingAreaEnabled] = useState(false)
   const viewportRef = useRef<CraneViewportHandle>(null)
   const { load, setLoad, requestedStep, setRequestedStep } = useSimulatorDraft()
   const { session, state: evaluation } = useEvaluationSession()
@@ -155,6 +158,13 @@ export function SimulatorRoute() {
     resultIsCurrent:
       evaluationInput.problem === null && evaluation.error === null && !evaluation.pending,
   })
+  // Área de operação (TASK-055): só lança e carga mudam a grade; ψ e R não entram.
+  const operatingArea = useOperatingArea({
+    enabled: operatingAreaEnabled,
+    configurationId: input?.configurationId ?? null,
+    boomLengthM: input?.boomLengthM ?? null,
+    loadWeightKg: input?.loadWeightKg ?? null,
+  })
   const sceneLoad = validLoad
     ? { lengthM: validLoad.lengthM, widthM: validLoad.widthM, heightM: validLoad.heightM }
     : null
@@ -187,6 +197,7 @@ export function SimulatorRoute() {
         load={sceneLoad}
         rotationZones={rotationZones}
         activeZoneCode={activeZoneCode}
+        operatingArea={operatingAreaEnabled ? operatingArea.area : null}
       />
     </SceneErrorBoundary>
   )
@@ -260,7 +271,15 @@ export function SimulatorRoute() {
           pending={evaluation.pending}
           slow={evaluation.slow}
           cameraActions={
-            <CameraPresetButtons active={cameraPreset} onSelect={handleCameraPreset} />
+            <>
+              <OperatingAreaToggle
+                enabled={operatingAreaEnabled}
+                onToggle={setOperatingAreaEnabled}
+                loading={operatingArea.loading}
+                error={operatingArea.error}
+              />
+              <CameraPresetButtons active={cameraPreset} onSelect={handleCameraPreset} />
+            </>
           }
         />
       }

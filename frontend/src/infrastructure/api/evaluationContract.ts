@@ -13,6 +13,9 @@ export interface EvaluationRequestDto {
   readonly turret_rotation_deg: number
   readonly cable_length_m: number
   readonly load_weight_kg: number
+  /** Leva E (TASK-055): opcionais; o backend ignora o que não vier (alerta INFO). */
+  readonly outriggers?: { readonly extension_percent: number; readonly jacks_set: boolean }
+  readonly ground_slope_deg?: number
 }
 
 export interface Point3DDto {
@@ -67,6 +70,13 @@ export interface EvaluationResponseDto {
   readonly hook_block_weight_kg?: number
   /** Carga + gancho: o valor comparado com a capacidade. */
   readonly compared_weight_kg?: number
+  /** TASK-055 (RN-013). */
+  readonly tipping_risk?: 'LOW' | 'ATTENTION' | 'HIGH' | null
+  readonly alerts?: readonly {
+    readonly code: string
+    readonly severity: 'INFO' | 'ATTENTION' | 'CRITICAL'
+    readonly message: string
+  }[]
 }
 
 export function toEvaluationRequestDto(input: EvaluationInput): EvaluationRequestDto {
@@ -77,5 +87,12 @@ export function toEvaluationRequestDto(input: EvaluationInput): EvaluationReques
     turret_rotation_deg: input.turretRotationDeg,
     cable_length_m: input.cableLengthM,
     load_weight_kg: input.loadWeightKg,
+    ...(input.outriggers && {
+      outriggers: {
+        extension_percent: input.outriggers.extensionPercent,
+        jacks_set: input.outriggers.jacksSet,
+      },
+    }),
+    ...(input.groundSlopeDeg !== undefined && { ground_slope_deg: input.groundSlopeDeg }),
   }
 }

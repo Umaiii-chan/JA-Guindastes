@@ -1,5 +1,6 @@
 import { type Ref, useEffect, useImperativeHandle, useRef } from 'react'
 
+import type { OperatingArea } from '../../domain/evaluation/operatingArea'
 import type { CameraPreset } from '../../three/camera/cameraPresets'
 import type { CraneCommands, CraneSetup } from '../../three/crane/types'
 import type { LoadDimensions } from '../../three/scene/loadBox'
@@ -47,6 +48,11 @@ interface CraneViewportProps {
    * decide). `null` = nenhuma. Não remonta a cena.
    */
   activeZoneCode?: string | null
+  /**
+   * Área de operação (TASK-055; ADR-025), desenhada no chão; `null` (padrão) não desenha nada. Não
+   * remonta a cena.
+   */
+  operatingArea?: OperatingArea | null
   /** API imperativa (`CraneViewportHandle`). */
   ref?: Ref<CraneViewportHandle>
 }
@@ -64,6 +70,7 @@ export function CraneViewport({
   cameraPreset,
   rotationZones = null,
   activeZoneCode = null,
+  operatingArea = null,
   ref,
 }: CraneViewportProps) {
   const canvasHostRef = useRef<HTMLDivElement>(null)
@@ -74,6 +81,7 @@ export function CraneViewport({
   const cameraPresetRef = useRef(cameraPreset)
   const zonesRef = useRef<readonly SceneRotationZone[]>(rotationZones ?? [])
   const activeZoneRef = useRef(activeZoneCode)
+  const operatingAreaRef = useRef(operatingArea)
   const appliedPresetRef = useRef<CameraPreset | undefined>(undefined)
 
   useImperativeHandle(
@@ -98,6 +106,7 @@ export function CraneViewport({
     handle.setLoad(loadRef.current)
     handle.setRotationZones(zonesRef.current)
     handle.setActiveRotationZone(activeZoneRef.current)
+    handle.setOperatingArea(operatingAreaRef.current)
     const preset = cameraPresetRef.current
     if (preset) handle.setCameraPreset(preset, { animate: false })
     appliedPresetRef.current = preset
@@ -140,6 +149,11 @@ export function CraneViewport({
     activeZoneRef.current = activeZoneCode
     sceneRef.current?.setActiveRotationZone(activeZoneCode)
   }, [activeZoneCode])
+
+  useEffect(() => {
+    operatingAreaRef.current = operatingArea
+    sceneRef.current?.setOperatingArea(operatingArea)
+  }, [operatingArea])
 
   useEffect(() => {
     cameraPresetRef.current = cameraPreset

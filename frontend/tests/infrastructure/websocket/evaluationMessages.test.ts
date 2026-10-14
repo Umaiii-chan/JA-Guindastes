@@ -46,6 +46,8 @@ describe('mensagens do WebSocket de avaliação', () => {
         loadChartVersion: 'FICTICIO-AVALIACAO-v1',
         rotationZoneCode: null,
         rotationZoneName: null,
+        tippingRisk: null,
+        alerts: [],
         hookBlockWeightKg: null,
         comparedWeightKg: null,
       },

@@ -14,6 +14,7 @@ import { addEnvironment, type SceneEnvironment } from './addEnvironment'
 import { createScene } from './createScene'
 import { disposeObject3D } from './disposeObject3D'
 import { HookLoad } from './HookLoad'
+import { OperatingAreaOverlay } from './OperatingAreaOverlay'
 import { RadiusIndicator } from './RadiusIndicator'
 import { RotationZoneSectors } from './RotationZoneSectors'
 
@@ -44,6 +45,8 @@ export class CraneSceneContents {
   readonly hookLoad: HookLoad
   /** Setores das zonas de giro no chão (TASK-046); vazio até a UI mandar as zonas. */
   readonly rotationZones: RotationZoneSectors
+  /** Área de operação verde, amarela e vermelha no chão (TASK-055); vazia até a UI mandar. */
+  readonly operatingArea: OperatingAreaOverlay
   /** Limites e a/h com que a cena foi montada (ficha técnica ou FICTÍCIOS). */
   readonly setup: CraneSetup
 
@@ -60,6 +63,7 @@ export class CraneSceneContents {
     radiusIndicator: RadiusIndicator
     hookLoad: HookLoad
     rotationZones: RotationZoneSectors
+    operatingArea: OperatingAreaOverlay
     setup: CraneSetup
   }) {
     this.scene = parts.scene
@@ -70,6 +74,7 @@ export class CraneSceneContents {
     this.radiusIndicator = parts.radiusIndicator
     this.hookLoad = parts.hookLoad
     this.rotationZones = parts.rotationZones
+    this.operatingArea = parts.operatingArea
     this.setup = parts.setup
     this.eye = findOperatorEye(parts.rig)
   }
@@ -163,6 +168,8 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     outerM: Math.max(radiusIndicator.reach.maxM + 1.5, 6),
   })
   scene.add(rotationZones.root)
+  const operatingArea = new OperatingAreaOverlay()
+  scene.add(operatingArea.root)
 
   radiusIndicator.update({
     workingRadiusM: crane.getOperationalGeometry().workingRadiusM,
@@ -176,6 +183,7 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     radiusIndicator,
     hookLoad,
     rotationZones,
+    operatingArea,
     setup,
   })
 }
