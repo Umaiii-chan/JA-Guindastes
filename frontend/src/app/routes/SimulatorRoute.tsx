@@ -94,6 +94,7 @@ import { useCollisionState } from '../simulator/useCollisionState'
 import { useConfigurationsById } from '../simulator/useConfigurationsById'
 import { useEnvironmentEditor } from '../simulator/useEnvironmentEditor'
 import { useTandemEvaluation } from '../simulator/useTandemEvaluation'
+import { PlanningSection } from '../planning/PlanningSection'
 import { useAccessoryCatalog } from '../useAccessoryCatalog'
 import { useEvaluationSession } from '../useEvaluationSession'
 import { useOperatingArea } from '../useOperatingArea'
@@ -121,6 +122,8 @@ export function SimulatorRoute() {
   const [crane, setCrane] = useState<CraneBinding | null>(null)
   const [cameraPreset, setCameraPreset] = useState<CameraPresetId | null>(null)
   const [operatingAreaEnabled, setOperatingAreaEnabled] = useState(false)
+  // A trajetória planejada está rodando na cena (TASK-075): os controles ficam travados.
+  const [planPlaying, setPlanPlaying] = useState(false)
   const viewportRef = useRef<CraneViewportHandle>(null)
   // Guindastes adicionais e tandem (TASK-074).
   const [selectedCraneId, setSelectedCraneId] = useState<string>(PRIMARY_CRANE_ID)
@@ -261,6 +264,19 @@ export function SimulatorRoute() {
     },
     [craneCommands],
   )
+  // Planejamento (TASK-075): atualiza a tela depois que a trajetória mexe no guindaste da cena.
+  const handlePlanMoved = useCallback(() => {
+    if (craneCommands) setCrane(bindCrane(craneCommands))
+  }, [craneCommands])
+  const handleExtendOutriggers = useCallback(
+    () =>
+      setOutriggers({
+        extensionPercent: 100,
+        jacksSet: true,
+        levelingDeg: FICTITIOUS_MAX_LEVELING_DEG,
+      }),
+    [],
+  )
   const recording = useSimulationRecording({
     snapshot,
     scenario: scenario.spec,
@@ -272,6 +288,7 @@ export function SimulatorRoute() {
   useEffect(() => {
     if (!locked) viewportRef.current?.setCargoPlayback(null)
   }, [locked])
+  const controlsLocked = locked || planPlaying
   const shownResult = playbackFrame ? playbackFrame.evaluation : evaluation.result
 
   // A cada mudança dos sliders ou dos campos, o estado vai ao backend (com debounce na sessão).
@@ -624,7 +641,7 @@ export function SimulatorRoute() {
             summaries={{ crane: craneSummary, load: loadSummary, position: positionSummary }}
             content={{
               crane: (
-                <fieldset disabled={locked} className="recording-lock">
+                <fieldset disabled={controlsLocked} className="recording-lock">
                   <CatalogSelectionPanel
                     embedded
                     manufacturers={catalogState.manufacturers}
@@ -647,12 +664,12 @@ export function SimulatorRoute() {
                 </fieldset>
               ),
               load: (
-                <fieldset disabled={locked} className="recording-lock">
+                <fieldset disabled={controlsLocked} className="recording-lock">
                   <LoadPanel values={load} onChange={setLoad} />
                 </fieldset>
               ),
               position: (
-                <fieldset disabled={locked} className="recording-lock">
+                <fieldset disabled={controlsLocked} className="recording-lock">
                   <div style={{ display: 'grid', gap: 'var(--space-5)' }}>
                     {craneOptions.length > 1 && (
                       <CraneSelector
@@ -698,6 +715,28 @@ export function SimulatorRoute() {
                 </fieldset>
               ),
             }}
+          />
+        }
+        planning={
+          <PlanningSection
+            load={
+              validLoad
+                ? {
+                    weightKg: validLoad.weightKg,
+                    lengthM: validLoad.lengthM,
+                    widthM: validLoad.widthM,
+                    heightM: validLoad.heightM,
+                  }
+                : null
+            }
+            accessoryIds={accessoryIds}
+            craneState={crane?.state ?? null}
+            commands={crane?.commands ?? null}
+            onCraneMoved={handlePlanMoved}
+            onPlaybackChange={setPlanPlaying}
+            onExtendOutriggers={handleExtendOutriggers}
+            getHookAttachM={() => viewportRef.current?.hookAttachOffsetM() ?? null}
+            disabled={locked}
           />
         }
         result={

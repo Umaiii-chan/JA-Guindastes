@@ -45,6 +45,8 @@ export interface CraneViewportHandle {
   engageTandem(): EngageResult | null
   /** Solta a carga do tandem, se ela estiver apoiada no chão (TASK-074). */
   releaseTandem(): ReleaseResult
+  /** Do gancho ao ponto de amarração das lingas, medido na cena; `null` sem cena (TASK-075). */
+  hookAttachOffsetM(): number | null
 }
 
 interface CraneViewportProps {
@@ -196,6 +198,9 @@ export function CraneViewport({
       },
       releaseTandem() {
         return sceneRef.current?.releaseTandem() ?? { released: false, reason: 'not-engaged' }
+      },
+      hookAttachOffsetM() {
+        return sceneRef.current?.hookAttachOffsetM() ?? null
       },
     }),
     [],
