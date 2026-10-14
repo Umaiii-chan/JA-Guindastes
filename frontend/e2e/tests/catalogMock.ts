@@ -40,6 +40,13 @@ export interface MockCatalogOptions {
 }
 
 export async function mockCatalog(page: Page, options: MockCatalogOptions = {}): Promise<void> {
+  // Sem backend, o `vite preview` responde ao /auth/session com o index.html (a aplicação iria ao
+  // login). Um 404 é o "backend ausente" que leva ao modo sem autenticação (sessionCheckFailure.ts).
+  if (process.env.E2E_BACKEND !== '1') {
+    // Registrada primeiro (a de menor prioridade): o que não é do catálogo FICTÍCIO nem chega ao
+    // backend que por acaso esteja de pé na máquina (o proxy do `vite preview`).
+    await page.route('**/api/v1/**', (route) => route.fulfill({ status: 404, json: {} }))
+  }
   await page.route('**/api/v1/manufacturers', (route) =>
     route.fulfill({ json: [{ id: FICTICIO.manufacturerId, name: 'Fabricante FICTÍCIO E2E' }] }),
   )
