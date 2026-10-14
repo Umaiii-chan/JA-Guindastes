@@ -17,6 +17,7 @@ import {
 } from '../controls/createOrbitControls'
 import type { OutriggerState } from '../../domain/crane/outriggers'
 import { OutriggerController } from '../crane/OutriggerController'
+import { TRUCK_CRANE_OUTRIGGER_TRAVEL_M } from '../loaders/loadTruckCraneModel'
 import type { CraneCommands, CraneSetup, CraneState } from '../crane/types'
 import {
   type CollisionState,
@@ -314,6 +315,7 @@ export function mountCraneScene(
   const outriggers = new OutriggerController({
     getRoot: () => contents.rig.base,
     invalidate,
+    beamTravelM: TRUCK_CRANE_OUTRIGGER_TRAVEL_M,
     reducedMotion: prefersReducedMotion(),
   })
 

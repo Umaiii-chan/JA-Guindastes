@@ -9,6 +9,8 @@ import type { CraneRig } from './CraneController'
 
 /** Materiais ou malhas de vidro da cabine, pelo nome (convenção do GLB da TASK-043: `torre-vidro`). */
 const CAB_GLASS_PATTERN = /vidro|glass/i
+/** Chave dos `extras` da torre que marca o olho do operador, [x, y, z] (opcional; TASK-064). */
+export const OPERATOR_EYE_EXTRA = 'olhoDoOperador'
 /** Altura do olho do operador acima do topo do vidro da cabine (m). */
 export const OPERATOR_EYE_ABOVE_GLASS_M = 0.5
 
@@ -51,6 +53,12 @@ export function measureHookExtent(hook: Object3D, exclude: readonly Object3D[] =
  * guindaste provisório. `null` se o rig não tiver vidro na torre (o provisório não tem).
  */
 export function findOperatorEye(rig: CraneRig): Vec3 | null {
+  // Modelo com o ponto marcado nos `extras` da torre (GLB da TASK-064), no referencial da torre.
+  const marked: unknown = rig.turret.userData[OPERATOR_EYE_EXTRA]
+  if (isVec3Array(marked)) {
+    const turret = rig.turret.position
+    return { x: turret.x + marked[0], y: turret.y + marked[1], z: turret.z + marked[2] }
+  }
   const glass: Object3D[] = []
   const stack: Object3D[] = [...rig.turret.children]
   while (stack.length > 0) {
@@ -74,6 +82,10 @@ export function findOperatorEye(rig: CraneRig): Vec3 | null {
     y: turret.y + box.max.y + OPERATOR_EYE_ABOVE_GLASS_M,
     z: turret.z + (box.min.z + box.max.z) / 2,
   }
+}
+
+function isVec3Array(value: unknown): value is [number, number, number] {
+  return Array.isArray(value) && value.length === 3 && value.every((item) => Number.isFinite(item))
 }
 
 function isGlass(mesh: Mesh): boolean {

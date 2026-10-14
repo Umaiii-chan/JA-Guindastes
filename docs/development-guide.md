@@ -109,7 +109,7 @@ cd frontend && npm run dev                                                      
 | Rodar testes (frontend) | `npm test` | em `frontend/`; Vitest, testes em `frontend/tests/`; ambiente `node` por padrão, e os `.test.tsx` que declaram `// @vitest-environment jsdom` rodam em jsdom com Testing Library (TASK-039) |
 | Rodar um teste específico (frontend) | `npx vitest run tests/<caminho>.test.ts` | em `frontend/` (ou `.test.tsx`) |
 | Regenerar o GLB de exemplo FICTÍCIO | `UPDATE_EXAMPLE_GLB=1 npx vitest run tests/three/loaders/exampleModel.test.ts` | em `frontend/`, no Bash (PowerShell: `$env:UPDATE_EXAMPLE_GLB='1'; npx vitest run ...`); só quando o guindaste provisório mudar; sem a variável, o teste confere que `assets/example-models/guindaste-provisorio.ficticio.glb` está em dia |
-| Regenerar o GLB do guindaste sobre caminhão | `node scripts/convert-crane-model.mjs` | em `frontend/`; lê `../assets/source/cgtrader_optimized_prop_crane.fbx` (fora do Git; copie o FBX para lá) e grava `public/models/guindaste-caminhao.glb`; recusa um FBX com SHA-256 diferente daquele para o qual as regras foram calibradas; saída determinística (imprime o SHA-256); `--listar` imprime a classificação peça a peça; aceita `[entrada.fbx] [saida.glb]`. Depois: `npx vitest run tests/three/loaders/truckCraneModel.test.ts`, que confere o SHA-256 do GLB (TASK-043) |
+| Regenerar o GLB do guindaste 80 t | `node scripts/convert-crane-80t.mjs <entrada.glb>` | em `frontend/`; lê `../assets/source/sketchfab/guindaste-80t/source/wireline_crane_rig.glb` (fora do Git; baixe o modelo "80-Ton Hydraulic Crane" do Sketchfab, CC BY 4.0, ou passe o caminho) e grava `public/models/guindaste-80t.glb`; recusa uma entrada com SHA-256 diferente do esperado; saída determinística (imprime o SHA-256); usa `@gltf-transform/*` e `sharp` (devDependencies). Depois: `npx vitest run tests/three/loaders/truckCraneModel.test.ts`, que confere o SHA-256 do GLB (TASK-064, ADR-031). O conversor antigo (`convert-crane-model.mjs`, FBX do CGTrader, TASK-043) e o `guindaste-caminhao.glb` continuam no repositório, sem uso na cena |
 | Lint (frontend) | `npm run lint` | em `frontend/`; ESLint, inclui a regra "Three.js só em `src/three/`" (ADR-005) |
 | Formatação — verificar (frontend) | `npm run format:check` | em `frontend/`; Prettier |
 | Formatação — corrigir (frontend) | `npm run format` | em `frontend/` |
@@ -163,8 +163,8 @@ frontend/
 ├── Dockerfile, nginx.conf.template, .dockerignore   ← imagem (build do Vite + nginx sem root, porta 8080)
 ├── vite.config.ts       ← proxy /api (com WebSocket) para localhost:8000; divisão do pacote; config do Vitest (node; jsdom por arquivo)
 ├── e2e/                 ← Playwright: playwright.config.ts, tests/ (scene, evaluation, auth, loadChartImport, catalogEdit; fixture de login auth.ts; catalogMock.ts; backendCatalog.ts), tsconfig.json
-├── public/models/       ← guindaste-caminhao.glb (modelo ilustrativo do caminhão, TASK-043)
-├── scripts/             ← convert-crane-model.mjs (FBX → GLB, TASK-043)
+├── public/models/       ← guindaste-80t.glb (modelo ilustrativo, TASK-064) e CREDITS.md
+├── scripts/             ← convert-crane-80t.mjs (GLB → GLB, TASK-064); convert-crane-model.mjs (FBX → GLB, TASK-043)
 ├── src/
 │   ├── app/             ← App.tsx, AppProviders, AppRoutes, routes/ (uma composição por página), auth/ (AuthProvider, RouteGuards, usePermissions), catalog/ e simulator/ (estado compartilhado), useEvaluationSession, evaluationInput, craneSetup
 │   ├── domain/          ← geometry/ (pré-visualização do ADR-013), evaluation/, catalog/, auth/ (tipos)
