@@ -7,6 +7,7 @@ import { Link } from 'react-router'
 
 import { selectedConfiguration as findSelectedConfiguration } from '../../application/catalog/CatalogBrowser'
 import { evaluationStatus } from '../../application/evaluation/evaluationStatus'
+import type { ScenarioSummary } from '../../application/environment/ports'
 import { validateLoadForm, loadWeightTextForEvaluation } from '../../application/load/loadForm'
 import { guidedStepStatuses, resolveActiveStep } from '../../application/simulator/guidedSteps'
 import type { OperationalGeometry } from '../../domain/geometry/operationalGeometry'
@@ -19,6 +20,8 @@ import { ROUTES } from '../../presentation/layout/navigation'
 import { SimulatorPage } from '../../presentation/pages/SimulatorPage'
 import { BackendEvaluationPanel } from '../../presentation/panels/BackendEvaluationPanel'
 import { CatalogSelectionPanel } from '../../presentation/panels/CatalogSelectionPanel'
+import { EnvironmentPanel } from '../../presentation/panels/EnvironmentPanel'
+import { environmentSummary } from '../../application/environment/scenarioEditing'
 import {
   type CraneControlKey,
   CraneControlPanel,
@@ -30,12 +33,15 @@ import {
   type CameraPresetId,
 } from '../../presentation/simulator/CameraPresetButtons'
 import { ConnectionStatusBar } from '../../presentation/simulator/ConnectionStatusBar'
+import { EnvironmentSection } from '../../presentation/simulator/EnvironmentSection'
 import { GuidedStepsPanel } from '../../presentation/simulator/GuidedStepsPanel'
 import { buttonClassName, EmptyState } from '../../presentation/ui'
 import type { CraneCommands, CraneState } from '../../three/crane/types'
+import { useAuth } from '../auth/authContext'
 import { useCatalog } from '../catalog/catalogContext'
 import { chooseCraneSetup } from '../craneSetup'
 import { buildEvaluationInput } from '../evaluationInput'
+import { useScenario } from '../scenario/scenarioContext'
 import { sceneRotationZoneCode } from '../sceneRotationZone'
 import { useSimulatorDraft } from '../simulator/simulatorDraft'
 import { useEvaluationSession } from '../useEvaluationSession'
@@ -66,6 +72,11 @@ export function SimulatorRoute() {
   const { load, setLoad, requestedStep, setRequestedStep } = useSimulatorDraft()
   const { session, state: evaluation } = useEvaluationSession()
   const { catalog, state: catalogState } = useCatalog()
+  const scenario = useScenario()
+  const auth = useAuth()
+  // Só o autor ou um admin atualiza e apaga um cenário (ADR-016; ADR-023); o backend confere de novo.
+  const canEditScenario = (item: ScenarioSummary) =>
+    auth.hasRole('ADMIN') || auth.user?.id === item.authorUserId
 
   // Configuração escolhida na seleção (fabricante → guindaste → configuração), ou `null`.
   const selectedConfiguration = findSelectedConfiguration(catalogState)
@@ -89,6 +100,7 @@ export function SimulatorRoute() {
     crane?.state ?? null,
     selectedConfiguration?.id ?? '',
     loadWeightText,
+    scenario.groundSlopeDeg,
   )
   const { input } = evaluationInput
 
@@ -106,6 +118,7 @@ export function SimulatorRoute() {
     input?.turretRotationDeg,
     input?.cableLengthM,
     input?.loadWeightKg,
+    input?.groundSlopeDeg,
   ])
 
   const handleCraneChange = useCallback((commands: CraneCommands | null) => {
@@ -187,6 +200,7 @@ export function SimulatorRoute() {
         load={sceneLoad}
         rotationZones={rotationZones}
         activeZoneCode={activeZoneCode}
+        scenario={scenario.spec}
       />
     </SceneErrorBoundary>
   )
@@ -252,6 +266,30 @@ export function SimulatorRoute() {
           parameters={crane?.commands.geometryParameters ?? null}
           parametersFromSheet={craneSetup.fromSheet}
         />
+      }
+      environment={
+        <EnvironmentSection
+          summary={environmentSummary(scenario.spec)}
+          onOpen={() => void scenario.refresh()}
+        >
+          <EnvironmentPanel
+            spec={scenario.spec}
+            onChange={scenario.setSpec}
+            groundSlopeDeg={scenario.groundSlopeDeg}
+            scenarios={scenario.scenarios}
+            current={scenario.current}
+            canEditCurrent={scenario.current !== null && canEditScenario(scenario.current)}
+            canEdit={canEditScenario}
+            dirty={scenario.dirty}
+            busy={scenario.busy}
+            error={scenario.error}
+            info={scenario.info}
+            onOpen={(id) => void scenario.open(id)}
+            onSave={(name, options) => void scenario.save(name, options)}
+            onRemove={(id) => void scenario.remove(id)}
+            onReset={scenario.reset}
+          />
+        </EnvironmentSection>
       }
       statusBar={
         <ConnectionStatusBar

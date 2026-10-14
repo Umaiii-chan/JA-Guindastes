@@ -13,6 +13,8 @@ export interface EvaluationRequestDto {
   readonly turret_rotation_deg: number
   readonly cable_length_m: number
   readonly load_weight_kg: number
+  /** Inclinação residual do terreno sob o guindaste (TASK-052); omitida com terreno plano. */
+  readonly ground_slope_deg?: number
 }
 
 export interface Point3DDto {
@@ -77,5 +79,6 @@ export function toEvaluationRequestDto(input: EvaluationInput): EvaluationReques
     turret_rotation_deg: input.turretRotationDeg,
     cable_length_m: input.cableLengthM,
     load_weight_kg: input.loadWeightKg,
+    ...(input.groundSlopeDeg === undefined ? {} : { ground_slope_deg: input.groundSlopeDeg }),
   }
 }

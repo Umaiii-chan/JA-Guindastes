@@ -13,6 +13,8 @@ export function buildEvaluationInput(
   craneState: CraneState | null,
   configurationId: string,
   loadWeightText: string,
+  /** Inclinação do terreno sob o guindaste (TASK-052); `undefined` com terreno plano. */
+  groundSlopeDeg?: number,
 ): EvaluationInputResult {
   if (craneState === null) return { input: null, problem: 'Aguardando a cena 3D.' }
   const trimmedId = configurationId.trim()
@@ -35,6 +37,7 @@ export function buildEvaluationInput(
       turretRotationDeg: craneState.turretRotationDeg,
       cableLengthM: craneState.cableLengthM,
       loadWeightKg,
+      ...(groundSlopeDeg === undefined ? {} : { groundSlopeDeg }),
     },
     problem: null,
   }

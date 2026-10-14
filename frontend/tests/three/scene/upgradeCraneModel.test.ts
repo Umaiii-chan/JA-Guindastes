@@ -176,7 +176,7 @@ describe('upgradeCraneModel', () => {
     expect(String(logger.warn.mock.calls[0][0])).toContain('guindaste provisório')
     expect(contents.usingModel).toBe(false)
     expect(contents.rig).toBe(provisional)
-    expect(provisional.base.parent).toBe(contents.scene)
+    expect(provisional.base.parent).toBe(contents.craneAnchor)
     expect(contents.crane.setBoomAngle(45)).toBe(45)
     expect(provisional.boom.rotation.x).toBeCloseTo((-45 * Math.PI) / 180)
   })

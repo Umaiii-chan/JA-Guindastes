@@ -1,6 +1,7 @@
 import { NeutralToneMapping, PCFShadowMap, SRGBColorSpace, WebGLRenderer } from 'three'
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js'
 
+import type { ScenarioSpec } from '../../domain/environment/environment'
 import {
   CAMERA_TRANSITION_MS,
   type CameraPreset,
@@ -60,6 +61,12 @@ export interface CraneSceneHandle {
   setRotationZones(zones: readonly SceneRotationZone[]): void
   /** Destaca o setor da zona atual (`null` = nenhum). A UI decide qual é (resultado ou prévia por ψ). */
   setActiveRotationZone(code: string | null): void
+  /**
+   * Cenário (TASK-052; ADR-023): terreno deslocado por `terrainHeightAt`, obstáculos e posição do
+   * guindaste. `null` volta ao plano e ao guindaste na origem. A predefinição de câmera seguida
+   * acompanha o guindaste.
+   */
+  setScenario(scenario: ScenarioSpec | null): void
   /** Leva a câmera a uma predefinição, enquadrando o estado atual do guindaste. */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
   /** Para o laço de renderização e libera renderer, controles, geometrias e materiais. Idempotente. */
@@ -172,8 +179,8 @@ export function mountCraneScene(
   }
 
   /** Enquadramento da predefinição para o estado atual do guindaste e a proporção do quadro. */
-  const presetView = (preset: CameraPreset): CameraView =>
-    resolveCameraPreset(preset, {
+  const presetView = (preset: CameraPreset): CameraView => {
+    const view = resolveCameraPreset(preset, {
       turretRotationDeg: crane.getState().turretRotationDeg,
       geometry: crane.getOperationalGeometry(),
       maxReachM: radiusIndicator.reach.maxM,
@@ -181,6 +188,17 @@ export function mountCraneScene(
       aspect: camera.aspect,
       fovDeg: camera.fov,
     })
+    // As predefinições enquadram o guindaste na origem; com o cenário, o conjunto se desloca com ele
+    // (só a posição: o rumo do chassi não gira a câmera).
+    const { x, y, z } = contents.craneAnchor.position
+    if (x === 0 && y === 0 && z === 0) return view
+    const shift = (v: { x: number; y: number; z: number }) => ({
+      x: v.x + x,
+      y: v.y + y,
+      z: v.z + z,
+    })
+    return { position: shift(view.position), target: shift(view.target) }
+  }
 
   const jumpTo = (view: CameraView): void => {
     transition = null
@@ -298,6 +316,12 @@ export function mountCraneScene(
       for (const zoneLabel of zoneLabels) paintZoneLabel(zoneLabel.element, zoneLabel.code === code)
       invalidate()
     },
+    setScenario(scenario) {
+      if (disposed) return
+      contents.setScenario(scenario)
+      if (followedPreset && !transition) jumpTo(presetView(followedPreset))
+      invalidate()
+    },
     setCameraPreset(preset, options = {}) {
       if (disposed) return
       const to = presetView(preset)
@@ -329,6 +353,7 @@ export function mountCraneScene(
       labelElement.remove()
       removeZoneLabels()
       rotationZones.dispose()
+      contents.obstacles.dispose()
       labelRenderer.domElement.remove()
       scaleBar.element.remove()
       hookLoad.dispose()

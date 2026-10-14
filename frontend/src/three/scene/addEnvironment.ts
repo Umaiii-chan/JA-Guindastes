@@ -1,9 +1,15 @@
 import {
+  BufferGeometry,
   Color,
   DirectionalLight,
+  Float32BufferAttribute,
+  Group,
   HemisphereLight,
+  LineBasicMaterial,
+  LineSegments,
   Mesh,
   MeshBasicMaterial,
+  MeshLambertMaterial,
   PlaneGeometry,
   type Scene,
   ShaderMaterial,
@@ -11,6 +17,8 @@ import {
   type Vector3,
 } from 'three'
 
+import { type TerrainSpec, terrainHeightAt } from '../../domain/environment/environment'
+import { isFlatTerrain } from '../../domain/environment/flatTerrain'
 import { SCENE_COLORS } from './palette'
 
 // Prancha técnica viva (TASK-047; ADR-019): fundo e chão no mesmo papel, sem céu nem névoa; grade de
@@ -26,6 +34,18 @@ export const GRID_MINOR_SPACING_M = 1
 export const GRID_MAJOR_SPACING_M = 5
 /** Opacidade da sombra no chão: presente, mas discreta (sombra de desenho, não dramática). */
 export const GROUND_SHADOW_OPACITY = 0.14
+
+/** Terreno editável (TASK-052): malha quadrada centrada na origem, com vértices a cada passo. */
+export const TERRAIN_SIZE_M = 160
+export const TERRAIN_STEP_M = 1
+/** Linhas do terreno, no mesmo espaçamento das linhas principais da grade. */
+export const TERRAIN_LINE_SPACING_M = GRID_MAJOR_SPACING_M
+/** As linhas ficam um pouco acima da malha para não brigar com ela na profundidade. */
+const TERRAIN_LINE_LIFT_M = 0.03
+/** O chão plano fica um pouco abaixo do ponto mais baixo da malha, para não atravessá-la. */
+const GROUND_CLEARANCE_M = 0.05
+/** Sol: posição relativa ao guindaste (o mesmo deslocamento de sempre). */
+const SUN_OFFSET = { x: -22, y: 46, z: 10 } as const
 
 /** Distâncias (m) do esmaecimento da grade para a câmera a `cameraDistanceM` do alvo. */
 export interface AtmosphereRange {
@@ -56,6 +76,54 @@ export interface SceneEnvironment {
   fitShadowToReach(reachM: number): void
   /** Grade sob a câmera e esmaecimento na distância certa. */
   update(cameraPosition: Vector3, cameraDistanceM: number): void
+  /**
+   * Terreno editável (TASK-052): malha deslocada por `terrainHeightAt`, com linhas a cada 5 m. `null`
+   * (ou um terreno sem relevo) volta ao plano de sempre, em y = 0.
+   */
+  setTerrain(terrain: TerrainSpec | null): void
+  /** Altura do terreno em (x, z); 0 sem terreno. */
+  heightAt(x: number, z: number): number
+  /** Leva o sol e a sombra para perto do guindaste, que pode estar longe da origem. */
+  followCrane(x: number, y: number, z: number): void
+}
+
+/** Geometria da malha do terreno: plano horizontal com y = `terrainHeightAt` em cada vértice. */
+export function buildTerrainGeometry(
+  terrain: TerrainSpec,
+  sizeM = TERRAIN_SIZE_M,
+  stepM = TERRAIN_STEP_M,
+): BufferGeometry {
+  const segments = Math.max(1, Math.round(sizeM / stepM))
+  const geometry = new PlaneGeometry(sizeM, sizeM, segments, segments)
+  geometry.rotateX(-Math.PI / 2)
+  const position = geometry.getAttribute('position')
+  for (let i = 0; i < position.count; i += 1) {
+    position.setY(i, terrainHeightAt(terrain, position.getX(i), position.getZ(i)))
+  }
+  position.needsUpdate = true
+  geometry.computeVertexNormals()
+  return geometry
+}
+
+/** Linhas do terreno a cada `spacingM`, nos dois sentidos, seguindo a superfície. */
+export function buildTerrainLines(
+  terrain: TerrainSpec,
+  sizeM = TERRAIN_SIZE_M,
+  spacingM = TERRAIN_LINE_SPACING_M,
+  stepM = TERRAIN_STEP_M,
+): BufferGeometry {
+  const half = sizeM / 2
+  const points: number[] = []
+  const at = (x: number, z: number) => [x, terrainHeightAt(terrain, x, z) + TERRAIN_LINE_LIFT_M, z]
+  for (let fixed = -half; fixed <= half + 1e-9; fixed += spacingM) {
+    for (let moving = -half; moving < half - 1e-9; moving += stepM) {
+      points.push(...at(moving, fixed), ...at(moving + stepM, fixed))
+      points.push(...at(fixed, moving), ...at(fixed, moving + stepM))
+    }
+  }
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', new Float32BufferAttribute(points, 3))
+  return geometry
 }
 
 const GRID_VERTEX = /* glsl */ `
@@ -140,7 +208,7 @@ export function addEnvironment(scene: Scene): SceneEnvironment {
   const sun = new DirectionalLight(0xffffff, 2.1)
   sun.name = 'environment-sun'
   // Alto e de lado: sombra curta, logo ao lado do guindaste e visível da vista em perspectiva.
-  sun.position.set(-22, 46, 10)
+  sun.position.set(SUN_OFFSET.x, SUN_OFFSET.y, SUN_OFFSET.z)
   sun.castShadow = true
   // 2048² com PCF e raio largo: borda macia e barata o bastante para 60 fps num notebook comum.
   sun.shadow.mapSize.set(2048, 2048)
@@ -214,11 +282,60 @@ export function addEnvironment(scene: Scene): SceneEnvironment {
   grid.position.y = 0.002
   scene.add(grid)
 
+  // Terreno editável (TASK-052): vazio até a UI mandar um terreno com relevo.
+  const terrainGroup = new Group()
+  terrainGroup.name = 'environment-terrain'
+  scene.add(terrainGroup)
+  let currentTerrain: TerrainSpec | null = null
+  const clearTerrain = (): void => {
+    for (const child of [...terrainGroup.children]) {
+      child.removeFromParent()
+      if (child instanceof Mesh || child instanceof LineSegments) {
+        child.geometry.dispose()
+        const materials = Array.isArray(child.material) ? child.material : [child.material]
+        for (const material of materials) material.dispose()
+      }
+    }
+  }
+
   return {
     sun,
     grid,
     ground,
     groundShadow,
+    setTerrain(terrain) {
+      clearTerrain()
+      if (terrain === null || isFlatTerrain(terrain)) {
+        currentTerrain = null
+        ground.position.y = 0
+        grid.visible = true
+        groundShadow.visible = true
+        return
+      }
+      currentTerrain = terrain
+      const geometry = buildTerrainGeometry(terrain)
+      const mesh = new Mesh(geometry, new MeshLambertMaterial({ color: SCENE_COLORS.terrain }))
+      mesh.name = 'environment-terrain-mesh'
+      mesh.receiveShadow = true
+      const lines = new LineSegments(
+        buildTerrainLines(terrain),
+        new LineBasicMaterial({ color: SCENE_COLORS.gridMajor }),
+      )
+      lines.name = 'environment-terrain-lines'
+      terrainGroup.add(mesh, lines)
+      // A malha cobre a grade plana e a sombra plana: o chão fica só de fundo, abaixo dela.
+      geometry.computeBoundingBox()
+      ground.position.y = (geometry.boundingBox?.min.y ?? 0) - GROUND_CLEARANCE_M
+      grid.visible = false
+      groundShadow.visible = false
+    },
+    heightAt(x: number, z: number) {
+      return currentTerrain === null ? 0 : terrainHeightAt(currentTerrain, x, z)
+    },
+    followCrane(x: number, y: number, z: number) {
+      sun.target.position.set(x, y, z)
+      sun.position.set(x + SUN_OFFSET.x, y + SUN_OFFSET.y, z + SUN_OFFSET.z)
+    },
     fitShadowToReach(reachM: number) {
       const half = Math.max(reachM, 10) + 8
       const camera = sun.shadow.camera

@@ -13,6 +13,8 @@ export interface SimulatorPageProps {
   readonly geometry?: ReactNode
   /** Faixa de título do quadro: conexão e vistas da câmera. */
   readonly statusBar: ReactNode
+  /** Seção "Ambiente" (TASK-052), recolhida, abaixo dos passos. */
+  readonly environment?: ReactNode
 }
 
 /**
@@ -27,10 +29,14 @@ export function SimulatorPage({
   result,
   geometry,
   statusBar,
+  environment,
 }: SimulatorPageProps) {
   return (
     <div className={styles.stage}>
-      <div className={styles.procedure}>{steps}</div>
+      <div className={styles.procedure}>
+        {steps}
+        {environment}
+      </div>
       <div className={styles.drawing}>
         {statusBar}
         <div className={styles.scene}>

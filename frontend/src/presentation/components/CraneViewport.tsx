@@ -1,5 +1,6 @@
 import { type Ref, useEffect, useImperativeHandle, useRef } from 'react'
 
+import type { ScenarioSpec } from '../../domain/environment/environment'
 import type { CameraPreset } from '../../three/camera/cameraPresets'
 import type { CraneCommands, CraneSetup } from '../../three/crane/types'
 import type { LoadDimensions } from '../../three/scene/loadBox'
@@ -47,6 +48,11 @@ interface CraneViewportProps {
    * decide). `null` = nenhuma. Não remonta a cena.
    */
   activeZoneCode?: string | null
+  /**
+   * Cenário (TASK-052; ADR-023): terreno, obstáculos e posição do guindaste. Sem ele (padrão), o
+   * plano de sempre e o guindaste na origem. Não remonta a cena.
+   */
+  scenario?: ScenarioSpec | null
   /** API imperativa (`CraneViewportHandle`). */
   ref?: Ref<CraneViewportHandle>
 }
@@ -64,6 +70,7 @@ export function CraneViewport({
   cameraPreset,
   rotationZones = null,
   activeZoneCode = null,
+  scenario = null,
   ref,
 }: CraneViewportProps) {
   const canvasHostRef = useRef<HTMLDivElement>(null)
@@ -74,6 +81,7 @@ export function CraneViewport({
   const cameraPresetRef = useRef(cameraPreset)
   const zonesRef = useRef<readonly SceneRotationZone[]>(rotationZones ?? [])
   const activeZoneRef = useRef(activeZoneCode)
+  const scenarioRef = useRef(scenario)
   const appliedPresetRef = useRef<CameraPreset | undefined>(undefined)
 
   useImperativeHandle(
@@ -98,6 +106,7 @@ export function CraneViewport({
     handle.setLoad(loadRef.current)
     handle.setRotationZones(zonesRef.current)
     handle.setActiveRotationZone(activeZoneRef.current)
+    handle.setScenario(scenarioRef.current)
     const preset = cameraPresetRef.current
     if (preset) handle.setCameraPreset(preset, { animate: false })
     appliedPresetRef.current = preset
@@ -140,6 +149,11 @@ export function CraneViewport({
     activeZoneRef.current = activeZoneCode
     sceneRef.current?.setActiveRotationZone(activeZoneCode)
   }, [activeZoneCode])
+
+  useEffect(() => {
+    scenarioRef.current = scenario
+    sceneRef.current?.setScenario(scenario)
+  }, [scenario])
 
   useEffect(() => {
     cameraPresetRef.current = cameraPreset

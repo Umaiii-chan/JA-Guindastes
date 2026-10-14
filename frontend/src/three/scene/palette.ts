@@ -39,6 +39,11 @@ export const SCENE_COLORS = Object.freeze({
   /** Fundo e chão: o mesmo papel, sem céu nem horizonte desenhado. */
   background: PAPER_INK.paper,
   ground: PAPER_INK.paper,
+  /** Terreno editável (TASK-052): um tom abaixo do papel, para o relevo aparecer sob a luz. */
+  terrain: 0xe9e4d6,
+  /** Obstáculos do cenário: bloco claro com arestas em tinta, como a carga. */
+  obstacle: 0xd8d2c1,
+  obstacleEdges: PAPER_INK.ink,
   /** Papel milimetrado: linhas de 1 m na cor das linhas e de 5 m um pouco mais fortes. */
   gridMinor: PAPER_INK.line,
   gridMajor: 0xb3ac98,
