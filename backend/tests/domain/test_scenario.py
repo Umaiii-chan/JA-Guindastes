@@ -9,7 +9,9 @@ import pytest
 from app.domain.entities.scenario import (
     MAX_OBSTACLES,
     MAX_TERRAIN_FEATURES,
+    CargoSpec,
     CranePlacementSpec,
+    DeliverySpec,
     FeatureKind,
     ObstacleKind,
     ObstacleSpec,
@@ -173,6 +175,35 @@ def test_flatten_accepts_a_negative_level_but_mound_does_not() -> None:
     ],
 )
 def test_invalid_soil_and_wind_are_rejected(changes: dict[str, object], campo: str) -> None:
+    with pytest.raises(InvalidScenarioError) as raised:
+        ScenarioSpec(**changes)  # type: ignore[arg-type]
+
+    assert campo in raised.value.field
+
+
+def test_cargo_and_delivery_round_trip_and_stay_out_of_old_json() -> None:
+    old = spec_ficticio()
+    assert "cargo" not in scenario_spec_to_dict(old)
+    assert "delivery" not in scenario_spec_to_dict(old)
+
+    spec = replace(
+        old,
+        cargo=CargoSpec(x=-7.5, z=1.0, rotation_y_deg=15.0),
+        delivery=DeliverySpec(x=7.5, z=-1.0, rotation_y_deg=90.0, radius_m=2.0),
+    )
+
+    assert scenario_spec_from_dict(scenario_spec_to_dict(spec)) == spec
+
+
+@pytest.mark.parametrize(
+    ("changes", "campo"),
+    [
+        ({"cargo": CargoSpec(x=math.nan, z=0.0)}, "cargo.x"),
+        ({"delivery": DeliverySpec(x=0.0, z=0.0, radius_m=0.0)}, "delivery.radius_m"),
+        ({"delivery": DeliverySpec(x=0.0, z=math.inf)}, "delivery.z"),
+    ],
+)
+def test_invalid_cargo_and_delivery_are_rejected(changes: dict[str, object], campo: str) -> None:
     with pytest.raises(InvalidScenarioError) as raised:
         ScenarioSpec(**changes)  # type: ignore[arg-type]
 

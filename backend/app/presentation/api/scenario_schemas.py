@@ -11,7 +11,9 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.entities.scenario import (
+    CargoSpec,
     CranePlacementSpec,
+    DeliverySpec,
     FeatureKind,
     ObstacleKind,
     ObstacleSpec,
@@ -165,6 +167,23 @@ class WindPayload(BaseModel):
     direction_deg: float = Field(description="Direção para onde sopra, em graus a partir de +X.")
 
 
+class CargoPayload(BaseModel):
+    model_config = _STRICT_INPUT
+
+    x: float
+    z: float
+    rotation_y_deg: float = Field(description="Giro da carga em torno de Y, em graus.")
+
+
+class DeliveryPayload(BaseModel):
+    model_config = _STRICT_INPUT
+
+    x: float
+    z: float
+    rotation_y_deg: float = Field(description="Giro da carga na entrega, em graus.")
+    radius_m: float = Field(description="Raio da área de entrega, em metros; > 0.")
+
+
 class ScenarioSpecPayload(BaseModel):
     """`ScenarioSpec` do frontend, em `snake_case`."""
 
@@ -177,6 +196,12 @@ class ScenarioSpecPayload(BaseModel):
         default=None, description="Zonas de solo pintadas; opcional (TASK-066)."
     )
     wind: WindPayload | None = Field(default=None, description="Vento; opcional (TASK-066).")
+    cargo: CargoPayload | None = Field(
+        default=None, description="Ponto de coleta da carga; opcional (TASK-073)."
+    )
+    delivery: DeliveryPayload | None = Field(
+        default=None, description="Ponto de entrega da carga; opcional (TASK-073)."
+    )
 
     def to_domain(self) -> ScenarioSpec:
         """Monta e valida o `ScenarioSpec` (`InvalidScenarioError` se violar uma regra)."""
@@ -195,6 +220,23 @@ class ScenarioSpecPayload(BaseModel):
                 None
                 if self.wind is None
                 else WindSpec(speed_ms=self.wind.speed_ms, direction_deg=self.wind.direction_deg)
+            ),
+            cargo=(
+                None
+                if self.cargo is None
+                else CargoSpec(
+                    x=self.cargo.x, z=self.cargo.z, rotation_y_deg=self.cargo.rotation_y_deg
+                )
+            ),
+            delivery=(
+                None
+                if self.delivery is None
+                else DeliverySpec(
+                    x=self.delivery.x,
+                    z=self.delivery.z,
+                    rotation_y_deg=self.delivery.rotation_y_deg,
+                    radius_m=self.delivery.radius_m,
+                )
             ),
         )
 
@@ -215,6 +257,23 @@ class ScenarioSpecPayload(BaseModel):
                 None
                 if spec.wind is None
                 else WindPayload(speed_ms=spec.wind.speed_ms, direction_deg=spec.wind.direction_deg)
+            ),
+            cargo=(
+                None
+                if spec.cargo is None
+                else CargoPayload(
+                    x=spec.cargo.x, z=spec.cargo.z, rotation_y_deg=spec.cargo.rotation_y_deg
+                )
+            ),
+            delivery=(
+                None
+                if spec.delivery is None
+                else DeliveryPayload(
+                    x=spec.delivery.x,
+                    z=spec.delivery.z,
+                    rotation_y_deg=spec.delivery.rotation_y_deg,
+                    radius_m=spec.delivery.radius_m,
+                )
             ),
         )
 

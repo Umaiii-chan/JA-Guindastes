@@ -73,6 +73,26 @@ def test_operator_creates_lists_and_opens_a_scenario(
     assert client.get(f"{SCENARIOS_PATH}/{data['id']}").json() == data
 
 
+def test_cargo_and_delivery_are_saved_and_returned(client: TestClient) -> None:
+    login_as_operator(client)
+    spec = {
+        **spec_json_ficticio(),
+        "cargo": {"x": -7.5, "z": 0.0, "rotation_y_deg": 10.0},
+        "delivery": {"x": 7.5, "z": 1.0, "rotation_y_deg": 0.0, "radius_m": 2.0},
+    }
+
+    created = client.post(SCENARIOS_PATH, json=body(spec=spec), headers=CSRF_HEADERS)
+
+    assert created.status_code == 201, created.text
+    assert created.json()["spec"]["cargo"] == spec["cargo"]
+    assert created.json()["spec"]["delivery"] == spec["delivery"]
+    invalid = {**spec, "delivery": {**spec["delivery"], "radius_m": 0.0}}
+    assert (
+        client.post(SCENARIOS_PATH, json=body(spec=invalid), headers=CSRF_HEADERS).status_code
+        == 422
+    )
+
+
 def test_everyone_logged_in_opens_scenarios_of_others(
     client: TestClient, auth: AuthFicticia, repository: InMemoryScenarioRepository
 ) -> None:
