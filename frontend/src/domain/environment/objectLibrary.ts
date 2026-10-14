@@ -1,16 +1,17 @@
 // Biblioteca de objetos reais do editor 3D do ambiente (TASK-072; ADR-036): árvores, moitas, casas,
-// barracões, veículos, contêiner e um guindaste estacionado, todos em escala real (metros). Só dados e
+// galpões, veículos, contêiner e um guindaste estacionado, todos em escala real (metros). Só dados e
 // funções puras, sem Three.js: a cena (`three/scene/ObstacleMeshes`) desenha os GLBs e o domínio das
 // colisões (`domain/collision`) usa as caixas daqui.
 //
-// Referencial do objeto: origem no centro da planta, base em y = 0, Y para cima; a "frente" do barracão
+// Referencial do objeto: origem no centro da planta, base em y = 0, Y para cima; a "frente" do galpão
 // (a abertura) fica em +Z. `baseSize` é o tamanho do modelo como o GLB é desenhado (m). O obstáculo do
 // cenário guarda o tamanho em `widthM` (x), `depthM` (z) e `heightM` (y); a escala de cada eixo é o
 // tamanho do obstáculo dividido pelo `baseSize`, e as caixas de colisão escalam junto.
 //
-// Modelos: kits CC0 da Kenney (https://kenney.nl) e o barracão aberto, gerado por código. Os GLBs vêm
-// de `frontend/scripts/build-object-library.mjs` (créditos em `public/models/objetos/CREDITS.md`). As
-// caixas são aproximações para pré-visualização: capacidade e segurança são do backend (RN-008).
+// Modelos: kits CC0 da Kenney (https://kenney.nl), de `frontend/scripts/build-object-library.mjs`, e o
+// galpão com a frente aberta, o hangar de nermin (CC BY 4.0), de `scripts/build-sketchfab-models.mjs`
+// (créditos em `public/models/objetos/CREDITS.md`). As caixas são aproximações para pré-visualização:
+// capacidade e segurança são do backend (RN-008).
 
 import type { Obstacle } from './environment'
 
@@ -132,66 +133,71 @@ function vehicle(
   }))
 }
 
-// --- Barracão aberto ------------------------------------------------------------------------------
-// Mesmas medidas do gerador (`scripts/build-object-library.mjs`, constante SHED); um teste confere o
-// tamanho do GLB. A frente (a porta) fica em +Z.
+// --- Galpão com a frente aberta ---------------------------------------------------------------------
+// Hangar de nermin (CC BY 4.0), em arco, sem o pano da frente: a abertura fica em +Z e o fundo (-Z)
+// fecha. Medidas do GLB gerado por `scripts/build-sketchfab-models.mjs`; um teste confere o tamanho. O
+// arco é um semicírculo de raio `HANGAR.radius` (largura 16,4 m, altura 8,2 m); a casca é fina
+// (`HANGAR.shell`). A calçada em volta (0,2 m de altura) não colide.
 
-const SHED = {
-  width: 14,
-  depth: 18,
-  wall: 0.4,
-  wallHeight: 7,
-  ridgeHeight: 8.8,
-  doorWidth: 8,
-  doorHeight: 6,
-  roofStrips: 6,
+const HANGAR = {
+  /** Raio do arco = metade da largura do corpo (m). */
+  radius: 8.2,
+  /** Espessura da casca (m). */
+  shell: 0.3,
+  /** Comprimento do corpo (m); a calçada do GLB passa 1,9 m de cada ponta. */
+  length: 23.52,
+  /** Faixas do arco por lado, do eixo à parede. */
+  strips: 10,
+  /** Faixas do fundo por lado. */
+  backStrips: 5,
 } as const
 
-function shedBoxes(): readonly CollisionBox[] {
-  const { width, depth, wall, wallHeight, ridgeHeight, doorWidth, doorHeight } = SHED
-  const hx = width / 2
-  const hz = depth / 2
-  const hd = doorWidth / 2
-  const boxes: CollisionBox[] = [
-    { x: 0, z: -hz + wall / 2, y: 0, w: width, d: wall, h: wallHeight }, // fundo
-    { x: -hx + wall / 2, z: wall / 2, y: 0, w: wall, d: depth - wall, h: wallHeight }, // esquerda
-    { x: hx - wall / 2, z: wall / 2, y: 0, w: wall, d: depth - wall, h: wallHeight }, // direita
-    // Frente: dois pilares e a verga; entre eles fica a porta.
-    {
-      x: -(hd + hx - wall) / 2,
-      z: hz - wall / 2,
-      y: 0,
-      w: hx - wall - hd,
-      d: wall,
-      h: wallHeight,
-    },
-    {
-      x: (hd + hx - wall) / 2,
-      z: hz - wall / 2,
-      y: 0,
-      w: hx - wall - hd,
-      d: wall,
-      h: wallHeight,
-    },
-    { x: 0, z: hz - wall / 2, y: doorHeight, w: doorWidth, d: wall, h: wallHeight - doorHeight },
-  ]
-  // Telhado de duas águas como massa sólida do forro (y = altura do beiral) até a água, em degraus: a
-  // carga e o gancho não atravessam o teto de cima para baixo, e a carga entra pela porta por baixo
-  // dele. A faixa `i` cobre o trecho da água entre as distâncias `near` e `far` do eixo.
-  const rise = ridgeHeight - wallHeight
-  const stripWidth = hx / SHED.roofStrips
-  const surface = (distance: number): number => wallHeight + rise * (1 - distance / hx)
-  for (let i = 0; i < SHED.roofStrips; i += 1) {
-    const near = i * stripWidth
-    const far = (i + 1) * stripWidth
+/** Limites (m a partir do eixo) das faixas de um lado do arco: `raio * sen(ângulo)`, do eixo à parede. */
+function archEdges(count: number): readonly number[] {
+  return Array.from({ length: count + 1 }, (_, i) =>
+    round2(HANGAR.radius * Math.sin(((i / count) * Math.PI) / 2)),
+  )
+}
+
+function hangarBoxes(): readonly CollisionBox[] {
+  const { radius, shell, length, strips, backStrips } = HANGAR
+  const inner = radius - shell
+  const outerAt = (x: number): number => Math.sqrt(Math.max(0, radius * radius - x * x))
+  const innerAt = (x: number): number => (x >= inner ? 0 : Math.sqrt(inner * inner - x * x))
+  const boxes: CollisionBox[] = []
+  // Casca em arco: de cada faixa, a massa entre a face de dentro (a mais baixa, na borda de fora da
+  // faixa) e a de fora (no meio dela). A carga e o gancho não atravessam o teto nem as paredes, e a
+  // carga entra pela abertura da frente (+Z).
+  const edges = archEdges(strips)
+  for (let i = 0; i < strips; i += 1) {
+    const near = edges[i]!
+    const far = edges[i + 1]!
+    const bottom = round2(innerAt(far))
+    const top = round2(outerAt((near + far) / 2))
     for (const side of [-1, 1]) {
       boxes.push({
-        x: round2(side * ((near + far) / 2)),
+        x: round2((side * (near + far)) / 2),
         z: 0,
-        y: wallHeight,
-        w: round2(stripWidth),
-        d: depth,
-        h: round2(surface(near) - wallHeight),
+        y: bottom,
+        w: round2(far - near),
+        d: length,
+        h: round2(top - bottom),
+      })
+    }
+  }
+  // Fundo fechado: o arco cheio, numa parede de `shell` de espessura.
+  const backEdges = archEdges(backStrips)
+  for (let i = 0; i < backStrips; i += 1) {
+    const near = backEdges[i]!
+    const far = backEdges[i + 1]!
+    for (const side of [-1, 1]) {
+      boxes.push({
+        x: round2((side * (near + far)) / 2),
+        z: round2(-length / 2 + shell / 2),
+        y: 0,
+        w: round2(far - near),
+        d: shell,
+        h: round2(outerAt((near + far) / 2)),
       })
     }
   }
@@ -224,7 +230,7 @@ const BUSH: ObjectSize = { w: 1.98, d: 1.98, h: 1.22 }
 const HOUSE_A: ObjectSize = { w: 7.02, d: 5.55, h: 4.5 }
 const HOUSE_D: ObjectSize = { w: 8.08, d: 4.73, h: 5.69 }
 const WAREHOUSE: ObjectSize = { w: 11.82, d: 14.95, h: 8.44 }
-const SHED_SIZE: ObjectSize = { w: SHED.width, d: SHED.depth, h: SHED.ridgeHeight }
+const HANGAR_SIZE: ObjectSize = { w: 19.22, d: 27.44, h: 8.27 }
 const CONTAINER: ObjectSize = { w: 2.72, d: 6, h: 2.54 }
 const TRUCK: ObjectSize = { w: 4.05, d: 7.96, h: 3.51 }
 const TRUCK_FLAT: ObjectSize = { w: 4.05, d: 7.41, h: 3.51 }
@@ -313,11 +319,11 @@ export const OBJECT_LIBRARY: readonly LibraryObject[] = [
   },
   {
     id: 'barracao-aberto',
-    label: 'Barracão com porta aberta',
+    label: 'Galpão com frente aberta',
     category: 'edificacao',
     file: 'objetos/barracao-aberto.glb',
-    baseSize: SHED_SIZE,
-    collision: shedBoxes(),
+    baseSize: HANGAR_SIZE,
+    collision: hangarBoxes(),
   },
   {
     id: 'caminhao',

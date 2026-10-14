@@ -4,6 +4,30 @@ import { useState } from 'react'
 import { Badge, Button, Dialog, IconButton } from '../ui'
 import styles from './HelpButton.module.css'
 
+/** Modelos do Sketchfab (CC BY 4.0) do galpão e dos tipos de carga; o texto completo está nos CREDITS.md. */
+const MODEL_CREDITS: readonly { title: string; author: string; uid: string }[] = [
+  { title: 'Hangar', author: 'nermin', uid: '64f7d287f5274029bc29755a9839ebbf' },
+  { title: 'Wooden Crate', author: 'Memorie', uid: '2a3ac54357bb4b92bfbc119111c09fd1' },
+  { title: 'Shipping Container', author: 'BeaVex', uid: '429e58a328374df4921b8a12bc142b28' },
+  {
+    title: 'Old Pipes Bundle – Modular Industrial Pack',
+    author: 'Alex_Krush',
+    uid: 'fbe3129ea77243ca92c8219f269ac5cf',
+  },
+  { title: 'Diesel generator', author: 'epilogueronin', uid: '7a0b72c7d01944a8aafab59d44eb120e' },
+  { title: 'Electrical Transformer', author: 'abass20', uid: '615fe4b367314a72b7dffb8ec791f575' },
+  {
+    title: 'Concrete Channel Beam Set',
+    author: 'kcproductions211',
+    uid: '3109773bb88a4c8796ca6845c26c7997',
+  },
+  {
+    title: 'Concrete_beam_tubgirder',
+    author: 'kcproductions211',
+    uid: '4e7d470a86854299bcb86c5c19b33111',
+  },
+]
+
 /** Botão de ajuda da barra superior: explica o que é oficial, o que é FICTÍCIO e como usar a cena. */
 export function HelpButton() {
   const [open, setOpen] = useState(false)
@@ -74,6 +98,23 @@ export function HelpButton() {
           <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">
             CC BY 4.0
           </a>
+          .
+        </p>
+        <p className={styles.credit}>
+          Modelos 3D do galpão e das cargas (
+          <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">
+            CC BY 4.0
+          </a>
+          ):{' '}
+          {MODEL_CREDITS.map(({ title, author, uid }, index) => (
+            <span key={uid}>
+              {index > 0 && '; '}
+              <a href={`https://sketchfab.com/3d-models/${uid}`} target="_blank" rel="noreferrer">
+                {title}
+              </a>
+              , de {author}
+            </span>
+          ))}
           .
         </p>
       </Dialog>

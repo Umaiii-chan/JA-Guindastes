@@ -14,7 +14,11 @@ import { evaluationStatus } from '../../application/evaluation/evaluationStatus'
 import { type CargoStatus, INACTIVE_CARGO } from '../../domain/cargo/cargoOperation'
 import type { RecordingFrame, RecordingSnapshot } from '../../application/recording/recording'
 import type { ScenarioSummary } from '../../application/environment/ports'
-import { validateLoadForm, loadWeightTextForEvaluation } from '../../application/load/loadForm'
+import {
+  loadDimensionsOf,
+  loadWeightTextForEvaluation,
+  validateLoadForm,
+} from '../../application/load/loadForm'
 import { guidedStepStatuses, resolveActiveStep } from '../../application/simulator/guidedSteps'
 import { RETRACTED_OUTRIGGERS, type OutriggerState } from '../../domain/crane/outriggers'
 import type { OperationalGeometry } from '../../domain/geometry/operationalGeometry'
@@ -244,9 +248,7 @@ export function SimulatorRoute() {
           loadWeightKg: input.loadWeightKg,
           evaluation: evaluationIsCurrent ? evaluation.result : null,
           // A gravação guarda a cena inteira, não só o guindaste (TASK-068).
-          load: validLoad
-            ? { lengthM: validLoad.lengthM, widthM: validLoad.widthM, heightM: validLoad.heightM }
-            : null,
+          load: validLoad ? loadDimensionsOf(validLoad) : null,
           outriggers,
           accessoryIds,
           ...(cargoStatus.active ? { cargo: cargoStatus.state } : {}),
@@ -406,7 +408,7 @@ export function SimulatorRoute() {
     : tandemActive
       ? null // no tandem, a carga é a do chão (ou içada pelos dois), não a pendurada num gancho
       : validLoad
-        ? { lengthM: validLoad.lengthM, widthM: validLoad.widthM, heightM: validLoad.heightM }
+        ? loadDimensionsOf(validLoad)
         : null
   // Cadeia de acessórios na cena (TASK-056): cada um ocupa `riggingHeightM` abaixo do gancho, e a
   // carga desce a soma. Sem arquivo (ou com o arquivo ausente), só peso e distância.

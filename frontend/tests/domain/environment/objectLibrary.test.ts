@@ -106,9 +106,9 @@ describe('arquivos GLB', () => {
   )
 })
 
-describe('barracão aberto', () => {
+describe('galpão com frente aberta', () => {
   const shed = findLibraryObject('barracao-aberto')!
-  const boxes = (scale = { widthM: 14, depthM: 18, heightM: 8.8 }) =>
+  const boxes = (scale = { widthM: 19.22, depthM: 27.44, heightM: 8.27 }) =>
     scaledCollisionBoxes(scale, shed).map((box) =>
       obbFromFrame(
         IDENTITY_TRANSFORM,
@@ -125,38 +125,59 @@ describe('barracão aberto', () => {
       ),
     )
 
-  it('deixa passar pela porta da frente (+Z) e barra nas paredes, no fundo e no teto', () => {
-    // Pelo meio da porta, de fora até o fundo da planta (a 2 m de altura): livre.
-    expect(crosses([0, 2, 14], [0, 2, -6])).toBe(false)
-    // Mesma altura, mas pelo pilar ao lado da porta, e pela parede lateral e pelo fundo.
-    expect(crosses([5.5, 2, 14], [5.5, 2, 4])).toBe(true)
+  it('é o hangar de 8 m: arco de 16,4 m de largura, aberto em +Z e fechado no fundo', () => {
+    expect(shed.label).toBe('Galpão com frente aberta')
+    expect(shed.file).toBe('objetos/barracao-aberto.glb')
+    expect(shed.baseSize.h).toBeGreaterThanOrEqual(8)
+    expect(shed.baseSize.h).toBeLessThanOrEqual(10)
+  })
+
+  it('deixa passar pela abertura da frente (+Z) e barra nas paredes, no fundo e no teto', () => {
+    // Pelo meio, de fora até o fundo da planta (a 2 m de altura): livre.
+    expect(crosses([0, 2, 16], [0, 2, -10])).toBe(false)
+    // Pelo arco, a 6 m de altura e a 3 m do eixo, ainda dentro do túnel.
+    expect(crosses([3, 6, 16], [3, 6, -10])).toBe(false)
+    // Pela parede lateral (a 8,2 m do eixo), pelo fundo (z = -11,76) e por cima do arco.
     expect(crosses([-12, 2, 0], [0, 2, 0])).toBe(true)
+    expect(crosses([12, 2, 0], [0, 2, 0])).toBe(true)
     expect(crosses([0, 2, 0], [0, 2, -14])).toBe(true)
-    // Por cima da porta, na altura da verga, e de cima para baixo pelo telhado.
-    expect(crosses([0, 6.5, 14], [0, 6.5, 6])).toBe(true)
     expect(crosses([0, 14, 0], [0, 1, 0])).toBe(true)
-    // Uma carga de 3 × 3 × 3 m entra pela porta: nenhuma caixa a toca.
+    // Perto da parede o arco desce: a 7,5 m do eixo, a 2,9 m de altura, já está dentro da casca.
+    expect(crosses([7.5, 2.9, 16], [7.5, 2.9, 0])).toBe(true)
+    // Uma carga de 3 × 3 × 3 m entra pela abertura: nenhuma caixa a toca.
     const load = obbFromFrame(
       IDENTITY_TRANSFORM,
       { x: 0, y: 2.5, z: 0 },
       { x: 1.5, y: 1.5, z: 1.5 },
     )
     expect(boxes().every((obb) => obbPenetration(load, obb) === 0)).toBe(true)
-    // Mas não passa de lado (a porta tem 8 m de largura; a carga está sobre o pilar).
-    const beside = obbFromFrame(
+    // Mas não atravessa a parede lateral.
+    const inWall = obbFromFrame(
       IDENTITY_TRANSFORM,
-      { x: 5.2, y: 2.5, z: 8.8 },
+      { x: 8.1, y: 1.5, z: 0 },
       { x: 1.5, y: 1.5, z: 1.5 },
     )
-    expect(boxes().some((obb) => obbPenetration(beside, obb) > 0)).toBe(true)
+    expect(boxes().some((obb) => obbPenetration(inWall, obb) > 0)).toBe(true)
+  })
+
+  it('as caixas seguem o arco do GLB: semicírculo de 8,2 m de raio', () => {
+    const list = scaledCollisionBoxes({ widthM: 19.22, depthM: 27.44, heightM: 8.27 }, shed)
+    const top = Math.max(...list.map((box) => box.y + box.h))
+    expect(top).toBeGreaterThan(8)
+    expect(top).toBeLessThanOrEqual(8.27)
+    const widest = Math.max(...list.map((box) => Math.abs(box.x) + box.w / 2))
+    expect(widest).toBeCloseTo(8.2, 1)
+    // O fundo (-Z) fecha o arco; a frente (+Z) fica sem caixa nenhuma.
+    expect(list.some((box) => box.z < -11 && box.d < 0.5)).toBe(true)
+    expect(list.every((box) => box.z + box.d / 2 <= 11.77)).toBe(true)
   })
 
   it('a abertura cresce e diminui com a escala do obstáculo', () => {
-    const half = scaledCollisionBoxes({ widthM: 28, depthM: 18, heightM: 8.8 }, shed)
-    const original = scaledCollisionBoxes({ widthM: 14, depthM: 18, heightM: 8.8 }, shed)
-    expect(half.length).toBe(original.length)
-    expect(half[0]!.w).toBeCloseTo(original[0]!.w * 2)
-    expect(half[0]!.d).toBeCloseTo(original[0]!.d)
+    const wide = scaledCollisionBoxes({ widthM: 38.44, depthM: 27.44, heightM: 8.27 }, shed)
+    const original = scaledCollisionBoxes({ widthM: 19.22, depthM: 27.44, heightM: 8.27 }, shed)
+    expect(wide.length).toBe(original.length)
+    expect(wide[0]!.w).toBeCloseTo(original[0]!.w * 2)
+    expect(wide[0]!.d).toBeCloseTo(original[0]!.d)
   })
 })
 

@@ -6,7 +6,8 @@ import {
   type LoadFormValues,
   validateLoadForm,
 } from '../../application/load/loadForm'
-import { Field, Input } from '../ui'
+import { CARGO_TYPES, DEFAULT_CARGO_TYPE, normalizeCargoType } from '../../domain/cargo/cargoTypes'
+import { Field, Input, Select } from '../ui'
 import styles from './panels.module.css'
 
 export interface LoadPanelProps {
@@ -76,6 +77,21 @@ export function LoadPanel({ values, onChange }: LoadPanelProps) {
   return (
     <section className={styles.stack} aria-label="Carga">
       {renderField(DESCRIPTION)}
+      <Field
+        label="Tipo de carga"
+        hint="Só muda o desenho: o modelo é ajustado às medidas abaixo, e o peso é o que você digitar."
+      >
+        <Select
+          value={normalizeCargoType(values.cargoType) ?? DEFAULT_CARGO_TYPE}
+          onChange={(event) => onChange({ ...values, cargoType: event.currentTarget.value })}
+        >
+          {CARGO_TYPES.map((type) => (
+            <option key={type.id} value={type.id}>
+              {type.label}
+            </option>
+          ))}
+        </Select>
+      </Field>
       {renderField(WEIGHT)}
       <div className={styles.grid3}>{DIMENSION_FIELDS.map(renderField)}</div>
       <details className={styles.disclosure} open={cgFilled || undefined}>
