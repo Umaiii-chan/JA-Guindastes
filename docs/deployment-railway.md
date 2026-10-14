@@ -61,3 +61,8 @@ site fica na mesma origem, como em `http://127.0.0.1:8080`.
   volume em `/data/load-charts`; o container roda como usuário 10001, então confira a permissão.
 - O frontend sobe antes do backend no primeiro deploy, e o nginx pode reiniciar até o endereço
   privado do backend existir. A política de reinício cobre isso.
+
+## Problemas comuns
+
+- **502 em `/api` com o frontend no ar:** o frontend não alcança a API pela rede privada. Na API, confira `PORT=8000` e `HOST=::` (a rede privada usa IPv6). O nginx re-resolve o endereço da API a cada 10 s, então não precisa de redeploy do frontend depois de um deploy da API.
+- **Sem seta da API para o banco no canvas:** `DATABASE_URL` não referencia o serviço do banco. Use `${{<nome-do-serviço-do-banco>.DATABASE_URL}}`.

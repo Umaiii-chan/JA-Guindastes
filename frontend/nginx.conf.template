@@ -23,7 +23,11 @@ server {
 
     # API: mesma origem, encaminhada ao backend sem reescrever o caminho (as rotas já começam com /api).
     location /api/ {
-        proxy_pass ${API_UPSTREAM};
+        # Resolve o endereço da API a cada 10 s (e não só ao subir): no Railway o IP privado muda a
+        # cada deploy da API. NGINX_LOCAL_RESOLVERS vem do /etc/resolv.conf (ver frontend/Dockerfile).
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=10s;
+        set $api_upstream ${API_UPSTREAM};
+        proxy_pass $api_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
