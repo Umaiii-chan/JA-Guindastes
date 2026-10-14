@@ -59,6 +59,13 @@ from app.domain.exceptions.geometry_errors import (
 )
 from app.domain.services.capacity_limit import CapacityLimit, evaluate_capacity_limit
 from app.domain.services.compared_load_weight import weight_compared_with_capacity
+from app.domain.services.environment_factors import (
+    SoilKind,
+    slope_blocks,
+    slope_factor,
+    wind_blocks,
+    wind_factor,
+)
 from app.domain.services.geometry_service import calculate_operational_geometry
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
 from app.domain.services.safety_assessment import (
@@ -291,23 +298,34 @@ class EvaluateOperation:
         outriggers: OutriggerSetting | None = None,
         ground_slope_deg: float | None = None,
         accessory_ids: Sequence[str] = (),
+        soil_kinds: Sequence[SoilKind] = (),
+        wind_speed_ms: float | None = None,
+        obstacle_conflicts: Sequence[str] = (),
     ) -> OperationEvaluation:
         """Avalia como `_evaluate_load_chart` e acrescenta o risco de tombamento e os alertas.
 
         `outriggers` e `ground_slope_deg` são opcionais (leva E; ADR-025): ausentes, não entram
-        no risco e geram alertas INFO de "não informado" (RN-013).
+        no risco e geram alertas INFO de "não informado" (RN-013). `soil_kinds`, `wind_speed_ms` e
+        `obstacle_conflicts` (RN-015; ADR-033) também são opcionais, mas ausentes não geram alerta.
+        A inclinação e o vento reduzem a capacidade efetiva (`capacity_limit`).
         """
+        profile = self.safety_profile(configuration_id)
         evaluation = self._evaluate_load_chart(
             configuration_id=configuration_id,
             state=state,
             load_weight=load_weight,
             accessory_ids=accessory_ids,
+            ground_slope_deg=ground_slope_deg,
+            wind_speed_ms=wind_speed_ms,
+            profile=profile,
         )
-        profile = self.safety_profile(configuration_id)
         capacity = evaluation.capacity
         if isinstance(capacity, CapacityFound):
             level = limit_level(
-                evaluation.compared_weight.kilograms, capacity.max_capacity.kilograms, profile
+                evaluation.compared_weight.kilograms,
+                capacity.max_capacity.kilograms,
+                profile,
+                slope_factor(ground_slope_deg, profile) * wind_factor(wind_speed_ms),
             )
         else:
             level = None
@@ -321,6 +339,10 @@ class EvaluateOperation:
             outside_chart=outside_chart,
             outriggers=outriggers,
             ground_slope_deg=ground_slope_deg,
+            compared_weight_kg=evaluation.compared_weight.kilograms,
+            soil_kinds=soil_kinds,
+            wind_speed_ms=wind_speed_ms,
+            obstacle_conflicts=obstacle_conflicts,
         )
         return replace(evaluation, tipping_risk=assessment.tipping_risk, alerts=assessment.alerts)
 
@@ -337,6 +359,9 @@ class EvaluateOperation:
         state: OperationalState,
         load_weight: Mass,
         accessory_ids: Sequence[str] = (),
+        ground_slope_deg: float | None = None,
+        wind_speed_ms: float | None = None,
+        profile: SafetyProfile | None = None,
     ) -> OperationEvaluation:
         """Avalia `state` com o peso da carga `load_weight` na configuração `configuration_id`.
 
@@ -349,6 +374,7 @@ class EvaluateOperation:
 
         Levanta `InconsistentActiveLoadChartError` se o provedor da tabela quebrar o contrato.
         """
+        safety_profile = SafetyProfile() if profile is None else profile
         rules = self._load_rules(configuration_id)
         hook_block_weight = rules.hook_block_weight or ZERO_MASS
         accessories, missing_accessories = self._resolve_accessories(accessory_ids)
@@ -415,7 +441,13 @@ class EvaluateOperation:
             hook_block_weight=hook_block_weight,
             rotation_zone=zone,
             capacity_limit=evaluate_capacity_limit(
-                capacity.max_capacity, compared_weight, self._crane_limits(configuration_id)
+                capacity.max_capacity,
+                compared_weight,
+                self._crane_limits(configuration_id),
+                slope_factor=slope_factor(ground_slope_deg, safety_profile),
+                wind_factor=wind_factor(wind_speed_ms),
+                blocked=slope_blocks(ground_slope_deg, safety_profile)
+                or wind_blocks(wind_speed_ms),
             ),
             accessories=accessories,
         )

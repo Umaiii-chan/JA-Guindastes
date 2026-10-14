@@ -37,6 +37,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from app.application.use_cases.evaluate_operation import EvaluateOperation, OperationEvaluation
 from app.domain.exceptions.domain_errors import DomainError
+from app.domain.services.environment_factors import SoilKind
 from app.domain.services.safety_assessment import OutriggerSetting
 from app.domain.value_objects.angle import Angle
 from app.domain.value_objects.length import Length
@@ -255,4 +256,11 @@ def _evaluate(
         ),
         ground_slope_deg=payload.ground_slope_deg,
         accessory_ids=payload.accessory_ids,
+        soil_kinds=(
+            ()
+            if payload.soil_kinds is None
+            else tuple(SoilKind(name) for name in payload.soil_kinds)
+        ),
+        wind_speed_ms=payload.wind_speed_ms,
+        obstacle_conflicts=payload.obstacle_conflicts,
     )

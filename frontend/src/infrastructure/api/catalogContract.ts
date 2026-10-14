@@ -57,6 +57,9 @@ export interface CraneLimitsDto {
   readonly warning_band_percent?: number
   readonly max_ground_slope_deg?: number
   readonly max_leveling_deg?: number
+  readonly slope_derating_percent_per_deg?: number
+  readonly crane_mass_kg?: number
+  readonly outrigger_pad_area_m2?: number
 }
 
 export function toCraneLimitsDto(limits: Partial<CraneLimits> | undefined): CraneLimitsDto {
@@ -72,6 +75,13 @@ export function toCraneLimitsDto(limits: Partial<CraneLimits> | undefined): Cran
       max_ground_slope_deg: limits.maxGroundSlopeDeg,
     }),
     ...(limits.maxLevelingDeg !== undefined && { max_leveling_deg: limits.maxLevelingDeg }),
+    ...(limits.slopeDeratingPercentPerDeg !== undefined && {
+      slope_derating_percent_per_deg: limits.slopeDeratingPercentPerDeg,
+    }),
+    ...(limits.craneMassKg !== undefined && { crane_mass_kg: limits.craneMassKg }),
+    ...(limits.outriggerPadAreaM2 !== undefined && {
+      outrigger_pad_area_m2: limits.outriggerPadAreaM2,
+    }),
   }
 }
 
@@ -147,6 +157,9 @@ export const REQUEST_FIELD_FROM_DTO: Readonly<Record<string, string>> = {
   warning_band_percent: 'warningBandPercent',
   max_ground_slope_deg: 'maxGroundSlopeDeg',
   max_leveling_deg: 'maxLevelingDeg',
+  slope_derating_percent_per_deg: 'slopeDeratingPercentPerDeg',
+  crane_mass_kg: 'craneMassKg',
+  outrigger_pad_area_m2: 'outriggerPadAreaM2',
   start_deg: 'startDeg',
   end_deg: 'endDeg',
 }

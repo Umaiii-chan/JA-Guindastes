@@ -138,6 +138,12 @@ export function AccessoryPanel({
                     ) : (
                       <span className={styles.itemMeta}>não está mais no catálogo</span>
                     )}
+                    {accessory?.credit && (
+                      <span className={styles.itemMeta}>
+                        Modelo 3D: {accessory.credit}
+                        {accessory.license ? ` · ${accessory.license}` : ''}
+                      </span>
+                    )}
                     {accessory &&
                       (accessory.modelFile === null || failedModelIds?.has(accessory.id)) && (
                         <Badge tone="warning" variant="outline">

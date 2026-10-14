@@ -54,7 +54,11 @@ from app.domain.value_objects.angle import Angle
 from app.domain.value_objects.length import Length
 from app.domain.value_objects.mass import Mass
 from app.domain.value_objects.operational_state import OperationalState
-from app.presentation.api.evaluation_schemas import EvaluationRequest, EvaluationResponse
+from app.presentation.api.evaluation_schemas import (
+    EvaluationRequest,
+    EvaluationResponse,
+    to_soil_kinds,
+)
 
 EVALUATIONS_PATH = "/api/v1/evaluations"
 
@@ -171,6 +175,9 @@ def create_evaluations_router(
             outriggers=None if request.outriggers is None else request.outriggers.to_setting(),
             ground_slope_deg=request.ground_slope_deg,
             accessory_ids=request.accessory_ids,
+            soil_kinds=to_soil_kinds(request.soil_kinds),
+            wind_speed_ms=request.wind_speed_ms,
+            obstacle_conflicts=request.obstacle_conflicts,
         )
         return EvaluationResponse.from_evaluation(request.configuration_id, evaluation)
 

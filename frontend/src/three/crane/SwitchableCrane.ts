@@ -17,6 +17,8 @@ export interface CollisionGuard {
 
 /** Iterações da busca binária pelo estado seguro mais próximo (resolução ~ faixa / 2^30). */
 const GUARD_ITERATIONS = 30
+/** Folga numérica (m) ao comparar penetrações. */
+const SAFE_EPSILON_M = 1e-6
 
 /**
  * Comandos do guindaste que continuam valendo quando o modelo 3D da cena é trocado (TASK-041): a UI
@@ -111,29 +113,38 @@ export class SwitchableCrane implements CraneCommands {
     if (!guard) return this.run(apply(value))
 
     const previous = this.controller.getState()
-    const previousSafe = guard.evaluate(previous).hits.length === 0
+    const previousReport = guard.evaluate(previous)
+    // Estado de partida já colidindo (o cenário mudou sob o guindaste): só se aceita o que não
+    // aumenta a penetração, para dar para sair dali (ex.: subir o cabo).
+    const limit = previousReport.hits.length === 0 ? 0 : previousReport.penetrationM
+    const isSafe = (report: CollisionReport): boolean =>
+      report.hits.length === 0 || report.penetrationM <= limit + SAFE_EPSILON_M
     const applied = apply(value)
-    const proposed = guard.evaluate(this.controller.getState())
-    if (proposed.hits.length === 0 || !previousSafe) {
+    const proposedState = this.controller.getState()
+    const proposed = guard.evaluate(proposedState)
+    if (isSafe(proposed)) {
       this.run(applied)
       guard.onResult({ ...proposed, blocked: false })
       return applied
     }
 
-    // Colide: o valor anterior é seguro e o pedido não. Busca o mais próximo do pedido que é seguro.
-    const proposedState = this.controller.getState()
+    // Recusado: o valor anterior é aceitável e o pedido não. Busca o mais próximo do pedido que é.
     let safe = previous[key]
     let unsafe = proposedState[key]
     for (let i = 0; i < GUARD_ITERATIONS; i++) {
       const middle = (safe + unsafe) / 2
-      const hits = guard.evaluate({ ...proposedState, [key]: middle }).hits
-      if (hits.length === 0) safe = middle
+      if (isSafe(guard.evaluate({ ...proposedState, [key]: middle }))) safe = middle
       else unsafe = middle
     }
     const final = apply(safe)
     this.run(final)
-    const alerts = guard.evaluate(this.controller.getState()).alerts
-    guard.onResult({ hits: proposed.hits, alerts, blocked: true })
+    const after = guard.evaluate(this.controller.getState())
+    guard.onResult({
+      hits: proposed.hits,
+      alerts: after.alerts,
+      penetrationM: proposed.penetrationM,
+      blocked: true,
+    })
     return final
   }
 

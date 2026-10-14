@@ -23,6 +23,7 @@ from app.application.use_cases.evaluate_operation import (
 )
 from app.domain.exceptions.geometry_errors import OperationalLimitViolation
 from app.domain.services.capacity_limit import CapacityLimit, CapacityLimitLevel
+from app.domain.services.environment_factors import SoilKind
 from app.domain.services.safety_assessment import (
     AlertSeverity,
     OutriggerSetting,
@@ -132,6 +133,35 @@ class EvaluationRequest(BaseModel):
         "o peso do acessório ao peso comparado; o mesmo id repetido soma de novo. Id desconhecido "
         "deixa a operação `NOT_EVALUABLE` com `ACCESSORY_NOT_FOUND`.",
     )
+    soil_kinds: list[SoilKindName] | None = Field(
+        default=None,
+        min_length=4,
+        max_length=4,
+        description="Solo sob as 4 sapatas, na ordem dianteira esquerda, dianteira direita, "
+        "traseira esquerda, traseira direita (opcional; RN-015). Ausente, não entra na avaliação.",
+    )
+    wind_speed_ms: float | None = Field(
+        default=None,
+        ge=0,
+        description="Velocidade do vento, em m/s (opcional; RN-015). Ausente, não entra na "
+        "avaliação.",
+    )
+    obstacle_conflicts: list[Annotated[str, StringConstraints(min_length=1, max_length=64)]] = (
+        Field(
+            default_factory=list,
+            max_length=50,
+            description="Ids dos obstáculos no raio de giro (opcional; RN-015). Não vazia, o "
+            "risco vira atenção.",
+        )
+    )
+
+
+SoilKindName = Literal["rock", "compacted", "clay", "loose_fill"]
+"""Tipos de solo aceitos (RN-015); os mesmos valores de `SoilKind`."""
+
+
+def to_soil_kinds(names: list[SoilKindName] | None) -> tuple[SoilKind, ...]:
+    return () if names is None else tuple(SoilKind(name) for name in names)
 
 
 class Point3DResponse(BaseModel):
@@ -246,6 +276,12 @@ class CapacityLimitResponse(BaseModel):
     warning_band_percent: float = Field(
         description="A partir desta % do limite, o nível é `WARNING`."
     )
+    slope_factor: float = Field(
+        default=1.0, description="Fator de inclinação aplicado à capacidade efetiva (RN-015)."
+    )
+    wind_factor: float = Field(
+        default=1.0, description="Fator de vento aplicado à capacidade efetiva (RN-015)."
+    )
     level: CapacityLimitLevel = Field(
         description="`OK`; `WARNING` na faixa de atenção; `OVER` acima da capacidade efetiva."
     )
@@ -260,6 +296,8 @@ class CapacityLimitResponse(BaseModel):
             limit_utilization_percent=limit.limit_utilization_percent,
             warning_band_percent=limit.warning_band_percent,
             level=limit.level,
+            slope_factor=limit.slope_factor,
+            wind_factor=limit.wind_factor,
         )
 
 

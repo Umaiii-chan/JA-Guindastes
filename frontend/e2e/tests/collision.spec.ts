@@ -58,3 +58,38 @@ test('baixar o cabo até a carga tocar o chão para o cabo e mostra o alerta de 
   await expect(page.getByRole('group', { name: 'Colisões' })).toHaveCount(0)
   expect(pageErrors).toEqual([])
 })
+
+test('TASK-063: nenhum comando (cabo, giro, lança) leva a carga ao chão ou para dentro do corpo', async ({
+  page,
+}) => {
+  const pageErrors: string[] = []
+  page.on('pageerror', (error) => pageErrors.push(error.message))
+  await openPositionStep(page)
+  const hookHeight = page
+    .getByRole('region', { name: /Geometria/ })
+    .locator('dt:text-is("Altura do gancho") + dd')
+  // A guarda só mostra «Colisão da carga» (sem «bloqueado») quando o estado em si colide.
+  const standingCollision = page.getByRole('alert').filter({ hasText: /^(?!.*bloqueado).*Colisão/ })
+
+  // Cabo no fim: o gancho fica acima do chão (a carga não entra na terra).
+  const cable = page.getByLabel('Comprimento do cabo')
+  await cable.focus()
+  await cable.press('End')
+  expect(metersOf(await hookHeight.textContent())).toBeGreaterThan(1)
+
+  // Gira a torre pelo curso todo com a lança baixa e o cabo longo: a carga não pode ficar dentro do
+  // caminhão, da cabine ou da torre; todo comando termina num estado sem colisão.
+  const turret = page.getByLabel('Giro da torre')
+  const boom = page.getByLabel('Inclinação da lança')
+  await boom.focus()
+  await boom.press('Home')
+  for (const key of ['Home', 'PageUp', 'PageUp', 'PageUp', 'End']) {
+    await turret.focus()
+    await turret.press(key)
+    await expect(standingCollision).toHaveCount(0)
+    expect(metersOf(await hookHeight.textContent())).toBeGreaterThan(1)
+  }
+  await boom.press('End')
+  await expect(standingCollision).toHaveCount(0)
+  expect(pageErrors).toEqual([])
+})

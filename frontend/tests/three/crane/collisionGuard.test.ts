@@ -16,6 +16,8 @@ function craneWith(forbidden: (state: CraneState) => boolean) {
     evaluate: (state) => ({
       hits: forbidden(state) ? [{ subject: 'load', target: { kind: 'terrain' } }] : [],
       alerts: [],
+      // Penetração: quanto o cabo passa de 2 m (só importa para o estado já colidindo).
+      penetrationM: forbidden(state) ? Math.max(0.001, state.cableLengthM - 2) : 0,
     }),
     onResult: (result) => results.push(result),
   }
@@ -49,7 +51,7 @@ describe('guarda de colisões do SwitchableCrane', () => {
     crane.setCableLength(15)
 
     expect(crane.setCableLength(5)).toBe(5)
-    expect(results.at(-1)).toEqual({ hits: [], alerts: [], blocked: false })
+    expect(results.at(-1)).toEqual({ hits: [], alerts: [], penetrationM: 0, blocked: false })
   })
 
   it('vale para qualquer comando, não só o cabo', () => {
@@ -59,12 +61,15 @@ describe('guarda de colisões do SwitchableCrane', () => {
     expect(crane.setBoomAngle(80)).toBeGreaterThan(49.999)
   })
 
-  it('já colidindo (o cenário mudou), os comandos passam para a pessoa poder sair', () => {
+  it('já colidindo (o cenário mudou), só passa o que não aumenta a penetração', () => {
     const { crane, results } = craneWith((state) => state.cableLengthM > 2)
 
-    expect(crane.setCableLength(10)).toBe(10)
-    expect(results.at(-1)?.blocked).toBe(false)
-    expect(results.at(-1)?.hits).toHaveLength(1)
+    // Descer mais é recusado: o cabo fica onde estava (3 m).
+    expect(crane.setCableLength(10)).toBeCloseTo(3, 3)
+    expect(results.at(-1)?.blocked).toBe(true)
+    // Subir o cabo sai da colisão.
+    expect(crane.setCableLength(1)).toBe(1)
+    expect(results.at(-1)).toMatchObject({ blocked: false, hits: [] })
   })
 
   it('sem guarda, comanda como antes; `revalidate` avisa o estado atual', () => {

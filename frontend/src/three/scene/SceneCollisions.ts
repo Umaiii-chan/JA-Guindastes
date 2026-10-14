@@ -23,7 +23,12 @@ export class SceneCollisions implements CollisionGuard {
 
   private scenario: ScenarioSpec = EMPTY_SCENARIO
   private body: CraneBody
-  private latest: CollisionState = { hits: [], alerts: [], blocked: false }
+  private latest: CollisionState = {
+    hits: [],
+    alerts: [],
+    penetrationM: 0,
+    blocked: false,
+  }
   private listener: ((state: CollisionState) => void) | null = null
 
   private readonly hookLoad: HookLoad

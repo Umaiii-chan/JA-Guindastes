@@ -166,6 +166,12 @@ export function SimulatorRoute() {
           configurationId: input.configurationId,
           loadWeightKg: input.loadWeightKg,
           evaluation: evaluationIsCurrent ? evaluation.result : null,
+          // A gravação guarda a cena inteira, não só o guindaste (TASK-068).
+          load: validLoad
+            ? { lengthM: validLoad.lengthM, widthM: validLoad.widthM, heightM: validLoad.heightM }
+            : null,
+          outriggers,
+          accessoryIds,
         }
       : null
   // Reprodução: cada quadro vira a pose aplicada na cena, sem avaliar (RN-008).
@@ -181,7 +187,11 @@ export function SimulatorRoute() {
     },
     [craneCommands],
   )
-  const recording = useSimulationRecording({ snapshot, onFrame: applyFrame })
+  const recording = useSimulationRecording({
+    snapshot,
+    scenario: scenario.spec,
+    onFrame: applyFrame,
+  })
   const { playbackFrame } = recording
   const locked = playbackFrame !== null
   const shownResult = playbackFrame ? playbackFrame.evaluation : evaluation.result
@@ -269,13 +279,16 @@ export function SimulatorRoute() {
     boomLengthM: input?.boomLengthM ?? null,
     loadWeightKg: input?.loadWeightKg ?? null,
   })
-  const sceneLoad = validLoad
-    ? { lengthM: validLoad.lengthM, widthM: validLoad.widthM, heightM: validLoad.heightM }
-    : null
+  // Na reprodução, a cena mostra o que foi gravado: carga, acessórios, patolas e ambiente.
+  const sceneLoad = playbackFrame
+    ? (playbackFrame.load ?? null)
+    : validLoad
+      ? { lengthM: validLoad.lengthM, widthM: validLoad.widthM, heightM: validLoad.heightM }
+      : null
   // Cadeia de acessórios na cena (TASK-056): cada um ocupa `riggingHeightM` abaixo do gancho, e a
   // carga desce a soma. Sem arquivo (ou com o arquivo ausente), só peso e distância.
   const sceneAccessories: readonly SceneAccessory[] = resolveAccessories(
-    accessoryIds,
+    playbackFrame ? (playbackFrame.accessoryIds ?? []) : accessoryIds,
     accessoryCatalog.items,
   ).accessories.map((item) => ({
     id: item.id,
@@ -323,9 +336,11 @@ export function SimulatorRoute() {
         accessories={sceneAccessories}
         onAccessoryModelResult={handleAccessoryModelResult}
         onCollisionChange={onCollisionChange}
-        outriggers={outriggers}
+        outriggers={playbackFrame?.outriggers ?? outriggers}
         operatingArea={operatingAreaEnabled ? operatingArea.area : null}
-        scenario={scenario.spec}
+        scenario={
+          playbackFrame ? (recording.player.recording?.scenario ?? scenario.spec) : scenario.spec
+        }
         editor={editor.viewportEditor}
       />
     </SceneErrorBoundary>

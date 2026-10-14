@@ -34,6 +34,12 @@ export interface RecordingSnapshot {
   readonly outriggers?: OutriggerState
   readonly accessoryIds?: readonly string[]
   readonly collisions?: readonly RecordedCollision[]
+  /** Medidas da carga desenhada (m); `null` sem carga desenhada (TASK-068). */
+  readonly load?: {
+    readonly lengthM: number
+    readonly widthM: number
+    readonly heightM: number
+  } | null
 }
 
 /** Quadro gravado: `tMs` é o tempo desde o início da gravação. */

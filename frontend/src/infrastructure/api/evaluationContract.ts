@@ -19,12 +19,25 @@ export interface EvaluationRequestDto {
   readonly ground_slope_deg?: number
   /** TASK-056 (RN-014): só vai com acessórios escolhidos. */
   readonly accessory_ids?: readonly string[]
-  /** TASK-066: tipo de solo sob as sapatas (fl, fr, rl, rr); só com solo pintado. */
+  /** TASK-067 (RN-015): opcionais; ausentes não têm efeito. */
   readonly soil_kinds?: readonly string[]
-  /** TASK-066: vento do cenário (m/s); só com vento. */
   readonly wind_speed_ms?: number
-  /** TASK-066: ids de obstáculos em conflito com a operação; só quando há. */
   readonly obstacle_conflicts?: readonly string[]
+}
+
+/** Campos do ambiente da requisição (TASK-067), só os informados. */
+export function toEnvironmentDto(input: EvaluationInput): {
+  soil_kinds?: readonly string[]
+  wind_speed_ms?: number
+  obstacle_conflicts?: readonly string[]
+} {
+  return {
+    ...(input.soilKinds && input.soilKinds.length === 4 ? { soil_kinds: input.soilKinds } : {}),
+    ...(input.windSpeedMs !== undefined && { wind_speed_ms: input.windSpeedMs }),
+    ...(input.obstacleConflicts && input.obstacleConflicts.length > 0
+      ? { obstacle_conflicts: input.obstacleConflicts }
+      : {}),
+  }
 }
 
 /** Estado das patolas no JSON (leva E; TASK-054). */
@@ -116,19 +129,8 @@ export interface CapacityLimitDto {
   readonly limit_utilization_percent: number
   readonly warning_band_percent: number
   readonly level: 'OK' | 'WARNING' | 'OVER'
-}
-
-/** Campos do cenário da TASK-066 no JSON (`soil_kinds`, `wind_speed_ms`, `obstacle_conflicts`). */
-export function toScenarioEvaluationDto(
-  input: EvaluationInput,
-): Pick<EvaluationRequestDto, 'soil_kinds' | 'wind_speed_ms' | 'obstacle_conflicts'> {
-  return {
-    ...(input.soilKinds && input.soilKinds.length > 0 ? { soil_kinds: input.soilKinds } : {}),
-    ...(input.windSpeedMs !== undefined ? { wind_speed_ms: input.windSpeedMs } : {}),
-    ...(input.obstacleConflicts && input.obstacleConflicts.length > 0
-      ? { obstacle_conflicts: input.obstacleConflicts }
-      : {}),
-  }
+  readonly slope_factor?: number
+  readonly wind_factor?: number
 }
 
 export function toEvaluationRequestDto(input: EvaluationInput): EvaluationRequestDto {
@@ -144,6 +146,6 @@ export function toEvaluationRequestDto(input: EvaluationInput): EvaluationReques
     ...(input.accessoryIds && input.accessoryIds.length > 0
       ? { accessory_ids: input.accessoryIds }
       : {}),
-    ...toScenarioEvaluationDto(input),
+    ...toEnvironmentDto(input),
   }
 }

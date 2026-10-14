@@ -91,12 +91,12 @@ test.describe('resultado da simulação, no navegador', () => {
 
     // A lança anda livre, de 0,1 em 0,1 m, e o resultado continua chegando entre as colunas.
     await boom.focus()
-    await boom.press('Home')
-    await boom.press('ArrowRight')
-    await boom.press('ArrowRight')
-    await expect(boom).toHaveValue('10.2')
+    await boom.press('End')
+    await boom.press('ArrowLeft')
+    await boom.press('ArrowLeft')
+    await expect(boom).toHaveValue('29.8')
     await expect(hudMetric(page, 'Capacidade')).toHaveText('8.000 kg')
-    await expect.poll(() => sentLengths.some((length) => Math.abs(length - 10.2) < 1e-6)).toBe(true)
+    await expect.poll(() => sentLengths.some((length) => Math.abs(length - 29.8) < 1e-6)).toBe(true)
 
     if (SCREENSHOT_DIR) {
       await page.screenshot({ path: `${SCREENSHOT_DIR}/simulador-lanca-livre.png` })

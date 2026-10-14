@@ -24,7 +24,7 @@ import {
   applyTransform,
   type Obb,
   obbFromFrame,
-  obbOverlap,
+  obbPenetration,
   obbSurfacePoints,
   rotX,
   rotY,
@@ -110,6 +110,11 @@ export interface CollisionAlert {
 export interface CollisionReport {
   readonly hits: readonly CollisionHit[]
   readonly alerts: readonly CollisionAlert[]
+  /**
+   * Soma (m) das profundidades de penetração (terreno, corpo, obstáculos); 0 sem colisão. A guarda usa
+   * isto quando o estado de partida já colide: só aceita comandos que não aumentem a penetração.
+   */
+  readonly penetrationM: number
 }
 
 /**
@@ -120,7 +125,12 @@ export interface CollisionState extends CollisionReport {
   readonly blocked: boolean
 }
 
-export const NO_COLLISION: CollisionState = { hits: [], alerts: [], blocked: false }
+export const NO_COLLISION: CollisionState = {
+  hits: [],
+  alerts: [],
+  penetrationM: 0,
+  blocked: false,
+}
 
 /** Altura (m) abaixo do terreno que ainda se aceita (ruído numérico): a busca binária para dentro dela. */
 export const TERRAIN_TOLERANCE_M = 1e-4
@@ -158,7 +168,7 @@ export function craneBodyObbs(
   body: CraneBody,
   state: CollisionCraneState,
   scenario: ScenarioSpec,
-): { readonly id: string; readonly obb: Obb }[] {
+): { readonly id: string; readonly frame: BodyFrame; readonly obb: Obb }[] {
   const base = craneBaseTransform(scenario)
   const turret = compose(base, { rot: rotY(state.turretRotationDeg * DEG), pos: body.turretOffset })
   const boom = compose(turret, { rot: rotX(-state.boomAngleDeg * DEG), pos: body.boomPivot })
@@ -173,6 +183,7 @@ export function craneBodyObbs(
   const frames: Record<BodyFrame, Transform> = { base, turret, boom, boomExtension: extension }
   return body.boxes.map((box) => ({
     id: box.id,
+    frame: box.frame,
     obb: obbFromFrame(frames[box.frame], box.center, box.half),
   }))
 }
@@ -226,15 +237,26 @@ export function payloadObbs(
 
 /** A caixa entra no terreno? Amostra a superfície da caixa e compara com a altura do terreno. */
 export function obbHitsTerrain(obb: Obb, terrain: TerrainSpec): boolean {
-  return obbSurfacePoints(obb).some(
-    (point) => point.y < terrainHeightAt(terrain, point.x, point.z) - TERRAIN_TOLERANCE_M,
-  )
+  return obbTerrainDepth(obb, terrain) > 0
 }
+
+/** Quanto (m) o ponto mais fundo da caixa está abaixo do terreno (0 se nenhum ponto passa da tolerância). */
+export function obbTerrainDepth(obb: Obb, terrain: TerrainSpec): number {
+  let depth = 0
+  for (const point of obbSurfacePoints(obb)) {
+    const below = terrainHeightAt(terrain, point.x, point.z) - point.y
+    if (below > TERRAIN_TOLERANCE_M) depth = Math.max(depth, below)
+  }
+  return depth
+}
+
+/** Frames do corpo que o gancho sem carga não pode atravessar (a lança é onde ele fica preso). */
+const HOOK_SOLID_FRAMES: ReadonlySet<BodyFrame> = new Set<BodyFrame>(['base', 'turret'])
 
 /**
  * Avalia o estado: o que a carga (ou o gancho) atinge e o que o cabo e a lança atravessam.
- * O gancho sem carga só é testado contra o terreno e os obstáculos; contra o corpo, não, porque o
- * gancho sobe até a ponta da lança por construção (e a caixa aproximada daria falso positivo).
+ * O gancho sem carga também é testado contra o terreno, os obstáculos e o chassi/torre (não contra
+ * a lança, onde ele fica preso por construção).
  */
 export function evaluateCollisions(input: CollisionInput): CollisionReport {
   const { scenario } = input
@@ -245,17 +267,25 @@ export function evaluateCollisions(input: CollisionInput): CollisionReport {
   }))
   const bodyObbs = input.body ? craneBodyObbs(input.body, input.state, scenario) : []
 
+  let penetrationM = 0
   for (const { subject, obb } of payloadObbs(input)) {
-    if (obbHitsTerrain(obb, scenario.terrain)) hits.push({ subject, target: { kind: 'terrain' } })
-    if (subject === 'load') {
-      for (const part of bodyObbs) {
-        if (obbOverlap(obb, part.obb)) {
-          hits.push({ subject, target: { kind: 'crane', part: part.id, obb: part.obb } })
-        }
+    const terrainDepth = obbTerrainDepth(obb, scenario.terrain)
+    if (terrainDepth > 0) {
+      hits.push({ subject, target: { kind: 'terrain' } })
+      penetrationM += terrainDepth
+    }
+    for (const part of bodyObbs) {
+      if (subject === 'hook' && !HOOK_SOLID_FRAMES.has(part.frame)) continue
+      const depth = obbPenetration(obb, part.obb)
+      if (depth > 0) {
+        hits.push({ subject, target: { kind: 'crane', part: part.id, obb: part.obb } })
+        penetrationM += depth
       }
     }
     for (const { obstacle, obb: obstacleBox } of obstacles) {
-      if (obbOverlap(obb, obstacleBox)) {
+      const depth = obbPenetration(obb, obstacleBox)
+      if (depth > 0) {
+        penetrationM += depth
         hits.push({
           subject,
           target: { kind: 'obstacle', id: obstacle.id, label: obstacle.label, obb: obstacleBox },
@@ -273,7 +303,7 @@ export function evaluateCollisions(input: CollisionInput): CollisionReport {
       if (segmentIntersectsObb(pivot, tip, obb)) alerts.push({ segment: 'boom', ...entry })
     }
   }
-  return { hits, alerts }
+  return { hits, alerts, penetrationM }
 }
 
 /** Alvo legível em português, para a UI e o handoff. */
