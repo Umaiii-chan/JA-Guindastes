@@ -1,0 +1,90 @@
+import {
+  type CollisionReport,
+  type CollisionState,
+  type CraneBody,
+  evaluateCollisions,
+} from '../../domain/collision/collisions'
+import { EMPTY_SCENARIO, type ScenarioSpec } from '../../domain/environment/environment'
+import type { CraneGeometryParameters } from '../../domain/geometry/operationalGeometry'
+import type { CraneRig } from '../crane/CraneController'
+import { measureCraneBody } from '../crane/craneBody'
+import type { CollisionGuard } from '../crane/SwitchableCrane'
+import type { CraneState } from '../crane/types'
+import { CollisionHighlight } from './CollisionHighlight'
+import type { HookLoad } from './HookLoad'
+
+/**
+ * Liga o domínio de colisões (`domain/collision`) à cena (TASK-053; ADR-028): guarda os dados do
+ * cenário (só para colidir; quem desenha terreno e obstáculos é a TASK-052), mede o corpo do rig em
+ * uso, lê a caixa da carga e do gancho e destaca em vermelho o que foi atingido.
+ */
+export class SceneCollisions implements CollisionGuard {
+  readonly highlight = new CollisionHighlight()
+
+  private scenario: ScenarioSpec = EMPTY_SCENARIO
+  private body: CraneBody
+  private latest: CollisionState = { hits: [], alerts: [], blocked: false }
+  private listener: ((state: CollisionState) => void) | null = null
+
+  private readonly hookLoad: HookLoad
+  private readonly geometryParameters: CraneGeometryParameters
+
+  constructor(rig: CraneRig, hookLoad: HookLoad, geometryParameters: CraneGeometryParameters) {
+    this.hookLoad = hookLoad
+    this.geometryParameters = geometryParameters
+    this.body = measureCraneBody(rig)
+  }
+
+  /** Caixas do corpo do guindaste medidas no rig em uso. */
+  get currentBody(): CraneBody {
+    return this.body
+  }
+
+  /** Cenário usado nos testes de colisão. */
+  get currentScenario(): ScenarioSpec {
+    return this.scenario
+  }
+
+  /** Último estado de colisão informado pela guarda. */
+  get state(): CollisionState {
+    return this.latest
+  }
+
+  setScenario(spec: ScenarioSpec): void {
+    this.scenario = spec
+  }
+
+  /** Mede o corpo de novo, depois da troca do guindaste provisório pelo modelo 3D. */
+  setRig(rig: CraneRig): void {
+    this.body = measureCraneBody(rig)
+  }
+
+  /** Quem recebe o estado de colisão quando ele muda (a UI, a gravação). */
+  setListener(listener: ((state: CollisionState) => void) | null): void {
+    this.listener = listener
+  }
+
+  evaluate(state: CraneState): CollisionReport {
+    return evaluateCollisions({
+      state,
+      geometryParameters: this.geometryParameters,
+      scenario: this.scenario,
+      body: this.body,
+      load: this.hookLoad.currentLayout,
+      hook: this.hookLoad.currentHookBox,
+    })
+  }
+
+  /** Estado depois de um comando (ou de uma reavaliação): pinta o que foi atingido e avisa. */
+  onResult(result: CollisionState): void {
+    this.latest = result
+    this.hookLoad.setCollisionHighlight(result.hits.some((hit) => hit.subject === 'load'))
+    this.highlight.show(result)
+    this.listener?.(result)
+  }
+
+  dispose(): void {
+    this.listener = null
+    this.highlight.dispose()
+  }
+}

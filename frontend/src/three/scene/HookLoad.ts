@@ -22,7 +22,7 @@ import {
   type LoadDimensions,
   sameLoad,
 } from './loadBox'
-import { type EvaluationStatus, SCENE_COLORS, statusColor } from './palette'
+import { type EvaluationStatus, SCENE_COLORS, STATUS_COLORS, statusColor } from './palette'
 
 // Carga pendurada no gancho e halo de situação (TASK-041). Só desenho: não entra em nenhum cálculo.
 // O grupo é filho do nó do gancho (origem em G), então acompanha o cabo sem tocar na cinemática.
@@ -95,6 +95,7 @@ export class HookLoad {
     color: SCENE_COLORS.sling,
     toneMapped: false,
   })
+  private highlighted = false
   private loadParts: Object3D[] = []
   private load: LoadDimensions | null = null
   private layout: LoadBoxLayout | null = null
@@ -150,6 +151,32 @@ export class HookLoad {
   setLoad(load: LoadDimensions | null | undefined): void {
     if (sameLoad(load, this.load)) return
     this.rebuild(load)
+  }
+
+  /** Caixa do gancho em uso (centro e meias-medidas, locais de G), ou `null` sem malhas medidas. */
+  get currentHookBox(): {
+    readonly center: { x: number; y: number; z: number }
+    readonly half: { x: number; y: number; z: number }
+  } | null {
+    const extent = this.hookExtent
+    if (!extent) return null
+    return {
+      center: { x: extent.center.x, y: extent.center.y, z: extent.center.z },
+      half: { x: extent.half.x, y: extent.half.y, z: extent.half.z },
+    }
+  }
+
+  /** `true` enquanto a carga está destacada em vermelho por uma colisão (TASK-053). */
+  get collisionHighlighted(): boolean {
+    return this.highlighted
+  }
+
+  /** Destaque vermelho da carga atingida (RN-012); `false` volta às cores normais. */
+  setCollisionHighlight(on: boolean): void {
+    if (on === this.highlighted) return
+    this.highlighted = on
+    this.boxMaterial.color.setHex(on ? STATUS_COLORS.over : SCENE_COLORS.load)
+    this.edgesMaterial.color.setHex(on ? STATUS_COLORS.over : SCENE_COLORS.loadEdges)
   }
 
   /** Cor do halo pela situação. */

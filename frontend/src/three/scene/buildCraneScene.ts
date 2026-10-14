@@ -16,6 +16,7 @@ import { disposeObject3D } from './disposeObject3D'
 import { HookLoad } from './HookLoad'
 import { RadiusIndicator } from './RadiusIndicator'
 import { RotationZoneSectors } from './RotationZoneSectors'
+import { SceneCollisions } from './SceneCollisions'
 
 /** Modelo 3D que substitui o guindaste provisório (o GLB da TASK-043), já mapeado para um rig. */
 export interface CraneModelSwap {
@@ -44,6 +45,8 @@ export class CraneSceneContents {
   readonly hookLoad: HookLoad
   /** Setores das zonas de giro no chão (TASK-046); vazio até a UI mandar as zonas. */
   readonly rotationZones: RotationZoneSectors
+  /** Colisões da carga: cenário, corpo medido, guarda de comandos e destaque vermelho (TASK-053). */
+  readonly collisions: SceneCollisions
   /** Limites e a/h com que a cena foi montada (ficha técnica ou FICTÍCIOS). */
   readonly setup: CraneSetup
 
@@ -60,6 +63,7 @@ export class CraneSceneContents {
     radiusIndicator: RadiusIndicator
     hookLoad: HookLoad
     rotationZones: RotationZoneSectors
+    collisions: SceneCollisions
     setup: CraneSetup
   }) {
     this.scene = parts.scene
@@ -70,6 +74,7 @@ export class CraneSceneContents {
     this.radiusIndicator = parts.radiusIndicator
     this.hookLoad = parts.hookLoad
     this.rotationZones = parts.rotationZones
+    this.collisions = parts.collisions
     this.setup = parts.setup
     this.eye = findOperatorEye(parts.rig)
   }
@@ -101,6 +106,7 @@ export class CraneSceneContents {
     enableShadows(model.root)
     this.scene.add(model.root)
     this.hookLoad.attachTo(model.rig.hook)
+    this.collisions.setRig(model.rig)
 
     const previous = this.currentRoot
     previous.removeFromParent()
@@ -163,6 +169,8 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     outerM: Math.max(radiusIndicator.reach.maxM + 1.5, 6),
   })
   scene.add(rotationZones.root)
+  const collisions = new SceneCollisions(rig, hookLoad, setup.geometryParameters)
+  scene.add(collisions.highlight.root)
 
   radiusIndicator.update({
     workingRadiusM: crane.getOperationalGeometry().workingRadiusM,
@@ -176,6 +184,7 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     radiusIndicator,
     hookLoad,
     rotationZones,
+    collisions,
     setup,
   })
 }

@@ -1,5 +1,7 @@
 import { type Ref, useEffect, useImperativeHandle, useRef } from 'react'
 
+import type { CollisionState } from '../../domain/collision/collisions'
+import type { ScenarioSpec } from '../../domain/environment/environment'
 import type { CameraPreset } from '../../three/camera/cameraPresets'
 import type { CraneCommands, CraneSetup } from '../../three/crane/types'
 import type { LoadDimensions } from '../../three/scene/loadBox'
@@ -47,6 +49,13 @@ interface CraneViewportProps {
    * decide). `null` = nenhuma. Não remonta a cena.
    */
   activeZoneCode?: string | null
+  /**
+   * Cenário (terreno, obstáculos e posição do guindaste) usado nas colisões da carga (TASK-053; só os
+   * dados: o desenho é da TASK-052). Sem ele, chão plano e guindaste na origem. Não remonta a cena.
+   */
+  scenario?: ScenarioSpec
+  /** Recebe o estado de colisão da carga quando ele muda (TASK-053; RN-012). Não remonta a cena. */
+  onCollisionChange?: (state: CollisionState) => void
   /** API imperativa (`CraneViewportHandle`). */
   ref?: Ref<CraneViewportHandle>
 }
@@ -64,6 +73,8 @@ export function CraneViewport({
   cameraPreset,
   rotationZones = null,
   activeZoneCode = null,
+  scenario,
+  onCollisionChange,
   ref,
 }: CraneViewportProps) {
   const canvasHostRef = useRef<HTMLDivElement>(null)
@@ -74,6 +85,8 @@ export function CraneViewport({
   const cameraPresetRef = useRef(cameraPreset)
   const zonesRef = useRef<readonly SceneRotationZone[]>(rotationZones ?? [])
   const activeZoneRef = useRef(activeZoneCode)
+  const scenarioRef = useRef(scenario)
+  const collisionCallbackRef = useRef(onCollisionChange)
   const appliedPresetRef = useRef<CameraPreset | undefined>(undefined)
 
   useImperativeHandle(
@@ -92,9 +105,12 @@ export function CraneViewport({
     const host = canvasHostRef.current
     if (!host) return
 
-    const handle = mountCraneScene(host, setup)
+    const handle = mountCraneScene(host, setup, {
+      onCollisionChange: (state) => collisionCallbackRef.current?.(state),
+    })
     sceneRef.current = handle
     handle.setEvaluationStatus(statusRef.current)
+    if (scenarioRef.current) handle.setEnvironment(scenarioRef.current)
     handle.setLoad(loadRef.current)
     handle.setRotationZones(zonesRef.current)
     handle.setActiveRotationZone(activeZoneRef.current)
@@ -135,6 +151,15 @@ export function CraneViewport({
     zonesRef.current = zones
     sceneRef.current?.setRotationZones(zones)
   }, [zonesKey])
+
+  useEffect(() => {
+    collisionCallbackRef.current = onCollisionChange
+  }, [onCollisionChange])
+
+  useEffect(() => {
+    scenarioRef.current = scenario
+    if (scenario) sceneRef.current?.setEnvironment(scenario)
+  }, [scenario])
 
   useEffect(() => {
     activeZoneRef.current = activeZoneCode
