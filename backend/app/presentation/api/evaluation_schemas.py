@@ -10,9 +10,9 @@ como o resultado do caso de uso `EvaluateOperation` (TASK-015).
 """
 
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.application.use_cases.evaluate_operation import (
     EvaluatedOperation,
@@ -33,6 +33,17 @@ from app.domain.value_objects.conservative_capacity_result import (
 )
 from app.domain.value_objects.operational_geometry import OperationalGeometry, Point3D
 from app.presentation.api.load_chart_schemas import LoadChartPointResponse
+
+MAX_ACCESSORY_IDS = 20
+AccessoryId = Annotated[str, StringConstraints(min_length=1, max_length=64)]
+
+
+class AccessorySummaryResponse(BaseModel):
+    """Acessório somado ao peso comparado (TASK-056; RN-014)."""
+
+    id: str
+    name: str
+    weight_kg: float
 
 
 class EvaluationRequest(BaseModel):
@@ -71,6 +82,13 @@ class EvaluationRequest(BaseModel):
         "(ADR-013 C-3).",
     )
     load_weight_kg: float = Field(ge=0, description="Peso da carga, em quilogramas.")
+    accessory_ids: list[AccessoryId] = Field(
+        default_factory=list,
+        max_length=MAX_ACCESSORY_IDS,
+        description="Ids de acessórios de içamento do catálogo (TASK-056; RN-014). Cada id soma "
+        "o peso do acessório ao peso comparado; o mesmo id repetido soma de novo. Id desconhecido "
+        "deixa a operação `NOT_EVALUABLE` com `ACCESSORY_NOT_FOUND`.",
+    )
 
 
 class Point3DResponse(BaseModel):
@@ -227,7 +245,15 @@ class EvaluationResponse(BaseModel):
         description="Peso do gancho da configuração, em kg (0 se não cadastrado; ADR-018 § 2)."
     )
     compared_weight_kg: float = Field(
-        description="Carga + gancho, em kg: o peso comparado com a capacidade (ADR-018 § 2)."
+        description="Carga + gancho + acessórios, em kg: o peso comparado com a capacidade "
+        "(ADR-018 § 2; RN-014)."
+    )
+    accessories_weight_kg: float | None = Field(
+        description="Soma dos pesos dos acessórios de içamento enviados (TASK-056; RN-014), ou "
+        "`null` quando nenhum acessório foi enviado."
+    )
+    accessories: list[AccessorySummaryResponse] = Field(
+        description="Acessórios somados ao peso comparado, na ordem enviada; vazio sem acessórios."
     )
     load_chart_id: str | None = Field(
         description="Id da tabela consultada; `null` quando a tabela não chegou a ser consultada."
@@ -251,9 +277,16 @@ class EvaluationResponse(BaseModel):
         zone_name = None if zone is None else zone.name
         hook_kg = evaluation.hook_block_weight.kilograms
         compared_kg = evaluation.compared_weight.kilograms
+        accessories = [
+            AccessorySummaryResponse(id=item.id, name=item.name, weight_kg=item.weight.kilograms)
+            for item in evaluation.accessories
+        ]
+        accessories_kg = sum(item.weight_kg for item in accessories) if accessories else None
         match evaluation:
             case EvaluatedOperation():
                 return cls(
+                    accessories_weight_kg=accessories_kg,
+                    accessories=accessories,
                     status="EVALUATED",
                     configuration_id=configuration_id,
                     geometry=GeometryResponse.from_geometry(evaluation.geometry),
@@ -269,6 +302,8 @@ class EvaluationResponse(BaseModel):
                 )
             case NotEvaluableOperation():
                 return cls(
+                    accessories_weight_kg=accessories_kg,
+                    accessories=accessories,
                     rotation_zone_code=zone_code,
                     rotation_zone_name=zone_name,
                     hook_block_weight_kg=hook_kg,

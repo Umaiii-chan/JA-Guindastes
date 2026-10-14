@@ -42,3 +42,7 @@ class InvalidRotationZonesError(DomainError):
     Código inválido, nome vazio ou longo demais, ângulo fora de [0°, 360°), menos de 2 zonas,
     códigos repetidos, buraco ou sobreposição no giro (ADR-018 § 1).
     """
+
+
+class InvalidAccessoryError(DomainError):
+    """O acessório de içamento tem dado inválido (id, nome, tipo, peso, altura ou arquivo)."""

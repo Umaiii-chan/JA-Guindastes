@@ -28,6 +28,7 @@ from app.presentation.api.load_chart_persistence import (
 from app.presentation.api.load_charts import LOAD_CHARTS_PREFIX, VALIDATE_PATH
 from app.presentation.api.main import create_app
 from app.presentation.websocket.evaluation import EVALUATION_WEBSOCKET_PATH
+from tests.fixtures.acessorios_ficticios import InMemoryAccessories
 from tests.fixtures.auth_api_ficticia import (
     CSRF_HEADERS,
     SAME_ORIGIN,
@@ -54,6 +55,7 @@ EVALUATION_BODY = {
     "cable_length_m": 1.0,
     "load_weight_kg": 1500.0,
 }
+ACCESSORY_BODY = {"type": "SHACKLE", "name": "Manilha FICTÍCIA", "weight_kg": 20.0}
 STATE_CHANGED = {"type": "simulation.state.changed", "sequence": 1, "payload": EVALUATION_BODY}
 
 READ_ROUTES: list[tuple[str, str, dict[str, Any]]] = [
@@ -67,6 +69,9 @@ READ_ROUTES: list[tuple[str, str, dict[str, Any]]] = [
     ("GET", f"{LOAD_CHARTS_PREFIX}/tabela-inexistente", {}),
     ("POST", VALIDATE_PATH, {}),
     ("POST", EVALUATIONS_PATH, {"json": EVALUATION_BODY}),
+    # TASK-056: o catálogo de acessórios é leitura para qualquer perfil.
+    ("GET", "/api/v1/accessories", {}),
+    ("GET", "/api/v1/accessories/acc-inexistente", {}),
 ]
 WRITE_ROUTES: list[tuple[str, str, dict[str, Any]]] = [
     ("POST", "/api/v1/manufacturers", {"json": {"name": "Fabricante FICTÍCIO"}}),
@@ -90,6 +95,12 @@ WRITE_ROUTES: list[tuple[str, str, dict[str, Any]]] = [
     ),
     ("POST", IMPORT_PATH, {"data": {"rotation_zone_code": "FRONTAL"}}),
 ]
+WRITE_ROUTES += [
+    # TASK-056: cadastro, edição e exclusão de acessórios são escrita do ADMIN, com CSRF.
+    ("POST", "/api/v1/accessories", {"json": ACCESSORY_BODY}),
+    ("PATCH", "/api/v1/accessories/acc-inexistente", {"json": {"name": "FICTÍCIO"}}),
+    ("DELETE", "/api/v1/accessories/acc-inexistente", {}),
+]
 PATCH_ROUTES = [route for route in WRITE_ROUTES if route[0] == "PATCH"]
 
 
@@ -106,6 +117,7 @@ def client(auth: AuthFicticia) -> TestClient:
         evaluation=shared_evaluate_operation(build_evaluate_operation_ficticio()),
         evaluation_websocket=build_evaluate_operation_ficticio(),
         catalog_repository=InMemoryCraneCatalog(),
+        accessory_repository=InMemoryAccessories(),
         load_chart_listing=store,
         load_chart_persistence=LoadChartPersistenceDependencies(
             parser_selector=partial(select_limited_load_chart_parser, limits=XlsxLimits()),

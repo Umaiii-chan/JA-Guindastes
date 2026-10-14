@@ -241,5 +241,8 @@ def _evaluate(
         # O schema já recusa o que os value objects recusam; isto é só defesa em profundidade.
         raise _MessageRejected(ErrorCode.INVALID_MESSAGE, str(error)) from None
     return evaluate_operation.execute(
-        configuration_id=payload.configuration_id, state=state, load_weight=load_weight
+        configuration_id=payload.configuration_id,
+        state=state,
+        load_weight=load_weight,
+        accessory_ids=payload.accessory_ids,
     )

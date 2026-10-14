@@ -64,6 +64,9 @@ NOT_EVALUABLE_WITHOUT_DATA = {
     "rotation_zone_name": None,
     "hook_block_weight_kg": 0.0,
     "compared_weight_kg": 1500.0,
+    # TASK-056: sem acessórios enviados, soma nula e lista vazia.
+    "accessories_weight_kg": None,
+    "accessories": [],
     "reasons": [
         {"code": "CRANE_GEOMETRY_NOT_FOUND", "category": "EVALUATION"},
         {"code": "ACTIVE_LOAD_CHART_NOT_FOUND", "category": "EVALUATION"},

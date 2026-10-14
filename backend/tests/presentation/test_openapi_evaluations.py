@@ -81,6 +81,8 @@ def test_status_only_distinguishes_evaluated_from_not_evaluable(openapi: dict[st
         "rotation_zone_name",
         "hook_block_weight_kg",
         "compared_weight_kg",
+        "accessories_weight_kg",
+        "accessories",
         "reasons",
     }
 

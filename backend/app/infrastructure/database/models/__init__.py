@@ -3,6 +3,7 @@
 O `backend/alembic/env.py` importa este pacote para que o autogenerate enxergue as tabelas.
 """
 
+from app.infrastructure.database.models.accessory import AccessoryModel
 from app.infrastructure.database.models.catalog import (
     CraneConfigurationModel,
     CraneModel,
@@ -12,6 +13,7 @@ from app.infrastructure.database.models.load_chart import LoadChartModel, LoadCh
 from app.infrastructure.database.models.user import AppUserModel, UserSessionModel
 
 __all__ = [
+    "AccessoryModel",
     "AppUserModel",
     "CraneConfigurationModel",
     "CraneModel",

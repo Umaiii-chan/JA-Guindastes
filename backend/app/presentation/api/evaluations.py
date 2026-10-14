@@ -40,6 +40,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 
+from app.application.ports.accessory_repository import AccessoryProvider
 from app.application.ports.active_load_chart_provider import ActiveLoadChartProvider
 from app.application.ports.configuration_load_rules_provider import (
     ConfigurationLoadRulesProvider,
@@ -71,6 +72,9 @@ class EvaluationDependencies:
     load_chart_interpolator: LoadChartInterpolator
     configuration_load_rules_provider: ConfigurationLoadRulesProvider | None = None
     """Zonas de giro e peso do gancho (TASK-046); sem ele, sem zonas e sem gancho."""
+    accessory_provider: AccessoryProvider | None = None
+    """Catálogo de acessórios de içamento (TASK-056); sem ele, qualquer `accessory_ids` é
+    `ACCESSORY_NOT_FOUND`."""
 
 
 type EvaluateOperationDependency = Callable[[], Iterator[EvaluateOperation]]
@@ -101,6 +105,7 @@ def _as_dependency(
                 active_load_chart_provider=dependencies.active_load_chart_provider,
                 load_chart_interpolator=dependencies.load_chart_interpolator,
                 configuration_load_rules_provider=dependencies.configuration_load_rules_provider,
+                accessory_provider=dependencies.accessory_provider,
             )
         )
     return dependencies
@@ -155,6 +160,7 @@ def create_evaluations_router(
             configuration_id=request.configuration_id,
             state=state,
             load_weight=Mass(request.load_weight_kg),
+            accessory_ids=request.accessory_ids,
         )
         return EvaluationResponse.from_evaluation(request.configuration_id, evaluation)
 

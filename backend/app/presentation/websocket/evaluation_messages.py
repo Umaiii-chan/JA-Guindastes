@@ -23,7 +23,7 @@ são recusados.
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.application.use_cases.evaluate_operation import (
     EvaluatedOperation,
@@ -69,6 +69,13 @@ class OperationalStatePayload(BaseModel):
     turret_rotation_deg: float = Field(description="Giro da torre ψ, em graus (ADR-013).")
     cable_length_m: float = Field(ge=0, description="Queda vertical c, em metros (ADR-013 C-3).")
     load_weight_kg: float = Field(ge=0, description="Massa da carga, em quilogramas.")
+    accessory_ids: list[Annotated[str, StringConstraints(min_length=1, max_length=64)]] = Field(
+        default_factory=list,
+        max_length=20,
+        description="Ids de acessórios de içamento do catálogo (TASK-056; RN-014); cada id soma o "
+        "peso do acessório ao peso comparado. Id desconhecido: `NOT_EVALUABLE` com "
+        "`ACCESSORY_NOT_FOUND`.",
+    )
 
 
 class SimulationStateChangedMessage(BaseModel):
@@ -171,7 +178,18 @@ _ZONE_CODE_DESCRIPTION = (
     "tabela deu a menor capacidade (mesmas regras do `rotation_zone_code` da avaliação REST)."
 )
 _HOOK_DESCRIPTION = "Peso do gancho da configuração, em kg (0 se não cadastrado)."
-_COMPARED_DESCRIPTION = "Carga + gancho, em kg: o peso comparado com a capacidade."
+_COMPARED_DESCRIPTION = "Carga + gancho + acessórios, em kg: o peso comparado com a capacidade."
+_ACCESSORIES_WEIGHT_DESCRIPTION = (
+    "Soma dos pesos dos acessórios enviados (TASK-056; RN-014), ou `null` sem acessórios."
+)
+
+
+class AccessorySummaryMessage(BaseModel):
+    """Acessório somado ao peso comparado (TASK-056; RN-014)."""
+
+    id: str
+    name: str
+    weight_kg: float
 
 
 class EvaluatedPayload(BaseModel):
@@ -189,6 +207,8 @@ class EvaluatedPayload(BaseModel):
     rotation_zone_name: str | None = Field(description="Nome da zona, ou `null`.")
     hook_block_weight_kg: float = Field(description=_HOOK_DESCRIPTION)
     compared_weight_kg: float = Field(description=_COMPARED_DESCRIPTION)
+    accessories_weight_kg: float | None = Field(description=_ACCESSORIES_WEIGHT_DESCRIPTION)
+    accessories: list[AccessorySummaryMessage] = Field(description="Acessórios somados.")
     reasons: list[str] = Field(description="Sempre vazio numa operação avaliada.")
 
 
@@ -210,6 +230,8 @@ class NotEvaluablePayload(BaseModel):
     rotation_zone_name: str | None = Field(description="Nome da zona, ou `null`.")
     hook_block_weight_kg: float = Field(description=_HOOK_DESCRIPTION)
     compared_weight_kg: float = Field(description=_COMPARED_DESCRIPTION)
+    accessories_weight_kg: float | None = Field(description=_ACCESSORIES_WEIGHT_DESCRIPTION)
+    accessories: list[AccessorySummaryMessage] = Field(description="Acessórios somados.")
     reasons: list[str] = Field(
         description="Motivos legíveis por máquina, nunca vazio, na ordem das etapas."
     )
@@ -237,9 +259,16 @@ class SimulationEvaluatedMessage(BaseModel):
         zone_name = None if zone is None else zone.name
         hook_kg = evaluation.hook_block_weight.kilograms
         compared_kg = evaluation.compared_weight.kilograms
+        accessories = [
+            AccessorySummaryMessage(id=item.id, name=item.name, weight_kg=item.weight.kilograms)
+            for item in evaluation.accessories
+        ]
+        accessories_kg = sum(item.weight_kg for item in accessories) if accessories else None
         match evaluation:
             case EvaluatedOperation():
                 payload = EvaluatedPayload(
+                    accessories_weight_kg=accessories_kg,
+                    accessories=accessories,
                     geometry=GeometryMessage.from_geometry(evaluation.geometry),
                     capacity=CapacityMessage.from_capacity(evaluation.capacity),
                     utilization_percent=evaluation.utilization_percent,
@@ -254,6 +283,8 @@ class SimulationEvaluatedMessage(BaseModel):
             case NotEvaluableOperation():
                 capacity = evaluation.capacity
                 payload = NotEvaluablePayload(
+                    accessories_weight_kg=accessories_kg,
+                    accessories=accessories,
                     geometry=(
                         None
                         if evaluation.geometry is None
