@@ -13,19 +13,24 @@ export interface CollisionAlertsProps {
 export function CollisionAlerts({ collision }: CollisionAlertsProps) {
   const { hits, alerts, blocked } = collision
   if (hits.length === 0 && alerts.length === 0) return null
+  // Só guindaste contra guindaste (TASK-074): o título não fala da carga.
+  const onlyCranes = hits.every((hit) => hit.subject === 'crane')
+  // Duas caixas do mesmo par viram uma só mensagem.
+  const messages = [...new Set(hits.map((hit) => describeHit(hit)))]
+  const hitsTitle = onlyCranes ? 'Colisão entre os guindastes' : 'Colisão da carga'
   return (
     <div className="collision-alerts" role="group" aria-label="Colisões">
       {hits.length > 0 && (
         <Notice
           tone="danger"
           role={blocked ? 'alert' : 'status'}
-          title={blocked ? 'Colisão: comando bloqueado' : 'Colisão da carga'}
+          title={blocked ? 'Colisão: comando bloqueado' : hitsTitle}
           compact
         >
           {blocked && <p>O movimento parou no último estado seguro.</p>}
           <ul>
-            {hits.map((hit, index) => (
-              <li key={index}>{describeHit(hit)}</li>
+            {messages.map((message) => (
+              <li key={message}>{message}</li>
             ))}
           </ul>
         </Notice>

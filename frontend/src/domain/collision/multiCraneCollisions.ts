@@ -7,6 +7,7 @@
 import type { CranePlacement, ScenarioSpec } from '../environment/environment'
 import {
   type CollisionCraneState,
+  type BodyFrame,
   type CollisionHit,
   type CollisionReport,
   type CraneBody,
@@ -15,6 +16,14 @@ import {
   obstacleObb,
 } from './collisions'
 import { type Obb, obbFromFrame, obbPenetration, rotY } from './obb'
+
+/** Nome da peça do guindaste para as mensagens (a tela não mostra nomes de nós do modelo). */
+const PART_NAMES: Readonly<Record<BodyFrame, string>> = {
+  base: 'chassi',
+  turret: 'torre',
+  boom: 'lança',
+  boomExtension: 'extensão da lança',
+}
 
 const DEG = Math.PI / 180
 
@@ -84,7 +93,8 @@ export function evaluateMultiCraneCollisions(input: MultiCraneInput): CollisionR
           const depth = obbPenetration(a.obb, b.obb)
           if (depth <= 0) continue
           penetrationM += depth
-          const part = `${first.crane.label}: ${a.id} × ${second.crane.label}: ${b.id}`
+          const part = `${PART_NAMES[a.frame]} do ${first.crane.label} × ${PART_NAMES[b.frame]} do ${second.crane.label}`
+          // Uma entrada por peça atingida: o destaque contorna as duas.
           hits.push({ subject: 'crane', target: { kind: 'other-crane', part, obb: b.obb } })
           hits.push({ subject: 'crane', target: { kind: 'other-crane', part, obb: a.obb } })
         }
@@ -117,7 +127,11 @@ export function evaluateMultiCraneCollisions(input: MultiCraneInput): CollisionR
           penetrationM += depth
           hits.push({
             subject: 'load',
-            target: { kind: 'crane', part: `${crane.label}: ${part.id}`, obb: part.obb },
+            target: {
+              kind: 'crane',
+              part: `${PART_NAMES[part.frame]} do ${crane.label}`,
+              obb: part.obb,
+            },
           })
         }
       }

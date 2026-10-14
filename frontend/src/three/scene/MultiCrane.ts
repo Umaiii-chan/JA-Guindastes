@@ -1,3 +1,5 @@
+import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js'
+
 import type { CollisionReport, CollisionState } from '../../domain/collision/collisions'
 import {
   evaluateMultiCraneCollisions,
@@ -22,6 +24,7 @@ import type { CraneSceneContents } from './buildCraneScene'
 import { ExtraCrane } from './ExtraCrane'
 import type { EvaluationStatus } from './palette'
 import type { SceneCollisions } from './SceneCollisions'
+import { createCraneTagElement } from './sceneLabels'
 import { TandemCargo } from './TandemCargo'
 import { type CraneModelLoader, upgradeCraneModel } from './upgradeCraneModel'
 
@@ -30,6 +33,9 @@ export const PRIMARY_CRANE_ID = 'primary'
 
 /** Nome mostrado do guindaste principal. */
 export const PRIMARY_CRANE_LABEL = 'Guindaste 1'
+
+/** Altura (m) da etiqueta do guindaste principal acima do chassi. */
+const PRIMARY_TAG_HEIGHT_M = 7
 
 /** Quanto a base da carga pode estar acima do chão para ela contar como "apoiada" (m). */
 const RESTING_TOLERANCE_M = 0.05
@@ -118,6 +124,7 @@ export class MultiCrane {
   private engaged = false
   private engagedCargo: CargoPlacement | null = null
   private lastFrame: TandemFrame | null = null
+  private primaryTag: CSS2DObject | null = null
   private disposed = false
 
   constructor(contents: CraneSceneContents) {
@@ -218,6 +225,7 @@ export class MultiCrane {
       }
       this.addExtra(input, terrain, options)
     }
+    this.syncPrimaryTag()
     this.refreshTandemPreview()
     options.onExtrasChange(this.commands())
     this.revalidateAll()
@@ -325,10 +333,24 @@ export class MultiCrane {
     this.contents.crane.setAppliedListener(null)
     for (const extra of this.extras.values()) extra.dispose()
     this.extras.clear()
+    this.syncPrimaryTag()
     this.cargoView.dispose()
   }
 
   // --- internos ----------------------------------------------------------------------------------
+
+  /** Com mais de um guindaste na cena, o principal também ganha a etiqueta "Guindaste 1". */
+  private syncPrimaryTag(): void {
+    if (this.extras.size > 0 && !this.primaryTag) {
+      this.primaryTag = new CSS2DObject(createCraneTagElement(PRIMARY_CRANE_LABEL))
+      this.primaryTag.position.set(0, PRIMARY_TAG_HEIGHT_M, 0)
+      this.contents.craneAnchor.add(this.primaryTag)
+    } else if (this.extras.size === 0 && this.primaryTag) {
+      this.primaryTag.element.remove()
+      this.primaryTag.removeFromParent()
+      this.primaryTag = null
+    }
+  }
 
   private commands(): ReadonlyMap<string, CraneCommands> {
     return new Map([...this.extras].map(([id, extra]) => [id, extra.crane]))

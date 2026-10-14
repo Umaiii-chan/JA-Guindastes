@@ -199,6 +199,19 @@ Entradas de solo, vento e obstáculos são opcionais: ausentes, não têm efeito
 **Testes relacionados:** `backend/tests/domain/test_environment_factors.py`
 **Origem:** Anderson Sehnem, em chat em 2026-10-14
 
+### RN-016 — Içamento com dois guindastes (tandem)
+
+**Status:** Ativa
+**Contexto:** avaliação operacional (TASK-074; ADR-037); estende RN-011, RN-014 e RN-015.
+**Regra:** uma carga pode ser içada por dois guindastes, que se movem sincronizados. Cada guindaste usa no máximo 75 % da própria capacidade: a capacidade efetiva (RN-011, RN-015) × 0,75. A carga se divide pela posição dos pontos de içamento em relação ao centro de gravidade (alavanca): o peso de cada guindaste é o peso da carga × a distância do outro ponto ao centro de gravidade ÷ a distância entre os pontos. Cada guindaste é avaliado com a parte dele mais o gancho e os acessórios (RN-014). O içamento só é permitido quando os dois são avaliáveis, nenhum passa de 75 % e nenhum tem risco de tombamento alto.
+**Exemplos:**
+- carga de 10 000 kg com o centro de gravidade no meio entre os pontos → 5 000 kg para cada
+- centro de gravidade a 1 m de um ponto e a 3 m do outro → o ponto mais perto leva 7 500 kg e o outro 2 500 kg
+- capacidade efetiva de 4 000 kg → no tandem esse guindaste usa até 3 000 kg (parte da carga + gancho)
+**Exceções:** com o centro de gravidade fora do trecho entre os dois pontos a alavanca não fecha (um guindaste teria de puxar para baixo): o içamento não é permitido, e o aviso diz isso. O fator 0,75 vem da pessoa responsável, que o citou como regra de norma; não há tabela oficial no repositório.
+**Testes relacionados:** `backend/tests/domain/test_tandem_load_split.py`, `backend/tests/presentation/test_evaluations_tandem.py`, `frontend/tests/domain/tandem/tandem.test.ts`
+**Origem:** Anderson Sehnem, em chat em 2026-10-14
+
 ---
 
 ## Regras por domínio (índice)
@@ -209,6 +222,7 @@ Entradas de solo, vento e obstáculos são opcionais: ausentes, não têm efeito
 | Modelo 3D | RN-003 |
 | Unidades | RN-006 |
 | Validação frontend ↔ backend | RN-008 |
+| Içamento com dois guindastes | RN-016 |
 
 ---
 

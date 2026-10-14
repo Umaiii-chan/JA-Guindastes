@@ -71,3 +71,4 @@ Crie um ADR quando a decisão:
 | [ADR-032](ADR-032-editor-3d-do-ambiente.md) | Editor 3D livre do ambiente | Aceito | 2026-10-14 |
 | [ADR-031](ADR-031-modelo-3d-guindaste-80t.md) | Troca do modelo 3D do guindaste (80 t, CC BY 4.0) | Substituído em parte por ADR-034 | 2026-10-14 |
 | [ADR-034](ADR-034-eixo-de-giro-real-do-modelo-80t.md) | Eixo de giro real do modelo 80 t (a = 0,46 m) | Aceito | 2026-10-14 |
+| [ADR-037](ADR-037-tandem-dois-guindastes.md) | Içamento com dois guindastes (tandem) | Aceito | 2026-10-14 |

@@ -54,7 +54,11 @@ function format(value: number, digits = 0): string {
 export function TandemHud({ result, error, pending, labels }: TandemHudProps) {
   const ok = result?.tandemOk === true
   return (
-    <section className={styles.hud} aria-label="Içamento com dois guindastes" aria-busy={pending}>
+    <section
+      className={styles.hud}
+      aria-label="Avaliação do içamento em tandem"
+      aria-busy={pending}
+    >
       <header className={styles.header}>
         <h2 className={styles.title}>Içamento com dois guindastes</h2>
         {pending && (
@@ -100,8 +104,12 @@ export function TandemHud({ result, error, pending, labels }: TandemHudProps) {
             />
           ))}
           <ul className={styles.alerts} aria-label="Alertas do içamento">
-            {result.alerts.map((alert) => (
-              <li key={alert.code} className={styles.alert} data-severity={alert.severity}>
+            {result.alerts.map((alert, index) => (
+              <li
+                key={`${alert.code}-${index}`}
+                className={styles.alert}
+                data-severity={alert.severity}
+              >
                 <Badge tone={ALERT_TONE[alert.severity].tone}>
                   {ALERT_TONE[alert.severity].label}
                 </Badge>
@@ -147,7 +155,7 @@ function CraneCell({
           <dd>
             {shareKg === null ? '—' : `${format(shareKg)} kg`}
             {sharePercent !== null && (
-              <span className={styles.percent}> · {format(sharePercent, 1)} %</span>
+              <span className={styles.percent}>{format(sharePercent, 1)} % da carga</span>
             )}
           </dd>
         </div>
