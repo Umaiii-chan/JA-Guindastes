@@ -18,3 +18,9 @@
   color: var(--color-text-2);
   line-height: 1.55;
 }
+
+.credit {
+  margin: var(--space-4) 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-3);
+}

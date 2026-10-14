@@ -1,7 +1,4 @@
 /// <reference types="node" />
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-
 import { type BufferGeometry, Mesh, type Object3D, Vector3 } from 'three'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -19,20 +16,16 @@ import {
   type CraneModelLoader,
   upgradeCraneModel,
 } from '../../../src/three/scene/upgradeCraneModel'
+import { readCraneGlbWithoutTextures } from '../../helpers/craneGlb'
 import { expectXyzClose, xyz } from '../../helpers/expectClose'
 
-// Troca do guindaste provisório pelo GLB da TASK-043 (TASK-041). O GLB é lido do disco e entregue
+// Troca do guindaste provisório pelo GLB da TASK-064 (TASK-041). O GLB é lido do disco e entregue
 // por um carregador injetado: no Node não há `fetch` para `/models/...`.
 
-const GLB_PATH = fileURLToPath(
-  new URL('../../../public/models/guindaste-caminhao.glb', import.meta.url),
-)
+const GLB = await readCraneGlbWithoutTextures()
 
 function readGlb(): ArrayBuffer {
-  const bytes = readFileSync(GLB_PATH)
-  const copy = new ArrayBuffer(bytes.byteLength)
-  new Uint8Array(copy).set(bytes)
-  return copy
+  return GLB.slice(0)
 }
 
 const fromDisk: CraneModelLoader = () => parseTruckCraneModel(readGlb())
@@ -130,16 +123,16 @@ describe('upgradeCraneModel', () => {
 
     expect(contents.hookLoad.root.parent).toBe(contents.rig.hook)
     expect(contents.rig.hook.getObjectByName(HOOK_LOAD_NAMES.box)).toBeDefined()
-    // O moitão do GLB desce ≈ 2,4 m abaixo de G; o gancho provisório, 1,1 m.
+    // O moitão do GLB (GLB da TASK-064) desce ≈ 2 m abaixo de G; o gancho provisório, 1,1 m.
     expect(provisionalAttach).toBeCloseTo(1.1, 2)
-    expect(contents.hookLoad.currentAttachOffsetM).toBeGreaterThan(2)
+    expect(contents.hookLoad.currentAttachOffsetM).toBeGreaterThan(1.5)
     expect(contents.hookLoad.currentLayout!.slingTop.y).toBeCloseTo(
       -contents.hookLoad.currentAttachOffsetM,
     )
     expect(contents.hookLoad.haloIntensity).toBeGreaterThan(0.2)
   })
 
-  it('liga sombras nas malhas do GLB (o vidro só recebe) e acha o olho do operador na cabine', async () => {
+  it('liga sombras nas malhas do GLB e usa o olho do operador marcado no modelo', async () => {
     const contents = buildCraneScene()
     expect(contents.operatorEye).toBeNull()
 
@@ -149,17 +142,14 @@ describe('upgradeCraneModel', () => {
     contents.rig.base.traverse((object) => {
       if (object instanceof Mesh && object.parent !== contents.hookLoad.root) meshes.push(object)
     })
-    const glass = meshes.filter((mesh) => /vidro/.test(mesh.name))
-    const opaque = meshes.filter((mesh) => !/vidro/.test(mesh.name))
-    expect(glass.length).toBeGreaterThan(0)
-    expect(opaque.every((mesh) => mesh.castShadow && mesh.receiveShadow)).toBe(true)
-    expect(glass.every((mesh) => !mesh.castShadow && mesh.receiveShadow)).toBe(true)
+    expect(meshes.length).toBeGreaterThan(0)
+    expect(meshes.every((mesh) => mesh.castShadow && mesh.receiveShadow)).toBe(true)
 
-    // Acima do vidro da cabine da torre, do lado +X (GLB da TASK-043): o teto do vidro fica a 3,63 m.
+    // O GLB marca o olho nos extras da torre: acima da cabine, do lado +X.
     const eye = contents.operatorEye!
     expect(eye.x).toBeGreaterThan(0.4)
     expect(eye.y).toBeGreaterThan(2.5)
-    expect(eye.y).toBeLessThan(4.5)
+    expect(eye.y).toBeLessThan(6)
   })
 
   it('se o GLB não carregar, fica no provisório com aviso, e os comandos continuam', async () => {
@@ -261,7 +251,7 @@ describe('loadDefaultCraneModel', () => {
       const second = await loadDefaultCraneModel(signal)
 
       expect(fakeFetch).toHaveBeenCalledTimes(2)
-      expect(requested[0]).toMatch(/models\/guindaste-caminhao\.glb$/)
+      expect(requested[0]).toMatch(/models\/guindaste-80t\.glb$/)
       // Cada montagem recebe uma cena própria (a anterior é liberada no dispose).
       expect(second.scene).not.toBe(first.scene)
       expect(second.scene.getObjectByName(TRUCK_CRANE_NODE_NAMES.hook)).toBeDefined()

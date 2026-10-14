@@ -9,15 +9,16 @@ import {
 } from '../crane/craneKinematics'
 import { type LoadedGltf, type LoadGltfOptions, loadGltf, parseGltf } from './loadGltf'
 
-// Modelo 3D ILUSTRATIVO do guindaste sobre caminhão (TASK-043): GLB gerado por
-// `frontend/scripts/convert-crane-model.mjs` a partir de um FBX do CGTrader e servido de
-// `frontend/public/models/`. Não representa nenhum guindaste real. O GLB segue a hierarquia e a pose
+// Modelo 3D ILUSTRATIVO do guindaste (TASK-064; ADR-031): GLB gerado por
+// `frontend/scripts/convert-crane-80t.mjs` a partir do modelo "80-Ton Hydraulic Crane" (CC BY 4.0,
+// créditos em `public/models/CREDITS.md`) e servido de `frontend/public/models/`. Não representa
+// nenhum guindaste real. O GLB segue a hierarquia e a pose
 // de repouso de `assets/example-models/README.md` (ADR-013 C-4, regra 4), com os mesmos nomes de nós
 // do guindaste provisório. Nenhuma medida de cálculo é lida dele (RN-003): a, h e L_min vêm da
 // configuração, e o mapeamento só compara o modelo com eles (aviso de calibração, erro só visual).
 
-/** URL do GLB, relativa à base do Vite (`public/models/guindaste-caminhao.glb`). */
-export const TRUCK_CRANE_MODEL_URL = `${import.meta.env.BASE_URL}models/guindaste-caminhao.glb`
+/** URL do GLB, relativa à base do Vite (`public/models/guindaste-80t.glb`). */
+export const TRUCK_CRANE_MODEL_URL = `${import.meta.env.BASE_URL}models/guindaste-80t.glb`
 
 /** Papel → nó do GLB, para `mapCraneKinematics` (todos os papéis, inclusive os opcionais). */
 export const TRUCK_CRANE_NODE_NAMES = {
@@ -43,17 +44,29 @@ export const TRUCK_CRANE_LUFFING_NODE_NAMES = {
 
 /**
  * Medidas do modelo ILUSTRATIVO na pose de repouso (m), como a conversão o deixou (também gravadas
- * nos `extras` do nó base, em `medidasDoModelo`). A escala foi escolhida pela ficha FICTÍCIA de demo
- * (h = 3,3 m; lança recolhida de 12 m, com os tubos esticados); o pino da lança ficou em a ≈ −1,56 m,
- * e a ficha de demo do backend passou a usar a = −1,56 m (`backend/app/demo_seed.py`). O padrão
- * FICTÍCIO do frontend (`PROVISIONAL_CRANE_GEOMETRY`) também, desde a TASK-041. Servem só de referência
- * para a conferência de calibração: nunca são entrada de cálculo (RN-003; ADR-013 C-4, regra 1).
+ * nos `extras` do nó base, em `medidasDoModelo`). A conversão ajusta a escala e o eixo de giro à ficha
+ * FICTÍCIA de demo (a = −1,56 m, h = 3,3 m, lança recolhida de 12 m; `backend/app/demo_seed.py`).
+ * Servem só de referência para a conferência de calibração: nunca são entrada de cálculo (RN-003;
+ * ADR-013 C-4, regra 1).
  */
 export const TRUCK_CRANE_MODEL_MEASUREMENTS = {
-  boomPivotOffsetM: -1.5591,
+  boomPivotOffsetM: -1.56,
   boomPivotHeightM: 3.3,
   boomRetractedLengthM: 12,
 } as const satisfies CraneGeometryParameters & { readonly boomRetractedLengthM: number }
+
+/** Curso das vigas das patolas do modelo (m), de recolhida a estendida (`medidasDoModelo.outriggerTravelM`). */
+export const TRUCK_CRANE_OUTRIGGER_TRAVEL_M = 1.7069
+
+/**
+ * Seções telescópicas intermediárias (filhas da extensão). A seção 4 fica fixa na extensão; as seções
+ * 2 e 3 recuam em proporção, para a lança telescopar em vez de deslizar em bloco.
+ */
+const TELESCOPE_SECTIONS = [
+  { name: 'crane-boom-section-02', fraction: 1 / 3 },
+  { name: 'crane-boom-section-03', fraction: 2 / 3 },
+] as const
+const LAST_TELESCOPE_SECTION = 'crane-boom-section-04'
 
 export interface LoadedTruckCraneModel {
   /** Resultado do `loadGltf`/`parseGltf` (cena, metadados e nomes de nós do arquivo). */
@@ -68,6 +81,11 @@ export interface LoadedTruckCraneModel {
    * na pose de repouso. Não faz nada se o GLB não tiver os nós do cilindro.
    */
   readonly updateLuffingCylinder: () => void
+  /**
+   * Distribui as seções 2 e 3 da lança entre a seção 1 e a 4 conforme a extensão atual. Chame depois
+   * de `CraneController.setBoomLength`. Não faz nada se o GLB não tiver as seções.
+   */
+  readonly updateTelescope: () => void
 }
 
 /** Baixa e interpreta o GLB do guindaste sobre caminhão (erros como em `loadGltf`). */
@@ -102,10 +120,25 @@ function toTruckCraneModel(gltf: LoadedGltf): LoadedTruckCraneModel {
   const scene = gltf.scene
   const cylinder = scene.getObjectByName(TRUCK_CRANE_LUFFING_NODE_NAMES.cylinder)
   const rod = scene.getObjectByName(TRUCK_CRANE_LUFFING_NODE_NAMES.rod)
+  const extension = scene.getObjectByName(TRUCK_CRANE_NODE_NAMES.boomExtension)
+  const lastSection = scene.getObjectByName(LAST_TELESCOPE_SECTION)
+  const sections = TELESCOPE_SECTIONS.map(({ name, fraction }) => ({
+    node: scene.getObjectByName(name),
+    fraction,
+  }))
   return {
     gltf,
     scene,
     nodeNames: TRUCK_CRANE_NODE_NAMES,
+    updateTelescope: () => {
+      if (extension === undefined || lastSection === undefined) return
+      // Seção k a (k−1)/3 do curso total (δ0 + e) da seção 1; a extensão já está em e.
+      const e = extension.position.z
+      const travel = lastSection.position.z + e
+      for (const { node, fraction } of sections) {
+        if (node !== undefined) node.position.z = fraction * travel - e
+      }
+    },
     updateLuffingCylinder: () => {
       if (cylinder === undefined || rod === undefined) return
       const basePin = cylinder.getWorldPosition(new Vector3())

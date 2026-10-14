@@ -7,7 +7,7 @@ import {
 import type { CraneSceneContents } from './buildCraneScene'
 import { disposeObject3D } from './disposeObject3D'
 
-// Troca do guindaste provisório pelo modelo 3D ilustrativo (GLB da TASK-043) depois que ele carrega
+// Troca do guindaste provisório pelo modelo 3D ilustrativo (GLB da TASK-064) depois que ele carrega
 // (TASK-041). Enquanto o GLB baixa, a cena mostra o provisório; se o download falhar ou o mapeamento
 // recusar o modelo, ela continua nele, com aviso no console e sem erro para a UI.
 //
@@ -17,7 +17,7 @@ import { disposeObject3D } from './disposeObject3D'
 /** Baixa o modelo; recebe o sinal para abortar quando a cena é desmontada antes do fim. */
 export type CraneModelLoader = (signal: AbortSignal) => Promise<LoadedTruckCraneModel>
 
-/** Bytes do GLB já baixados: trocar a configuração remonta a cena, e o arquivo tem ~1,8 MB. */
+/** Bytes do GLB já baixados: trocar a configuração remonta a cena, e o arquivo tem ~4 MB. */
 let cachedGlb: Promise<ArrayBuffer> | null = null
 
 /**
@@ -37,7 +37,7 @@ const cachingFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   return new Response((await bytes).slice(0), { status: 200 })
 }) as typeof fetch
 
-/** Carregador padrão: o GLB público `models/guindaste-caminhao.glb`, baixado uma vez por página. */
+/** Carregador padrão: o GLB público `models/guindaste-80t.glb`, baixado uma vez por página. */
 export const loadDefaultCraneModel: CraneModelLoader = (signal) =>
   loadTruckCraneModel(undefined, { signal, fetch: cachingFetch })
 
@@ -118,7 +118,10 @@ export async function upgradeCraneModel(
     contents.useModel({
       root: model.scene,
       rig: result.rig,
-      afterCommand: model.updateLuffingCylinder,
+      afterCommand: () => {
+        model.updateTelescope()
+        model.updateLuffingCylinder()
+      },
     })
   } catch (error) {
     // Por exemplo, limites da ficha incompatíveis com o rig: fica no provisório.
