@@ -29,6 +29,7 @@ import {
   CameraPresetButtons,
   type CameraPresetId,
 } from '../../presentation/simulator/CameraPresetButtons'
+import { CollisionAlerts } from '../../presentation/simulator/CollisionAlerts'
 import { ConnectionStatusBar } from '../../presentation/simulator/ConnectionStatusBar'
 import { GuidedStepsPanel } from '../../presentation/simulator/GuidedStepsPanel'
 import { buttonClassName, EmptyState } from '../../presentation/ui'
@@ -38,6 +39,7 @@ import { chooseCraneSetup } from '../craneSetup'
 import { buildEvaluationInput } from '../evaluationInput'
 import { sceneRotationZoneCode } from '../sceneRotationZone'
 import { useSimulatorDraft } from '../simulator/simulatorDraft'
+import { useCollisionState } from '../simulator/useCollisionState'
 import { useEvaluationSession } from '../useEvaluationSession'
 
 interface CraneBinding {
@@ -66,6 +68,7 @@ export function SimulatorRoute() {
   const { load, setLoad, requestedStep, setRequestedStep } = useSimulatorDraft()
   const { session, state: evaluation } = useEvaluationSession()
   const { catalog, state: catalogState } = useCatalog()
+  const { collision, onCollisionChange } = useCollisionState()
 
   // Configuração escolhida na seleção (fabricante → guindaste → configuração), ou `null`.
   const selectedConfiguration = findSelectedConfiguration(catalogState)
@@ -187,6 +190,7 @@ export function SimulatorRoute() {
         load={sceneLoad}
         rotationZones={rotationZones}
         activeZoneCode={activeZoneCode}
+        onCollisionChange={onCollisionChange}
       />
     </SceneErrorBoundary>
   )
@@ -236,15 +240,18 @@ export function SimulatorRoute() {
         />
       }
       result={
-        <BackendEvaluationPanel
-          result={evaluation.result}
-          error={evaluation.error}
-          pending={evaluation.pending}
-          transport={evaluation.transport}
-          inputProblem={evaluationInput.problem}
-          loadWeightKg={input?.loadWeightKg ?? null}
-          slow={evaluation.slow}
-        />
+        <>
+          <CollisionAlerts collision={collision} />
+          <BackendEvaluationPanel
+            result={evaluation.result}
+            error={evaluation.error}
+            pending={evaluation.pending}
+            transport={evaluation.transport}
+            inputProblem={evaluationInput.problem}
+            loadWeightKg={input?.loadWeightKg ?? null}
+            slow={evaluation.slow}
+          />
+        </>
       }
       geometry={
         <OperationalGeometryPanel

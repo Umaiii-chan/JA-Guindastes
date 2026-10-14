@@ -15,6 +15,12 @@ import {
   keepCameraAboveGround,
 } from '../controls/createOrbitControls'
 import type { CraneCommands, CraneSetup, CraneState } from '../crane/types'
+import {
+  type CollisionState,
+  collisionStateKey,
+  NO_COLLISION,
+} from '../../domain/collision/collisions'
+import type { ScenarioSpec } from '../../domain/environment/environment'
 import { buildCraneScene } from './buildCraneScene'
 import { disposeObject3D } from './disposeObject3D'
 import type { LoadDimensions } from './loadBox'
@@ -38,6 +44,12 @@ export interface MountCraneSceneOptions {
   readonly loadModel?: CraneModelLoader | null
   /** Avisado quando a troca termina, com o modelo em uso ou o motivo de ficar no provisório. */
   readonly onModelResult?: (result: CraneModelUpgradeResult) => void
+  /**
+   * Avisado quando o estado de colisão da carga muda (TASK-053; RN-012): carga atingindo o terreno, o
+   * guindaste ou um obstáculo, comando bloqueado e cabo ou lança atravessando um obstáculo. É chamado
+   * uma vez na montagem, com o estado sem colisão.
+   */
+  readonly onCollisionChange?: (state: CollisionState) => void
 }
 
 /** Opções de `setCameraPreset`. */
@@ -62,6 +74,14 @@ export interface CraneSceneHandle {
   setActiveRotationZone(code: string | null): void
   /** Leva a câmera a uma predefinição, enquadrando o estado atual do guindaste. */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
+  /**
+   * Dados do cenário (terreno, obstáculos e posição do guindaste) usados só para colidir (TASK-053;
+   * ADR-028); quem desenha é a TASK-052. Sem chamar, vale o cenário vazio: chão plano em y = 0 e o
+   * guindaste na origem. Reavalia o estado atual.
+   */
+  setEnvironment(spec: ScenarioSpec): void
+  /** Último estado de colisão (o mesmo que `onCollisionChange` recebeu). */
+  getCollisionState(): CollisionState
   /** Para o laço de renderização e libera renderer, controles, geometrias e materiais. Idempotente. */
   dispose(): void
 }
@@ -100,7 +120,8 @@ export function mountCraneScene(
   options: MountCraneSceneOptions = {},
 ): CraneSceneHandle {
   const contents = buildCraneScene(setup)
-  const { scene, crane, environment, radiusIndicator, hookLoad, rotationZones } = contents
+  const { scene, crane, environment, radiusIndicator, hookLoad, rotationZones, collisions } =
+    contents
 
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -258,12 +279,25 @@ export function mountCraneScene(
   document.addEventListener('visibilitychange', onVisibilityChange)
   if (!document.hidden) renderer.setAnimationLoop(renderFrame)
 
+  // Colisões (TASK-053): a guarda corta comandos que levariam a carga a colidir e avisa a UI.
+  let collisionKey = collisionStateKey(NO_COLLISION)
+  collisions.setListener((state) => {
+    invalidate()
+    const key = collisionStateKey(state)
+    if (key === collisionKey) return
+    collisionKey = key
+    options.onCollisionChange?.(state)
+  })
+  crane.setCollisionGuard(collisions)
+  options.onCollisionChange?.(collisions.state)
+
   // Modelo 3D: carrega em segundo plano; enquanto isso, o provisório fica na cena.
   const modelAbort = new AbortController()
   const loadModel = options.loadModel === undefined ? loadDefaultCraneModel : options.loadModel
   if (loadModel) {
     void upgradeCraneModel(contents, loadModel, { signal: modelAbort.signal }).then((result) => {
       invalidate()
+      crane.revalidate()
       options.onModelResult?.(result)
     })
   }
@@ -279,6 +313,7 @@ export function mountCraneScene(
     },
     setLoad(load) {
       hookLoad.setLoad(load)
+      crane.revalidate()
       invalidate()
     },
     setRotationZones(zones) {
@@ -315,6 +350,15 @@ export function mountCraneScene(
       transition = new CameraTransition(from, to, CAMERA_TRANSITION_MS, performance.now())
       followedPreset = preset
     },
+    setEnvironment(spec) {
+      if (disposed) return
+      collisions.setScenario(spec)
+      crane.revalidate()
+      invalidate()
+    },
+    getCollisionState() {
+      return collisions.state
+    },
     dispose() {
       if (disposed) return
       disposed = true
@@ -331,6 +375,8 @@ export function mountCraneScene(
       rotationZones.dispose()
       labelRenderer.domElement.remove()
       scaleBar.element.remove()
+      crane.setCollisionGuard(null)
+      collisions.dispose()
       hookLoad.dispose()
       disposeObject3D(scene)
       renderer.dispose()
