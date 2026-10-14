@@ -25,6 +25,7 @@ import { EVALUATIONS_PATH, toEvaluationRequestDto } from './evaluationContract'
 /** Códigos de erro do lado do cliente (os do backend chegam como vieram). */
 export const CLIENT_ERROR_CODES = {
   network: 'NETWORK_ERROR',
+  timeout: 'TIMEOUT',
   invalidRequest: 'INVALID_REQUEST',
   http: 'HTTP_ERROR',
   invalidResponse: 'INVALID_RESPONSE',
@@ -50,7 +51,15 @@ export interface EvaluationRestClientOptions {
   readonly fetchFn?: typeof fetch
   /** Prefixo da origem; vazio = mesma origem (proxy do Vite em dev, nginx no container). */
   readonly baseUrl?: string
+  /** Tempo máximo de uma avaliação; padrão `DEFAULT_EVALUATION_TIMEOUT_MS`. */
+  readonly timeoutMs?: number
 }
+
+/**
+ * PROVISÓRIO — valor técnico (TASK-050): cobre o backend no plano gratuito do Render acordando
+ * (~1 min; known-gaps § 7). Depois disso a tela mostra o erro em vez de esperar para sempre.
+ */
+export const DEFAULT_EVALUATION_TIMEOUT_MS = 75_000
 
 export function createEvaluationRestClient(
   options: EvaluationRestClientOptions = {},
@@ -60,18 +69,30 @@ export function createEvaluationRestClient(
 
   return {
     async evaluate(input) {
+      const timeoutMs = options.timeoutMs ?? DEFAULT_EVALUATION_TIMEOUT_MS
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), timeoutMs)
       let response: Response
       try {
         response = await fetchFn(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify(toEvaluationRequestDto(input)),
+          signal: controller.signal,
         })
       } catch {
+        if (controller.signal.aborted) {
+          throw new EvaluationClientError(
+            CLIENT_ERROR_CODES.timeout,
+            `O backend não respondeu em ${Math.round(timeoutMs / 1000)} s.`,
+          )
+        }
         throw new EvaluationClientError(
           CLIENT_ERROR_CODES.network,
           'Não foi possível falar com o backend (falha de rede).',
         )
+      } finally {
+        clearTimeout(timer)
       }
 
       const body = await readBody(response)

@@ -26,7 +26,12 @@ export interface BackendEvaluationPanelProps {
   readonly inputProblem: string | null
   /** Peso da carga enviado (kg), para mostrar ao lado da capacidade; `null` sem carga válida. */
   readonly loadWeightKg?: number | null
+  /** O backend está demorando para responder (ex.: acordando no Render; TASK-050). */
+  readonly slow?: boolean
 }
+
+export const SLOW_BACKEND_MESSAGE =
+  'O backend está demorando para responder. Se estava parado, ele leva até 1 minuto para acordar.'
 
 export const PROVISIONAL_MARK = 'PROVISÓRIO — consulta conservadora (ADR-015)'
 
@@ -69,6 +74,7 @@ export function BackendEvaluationPanel({
   transport,
   inputProblem,
   loadWeightKg = null,
+  slow = false,
 }: BackendEvaluationPanelProps) {
   const titleId = `${useId()}-title`
   const shown = inputProblem === null && error === null ? result : null
@@ -195,6 +201,12 @@ export function BackendEvaluationPanel({
             <p className={styles.waiting}>Aguardando a primeira avaliação do backend…</p>
           ) : (
             <EvaluationDetails result={result} />
+          )}
+
+          {slow && pending && inputProblem === null && (
+            <p className={styles.waiting} role="status">
+              {SLOW_BACKEND_MESSAGE}
+            </p>
           )}
 
           <p className={styles.provisional} role="note">

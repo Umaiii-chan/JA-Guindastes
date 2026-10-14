@@ -84,8 +84,12 @@ export interface NotEvaluableResult extends EvaluationCommon {
 
 export type EvaluationResult = EvaluatedResult | NotEvaluableResult
 
-/** Estado da conexão em tempo real (doc-fonte § 17.2 `connectionStatus`). */
-export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'closed'
+/**
+ * Estado da conexão em tempo real (doc-fonte § 17.2 `connectionStatus`). `rest` = implantação sem
+ * canal em tempo real (ex.: Vercel), em que toda avaliação vai por REST (TASK-050).
+ */
+export type ConnectionStatus =
+  'idle' | 'connecting' | 'connected' | 'reconnecting' | 'closed' | 'rest'
 
 /**
  * Falha ao obter a avaliação: mensagem recusada pelo backend (`simulation.error`, HTTP 422/500),

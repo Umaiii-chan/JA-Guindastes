@@ -8,6 +8,12 @@ import { Link } from 'react-router'
 import { selectedConfiguration as findSelectedConfiguration } from '../../application/catalog/CatalogBrowser'
 import { evaluationStatus } from '../../application/evaluation/evaluationStatus'
 import { validateLoadForm, loadWeightTextForEvaluation } from '../../application/load/loadForm'
+import {
+  isTabulated,
+  lengthsWithin,
+  snapToTabulated,
+  stepToTabulated,
+} from '../../application/loadChart/tabulatedBoomLengths'
 import { guidedStepStatuses, resolveActiveStep } from '../../application/simulator/guidedSteps'
 import type { OperationalGeometry } from '../../domain/geometry/operationalGeometry'
 import {
@@ -39,6 +45,7 @@ import { buildEvaluationInput } from '../evaluationInput'
 import { sceneRotationZoneCode } from '../sceneRotationZone'
 import { useSimulatorDraft } from '../simulator/simulatorDraft'
 import { useEvaluationSession } from '../useEvaluationSession'
+import { useTabulatedBoomLengths } from '../useTabulatedBoomLengths'
 
 interface CraneBinding {
   readonly commands: CraneCommands
@@ -57,6 +64,12 @@ const APPLY_COMMAND: Record<CraneControlKey, (commands: CraneCommands, value: nu
 
 function bindCrane(commands: CraneCommands): CraneBinding {
   return { commands, state: commands.getState(), geometry: commands.getOperationalGeometry() }
+}
+
+function formatLengths(lengths: readonly number[]): string {
+  return lengths
+    .map((value) => value.toLocaleString('pt-BR', { maximumFractionDigits: 2 }))
+    .join(' · ')
 }
 
 export function SimulatorRoute() {
@@ -82,6 +95,25 @@ export function SimulatorRoute() {
   const setupKey = JSON.stringify(selectedConfiguration)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const craneSetup = useMemo(() => chooseCraneSetup(selectedConfiguration), [setupKey])
+
+  // Comprimentos de lança que a tabela ativa avalia (TASK-050): o slider encaixa neles.
+  const tabulatedLengths = useTabulatedBoomLengths(selectedConfiguration?.id ?? null)
+  const boomRange = crane?.commands.limits.boomLengthM ?? null
+  const reachableLengths = useMemo(
+    () => (boomRange ? lengthsWithin(tabulatedLengths, boomRange) : []),
+    [tabulatedLengths, boomRange],
+  )
+
+  // Ao chegar a tabela (ou trocar a configuração), leva a lança à coluna mais próxima.
+  const currentBoomLength = crane?.state.boomLengthM ?? null
+  useEffect(() => {
+    if (!crane || currentBoomLength === null || reachableLengths.length === 0) return
+    if (isTabulated(currentBoomLength, reachableLengths)) return
+    crane.commands.setBoomLength(snapToTabulated(currentBoomLength, reachableLengths))
+    // A cena (sistema externo) mudou a lança: a UI espelha o estado aplicado, uma vez por chegada.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCrane(bindCrane(crane.commands))
+  }, [crane, currentBoomLength, reachableLengths])
 
   const loadWeightText = loadWeightTextForEvaluation(load)
   const validLoad = validateLoadForm(load).load
@@ -114,7 +146,11 @@ export function SimulatorRoute() {
 
   const handleControlChange = (key: CraneControlKey, value: number) => {
     if (!crane) return
-    APPLY_COMMAND[key](crane.commands, value)
+    const applied =
+      key === 'boomLengthM' && reachableLengths.length > 0
+        ? stepToTabulated(value, crane.state.boomLengthM, reachableLengths)
+        : value
+    APPLY_COMMAND[key](crane.commands, applied)
     setCrane(bindCrane(crane.commands))
   }
 
@@ -228,7 +264,14 @@ export function SimulatorRoute() {
                 limits={crane?.commands.limits ?? null}
                 state={crane?.state ?? null}
                 notice={craneSetup.notice}
-                notes={craneSetup.notes}
+                notes={
+                  reachableLengths.length > 0
+                    ? {
+                        ...craneSetup.notes,
+                        boomLengthM: `Encaixa nos comprimentos da tabela ativa: ${formatLengths(reachableLengths)} m.`,
+                      }
+                    : craneSetup.notes
+                }
                 onChange={handleControlChange}
               />
             ),
@@ -243,6 +286,7 @@ export function SimulatorRoute() {
           transport={evaluation.transport}
           inputProblem={evaluationInput.problem}
           loadWeightKg={input?.loadWeightKg ?? null}
+          slow={evaluation.slow}
         />
       }
       geometry={
@@ -257,6 +301,7 @@ export function SimulatorRoute() {
           connectionStatus={evaluation.connectionStatus}
           transport={evaluation.result !== null ? evaluation.transport : null}
           pending={evaluation.pending}
+          slow={evaluation.slow}
           cameraActions={
             <CameraPresetButtons active={cameraPreset} onSelect={handleCameraPreset} />
           }

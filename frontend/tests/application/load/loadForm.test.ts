@@ -106,8 +106,16 @@ describe('loadWeightTextForEvaluation', () => {
     expect(loadWeightTextForEvaluation({ ...VALID, weightKg: ' 1500.5 ' })).toBe('1500.5')
   })
 
-  it('devolve vazio quando a carga é inválida (a avaliação aguarda)', () => {
+  it('devolve vazio quando o peso é inválido (a avaliação aguarda)', () => {
     expect(loadWeightTextForEvaluation({ ...VALID, weightKg: '0' })).toBe('')
-    expect(loadWeightTextForEvaluation({ ...VALID, heightM: '' })).toBe('')
+    expect(loadWeightTextForEvaluation({ ...VALID, weightKg: '' })).toBe('')
+    expect(loadWeightTextForEvaluation({ ...VALID, weightKg: 'abc' })).toBe('')
+  })
+
+  it('devolve o peso válido mesmo com os outros campos incompletos (TASK-050, L-009)', () => {
+    expect(loadWeightTextForEvaluation({ ...EMPTY_LOAD_FORM, weightKg: '2500' })).toBe('2500')
+    expect(loadWeightTextForEvaluation({ ...VALID, heightM: '' })).toBe(
+      String(Number(VALID.weightKg)),
+    )
   })
 })
