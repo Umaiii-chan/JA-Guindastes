@@ -130,23 +130,41 @@ export function BackendEvaluationPanel({
         <h2 id={titleId} className={styles.title}>
           Avaliação
         </h2>
-        {pending && (
-          <span className={styles.pending}>
-            <Spinner size={10} /> atualizando…
-          </span>
-        )}
+        <span
+          className={styles.pending}
+          style={{ visibility: pending ? 'visible' : 'hidden' }}
+          aria-hidden={!pending}
+        >
+          <Spinner size={10} /> atualizando…
+        </span>
         <span className={styles.headerSpacer} aria-hidden="true" />
-        {shown?.kind === 'EVALUATED' && (
-          <span className={styles.kind} title="A tabela de carga cobre o estado">
-            Avaliado
-          </span>
-        )}
-        {shown?.tippingRisk != null && (
-          <StatusPill tone={TIPPING_RISK_PRESENTATION[shown.tippingRisk].tone} size="lg">
+        <span
+          className={styles.kind}
+          title="A tabela de carga cobre o estado"
+          style={{ visibility: shown?.kind === 'EVALUATED' ? 'visible' : 'hidden' }}
+          aria-hidden={shown?.kind !== 'EVALUATED'}
+        >
+          Avaliado
+        </span>
+        {/* Os selos mantêm o lugar mesmo sem valor: só o conteúdo e a visibilidade mudam. */}
+        {shown?.tippingRisk != null ? (
+          <StatusPill
+            className={cx(styles.headerPill, styles.riskPill)}
+            tone={TIPPING_RISK_PRESENTATION[shown.tippingRisk].tone}
+            size="lg"
+          >
             {TIPPING_RISK_PRESENTATION[shown.tippingRisk].label}
           </StatusPill>
+        ) : (
+          <span className={cx(styles.headerPill, styles.riskPill)} aria-hidden="true" />
         )}
-        <StatusPill tone={presentation.tone} size="lg" live pulse={waitingFirst && pending}>
+        <StatusPill
+          className={cx(styles.headerPill, styles.statusPill)}
+          tone={presentation.tone}
+          size="lg"
+          live
+          pulse={waitingFirst && pending}
+        >
           {presentation.label}
         </StatusPill>
       </header>
@@ -270,18 +288,20 @@ export function BackendEvaluationPanel({
             <EvaluationDetails result={result} />
           )}
 
-          {shown !== null && shown.alerts !== undefined && shown.alerts.length > 0 && (
-            <ul className={styles.alerts} aria-label="Alertas de segurança">
-              {shown.alerts.map((alert) => (
-                <li key={alert.code} className={styles.alert} data-severity={alert.severity}>
-                  <Badge tone={ALERT_PRESENTATION[alert.severity].tone}>
-                    {ALERT_PRESENTATION[alert.severity].label}
-                  </Badge>
-                  <span>{alert.message}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className={styles.alertsBox}>
+            {shown !== null && shown.alerts !== undefined && shown.alerts.length > 0 && (
+              <ul className={styles.alerts} aria-label="Alertas de segurança">
+                {shown.alerts.map((alert) => (
+                  <li key={alert.code} className={styles.alert} data-severity={alert.severity}>
+                    <Badge tone={ALERT_PRESENTATION[alert.severity].tone}>
+                      {ALERT_PRESENTATION[alert.severity].label}
+                    </Badge>
+                    <span>{alert.message}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           {slow && pending && inputProblem === null && (
             <p className={styles.waiting} role="status">

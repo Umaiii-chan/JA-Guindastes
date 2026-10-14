@@ -1,5 +1,6 @@
 import { type CollisionState, describeAlert, describeHit } from '../../domain/collision/collisions'
 import { Notice } from '../ui'
+import styles from './CollisionAlerts.module.css'
 
 export interface CollisionAlertsProps {
   readonly collision: CollisionState
@@ -14,12 +15,12 @@ export function CollisionAlerts({ collision }: CollisionAlertsProps) {
   const { hits, alerts, blocked } = collision
   // Um objeto da biblioteca tem várias caixas de colisão: a mesma frase não se repete.
   const hitMessages = [...new Set(hits.map(describeHit))]
-  if (hitMessages.length === 0 && alerts.length === 0) return null
+  // Sem nada a avisar, o espaço continua reservado (altura fixa): o aviso não empurra a ficha.
   // Só guindaste contra guindaste (TASK-074): o título não fala da carga.
   const onlyCranes = hits.every((hit) => hit.subject === 'crane')
   const hitsTitle = onlyCranes ? 'Colisão entre os guindastes' : 'Colisão da carga'
   return (
-    <div className="collision-alerts" role="group" aria-label="Colisões">
+    <div className={styles.box} role="group" aria-label="Colisões">
       {hitMessages.length > 0 && (
         <Notice
           tone="danger"

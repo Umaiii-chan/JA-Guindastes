@@ -61,11 +61,13 @@ export function TandemHud({ result, error, pending, labels }: TandemHudProps) {
     >
       <header className={styles.header}>
         <h2 className={styles.title}>Içamento com dois guindastes</h2>
-        {pending && (
-          <span className={styles.pending}>
-            <Spinner size={10} /> atualizando…
-          </span>
-        )}
+        <span
+          className={styles.pending}
+          style={{ visibility: pending ? 'visible' : 'hidden' }}
+          aria-hidden={!pending}
+        >
+          <Spinner size={10} /> atualizando…
+        </span>
         <span className={styles.spacer} aria-hidden="true" />
         <span className={styles.rule}>
           Cada guindaste usa no máximo {format(TANDEM_CAPACITY_FACTOR * 100)} % da própria

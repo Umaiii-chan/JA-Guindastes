@@ -36,7 +36,7 @@ export interface CargoGuidanceInput {
 }
 
 function meters(value: number): string {
-  return `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} m`
+  return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m`
 }
 
 /** Tempo da operação como "m:ss,d". */

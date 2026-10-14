@@ -79,3 +79,21 @@
   display: inline-flex;
   gap: var(--space-2);
 }
+
+/* Campos estáveis (TASK-078): faixa de guia com altura fixa de 2 linhas e reticências. */
+.message {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  min-height: 2.8em;
+  max-height: 2.8em;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  flex: none;
+  align-self: center;
+}

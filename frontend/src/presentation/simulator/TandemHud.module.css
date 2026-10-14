@@ -136,3 +136,16 @@
   gap: var(--space-2);
   font-size: var(--font-size-xs);
 }
+
+/* Campos estáveis (TASK-078). */
+.pending {
+  flex: none;
+  min-width: 11ch;
+  white-space: nowrap;
+}
+
+.alerts {
+  max-height: 72px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
