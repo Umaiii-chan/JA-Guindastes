@@ -132,7 +132,8 @@ def test_main_without_database_url_is_a_configuration_error() -> None:
 
 def test_main_with_an_invalid_database_url_does_not_echo_it() -> None:
     out = io.StringIO()
-    url = "postgresql://usuario_ficticio:senha-nao-vazar@localhost/banco"
+    # Desde a TASK-049, `postgresql://` é aceito (normalizado); outro esquema é inválido.
+    url = "mysql://usuario_ficticio:senha-nao-vazar@localhost/banco"
 
     code = main(["--username", "admin"], environ={"DATABASE_URL": url}, out=out, prompt=no_prompt)
 

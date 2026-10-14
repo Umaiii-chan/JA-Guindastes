@@ -71,7 +71,7 @@ class SqlAlchemyUserRepository:
             return UserCredentials(user=user_from_model(model), password_hash=model.password_hash)
 
     def list_users(self) -> list[User]:
-        statement = select(AppUserModel).order_by(AppUserModel.username)
+        statement = select(AppUserModel).order_by(AppUserModel.username.collate("C"))
         with self._session_factory() as session:
             return [user_from_model(model) for model in session.scalars(statement)]
 

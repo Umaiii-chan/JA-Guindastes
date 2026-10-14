@@ -183,6 +183,11 @@ def test_patch_routes_persist_the_edits(client: TestClient) -> None:
         "id": ids["crane_id"],
         "manufacturer_id": ids["manufacturer_id"],
         "model_name": "Modelo editado",
+        # Limites do modelo (TASK-051), com os padrões.
+        "capacity_limit_percent": 100.0,
+        "warning_band_percent": 90.0,
+        "max_ground_slope_deg": 1.0,
+        "max_leveling_deg": 3.0,
     }
     assert client.get(f"{CONFIGURATIONS}/{ids['configuration_id']}").json() == {
         "id": ids["configuration_id"],
