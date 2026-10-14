@@ -33,3 +33,5 @@ Revisor (outra sessão/ferramenta): revisar o diff; a pessoa responsável config
 - Variáveis: `GROQ_API_KEY` e `GROQ_MODEL` (padrão `openai/gpt-oss-120b`); `GROQ_FALLBACK_MODELS` é opcional.
 - Reaproveita `OpenAiProvider` com `base_url=https://api.groq.com/openai/v1`. O nome do modelo passou a aceitar prefixo de organização (`openai/...`).
 - Testes a escrever depois: chamada real ao Groq com o esquema completo do cenário.
+- Groq: o Cloudflare recusa o User-Agent padrão do urllib (HTTP 403, código 1010). O provedor agora envia `User-Agent: ja-guindastes-simulador/1.0`.
+- Chamada real verificada em 14/10/2026: scenario-from-text com `openai/gpt-oss-120b` no Groq respondeu em 3,9 s, usando os modelos da biblioteca.
