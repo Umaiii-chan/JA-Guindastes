@@ -1,11 +1,11 @@
 # ADR-023 — Cenários com terreno editável e obstáculos
 
-| Campo                  | Valor                                  |
-| ---------------------- | -------------------------------------- |
-| **Status**             | Proposto                               |
-| **Data**               | 2026-10-14                             |
-| **Autor**              | agente Claude Code                     |
-| **Tarefa relacionada** | TASK-052                               |
+| Campo                  | Valor              |
+| ---------------------- | ------------------ |
+| **Status**             | Proposto           |
+| **Data**               | 2026-10-14         |
+| **Autor**              | agente Claude Code |
+| **Tarefa relacionada** | TASK-052           |
 
 ## Contexto
 

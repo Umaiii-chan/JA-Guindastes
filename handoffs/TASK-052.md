@@ -1,11 +1,11 @@
 # Handoff — TASK-052 — implementação
 
-| Campo | Valor |
-|-------|-------|
-| **Tarefa** | `tasks/in-progress/TASK-052-cenarios-terreno.md` |
-| **Etapa** | implementação (papel: Implementador) |
-| **Ferramenta** | Claude Code |
-| **Branch** | `task/TASK-052-cenarios-terreno` |
+| Campo          | Valor                                            |
+| -------------- | ------------------------------------------------ |
+| **Tarefa**     | `tasks/in-progress/TASK-052-cenarios-terreno.md` |
+| **Etapa**      | implementação (papel: Implementador)             |
+| **Ferramenta** | Claude Code                                      |
+| **Branch**     | `task/TASK-052-cenarios-terreno`                 |
 
 ## O que foi feito
 
