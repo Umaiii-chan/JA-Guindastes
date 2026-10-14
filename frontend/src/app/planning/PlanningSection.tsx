@@ -40,6 +40,8 @@ export interface PlanningSectionProps {
   /** Avisa a tela de que o guindaste foi mexido pelo planejamento. */
   onCraneMoved(): void
   onPlaybackChange(playing: boolean): void
+  /** Intervalo (ms) entre avisos à tela durante a trajetória (mais curto enquanto grava). */
+  readonly refreshMs?: number
   /** Deixa as patolas estendidas e apoiadas, como o planejamento pressupõe. */
   onExtendOutriggers(): void
   /** Do gancho ao ponto de amarração das lingas, medido na cena; `null` sem cena. */
@@ -62,6 +64,7 @@ export function PlanningSection({
   commands,
   onCraneMoved,
   onPlaybackChange,
+  refreshMs,
   onExtendOutriggers,
   getHookAttachM,
   onEngage,
@@ -101,6 +104,7 @@ export function PlanningSection({
     getCommands: () => commandsRef.current,
     onMoved: onCraneMoved,
     onPlayingChange: onPlaybackChange,
+    refreshMs,
     // Coleta e entrega (TASK-073): a trajetória engata no quadro "Engatar" e solta no "Soltar".
     onKeyframe: (point) => {
       const tandem = selected?.kind === 'tandem'
