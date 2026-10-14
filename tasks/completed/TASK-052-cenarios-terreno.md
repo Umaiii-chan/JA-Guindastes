@@ -12,3 +12,8 @@ ADR: ADR-023. Depende do PR #3 (TASK-050) e do commit de contratos da leva E.
 - CA-5: `groundSlopeDeg` com sapatas FICTÍCIAS enviado como `ground_slope_deg` (REST e WS); backend
   aceita (>= 0).
 - CA-6: gates existentes verdes (sem testes novos por decisão de prioridade; ver handoff).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14. Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

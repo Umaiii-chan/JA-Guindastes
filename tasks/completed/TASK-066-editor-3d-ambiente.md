@@ -21,3 +21,8 @@ backend da avaliação (campos novos) é a TASK-067.
 - `EnvironmentEditorToolbar` e `useEnvironmentEditor` (teclas Delete e Ctrl+Z, troca de ferramenta).
 - Colisões considerando a inclinação do chassi.
 - Teste de integração da avaliação com os campos novos (TASK-067).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14. Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

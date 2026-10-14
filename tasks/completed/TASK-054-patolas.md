@@ -27,3 +27,8 @@ controles na tela e o estado enviado ao backend. Nada desenhado por código como
 - CA-7 — O backend aceita o campo opcional, validado, sem uso.
 - CA-8 — Testes unitários, de contrato e e2e; nenhum teste existente quebra.
 - CA-9 — Captura em `docs/assets/screenshots/leva-e/` só se o modelo permitir (não permite).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14. Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

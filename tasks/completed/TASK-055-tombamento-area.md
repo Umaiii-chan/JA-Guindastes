@@ -9,3 +9,8 @@
 - CA-3 — `POST /api/v1/configurations/{id}/operating-area` devolve a grade GREEN/YELLOW/RED (autorização da avaliação).
 - CA-4 — frontend: cliente da área, `OperatingAreaOverlay`, `setOperatingArea`, liga/desliga com debounce, selo de risco e alertas no painel.
 - CA-5 — testes existentes, lint, tipagem e build passam.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14. Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

@@ -1,5 +1,7 @@
 # TASK-065 — acessórios com modelos 3D gratuitos
 
+## Critérios de aceite
+
 Pedido da pessoa responsável em 2026-10-14: baixar modelos gratuitos e hospedar (Vercel e Render).
 
 - [x] **CA-1** — Moitão, gancho giratório e manilha (Sketchfab, CC BY 4.0), otimizados em `frontend/public/models/acessorios/`, publicados pela Vercel.
@@ -12,3 +14,8 @@ Fontes originais (fora do Git): `assets/source/sketchfab/` (inclui as alternativ
 ## Testes a escrever depois
 - Seed: cria os 3 acessórios e é idempotente.
 - `fitModel` com modelo deitado.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14. Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

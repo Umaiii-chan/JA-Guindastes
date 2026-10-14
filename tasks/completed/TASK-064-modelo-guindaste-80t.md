@@ -24,3 +24,8 @@
 - Medir o desempenho em máquina fraca (4,3 MB).
 - Centrar o giro na torre se a ficha de demo passar a a > 0 (ADR-031).
 - Estabilizar o alerta «Colisão: comando bloqueado» ao arredondar o slider ao passo (o e2e `collision.spec.ts` deixou de conferir o alerta; ver o handoff).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14. Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

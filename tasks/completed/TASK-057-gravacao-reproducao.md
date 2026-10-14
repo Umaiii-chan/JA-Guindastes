@@ -8,3 +8,8 @@ ADR-027 · RN-005 · depende do PR #3 (TASK-050) e do commit de contratos da lev
 - [x] Frontend: gravar/parar/salvar com nome, lista, player (0,5×–4×, linha do tempo com marcadores), controles travados e HUD com quadros gravados.
 - [x] Integração pequena no SimulatorRoute (hook + painel).
 - [ ] Testes do frontend e e2e com capturas (adiados por decisão da pessoa responsável; ver handoff).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14. Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

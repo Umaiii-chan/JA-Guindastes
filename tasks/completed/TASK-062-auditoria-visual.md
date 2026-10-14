@@ -15,3 +15,8 @@ simulação em tela cheia e remover da interface termos de MVP (provisório, ADR
 
 - Tela cheia e painel recolhido (unitário do `SimulatorPage` e e2e).
 - `reasonLabel` para todos os códigos.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14. Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

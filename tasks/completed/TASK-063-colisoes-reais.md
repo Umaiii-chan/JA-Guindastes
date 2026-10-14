@@ -25,3 +25,8 @@
 - Terreno com relevo (TASK-052) e `headingDeg` diferente de 0 no e2e.
 - Remedição do corpo quando o GLB chega depois (hipótese e: `useModel` já chama `setRig`).
 - Cadeia de acessórios (TASK-056): confirmar `accessoriesDropM` na caixa com carga real no e2e.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14. Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

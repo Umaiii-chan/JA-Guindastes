@@ -7,7 +7,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Data/hora** | 2026-09-26 (UTC-3, Brasília), depois do merge da leva C |
+| **Data/hora** | 2026-10-14 (UTC-3, Brasília), depois do merge da leva E |
 | **Atualizado por** | agente Claude Code 2.1.280 (Opus 5.5), no encerramento da leva C |
 | **Branch de referência** | `development` @ `8b6a610` |
 
@@ -22,6 +22,7 @@
 - Concluídas: TASK-001..045 (TASK-044/045 no PR #40: rotas de listagem e edição, documentação da leva D).
 - TASK-046 concluída (PR #42): tabelas por zona de giro e peso do gancho (ADR-018).
 - TASK-047 concluída (PRs #43 e seguinte): visual de manual técnico (ADR-019).
+- Leva E concluída em 2026-10-14 (TASK-050..069, PRs #3..#22 no repositório Anderson-Sehn3m/JA-Guindastes): simulador completo — lança livre e interpolação, limite por modelo, cenários e editor 3D do ambiente, colisões, patolas reais (modelo 80 t, CC BY 4.0), tombamento e área de operação, fatores do ambiente (RN-015), acessórios 3D, gravação e reprodução, tela cheia e textos de produto final. ADR-022..034. Handoffs em `handoffs/TASK-05x.md` e `TASK-06x.md`, com "Testes a escrever depois".
 - Até a leva D: TASK-001..043. Leva D (TASK-038..043, PR #39): login com perfis, design system escuro, páginas, simulador guiado e modelo 3D do caminhão.
 - Até a leva C: TASK-001..037. A leva C (PRs #34 e #35) trouxe as telas de catálogo, importação/ativação e carga, a demo reproduzível (`docs/demo.md`), os testes ponta a ponta e a documentação final. Não há leva planejada depois dela.
 
