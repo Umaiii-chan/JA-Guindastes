@@ -37,6 +37,9 @@ avaliação). `build_catalog_repository` hoje só é usado pelos testes (`docs/k
 As edições do catálogo e a listagem das tabelas de uma configuração (TASK-044) também só existem
 com `DATABASE_URL`; a listagem não depende de `FILE_STORAGE_DIR`.
 
+Assistente de IA (TASK-076; ADR-039): `build_ai_assistant` (`app.ai_composition`) liga o Gemini com
+`GEMINI_API_KEY`; sem a chave, `GET /ai/status` responde `enabled: false`.
+
 Rodar a API completa, em `backend/`: `uv run uvicorn app.main:app --reload`.
 """
 
@@ -49,6 +52,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.ai_composition import build_ai_assistant
 from app.application.ports.accessory_repository import AccessoryProvider
 from app.application.ports.active_load_chart_provider import ActiveLoadChartProvider
 from app.application.ports.configuration_load_rules_provider import (
@@ -295,6 +299,8 @@ def create_database_app(engine: Engine, environ: Mapping[str, str] | None = None
         simulation_recordings=SqlAlchemySimulationRecordingRepository(session_factory),
         # Cenários com terreno e obstáculos (TASK-052): mesmo engine; exigem a autenticação.
         scenario_repository=SqlAlchemyScenarioRepository(session_factory),
+        # Assistente de IA (TASK-076; ADR-039): só liga com GEMINI_API_KEY.
+        ai_assistant=build_ai_assistant(environ),
         on_shutdown=engine.dispose,
     )
 
@@ -319,6 +325,7 @@ def create_app_without_database() -> FastAPI:
             )
         ),
         evaluation_websocket=use_case,
+        ai_assistant=build_ai_assistant(),
     )
 
 

@@ -26,6 +26,14 @@ services:
         value: Administrador da apresentação
       - key: ADMIN_PASSWORD
         sync: false
+      # Assistente de IA (TASK-076; ADR-039). Valores cadastrados no painel do Render, nunca aqui.
+      # Sem GEMINI_API_KEY, a IA fica desligada e a tela esconde o assistente.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        sync: false
+      - key: GEMINI_FALLBACK_MODELS
+        sync: false
 databases:
   - name: ja-guindastes-db
     plan: free

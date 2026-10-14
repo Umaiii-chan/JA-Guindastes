@@ -11,6 +11,8 @@ Regras (valores FICTÍCIOS e configuráveis até haver dado oficial):
 - obstáculo: dimensões > 0 (o cilindro usa `width_m` como diâmetro);
 - zonas de solo (TASK-066): `radius_m` > 0, no máximo 200, ids únicos; vento: velocidade de 0 a 100
   m/s e direção finita (ambos opcionais no cenário);
+- carga e entrega (TASK-076, contrato da leva F; opcionais): posição e giro finitos; `radius_m` da
+  entrega > 0;
 - no máximo 50 feições e 100 obstáculos; ids únicos dentro de cada lista;
 - nome do cenário: 1 a 120 caracteres, sem espaços nas pontas.
 """
@@ -211,12 +213,44 @@ class CranePlacementSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class CargoSpec:
+    """Onde a carga está no início (contrato da leva F): posição no chão e giro, em graus."""
+
+    x: float
+    z: float
+    rotation_y_deg: float = 0.0
+
+    def validate(self, path: str) -> None:
+        _finite(f"{path}.x", self.x)
+        _finite(f"{path}.z", self.z)
+        _finite(f"{path}.rotation_y_deg", self.rotation_y_deg)
+
+
+@dataclass(frozen=True, slots=True)
+class DeliverySpec:
+    """Onde a carga deve ser entregue (contrato da leva F): centro, giro e raio da área."""
+
+    x: float
+    z: float
+    rotation_y_deg: float = 0.0
+    radius_m: float = 1.0
+
+    def validate(self, path: str) -> None:
+        _finite(f"{path}.x", self.x)
+        _finite(f"{path}.z", self.z)
+        _finite(f"{path}.rotation_y_deg", self.rotation_y_deg)
+        _positive(f"{path}.radius_m", self.radius_m)
+
+
+@dataclass(frozen=True, slots=True)
 class ScenarioSpec:
     terrain: TerrainSpec = field(default_factory=TerrainSpec)
     obstacles: tuple[ObstacleSpec, ...] = ()
     crane: CranePlacementSpec = field(default_factory=CranePlacementSpec)
     soil_zones: tuple[SoilZoneSpec, ...] = ()
     wind: WindSpec | None = None
+    cargo: CargoSpec | None = None
+    delivery: DeliverySpec | None = None
 
     def __post_init__(self) -> None:
         self.terrain.validate("spec.terrain")
@@ -235,6 +269,10 @@ class ScenarioSpec:
             zone.validate(f"spec.soil_zones[{index}]")
         if self.wind is not None:
             self.wind.validate("spec.wind")
+        if self.cargo is not None:
+            self.cargo.validate("spec.cargo")
+        if self.delivery is not None:
+            self.delivery.validate("spec.delivery")
 
 
 @dataclass(frozen=True, slots=True)
@@ -311,6 +349,19 @@ def scenario_spec_to_dict(spec: ScenarioSpec) -> dict[str, object]:
         ]
     if spec.wind is not None:
         data["wind"] = {"speed_ms": spec.wind.speed_ms, "direction_deg": spec.wind.direction_deg}
+    if spec.cargo is not None:
+        data["cargo"] = {
+            "x": spec.cargo.x,
+            "z": spec.cargo.z,
+            "rotation_y_deg": spec.cargo.rotation_y_deg,
+        }
+    if spec.delivery is not None:
+        data["delivery"] = {
+            "x": spec.delivery.x,
+            "z": spec.delivery.z,
+            "rotation_y_deg": spec.delivery.rotation_y_deg,
+            "radius_m": spec.delivery.radius_m,
+        }
     return data
 
 
@@ -373,6 +424,25 @@ def scenario_spec_from_dict(data: Mapping[str, Any]) -> ScenarioSpec:
             else WindSpec(
                 speed_ms=float(data["wind"]["speed_ms"]),
                 direction_deg=float(data["wind"]["direction_deg"]),
+            )
+        ),
+        cargo=(
+            None
+            if data.get("cargo") is None
+            else CargoSpec(
+                x=float(data["cargo"]["x"]),
+                z=float(data["cargo"]["z"]),
+                rotation_y_deg=float(data["cargo"]["rotation_y_deg"]),
+            )
+        ),
+        delivery=(
+            None
+            if data.get("delivery") is None
+            else DeliverySpec(
+                x=float(data["delivery"]["x"]),
+                z=float(data["delivery"]["z"]),
+                rotation_y_deg=float(data["delivery"]["rotation_y_deg"]),
+                radius_m=float(data["delivery"]["radius_m"]),
             )
         ),
     )

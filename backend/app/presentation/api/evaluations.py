@@ -123,6 +123,10 @@ def _as_dependency(
     return dependencies
 
 
+as_evaluate_operation_dependency = _as_dependency
+"""Dependência do caso de uso da avaliação, também usada pelo relatório de içamento (TASK-076)."""
+
+
 def create_evaluations_router(
     dependencies: EvaluationDependencies | EvaluateOperationDependency,
 ) -> APIRouter:
