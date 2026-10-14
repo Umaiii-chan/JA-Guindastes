@@ -69,6 +69,12 @@ class OperationalStatePayload(BaseModel):
     turret_rotation_deg: float = Field(description="Giro da torre ψ, em graus (ADR-013).")
     cable_length_m: float = Field(ge=0, description="Queda vertical c, em metros (ADR-013 C-3).")
     load_weight_kg: float = Field(ge=0, description="Massa da carga, em quilogramas.")
+    ground_slope_deg: float | None = Field(
+        default=None,
+        ge=0,
+        description="Inclinação residual do terreno sob o guindaste, em graus (TASK-052). "
+        "Opcional; aceita e ainda não usada (a TASK-055 a usa no risco de tombamento).",
+    )
 
 
 class SimulationStateChangedMessage(BaseModel):

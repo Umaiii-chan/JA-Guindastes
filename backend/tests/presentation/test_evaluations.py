@@ -450,3 +450,21 @@ def test_body_that_is_not_json_returns_422(client: TestClient) -> None:
     )
 
     assert response.status_code == 422
+
+
+# ground_slope_deg opcional (TASK-052) -------------------------------------------------------------
+
+
+def test_ground_slope_deg_is_accepted_and_does_not_change_the_result(client: TestClient) -> None:
+    without = client.post(EVALUATIONS_PATH, json=body_ficticio())
+    with_slope = client.post(EVALUATIONS_PATH, json=body_ficticio(ground_slope_deg=2.5))
+
+    assert with_slope.status_code == 200
+    assert with_slope.json() == without.json()
+
+
+@pytest.mark.parametrize("value", [-0.1, "2"])
+def test_invalid_ground_slope_deg_answers_422(client: TestClient, value: Any) -> None:
+    response = client.post(EVALUATIONS_PATH, json=body_ficticio(ground_slope_deg=value))
+
+    assert response.status_code == 422

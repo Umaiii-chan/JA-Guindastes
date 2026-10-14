@@ -71,6 +71,12 @@ class EvaluationRequest(BaseModel):
         "(ADR-013 C-3).",
     )
     load_weight_kg: float = Field(ge=0, description="Peso da carga, em quilogramas.")
+    ground_slope_deg: float | None = Field(
+        default=None,
+        ge=0,
+        description="Inclinação residual do terreno sob o guindaste, em graus (TASK-052). "
+        "Opcional; aceita e ainda não usada (a TASK-055 a usa no risco de tombamento).",
+    )
 
 
 class Point3DResponse(BaseModel):

@@ -9,6 +9,7 @@ from app.infrastructure.database.models.catalog import (
     ManufacturerModel,
 )
 from app.infrastructure.database.models.load_chart import LoadChartModel, LoadChartPointModel
+from app.infrastructure.database.models.scenario import ScenarioModel
 from app.infrastructure.database.models.user import AppUserModel, UserSessionModel
 
 __all__ = [
@@ -18,5 +19,6 @@ __all__ = [
     "LoadChartModel",
     "LoadChartPointModel",
     "ManufacturerModel",
+    "ScenarioModel",
     "UserSessionModel",
 ]

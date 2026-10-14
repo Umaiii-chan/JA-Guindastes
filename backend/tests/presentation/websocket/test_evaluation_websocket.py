@@ -527,3 +527,27 @@ def test_internal_failure_gets_a_generic_error_and_keeps_the_connection(
 def test_client_can_close_the_connection_cleanly(websocket: WebSocketTestSession) -> None:
     exchange(websocket, state_changed_ficticio(50))
     websocket.close()
+
+
+def test_ground_slope_deg_is_accepted_and_does_not_change_the_result(
+    websocket: WebSocketTestSession,
+) -> None:
+    message = state_changed_ficticio(7)
+    message["payload"]["ground_slope_deg"] = 2.5
+
+    reply = exchange(websocket, message)
+    baseline = exchange(websocket, state_changed_ficticio(7))
+
+    assert reply == baseline
+
+
+def test_negative_ground_slope_deg_is_a_malformed_message(
+    websocket: WebSocketTestSession,
+) -> None:
+    message = state_changed_ficticio(8)
+    message["payload"]["ground_slope_deg"] = -1.0
+
+    reply = exchange(websocket, message)
+
+    assert reply["type"] == "simulation.error"
+    assert_connection_still_evaluates(websocket)
