@@ -53,7 +53,7 @@ export class ObjectModelCache {
   }
 
   /** Carrega o modelo (uma vez só) e resolve com o molde, ou `null` se o arquivo não carregou. */
-  load(object: LibraryObject): Promise<Object3D | null> {
+  load(object: Pick<LibraryObject, 'id' | 'file' | 'modelOffset'>): Promise<Object3D | null> {
     const ready = this.templates.get(object.id)
     if (ready) return Promise.resolve(ready)
     if (this.failed.has(object.id)) return Promise.resolve(null)

@@ -6,6 +6,10 @@
 // - centro de gravidade opcional; quando informado, três coordenadas finitas (m), a partir do centro
 //   da caixa das dimensões, dentro da caixa com as faces incluídas (|coordenada| <= aresta / 2).
 // O backend ainda não recebe a carga: só o peso vai para a avaliação (`load_weight_kg`).
+// Leva F: o tipo de carga (`cargoType`) é opcional e aditivo; só escolhe o modelo 3D desenhado no lugar
+// da caixa e não entra em validação, peso nem colisão. Ausente = caixa simples.
+
+import { type CargoTypeId, normalizeCargoType } from '../../domain/cargo/cargoTypes'
 
 export interface Load {
   readonly description: string
@@ -18,6 +22,8 @@ export interface Load {
     readonly alongWidthM: number
     readonly alongHeightM: number
   } | null
+  /** Tipo escolhido; ausente na caixa simples (leva F). */
+  readonly cargoType?: CargoTypeId
 }
 
 /** Campos como digitados (podem estar vazios ou inválidos). */
@@ -30,9 +36,11 @@ export interface LoadFormValues {
   readonly cgAlongLengthM: string
   readonly cgAlongWidthM: string
   readonly cgAlongHeightM: string
+  /** Tipo de carga escolhido (`CargoTypeId`); ausente ou desconhecido = caixa simples (leva F). */
+  readonly cargoType?: string
 }
 
-export type LoadFormField = keyof LoadFormValues
+export type LoadFormField = Exclude<keyof LoadFormValues, 'cargoType'>
 
 export const EMPTY_LOAD_FORM: LoadFormValues = {
   description: '',
@@ -114,12 +122,21 @@ export function validateLoadForm(values: LoadFormValues): LoadFormResult {
     return { load: null, problems }
   }
   const { cgAlongLengthM, cgAlongWidthM, cgAlongHeightM } = cgValues
+  const cargoType = normalizeCargoType(values.cargoType)
   const centerOfGravity =
     cgAlongLengthM !== undefined && cgAlongWidthM !== undefined && cgAlongHeightM !== undefined
       ? { alongLengthM: cgAlongLengthM, alongWidthM: cgAlongWidthM, alongHeightM: cgAlongHeightM }
       : null
   return {
-    load: { description, weightKg, lengthM, widthM, heightM, centerOfGravity },
+    load: {
+      description,
+      weightKg,
+      lengthM,
+      widthM,
+      heightM,
+      centerOfGravity,
+      ...(cargoType === undefined ? {} : { cargoType }),
+    },
     problems,
   }
 }
@@ -133,4 +150,24 @@ export function validateLoadForm(values: LoadFormValues): LoadFormResult {
 export function loadWeightTextForEvaluation(values: LoadFormValues): string {
   const weightKg = parseNumber(values.weightKg)
   return weightKg === null || weightKg <= 0 ? '' : String(weightKg)
+}
+
+/**
+ * Medidas da carga para a cena: comprimento, largura e altura, mais o tipo quando não for a caixa
+ * simples (leva F). A cena escala o modelo do tipo para essas medidas.
+ */
+export function loadDimensionsOf(
+  load: Pick<Load, 'lengthM' | 'widthM' | 'heightM' | 'cargoType'>,
+): {
+  readonly lengthM: number
+  readonly widthM: number
+  readonly heightM: number
+  readonly cargoType?: CargoTypeId
+} {
+  return {
+    lengthM: load.lengthM,
+    widthM: load.widthM,
+    heightM: load.heightM,
+    ...(load.cargoType === undefined ? {} : { cargoType: load.cargoType }),
+  }
 }

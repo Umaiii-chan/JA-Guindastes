@@ -302,6 +302,9 @@ export function mountCraneScene(
 
   // Objetos da biblioteca (TASK-072): quando um GLB termina de carregar, pede um quadro novo.
   contents.obstacles.setOnChange(invalidate)
+  // Modelos 3D dos tipos de carga (leva F): pendurada ou no chão, a carga pede quadro ao chegar.
+  hookLoad.setOnModelReady(invalidate)
+  cargo.ground.setOnModelReady(invalidate)
 
   const accessoryChain = new AccessoryChain({
     loader: options.loadAccessoryModel,

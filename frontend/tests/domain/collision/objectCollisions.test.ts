@@ -58,16 +58,16 @@ describe('obstacleObbs', () => {
     ])
   })
 
-  it('o barracão vira paredes, verga e telhado; gira e sobe com o terreno', () => {
+  it('o galpão vira o arco e o fundo em caixas; gira e sobe com o terreno', () => {
     const terrain = { slopeXPercent: 0, slopeZPercent: 0, features: [] }
     const boxes = obstacleObbs(shed(), terrain)
-    expect(boxes.length).toBeGreaterThan(6)
-    const unrotatedFront = boxes.find((obb) => Math.abs(obb.center.z - (10 + 8.8)) < 1e-6)
-    expect(unrotatedFront).toBeDefined()
+    expect(boxes.length).toBeGreaterThan(20)
+    const unrotatedBack = boxes.find((obb) => Math.abs(obb.center.z - (10 - 11.61)) < 1e-6)
+    expect(unrotatedBack).toBeDefined()
 
-    // Girado 180°, a frente (a porta) passa a olhar para -Z, para o guindaste.
+    // Girado 180°, a frente (a abertura) passa a olhar para -Z, para o guindaste, e o fundo vai para +Z.
     const turned = obstacleObbs(shed({ rotationYDeg: 180 }), terrain)
-    expect(turned.find((obb) => Math.abs(obb.center.z - (10 - 8.8)) < 1e-6)).toBeDefined()
+    expect(turned.find((obb) => Math.abs(obb.center.z - (10 + 11.61)) < 1e-6)).toBeDefined()
 
     // Sobre um morro, a base acompanha o terreno no centro.
     const hill = {
@@ -84,7 +84,7 @@ describe('obstacleObbs', () => {
   it('escala o tamanho do obstáculo junto com as caixas', () => {
     const terrain = EMPTY_SCENARIO.terrain
     const normal = obstacleObbs(shed(), terrain)
-    const wide = obstacleObbs(shed({ widthM: 28 }), terrain)
+    const wide = obstacleObbs(shed({ widthM: 38.44 }), terrain)
     expect(wide[0]!.half.x).toBeCloseTo(normal[0]!.half.x * 2)
     expect(wide[0]!.half.z).toBeCloseTo(normal[0]!.half.z)
   })

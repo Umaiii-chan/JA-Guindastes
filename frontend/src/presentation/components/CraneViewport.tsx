@@ -205,14 +205,15 @@ export function CraneViewport({
   const lengthM = load?.lengthM
   const widthM = load?.widthM
   const heightM = load?.heightM
+  const cargoType = load?.cargoType
   useEffect(() => {
     const next =
       lengthM === undefined || widthM === undefined || heightM === undefined
         ? null
-        : { lengthM, widthM, heightM }
+        : { lengthM, widthM, heightM, ...(cargoType === undefined ? {} : { cargoType }) }
     loadRef.current = next
     sceneRef.current?.setLoad(next)
-  }, [lengthM, widthM, heightM])
+  }, [lengthM, widthM, heightM, cargoType])
 
   // Dependência no conteúdo das zonas, não no array: a UI pode mandar um array novo a cada render.
   const zonesKey = JSON.stringify(rotationZones ?? [])

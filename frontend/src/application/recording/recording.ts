@@ -45,6 +45,8 @@ export interface RecordingSnapshot {
     readonly lengthM: number
     readonly widthM: number
     readonly heightM: number
+    /** Tipo de carga (leva F; campo aditivo): ausente em gravações antigas = caixa simples. */
+    readonly cargoType?: string
   } | null
 }
 

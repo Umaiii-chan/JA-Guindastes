@@ -100,7 +100,7 @@ test('TASK-072: barracão, árvores, caminhão e carro; a carga entra pela porta
   if (SCREENSHOT_DIR) await page.screenshot({ path: `${SCREENSHOT_DIR}/biblioteca-paleta.png` })
 
   // Barracão com a porta virada para o guindaste (giro de 180°), árvores, caminhão e carro.
-  await placeFromLibrary(page, 'Construções', 'Barracão com porta aberta', 'barracao-aberto-1', {
+  await placeFromLibrary(page, 'Construções', 'Galpão com frente aberta', 'barracao-aberto-1', {
     x: 0,
     z: 25,
     rotationDeg: 180,
@@ -152,10 +152,10 @@ test('TASK-072: barracão, árvores, caminhão e carro; a carga entra pela porta
   // barrado com o nome do barracão no aviso.
   await setSlider(page.getByLabel('Inclinação da lança'), 40)
   await setSlider(page.getByLabel('Comprimento da lança'), 30)
-  await setSlider(page.getByLabel('Comprimento do cabo'), 14.5)
+  await setSlider(page.getByLabel('Comprimento do cabo'), 12)
   await expect(page.getByRole('alert').filter({ hasText: /bloqueado/ })).toBeVisible()
   await expect(
-    page.getByRole('group', { name: 'Colisões' }).getByText(/Barracão com porta aberta/),
+    page.getByRole('group', { name: 'Colisões' }).getByText(/Galpão com frente aberta/),
   ).toBeVisible()
   if (SCREENSHOT_DIR) {
     await page.screenshot({ path: `${SCREENSHOT_DIR}/carga-barrada-pelo-telhado.png` })

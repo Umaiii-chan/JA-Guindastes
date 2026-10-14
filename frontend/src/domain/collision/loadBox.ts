@@ -10,6 +10,11 @@ export interface LoadDimensions {
   readonly lengthM: number
   readonly widthM: number
   readonly heightM: number
+  /**
+   * Tipo de carga (`domain/cargo/cargoTypes`, leva F): a cena desenha o modelo do tipo, escalado para as
+   * medidas, no lugar da caixa. Ausente = caixa simples. Só desenho: não entra em colisão nem cálculo.
+   */
+  readonly cargoType?: string
 }
 
 export interface LocalPoint {
@@ -135,5 +140,10 @@ export function sameLoad(
   const validA = isValidLoad(a)
   const validB = isValidLoad(b)
   if (!validA || !validB) return validA === validB
-  return a.lengthM === b.lengthM && a.widthM === b.widthM && a.heightM === b.heightM
+  return (
+    a.lengthM === b.lengthM &&
+    a.widthM === b.widthM &&
+    a.heightM === b.heightM &&
+    (a.cargoType ?? null) === (b.cargoType ?? null)
+  )
 }
