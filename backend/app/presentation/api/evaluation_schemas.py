@@ -31,6 +31,7 @@ from app.domain.value_objects.conservative_capacity_result import (
     CapacityLookupStrategy,
     ConservativeCapacityFound,
 )
+from app.domain.value_objects.interpolated_capacity_result import InterpolatedCapacityFound
 from app.domain.value_objects.operational_geometry import OperationalGeometry, Point3D
 from app.presentation.api.load_chart_schemas import LoadChartPointResponse
 
@@ -133,11 +134,28 @@ class CapacityResponse(BaseModel):
     )
     used_point: LoadChartPointResponse | None = Field(
         description="Ponto da tabela de onde veio a capacidade (ADR-015 item 4). Entre dois raios "
-        "tabelados, é o vizinho de menor capacidade. `null` quando a estratégia não o informa."
+        "tabelados, é o vizinho de menor capacidade. Na interpolação (ADR-030), o ponto usado de "
+        "menor capacidade. `null` quando a estratégia não o informa."
+    )
+    interpolated_points: list[LoadChartPointResponse] | None = Field(
+        default=None,
+        description="Pontos da tabela usados na interpolação linear (ADR-030); `null` nas "
+        "outras estratégias.",
     )
 
     @classmethod
     def from_capacity(cls, capacity: CapacityFound) -> CapacityResponse:
+        if isinstance(capacity, InterpolatedCapacityFound):
+            return cls(
+                maximum_capacity_kg=capacity.max_capacity.kilograms,
+                strategy=capacity.strategy,
+                queried_boom_length_m=capacity.query.boom_length.meters,
+                queried_working_radius_m=capacity.queried_radius.meters,
+                used_point=LoadChartPointResponse.from_point(capacity.lowest_point),
+                interpolated_points=[
+                    LoadChartPointResponse.from_point(point) for point in capacity.points
+                ],
+            )
         if isinstance(capacity, ConservativeCapacityFound):
             return cls(
                 maximum_capacity_kg=capacity.max_capacity.kilograms,

@@ -214,6 +214,7 @@ def test_injected_strategy_without_mark_returns_capacity_without_strategy_or_use
         "queried_boom_length_m": None,
         "queried_working_radius_m": None,
         "used_point": None,
+        "interpolated_points": None,
     }
 
 

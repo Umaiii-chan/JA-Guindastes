@@ -156,6 +156,7 @@ def test_ficticio_radius_between_points_is_evaluated_with_the_same_sequence(
         "strategy": "CONSERVATIVE_PROVISIONAL",
         "queried_radius_m": geometry["working_radius_m"],
         "used_point": {"boom_length_m": 20.0, "working_radius_m": 21.5, "max_capacity_kg": 2000.0},
+        "interpolated_points": None,
     }
     assert payload["utilization_percent"] == 75.0
     assert payload["load_chart_id"] == LOAD_CHART_AVALIACAO_FICTICIO_ID
@@ -276,6 +277,7 @@ def test_ficticio_strategy_without_provisional_mark_sends_null_mark_fields() -> 
         "strategy": None,
         "queried_radius_m": None,
         "used_point": None,
+        "interpolated_points": None,
     }
 
 

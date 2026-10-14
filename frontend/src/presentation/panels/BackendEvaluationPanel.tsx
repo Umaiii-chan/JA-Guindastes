@@ -8,6 +8,7 @@ import {
 } from '../../application/evaluation/evaluationStatus'
 import {
   CONSERVATIVE_PROVISIONAL_STRATEGY,
+  LINEAR_INTERPOLATION_STRATEGY,
   type EvaluationError,
   type EvaluationResult,
 } from '../../domain/evaluation/evaluation'
@@ -34,6 +35,7 @@ export const SLOW_BACKEND_MESSAGE =
   'O backend está demorando para responder. Se estava parado, ele leva até 1 minuto para acordar.'
 
 export const PROVISIONAL_MARK = 'PROVISÓRIO — consulta conservadora (ADR-015)'
+export const INTERPOLATED_MARK = 'PROVISÓRIO — interpolado entre pontos da tabela (ADR-030)'
 
 const TRANSPORT_LABEL: Record<EvaluationTransportLabel, string> = {
   websocket: 'WebSocket',
@@ -87,6 +89,7 @@ export function BackendEvaluationPanel({
   const utilization = shown?.kind === 'EVALUATED' ? shown.utilizationPercent : null
   // Zona de giro usada pelo backend (TASK-046); some numa configuração sem zonas.
   const zoneLabel = shown ? (shown.rotationZoneName ?? shown.rotationZoneCode) : null
+  const interpolated = shown?.capacity?.strategy === LINEAR_INTERPOLATION_STRATEGY
 
   return (
     <section className={styles.hud} aria-labelledby={titleId} aria-busy={pending}>
@@ -212,11 +215,15 @@ export function BackendEvaluationPanel({
           <p className={styles.provisional} role="note">
             <strong>
               <span className={styles.provisionalStamp}>PROVISÓRIO</span>
-              <span>{PROVISIONAL_MARK.slice('PROVISÓRIO'.length)}</span>
+              <span>
+                {(interpolated ? INTERPOLATED_MARK : PROVISIONAL_MARK).slice('PROVISÓRIO'.length)}
+              </span>
             </strong>
             <span>
               {' '}
-              Capacidade tirada de um ponto da tabela, do lado seguro; não é valor definitivo.
+              {interpolated
+                ? 'Capacidade interpolada linearmente entre pontos da tabela; não é valor definitivo.'
+                : 'Capacidade tirada de um ponto da tabela, do lado seguro; não é valor definitivo.'}
             </span>
           </p>
 
@@ -288,7 +295,9 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
       value:
         capacity.strategy === CONSERVATIVE_PROVISIONAL_STRATEGY
           ? 'conservadora provisória (ADR-015)'
-          : (capacity.strategy ?? 'não informada pelo backend'),
+          : capacity.strategy === LINEAR_INTERPOLATION_STRATEGY
+            ? 'interpolação linear provisória (ADR-030)'
+            : (capacity.strategy ?? 'não informada pelo backend'),
     })
   }
   if (result.loadChartId !== null || result.loadChartVersion !== null) {

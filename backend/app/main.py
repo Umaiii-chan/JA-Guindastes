@@ -25,7 +25,7 @@ Duas composições, escolhidas por `DATABASE_URL` (`compose_app`):
   `ACTIVE_LOAD_CHART_NOT_FOUND` (nunca dados inventados), a saúde mostra `NOT_CONFIGURED`, e um
   aviso vai para o log.
 
-Nas duas, a estratégia de consulta é a `ConservativeTabulatedLookup` (ADR-015, provisória), e REST e
+Nas duas, a estratégia de consulta é a `LinearInterpolationLookup` (ADR-030, provisória), e REST e
 WebSocket usam a mesma montagem do `EvaluateOperation` (`build_evaluate_operation`).
 
 Autenticação (TASK-038; ADR-016): só com `DATABASE_URL` (`build_auth`, em `app.auth_composition`,
@@ -57,7 +57,7 @@ from app.application.ports.crane_geometry_provider import CraneGeometryProvider
 from app.application.use_cases.evaluate_operation import EvaluateOperation
 from app.auth_composition import build_auth
 from app.domain.entities.load_chart import LoadChart
-from app.domain.services.conservative_tabulated_lookup import ConservativeTabulatedLookup
+from app.domain.services.linear_interpolation_lookup import LinearInterpolationLookup
 from app.domain.value_objects.crane_geometry import CraneGeometry
 from app.infrastructure.database.config import DATABASE_URL_ENV_VAR, DatabaseSettings
 from app.infrastructure.database.engine import create_database_engine, create_session_factory
@@ -79,7 +79,7 @@ from app.presentation.api.upload_limits import UploadLimits
 
 logger = logging.getLogger(__name__)
 
-load_chart_interpolator = ConservativeTabulatedLookup()
+load_chart_interpolator = LinearInterpolationLookup()
 """Estratégia de consulta da composição: provisória (ADR-015; PEND-001, PEND-003)."""
 
 
