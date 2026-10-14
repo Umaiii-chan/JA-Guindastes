@@ -12,7 +12,11 @@ import { selectedConfiguration as findSelectedConfiguration } from '../../applic
 import { cargoGuidance } from '../../application/cargo/cargoGuidance'
 import { fitTurretRotation } from '../../application/planning/trajectoryPlayback'
 import { evaluationStatus } from '../../application/evaluation/evaluationStatus'
-import { type CargoStatus, INACTIVE_CARGO } from '../../domain/cargo/cargoOperation'
+import {
+  type CargoStatus,
+  INACTIVE_CARGO,
+  RELEASE_MAX_HEIGHT_M,
+} from '../../domain/cargo/cargoOperation'
 import type { RecordingFrame, RecordingSnapshot } from '../../application/recording/recording'
 import type { ScenarioSummary } from '../../application/environment/ports'
 import {
@@ -482,6 +486,14 @@ export function SimulatorRoute() {
       const result = handle.releaseTandem()
       if (result.released) changeCargo(result.cargo)
       return result.released ? null : 'Não deu para soltar a carga dos dois guindastes.'
+    }
+    // A trajetória pode terminar com a carga um pouco acima do chão (o planejador não desconta toda a
+    // altura das lingas): desce o cabo até apoiar antes de soltar. A guarda de colisão para no chão.
+    const height = handle.getCargoStatus()?.heightAboveGroundM ?? null
+    if (craneCommands && height !== null && height > RELEASE_MAX_HEIGHT_M) {
+      craneCommands.setCableLength(
+        craneCommands.getState().cableLengthM + height - RELEASE_MAX_HEIGHT_M / 2,
+      )
     }
     return handle.releaseCargo() ? null : 'Não deu para soltar a carga: baixe-a até perto do chão.'
   }
