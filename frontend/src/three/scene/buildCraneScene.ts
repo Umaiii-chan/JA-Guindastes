@@ -1,4 +1,4 @@
-import { Group, Mesh, type Object3D, Quaternion, type Scene, Vector3 } from 'three'
+import { Group, type Object3D, Quaternion, type Scene, Vector3 } from 'three'
 
 import { craneAttitude } from '../../domain/environment/craneAttitude'
 import { EMPTY_SCENARIO, type ScenarioSpec } from '../../domain/environment/environment'
@@ -15,8 +15,10 @@ import type { CraneSetup } from '../crane/types'
 import { addEnvironment, type SceneEnvironment } from './addEnvironment'
 import { CargoOperation } from './CargoOperation'
 import { createScene } from './createScene'
+import { enableShadows } from './enableShadows'
 import { disposeObject3D } from './disposeObject3D'
 import { HookLoad } from './HookLoad'
+import { MultiCrane } from './MultiCrane'
 import { OperatingAreaOverlay } from './OperatingAreaOverlay'
 import { ObstacleMeshes } from './ObstacleMeshes'
 import { RadiusIndicator } from './RadiusIndicator'
@@ -71,7 +73,8 @@ export class CraneSceneContents {
   readonly wind: WindArrow
   /** Carga no chão, ponto de entrega, engatar e soltar (TASK-073). */
   readonly cargo: CargoOperation
-
+  /** Guindastes adicionais, tandem e colisões entre guindastes (TASK-074). */
+  readonly multi: MultiCrane
   private currentRig: CraneRig
   private currentRoot: Object3D
   private eye: Vec3 | null
@@ -114,6 +117,7 @@ export class CraneSceneContents {
     this.cargo = parts.cargo
     this.cargo.bindCrane(this.crane)
     this.eye = findOperatorEye(parts.rig)
+    this.multi = new MultiCrane(this)
   }
 
   /** Rig desenhado agora (provisório ou do modelo 3D). */
@@ -205,16 +209,6 @@ export class CraneSceneContents {
     this.environment.followCrane(x, attitude.groundY, z)
     this.wind.setWind(spec.wind, { x, y: attitude.groundY, z })
   }
-}
-
-/** Sombras suaves no chão (CA-1): malhas opacas projetam e recebem; vidro só recebe. */
-function enableShadows(root: Object3D): void {
-  root.traverse((object) => {
-    if (!(object instanceof Mesh)) return
-    const materials = Array.isArray(object.material) ? object.material : [object.material]
-    object.castShadow = !materials.some((material) => material.transparent)
-    object.receiveShadow = true
-  })
 }
 
 /**

@@ -14,6 +14,7 @@ from app.domain.entities.scenario import (
     CargoPlacementSpec,
     CranePlacementSpec,
     DeliveryPointSpec,
+    ExtraCraneSpec,
     FeatureKind,
     ObstacleKind,
     ObstacleSpec,
@@ -134,6 +135,35 @@ class CranePlacementPayload(BaseModel):
     heading_deg: float
 
 
+class ExtraCranePayload(BaseModel):
+    """Guindaste adicional (TASK-074): configuração do catálogo e posição no cenário."""
+
+    model_config = _STRICT_INPUT
+
+    id: str
+    configuration_id: str
+    placement: CranePlacementPayload
+
+    def to_domain(self) -> ExtraCraneSpec:
+        return ExtraCraneSpec(
+            id=self.id,
+            configuration_id=self.configuration_id,
+            placement=CranePlacementSpec(
+                x=self.placement.x, z=self.placement.z, heading_deg=self.placement.heading_deg
+            ),
+        )
+
+    @classmethod
+    def from_domain(cls, crane: ExtraCraneSpec) -> ExtraCranePayload:
+        return cls(
+            id=crane.id,
+            configuration_id=crane.configuration_id,
+            placement=CranePlacementPayload(
+                x=crane.placement.x, z=crane.placement.z, heading_deg=crane.placement.heading_deg
+            ),
+        )
+
+
 class SoilZonePayload(BaseModel):
     model_config = _STRICT_INPUT
 
@@ -201,6 +231,9 @@ class ScenarioSpecPayload(BaseModel):
         default=None, description="Zonas de solo pintadas; opcional (TASK-066)."
     )
     wind: WindPayload | None = Field(default=None, description="Vento; opcional (TASK-066).")
+    cranes: list[ExtraCranePayload] | None = Field(
+        default=None, description="Guindastes adicionais (até 3); opcional (TASK-074)."
+    )
     cargo: CargoPlacementPayload | None = Field(
         default=None, description="Posição inicial da carga no chão; opcional (TASK-073)."
     )
@@ -226,6 +259,7 @@ class ScenarioSpecPayload(BaseModel):
                 if self.wind is None
                 else WindSpec(speed_ms=self.wind.speed_ms, direction_deg=self.wind.direction_deg)
             ),
+            cranes=tuple(extra.to_domain() for extra in self.cranes or []),
             cargo=(
                 None
                 if self.cargo is None
@@ -263,6 +297,7 @@ class ScenarioSpecPayload(BaseModel):
                 if spec.wind is None
                 else WindPayload(speed_ms=spec.wind.speed_ms, direction_deg=spec.wind.direction_deg)
             ),
+            cranes=[ExtraCranePayload.from_domain(c) for c in spec.cranes] or None,
             cargo=(
                 None
                 if spec.cargo is None

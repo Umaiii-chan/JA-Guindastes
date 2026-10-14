@@ -12,6 +12,7 @@ import {
   type CargoPlacement,
   type CranePlacement,
   type DeliveryPoint,
+  type ExtraCrane,
   type Obstacle,
   type ScenarioSpec,
   SOIL_KINDS,
@@ -90,6 +91,19 @@ export function toScenarioSpecDto(spec: ScenarioSpec): Record<string, unknown> {
       : {}),
     ...(spec.wind
       ? { wind: { speed_ms: spec.wind.speedMs, direction_deg: spec.wind.directionDeg } }
+      : {}),
+    ...(spec.cranes && spec.cranes.length > 0
+      ? {
+          cranes: spec.cranes.map((extra) => ({
+            id: extra.id,
+            configuration_id: extra.configurationId,
+            placement: {
+              x: extra.placement.x,
+              z: extra.placement.z,
+              heading_deg: extra.placement.headingDeg,
+            },
+          })),
+        }
       : {}),
     ...(spec.cargo
       ? {
@@ -228,11 +242,32 @@ export function mapScenarioSpec(json: unknown, path: string): ScenarioSpec {
         }
       : {}),
     ...(record.wind != null ? { wind: mapWind(record.wind, `${path}.wind`) } : {}),
-    // Campos da TASK-073: cenários salvos antes deles não os têm (ausente ou `null`).
+    // Campos opcionais: cenários salvos antes deles não os têm (ausente ou `null`).
+    ...(Array.isArray(record.cranes) && record.cranes.length > 0
+      ? {
+          cranes: record.cranes.map((item, index) =>
+            mapExtraCrane(item, `${path}.cranes[${index}]`),
+          ),
+        }
+      : {}),
     ...(record.cargo != null ? { cargo: mapCargo(record.cargo, `${path}.cargo`) } : {}),
     ...(record.delivery != null
       ? { delivery: mapDelivery(record.delivery, `${path}.delivery`) }
       : {}),
+  }
+}
+
+function mapExtraCrane(json: unknown, path: string): ExtraCrane {
+  const record = readRecord(json, path)
+  const placement = readRecord(record.placement, `${path}.placement`)
+  return {
+    id: readString(record, 'id', path),
+    configurationId: readString(record, 'configuration_id', path),
+    placement: {
+      x: readNumber(placement, 'x', `${path}.placement`),
+      z: readNumber(placement, 'z', `${path}.placement`),
+      headingDeg: readNumber(placement, 'heading_deg', `${path}.placement`),
+    },
   }
 }
 

@@ -58,6 +58,7 @@ from app.presentation.api.operating_area import (
 )
 from app.presentation.api.scenarios import create_scenarios_router
 from app.presentation.api.simulations import create_simulations_router
+from app.presentation.api.tandem import create_tandem_router
 from app.presentation.api.upload_limits import UploadLimits
 from app.presentation.api.users import create_users_router
 from app.presentation.api.validation_errors import request_validation_error_handler
@@ -156,6 +157,7 @@ def create_app(
 
     if evaluation is not None:
         app.include_router(create_evaluations_router(evaluation), dependencies=session_required)
+        app.include_router(create_tandem_router(evaluation), dependencies=session_required)
 
     if operating_area is not None:
         app.include_router(

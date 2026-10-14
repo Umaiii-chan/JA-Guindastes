@@ -126,3 +126,28 @@ export function paintZoneLabel(element: HTMLElement, active: boolean): void {
   element.style.fontWeight = active ? '600' : '500'
   element.style.borderBottomColor = active ? accent : 'transparent'
 }
+
+/**
+ * Etiqueta do guindaste ("Guindaste 2") sobre o chassi, para distinguir os guindastes quando há mais
+ * de um no cenário (TASK-074). Mesmo estilo dos rótulos de zona, com sublinhado no acento.
+ */
+export function createCraneTagElement(text: string): HTMLDivElement {
+  const element = document.createElement('div')
+  element.className = 'crane-viewport__crane-tag'
+  element.dataset.sceneLabel = 'crane-tag'
+  element.textContent = text
+  element.setAttribute('aria-hidden', 'true')
+  Object.assign(element.style, {
+    font: `600 10px/1.25 ${LABEL_FONT_FAMILY}`,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    color: toCssHex(SCENE_COLORS.labelText),
+    background: LABEL_KNOCKOUT,
+    padding: '1px 5px',
+    borderBottom: `2px solid ${toCssHex(SCENE_COLORS.zoneSectorActive)}`,
+    whiteSpace: 'nowrap',
+    pointerEvents: 'none',
+    userSelect: 'none',
+  } satisfies Partial<CSSStyleDeclaration>)
+  return element
+}

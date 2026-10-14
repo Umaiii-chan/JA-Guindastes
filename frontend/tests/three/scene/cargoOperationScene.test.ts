@@ -26,6 +26,21 @@ function setup() {
 }
 
 describe('coleta e entrega na cena', () => {
+  it('com o tandem ligado, a carga de um guindaste só some e volta ao chão ao desligar', () => {
+    const { contents, load, spec } = setup()
+    contents.cargo.setLoad(load)
+    contents.cargo.setScenario(spec)
+    contents.cargo.setSuspended(true)
+    expect(contents.cargo.ground.visible).toBe(false)
+    expect(contents.cargo.status.active).toBe(false)
+    expect(contents.collisions.effectiveScenario.obstacles).toEqual([])
+    expect(contents.cargo.engage(1_000)).toBe(false)
+
+    contents.cargo.setSuspended(false)
+    expect(contents.cargo.ground.visible).toBe(true)
+    expect(contents.cargo.status.state?.phase).toBe('ground')
+  })
+
   it('sem carga posicionada, a carga continua pendurada no gancho (modo livre)', () => {
     const { contents, load } = setup()
     contents.cargo.setLoad(load)

@@ -32,6 +32,7 @@ export class SwitchableCrane implements CraneCommands {
   private controller: CraneController
   private afterCommand: (() => void) | null = null
   private guard: CollisionGuard | null = null
+  private appliedListener: (() => void) | null = null
 
   constructor(controller: CraneController) {
     this.controller = controller
@@ -68,6 +69,26 @@ export class SwitchableCrane implements CraneCommands {
 
   getState(): CraneState {
     return this.controller.getState()
+  }
+
+  /**
+   * Avisa depois de cada comando aplicado (TASK-074): o tandem usa para o guindaste que acompanha
+   * seguir o que conduz. `null` desliga.
+   */
+  setAppliedListener(listener: (() => void) | null): void {
+    this.appliedListener = listener
+  }
+
+  /**
+   * Aplica um estado inteiro sem passar pela guarda de colisões nem avisar o `appliedListener`
+   * (TASK-074): quem chama (o tandem) já avaliou o estado. Os valores continuam limitados à ficha.
+   */
+  applyUnguarded(state: CraneState): void {
+    this.controller.setTurretRotation(state.turretRotationDeg)
+    this.controller.setBoomAngle(state.boomAngleDeg)
+    this.controller.setBoomLength(state.boomLengthM)
+    this.controller.setCableLength(state.cableLengthM)
+    this.afterCommand?.()
   }
 
   getOperationalGeometry(): OperationalGeometry {
@@ -150,6 +171,7 @@ export class SwitchableCrane implements CraneCommands {
 
   private run(applied: number): number {
     this.afterCommand?.()
+    this.appliedListener?.()
     return applied
   }
 }

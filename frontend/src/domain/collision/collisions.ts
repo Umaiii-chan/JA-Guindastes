@@ -91,12 +91,20 @@ export interface CollisionInput {
   readonly hook: HookBox | null
 }
 
-export type CollisionSubject = 'load' | 'hook'
+/**
+ * O que colide: a carga, o gancho sem carga ou, com dois guindastes (TASK-074), o próprio guindaste
+ * (lança contra lança, lança contra o corpo do outro).
+ */
+export type CollisionSubject = 'load' | 'hook' | 'crane'
 
 export type CollisionTarget =
   | { readonly kind: 'terrain' }
   | { readonly kind: 'crane'; readonly part: string; readonly obb: Obb }
   | { readonly kind: 'obstacle'; readonly id: string; readonly label: string; readonly obb: Obb }
+  /** Outro guindaste do cenário (TASK-074); `part` diz quais peças se tocam. */
+  | { readonly kind: 'other-crane'; readonly part: string; readonly obb: Obb }
+  /** No tandem, o guindaste que acompanha não alcança o ponto de içamento dele (TASK-074). */
+  | { readonly kind: 'tandem-reach'; readonly craneLabel: string }
 
 /** O que encostou em quê (a carga, ou o gancho sem carga). */
 export interface CollisionHit {
@@ -369,10 +377,18 @@ export function describeTarget(target: CollisionTarget): string {
       return 'o guindaste'
     case 'obstacle':
       return target.id === GROUND_CARGO_ID ? 'a carga no chão' : `o obstáculo «${target.label}»`
+    case 'other-crane':
+      return `o outro guindaste (${target.part})`
+    case 'tandem-reach':
+      return `o limite de alcance do ${target.craneLabel}`
   }
 }
 
 export function describeHit(hit: CollisionHit): string {
+  if (hit.target.kind === 'tandem-reach') {
+    return `O ${hit.target.craneLabel} não alcançaria o ponto de içamento dele.`
+  }
+  if (hit.subject === 'crane') return `Os guindastes colidiriam: ${describeTarget(hit.target)}.`
   const subject = hit.subject === 'load' ? 'A carga' : 'O gancho'
   return `${subject} atingiria ${describeTarget(hit.target)}.`
 }
@@ -392,7 +408,11 @@ export function collisionStateKey(state: CollisionState): string {
       ? `${hit.subject}:terrain`
       : hit.target.kind === 'crane'
         ? `${hit.subject}:crane:${hit.target.part}`
-        : `${hit.subject}:obstacle:${hit.target.id}`,
+        : hit.target.kind === 'other-crane'
+          ? `${hit.subject}:other-crane:${hit.target.part}`
+          : hit.target.kind === 'tandem-reach'
+            ? `${hit.subject}:tandem-reach:${hit.target.craneLabel}`
+            : `${hit.subject}:obstacle:${hit.target.id}`,
   )
   const alerts = state.alerts.map((alert) => `${alert.segment}:${alert.obstacleId}`)
   return JSON.stringify([state.blocked, hits, alerts])

@@ -17,6 +17,8 @@ export interface SimulatorPageProps {
   readonly geometry?: ReactNode
   /** Faixa de título do quadro: conexão e vistas da câmera. */
   readonly statusBar: ReactNode
+  /** Içamento com dois guindastes (TASK-074): seção recolhível sob os passos. */
+  readonly tandem?: ReactNode
   /** Acessórios de içamento (TASK-056): sob os passos, trocáveis a qualquer momento. */
   readonly accessories?: ReactNode
   /** Faixa de gravação e reprodução (TASK-057), sob a faixa de título. */
@@ -41,6 +43,7 @@ export function SimulatorPage({
   result,
   geometry,
   statusBar,
+  tandem,
   accessories,
   recording,
   environment,
@@ -87,6 +90,7 @@ export function SimulatorPage({
     >
       <div className={styles.procedure} hidden={panelHidden}>
         {steps}
+        {tandem}
         {accessories && (
           <CollapsibleSection id="accessories" title="Acessórios de içamento">
             {accessories}

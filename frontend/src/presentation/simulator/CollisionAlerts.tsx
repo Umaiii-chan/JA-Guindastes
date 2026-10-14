@@ -11,17 +11,20 @@ export interface CollisionAlertsProps {
  * desenha nada.
  */
 export function CollisionAlerts({ collision }: CollisionAlertsProps) {
-  const { alerts, blocked } = collision
+  const { hits, alerts, blocked } = collision
   // Um objeto da biblioteca tem várias caixas de colisão: a mesma frase não se repete.
-  const hitMessages = [...new Set(collision.hits.map(describeHit))]
+  const hitMessages = [...new Set(hits.map(describeHit))]
   if (hitMessages.length === 0 && alerts.length === 0) return null
+  // Só guindaste contra guindaste (TASK-074): o título não fala da carga.
+  const onlyCranes = hits.every((hit) => hit.subject === 'crane')
+  const hitsTitle = onlyCranes ? 'Colisão entre os guindastes' : 'Colisão da carga'
   return (
     <div className="collision-alerts" role="group" aria-label="Colisões">
       {hitMessages.length > 0 && (
         <Notice
           tone="danger"
           role={blocked ? 'alert' : 'status'}
-          title={blocked ? 'Colisão: comando bloqueado' : 'Colisão da carga'}
+          title={blocked ? 'Colisão: comando bloqueado' : hitsTitle}
           compact
         >
           {blocked && <p>O movimento parou no último estado seguro.</p>}

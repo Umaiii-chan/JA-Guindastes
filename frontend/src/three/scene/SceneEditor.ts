@@ -57,6 +57,20 @@ export const CRANE_SELECTION_ID = 'crane'
 export const CARGO_SELECTION_ID = 'cargo'
 export const DELIVERY_SELECTION_ID = 'delivery'
 
+/** Prefixo da seleção de um guindaste adicional (TASK-074): `extra:<id>`. */
+export const EXTRA_CRANE_SELECTION_PREFIX = 'extra:'
+
+export function extraCraneSelectionId(id: string): string {
+  return `${EXTRA_CRANE_SELECTION_PREFIX}${id}`
+}
+
+/** Id do guindaste adicional numa seleção, ou `null` se a seleção é outra coisa. */
+export function extraCraneIdOf(selectionId: string | null): string | null {
+  return selectionId?.startsWith(EXTRA_CRANE_SELECTION_PREFIX)
+    ? selectionId.slice(EXTRA_CRANE_SELECTION_PREFIX.length)
+    : null
+}
+
 export interface SceneEditorConfig {
   readonly tool: EditorTool
   readonly transformMode: EditorTransformMode
@@ -252,13 +266,21 @@ export class SceneEditor {
     let target: Object3D | undefined
     const spec = this.callbacks?.getSpec()
     const { environment } = this.deps.contents
+    const extraId = extraCraneIdOf(config.selectedId)
     const placePivot = (x: number, z: number, y: number, deg: number): Object3D => {
       this.pivot.position.set(x, y, z)
       this.pivot.rotation.set(0, (deg * Math.PI) / 180, 0)
       this.pivot.scale.set(1, 1, 1)
       return this.pivot
     }
-    if (config.selectedId === CRANE_SELECTION_ID) {
+    if (extraId !== null) {
+      const placement = spec?.cranes?.find((item) => item.id === extraId)
+      const extra = this.deps.contents.multi.getExtra(extraId)
+      if (placement && extra) {
+        const { x, z, headingDeg } = placement.placement
+        target = placePivot(x, z, extra.anchor.position.y, headingDeg)
+      }
+    } else if (config.selectedId === CRANE_SELECTION_ID) {
       const { x, z, headingDeg } = spec?.crane ?? { x: 0, z: 0, headingDeg: 0 }
       target = placePivot(x, z, this.deps.contents.craneAnchor.position.y, headingDeg)
     } else if (config.selectedId === CARGO_SELECTION_ID) {
@@ -289,10 +311,12 @@ export class SceneEditor {
       return
     }
     const pivoted = target === this.pivot
-    // O guindaste e a carga só andam e giram; o ponto de entrega também muda o raio (escala); a
+    // Os guindastes e a carga só andam e giram; o ponto de entrega também muda o raio (escala); a
     // escala nos três eixos só vale para obstáculos.
     const noScale =
-      config.selectedId === CRANE_SELECTION_ID || config.selectedId === CARGO_SELECTION_ID
+      config.selectedId === CRANE_SELECTION_ID ||
+      extraId !== null ||
+      config.selectedId === CARGO_SELECTION_ID
     const mode = noScale && config.transformMode === 'scale' ? 'translate' : config.transformMode
     this.transform.setMode(mode)
     this.transform.setSpace(mode === 'scale' ? 'local' : 'world')
@@ -312,6 +336,18 @@ export class SceneEditor {
     if (!object || !config || !callbacks) return
     const spec = callbacks.getSpec()
     const { contents } = this.deps
+    const extraId = extraCraneIdOf(config.selectedId)
+    if (extraId !== null) {
+      const placement = {
+        x: round2(object.position.x),
+        z: round2(object.position.z),
+        headingDeg: yawDeg(object),
+      }
+      object.position.y = contents.environment.heightAt(placement.x, placement.z)
+      contents.multi.previewPlacement(extraId, placement)
+      this.deps.invalidate()
+      return
+    }
     if (config.selectedId === CRANE_SELECTION_ID) {
       const crane = {
         x: round2(object.position.x),
@@ -360,6 +396,25 @@ export class SceneEditor {
     const callbacks = this.callbacks
     if (!object || !config || !callbacks) return
     const spec = callbacks.getSpec()
+    const committedExtraId = extraCraneIdOf(config.selectedId)
+    if (committedExtraId !== null) {
+      callbacks.onChange({
+        ...spec,
+        cranes: (spec.cranes ?? []).map((item) =>
+          item.id === committedExtraId
+            ? {
+                ...item,
+                placement: {
+                  x: round2(object.position.x),
+                  z: round2(object.position.z),
+                  headingDeg: yawDeg(object),
+                },
+              }
+            : item,
+        ),
+      })
+      return
+    }
     if (config.selectedId === CRANE_SELECTION_ID) {
       callbacks.onChange({
         ...spec,
@@ -553,6 +608,9 @@ export class SceneEditor {
       if (hit) candidates.push({ id, distance: hit.distance })
     }
     nearest(contents.rig.base, CRANE_SELECTION_ID)
+    for (const extra of contents.multi.allExtras()) {
+      nearest(extra.anchor, extraCraneSelectionId(extra.id))
+    }
     nearest(contents.cargo.ground.root, CARGO_SELECTION_ID)
     nearest(contents.cargo.delivery.root, DELIVERY_SELECTION_ID)
     candidates.sort((a, b) => a.distance - b.distance)

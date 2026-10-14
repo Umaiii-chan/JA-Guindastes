@@ -15,6 +15,8 @@ import {
   DELIVERY_SELECTION_ID,
   type EditorTool,
   type EditorTransformMode,
+  extraCraneIdOf,
+  extraCraneSelectionId,
 } from '../../three/scene/SceneEditor'
 import { useScenario } from '../scenario/scenarioContext'
 
@@ -38,32 +40,53 @@ export function useEnvironmentEditor() {
 
   const selectedObstacle =
     selectedId === null ? undefined : spec.obstacles.find((obstacle) => obstacle.id === selectedId)
+  const selectedExtraId = extraCraneIdOf(selectedId)
+  const selectedExtraIndex =
+    selectedExtraId === null ? -1 : (spec.cranes ?? []).findIndex((c) => c.id === selectedExtraId)
   const selectedLabel =
     selectedId === CRANE_SELECTION_ID
-      ? 'Guindaste'
-      : selectedId === CARGO_SELECTION_ID
-        ? 'Carga'
-        : selectedId === DELIVERY_SELECTION_ID
-          ? 'Ponto de entrega'
-          : (selectedObstacle?.label ?? null)
+      ? 'Guindaste 1'
+      : selectedExtraIndex >= 0
+        ? `Guindaste ${selectedExtraIndex + 2}`
+        : selectedId === CARGO_SELECTION_ID
+          ? 'Carga'
+          : selectedId === DELIVERY_SELECTION_ID
+            ? 'Ponto de entrega'
+            : (selectedObstacle?.label ?? null)
   const canDelete =
     selectedObstacle !== undefined ||
+    selectedExtraIndex >= 0 ||
     (selectedId === CARGO_SELECTION_ID && spec.cargo !== undefined) ||
     (selectedId === DELIVERY_SELECTION_ID && spec.delivery !== undefined)
 
   const deleteSelected = useCallback(() => {
     if (selectedId === null || selectedId === CRANE_SELECTION_ID) return
+    const extraId = extraCraneIdOf(selectedId)
     checkpoint()
     const current = getSpec()
-    setSpec(
-      selectedId === CARGO_SELECTION_ID
-        ? removeCargo(current)
-        : selectedId === DELIVERY_SELECTION_ID
-          ? removeDelivery(current)
-          : removeObstacle(current, selectedId),
-    )
+    if (extraId !== null) {
+      const cranes = (current.cranes ?? []).filter((item) => item.id !== extraId)
+      setSpec({ ...current, cranes })
+    } else {
+      setSpec(
+        selectedId === CARGO_SELECTION_ID
+          ? removeCargo(current)
+          : selectedId === DELIVERY_SELECTION_ID
+            ? removeDelivery(current)
+            : removeObstacle(current, selectedId),
+      )
+    }
     setSelectedId(null)
   }, [selectedId, checkpoint, setSpec, getSpec])
+
+  /** Seleciona o guindaste adicional recém criado, para a pessoa já poder arrastá-lo. */
+  const selectExtraCrane = useCallback(
+    (id: string) => {
+      setTool('select')
+      setSelectedId(extraCraneSelectionId(id))
+    },
+    [setTool, setSelectedId],
+  )
 
   const toggle = useCallback(() => {
     setActive((current) => !current)
@@ -159,6 +182,7 @@ export function useEnvironmentEditor() {
     selectedLabel,
     canDelete,
     deleteSelected,
+    selectExtraCrane,
     changeWind,
     canUndo,
     undo,

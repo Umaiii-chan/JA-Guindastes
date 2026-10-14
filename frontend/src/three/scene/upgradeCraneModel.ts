@@ -4,7 +4,8 @@ import {
   loadTruckCraneModel,
   mapTruckCraneKinematics,
 } from '../loaders/loadTruckCraneModel'
-import type { CraneSceneContents } from './buildCraneScene'
+import type { CraneModelSwap } from './buildCraneScene'
+import type { CraneSetup } from '../crane/types'
 import { disposeObject3D } from './disposeObject3D'
 
 // Troca do guindaste provisório pelo modelo 3D ilustrativo (GLB da TASK-064) depois que ele carrega
@@ -59,6 +60,15 @@ export type CraneModelUpgradeResult =
       readonly detail: string
     }
 
+/**
+ * O que o `upgradeCraneModel` precisa de uma cena: a ficha com que o modelo é conferido e a troca.
+ * A cena principal (`CraneSceneContents`) e os guindastes adicionais (TASK-074) a cumprem.
+ */
+export interface CraneModelTarget {
+  readonly setup: CraneSetup
+  useModel(model: CraneModelSwap): void
+}
+
 /** Quem recebe os avisos (o `console` por padrão; injetável nos testes). */
 export interface UpgradeLogger {
   warn(...data: unknown[]): void
@@ -75,7 +85,7 @@ export interface UpgradeCraneModelOptions {
  * se a cena ficou no modelo ou no provisório. Cancelado (`signal`), libera o que tiver carregado.
  */
 export async function upgradeCraneModel(
-  contents: CraneSceneContents,
+  contents: CraneModelTarget,
   load: CraneModelLoader,
   options: UpgradeCraneModelOptions = {},
 ): Promise<CraneModelUpgradeResult> {

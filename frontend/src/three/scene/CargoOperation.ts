@@ -60,6 +60,8 @@ export class CargoOperation {
   private latestKey = cargoStatusKey(INACTIVE_CARGO)
   private listener: ((status: CargoStatus) => void) | null = null
   private disposed = false
+  /** No tandem (TASK-074) a carga é a dos dois guindastes: esta fica guardada e não aparece. */
+  private suspended = false
 
   private crane: SwitchableCrane | null = null
 
@@ -100,6 +102,18 @@ export class CargoOperation {
       this.placement = placement ? { ...placement } : null
       this.resetLive()
     }
+    this.sync()
+  }
+
+  /**
+   * Liga ou desliga a carga de um guindaste só. Com o tandem ativo (TASK-074), a mesma posição do
+   * cenário vira a carga dos dois guindastes, desenhada pelo tandem: aqui não se desenha nada e
+   * engatar e soltar ficam indisponíveis. Ao desligar o tandem, a carga volta ao chão.
+   */
+  setSuspended(suspended: boolean): void {
+    if (suspended === this.suspended) return
+    this.suspended = suspended
+    this.resetLive()
     this.sync()
   }
 
@@ -170,7 +184,7 @@ export class CargoOperation {
   }
 
   private effectiveState(): CargoState | null {
-    if (!this.placement || !this.size) return null
+    if (this.suspended || !this.placement || !this.size) return null
     return this.override ?? this.live
   }
 
@@ -218,7 +232,7 @@ export class CargoOperation {
       // marcador provisório só aparece quando há posição e ainda faltam as medidas.
       hookLoad.setLoad(size)
       collisions.setGroundCargo(null)
-      if (this.placement) {
+      if (this.placement && !this.suspended) {
         const baseY = cargoBaseY(this.spec.terrain, PLACEHOLDER_CARGO_SIZE, this.placement)
         this.ground.show(null, this.placement, baseY)
       } else {
