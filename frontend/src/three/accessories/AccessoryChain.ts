@@ -24,6 +24,8 @@ export interface SceneAccessory {
   readonly riggingHeightM: number
   /** URL do GLB/glTF, ou `null` com o modelo 3D pendente. */
   readonly modelUrl: string | null
+  /** `true` num moitão: ele toma o lugar do moitão do modelo do guindaste, que some. */
+  readonly replacesHook?: boolean
 }
 
 /** Carrega o modelo de uma URL e devolve a cena dele. Padrão: `loadGltf`. */
@@ -52,7 +54,8 @@ function sameChain(a: readonly SceneAccessory[], b: readonly SceneAccessory[]): 
       (item, index) =>
         item.id === b[index].id &&
         sanitizedHeight(item.riggingHeightM) === sanitizedHeight(b[index].riggingHeightM) &&
-        item.modelUrl === b[index].modelUrl,
+        item.modelUrl === b[index].modelUrl &&
+        Boolean(item.replacesHook) === Boolean(b[index].replacesHook),
     )
   )
 }
@@ -81,6 +84,11 @@ export class AccessoryChain {
   /** Soma de `riggingHeightM` da cadeia atual (m): quanto a carga desce abaixo do gancho. */
   get totalDropM(): number {
     return this.drop
+  }
+
+  /** `true` se a cadeia tem um moitão (o do modelo do guindaste sai de cena). */
+  get replacesHook(): boolean {
+    return this.accessories.some((item) => item.replacesHook === true)
   }
 
   /** Acessórios da cadeia atual, na ordem do gancho para a carga. */
