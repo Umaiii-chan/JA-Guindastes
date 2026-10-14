@@ -47,6 +47,7 @@ from typing import TextIO
 
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.application.ports.accessory_repository import AccessoryRepository
 from app.application.ports.crane_catalog_listing import CraneCatalogStore
 from app.application.ports.file_storage import FileStorageError, FileStoragePort
 from app.application.ports.load_chart_activation import LoadChartActivationRepository
@@ -55,6 +56,7 @@ from app.application.use_cases.activate_load_chart import ActivateLoadChart
 from app.application.use_cases.crane_catalog import ManageCraneCatalog
 from app.application.use_cases.import_load_chart import ImportLoadChart
 from app.application.use_cases.validate_load_chart_import import InvalidLoadChartImport
+from app.domain.entities.accessory import Accessory, AccessoryType
 from app.domain.entities.load_chart import LoadChartStatus
 from app.domain.value_objects.angle import Angle
 from app.domain.value_objects.crane_geometry import CraneGeometry
@@ -69,6 +71,9 @@ from app.infrastructure.database.config import (
 from app.infrastructure.database.engine import create_database_engine, create_session_factory
 from app.infrastructure.importers.csv_load_chart_parser import CsvLoadChartParser
 from app.infrastructure.importers.load_chart_parser_selector import CSV_CONTENT_TYPE
+from app.infrastructure.repositories.sqlalchemy_accessory_repository import (
+    SqlAlchemyAccessoryRepository,
+)
 from app.infrastructure.repositories.sqlalchemy_crane_catalog_repository import (
     SqlAlchemyCraneCatalogRepository,
 )
@@ -223,6 +228,43 @@ class DemoSeedError(Exception):
     """O seed não pode continuar sem sobrescrever dados ou com dados de demonstração inválidos."""
 
 
+# Acessórios com modelo 3D de terceiros (TASK-065). Peso e altura são valores de referência do
+# fabricante típico; o administrador ajusta no catálogo. Os créditos CC BY 4.0 estão em
+# frontend/public/models/acessorios/CREDITS.md.
+DEMO_ACCESSORIES: tuple[Accessory, ...] = (
+    Accessory(
+        id="acessorio-moitao-mccarthy",
+        type=AccessoryType.HOOK_BLOCK,
+        name="Moitão de 4 polias",
+        weight=Mass(350.0),
+        rigging_height_m=1.4,
+        model_file="moitao-mccarthy-harmony-rs.glb",
+        credit="P11789F - McCarthy - Hook Block 4, de Harmony-RS (Sketchfab)",
+        license="CC BY 4.0",
+    ),
+    Accessory(
+        id="acessorio-gancho-giratorio",
+        type=AccessoryType.SWIVEL_HOOK,
+        name="Gancho giratório",
+        weight=Mass(25.0),
+        rigging_height_m=0.6,
+        model_file="gancho-polydavid.glb",
+        credit="Crane Hook, de PolyDavid (Sketchfab)",
+        license="CC BY 4.0",
+    ),
+    Accessory(
+        id="acessorio-manilha-3t",
+        type=AccessoryType.SHACKLE,
+        name="Manilha curva 3,25 t",
+        weight=Mass(1.2),
+        rigging_height_m=0.15,
+        model_file="manilha-3ddomino.glb",
+        credit="3 Ton Bow Shackle, de 3DDomino (Sketchfab)",
+        license="CC BY 4.0",
+    ),
+)
+
+
 def seed_demo(
     catalog: CraneCatalogStore,
     load_charts: LoadChartRepository,
@@ -231,6 +273,7 @@ def seed_demo(
     *,
     ids: DemoSeedIds = DEMO_SEED_IDS,
     load_chart_content: bytes | None = None,
+    accessories: AccessoryRepository | None = None,
 ) -> DemoSeedResult:
     """Cadastra a demonstração FICTÍCIA, sem duplicar o que já existe.
 
@@ -260,7 +303,17 @@ def seed_demo(
         ),
     ):
         steps.extend(_seed_load_chart(catalog, load_charts, activation, file_storage, ids, chart))
+    if accessories is not None:
+        steps.extend(_seed_accessory(accessories, item) for item in DEMO_ACCESSORIES)
     return DemoSeedResult(steps=tuple(steps))
+
+
+def _seed_accessory(accessories: AccessoryRepository, accessory: Accessory) -> SeedStep:
+    entity = "acessório"
+    if accessories.get(accessory.id) is not None:
+        return SeedStep(entity, accessory.id, SeedAction.ALREADY_EXISTS)
+    accessories.add(accessory)
+    return SeedStep(entity, accessory.id, SeedAction.CREATED)
 
 
 def _seed_manufacturer(catalog: CraneCatalogStore, ids: DemoSeedIds) -> SeedStep:
@@ -422,6 +475,7 @@ def main(
             SqlAlchemyLoadChartRepository(session_factory),
             SqlAlchemyLoadChartActivationRepository(session_factory),
             storage,
+            accessories=SqlAlchemyAccessoryRepository(session_factory),
         )
     except DemoSeedError as error:
         say(f"ERRO: {error}")
