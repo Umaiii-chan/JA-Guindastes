@@ -28,6 +28,23 @@ services:
         sync: false
       # Assistente de IA (TASK-076; ADR-039). Valores cadastrados no painel do Render, nunca aqui.
       # Sem GEMINI_API_KEY, a IA fica desligada e a tela esconde o assistente.
+      # Provedor da IA (ADR-040): OPENAI_API_KEY, OPENAI_MODEL (padrão gpt-5-mini),
+      # OPENAI_FALLBACK_MODELS e AI_PROVIDER (padrão auto: OpenAI se houver chave, senão Gemini).
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        sync: false
+      - key: OPENAI_FALLBACK_MODELS
+        sync: false
+      # Groq (API compatível com a da OpenAI): GROQ_API_KEY, GROQ_MODEL (padrão openai/gpt-oss-120b).
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        sync: false
+      - key: GROQ_FALLBACK_MODELS
+        sync: false
+      - key: AI_PROVIDER
+        sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
