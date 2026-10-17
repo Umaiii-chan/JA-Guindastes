@@ -8,14 +8,14 @@ export interface CollisionAlertsProps {
 
 /**
  * Alertas de colisão da carga (TASK-053; RN-012): o comando bloqueado no último estado seguro (aviso
- * anunciado) e o cabo ou a lança atravessando um obstáculo (só aviso). Sem nada a avisar, não
- * desenha nada.
+ * anunciado) e o cabo ou a lança atravessando um obstáculo (só aviso). O grupo «Colisões» fica sempre
+ * na página, vazio quando não há nada a avisar (TASK-078; TASK-082: ele é sobreposto à cena, então
+ * aparecer ou sumir um aviso não muda a altura de nada); só os avisos dentro dele vêm e vão.
  */
 export function CollisionAlerts({ collision }: CollisionAlertsProps) {
   const { hits, alerts, blocked } = collision
   // Um objeto da biblioteca tem várias caixas de colisão: a mesma frase não se repete.
   const hitMessages = [...new Set(hits.map(describeHit))]
-  // Sem nada a avisar, o espaço continua reservado (altura fixa): o aviso não empurra a ficha.
   // Só guindaste contra guindaste (TASK-074), ou o cabo contra a lança do outro (TASK-091): o título
   // não fala da carga.
   const onlyCranes = hits.every((hit) => hit.subject === 'crane' || hit.subject === 'cable')
