@@ -1,0 +1,85 @@
+/* Barra de ferramentas vertical sobre a cena (TASK-095): papel, filete de tinta, cantos retos. */
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  width: 64px;
+  border: 1px solid var(--color-border-ink);
+  background: var(--color-surface-1);
+}
+
+.item {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
+  min-height: 52px;
+  padding: var(--space-2) 2px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-2);
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.item:last-child {
+  border-bottom: 0;
+}
+
+.item:hover {
+  color: var(--color-text-1);
+  background: var(--color-surface-2);
+}
+
+.item:focus-visible {
+  outline-offset: -3px;
+}
+
+.icon {
+  display: inline-grid;
+  place-items: center;
+}
+
+.caption {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Folha aberta: tinta, fundo do papel e o filete laranja na borda, como o item do trilho. */
+.active {
+  color: var(--color-text-1);
+  background: var(--color-surface-2);
+}
+
+.active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  bottom: -1px;
+  width: 3px;
+  background: var(--color-accent);
+}
+
+/* Algo em curso na folha (trajetória executando): marca quadrada no canto. */
+.busy {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  background: var(--color-accent);
+  animation: blink 1.2s steps(2, jump-none) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.25;
+  }
+}

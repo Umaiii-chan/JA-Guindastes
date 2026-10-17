@@ -24,7 +24,12 @@ import {
   loadWeightTextForEvaluation,
   validateLoadForm,
 } from '../../application/load/loadForm'
-import { guidedStepStatuses, resolveActiveStep } from '../../application/simulator/guidedSteps'
+import {
+  completedStepCount,
+  GUIDED_STEPS,
+  guidedStepStatuses,
+  resolveActiveStep,
+} from '../../application/simulator/guidedSteps'
 import { RETRACTED_OUTRIGGERS, type OutriggerState } from '../../domain/crane/outriggers'
 import type { OperationalGeometry } from '../../domain/geometry/operationalGeometry'
 import {
@@ -59,6 +64,7 @@ import type { TandemInput } from '../../domain/tandem/tandemEvaluation'
 import { environmentSummary } from '../../application/environment/scenarioEditing'
 import {
   type CraneControlKey,
+  CraneControlNotice,
   CraneControlPanel,
 } from '../../presentation/panels/CraneControlPanel'
 import { LoadPanel } from '../../presentation/panels/LoadPanel'
@@ -77,7 +83,12 @@ import { TandemHud } from '../../presentation/simulator/TandemHud'
 import { TandemSection, type TandemMessage } from '../../presentation/simulator/TandemSection'
 import { ConnectionStatusBar } from '../../presentation/simulator/ConnectionStatusBar'
 import { OperatingAreaToggle } from '../../presentation/simulator/OperatingAreaToggle'
-import { RecordingPanel } from '../../presentation/simulator/RecordingPanel'
+import { OutriggerQuickControl } from '../../presentation/simulator/OutriggerQuickControl'
+import {
+  RecordingControls,
+  RecordingLibrary,
+  RecordingPlayer,
+} from '../../presentation/simulator/RecordingPanel'
 import {
   EditEnvironmentToggle,
   EnvironmentEditorToolbar,
@@ -236,8 +247,9 @@ export function SimulatorRoute() {
   const cargoHooked = cargoStatus.state?.phase === 'hooked'
   const loadWeightText = cargoMode && !cargoHooked ? '0' : loadWeightTextForEvaluation(load)
   // RN-013: a avaliação recebe a inclinação residual (terreno − nivelamento dos macacos apoiados),
-  // não a bruta do terreno (TASK-094).
-  const evaluationSlopeDeg = residualGroundSlopeDeg(scenario.groundSlopeDeg, outriggers)
+  // não a bruta do terreno (TASK-094). O nivelamento é o que a animação já alcançou, como a extensão
+  // e os macacos (F-27; TASK-099).
+  const evaluationSlopeDeg = residualGroundSlopeDeg(scenario.groundSlopeDeg, reachedOutriggers)
   const evaluationInput = buildEvaluationInput(
     crane?.state ?? null,
     selectedConfiguration?.id ?? '',
@@ -352,8 +364,8 @@ export function SimulatorRoute() {
     accessoryKey,
     input?.outriggers?.extensionPercent,
     input?.outriggers?.jacksSet,
-    // O nivelamento dos macacos muda a inclinação residual enviada (RN-013; TASK-094).
-    outriggers.levelingDeg,
+    // O nivelamento desenhado muda a inclinação residual enviada (RN-013; TASK-094, TASK-099).
+    reachedOutriggers.levelingDeg,
     input?.groundSlopeDeg,
     scenarioExtrasKey,
   ])
@@ -408,6 +420,14 @@ export function SimulatorRoute() {
     crane && crane.geometry.workingRadiusM !== null
       ? `R ${crane.geometry.workingRadiusM.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} m · θ ${crane.state.boomAngleDeg.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}°`
       : undefined
+  // Chip de contexto sobre a cena (TASK-095): modelo, configuração e peso; e se falta passo.
+  const setupSummary = {
+    crane: [selectedCrane?.modelName, selectedConfiguration?.name].filter(Boolean).join(' · '),
+    load: validLoad ? `${validLoad.weightKg.toLocaleString('pt-BR')} kg` : '',
+    done: completedStepCount(statuses),
+    total: GUIDED_STEPS.length,
+    incomplete: statuses.crane !== 'complete' || statuses.load !== 'complete',
+  }
 
   // Situação na cena (TASK-041): só com resultado do backend válido para o estado atual.
   const singleSceneStatus = evaluationStatus(
@@ -724,6 +744,7 @@ export function SimulatorRoute() {
       <SimulatorPage
         viewport={viewport}
         sceneOverlay={<CollisionAlerts collision={collision} />}
+        setup={setupSummary}
         steps={
           <GuidedStepsPanel
             statuses={statuses}
@@ -762,39 +783,11 @@ export function SimulatorRoute() {
               position: (
                 <fieldset disabled={controlsLocked} className="recording-lock">
                   <div style={{ display: 'grid', gap: 'var(--space-5)' }}>
-                    {craneOptions.length > 1 && (
-                      <CraneSelector
-                        cranes={craneOptions}
-                        selectedId={activeCraneId}
-                        onSelect={setSelectedCraneId}
-                      />
-                    )}
-                    {activeExtra && tandemEngaged && (
-                      <p className="recording-lock-note">
-                        No tandem, o Guindaste {activeExtra.index + 2} acompanha o Guindaste 1: use
-                        os controles do Guindaste 1.
-                      </p>
-                    )}
-                    <fieldset
-                      disabled={activeExtra !== null && tandemEngaged}
-                      className="recording-lock"
-                    >
-                      <CraneControlPanel
-                        limits={
-                          activeExtra
-                            ? (activeExtraCommands?.limits ?? null)
-                            : (crane?.commands.limits ?? null)
-                        }
-                        state={
-                          activeExtra
-                            ? (activeExtraCommands?.getState() ?? null)
-                            : (crane?.state ?? null)
-                        }
-                        notice={activeExtra ? activeExtra.choice.notice : craneSetup.notice}
-                        notes={activeExtra ? activeExtra.choice.notes : craneSetup.notes}
-                        onChange={handleControlChange}
-                      />
-                    </fieldset>
+                    {/* Os sliders ficam na barra de comando, embaixo da cena (TASK-095). */}
+                    <CraneControlNotice
+                      notice={activeExtra ? activeExtra.choice.notice : craneSetup.notice}
+                      notes={activeExtra ? activeExtra.choice.notes : craneSetup.notes}
+                    />
                     {activeExtra === null && (
                       <OutriggerPanel
                         state={outriggers}
@@ -840,6 +833,52 @@ export function SimulatorRoute() {
             onRelease={releaseFromPlan}
             disabled={locked}
           />
+        }
+        planningActive={planPlaying}
+        commandBar={
+          <>
+            <fieldset disabled={controlsLocked} className="recording-lock">
+              {craneOptions.length > 1 && (
+                <CraneSelector
+                  cranes={craneOptions}
+                  selectedId={activeCraneId}
+                  onSelect={setSelectedCraneId}
+                />
+              )}
+              {activeExtra && tandemEngaged && (
+                <p className="recording-lock-note">
+                  No tandem, o Guindaste {activeExtra.index + 2} acompanha o Guindaste 1: use os
+                  controles do Guindaste 1.
+                </p>
+              )}
+              <fieldset disabled={activeExtra !== null && tandemEngaged} className="recording-lock">
+                <CraneControlPanel
+                  variant="bar"
+                  limits={
+                    activeExtra
+                      ? (activeExtraCommands?.limits ?? null)
+                      : (crane?.commands.limits ?? null)
+                  }
+                  state={
+                    activeExtra ? (activeExtraCommands?.getState() ?? null) : (crane?.state ?? null)
+                  }
+                  notes={activeExtra ? activeExtra.choice.notes : craneSetup.notes}
+                  onChange={handleControlChange}
+                />
+              </fieldset>
+              {activeExtra === null && (
+                <OutriggerQuickControl
+                  state={outriggers}
+                  reached={reachedOutriggers}
+                  moving={crane !== null && (outriggerScene?.moving ?? false)}
+                  maxLevelingDeg={FICTITIOUS_MAX_LEVELING_DEG}
+                  onChange={setOutriggers}
+                  onShowPanel={() => setRequestedStep('position')}
+                />
+              )}
+            </fieldset>
+            <RecordingControls controller={recording} />
+          </>
         }
         result={
           <>
@@ -922,13 +961,18 @@ export function SimulatorRoute() {
             </div>
           </>
         }
-        recording={
-          <RecordingPanel
+        recordings={
+          <RecordingLibrary
             controller={recording}
             canDelete={(authorUserId) =>
               authUser !== null && (authUser.id === authorUserId || authUser.role === 'ADMIN')
             }
           />
+        }
+        playback={
+          recording.player.recording !== null ? (
+            <RecordingPlayer controller={recording} />
+          ) : undefined
         }
         environment={
           <EnvironmentSection
@@ -999,25 +1043,32 @@ export function SimulatorRoute() {
             transport={evaluation.result !== null ? evaluation.transport : null}
             pending={evaluation.pending}
             slow={evaluation.slow}
+            compact
             cameraActions={
               <>
-                <EditEnvironmentToggle active={editor.active} onToggle={editor.toggle} />
-                <AssistantButton onApply={applyAiDraft} disabled={locked} />
+                <CameraPresetButtons
+                  active={cameraPreset}
+                  onSelect={handleCameraPreset}
+                  shortcuts
+                />
                 <OperatingAreaToggle
                   enabled={operatingAreaEnabled}
                   onToggle={setOperatingAreaEnabled}
                   loading={operatingArea.loading}
                   error={operatingArea.error}
                 />
-                <CameraPresetButtons active={cameraPreset} onSelect={handleCameraPreset} />
+                <EditEnvironmentToggle active={editor.active} onToggle={editor.toggle} />
+                <AssistantButton onApply={applyAiDraft} disabled={locked} />
               </>
             }
           />
         }
+        dialogs={
+          addingCrane && (
+            <AddCraneDialog onConfirm={handleAddCrane} onClose={() => setAddingCrane(false)} />
+          )
+        }
       />
-      {addingCrane && (
-        <AddCraneDialog onConfirm={handleAddCrane} onClose={() => setAddingCrane(false)} />
-      )}
     </>
   )
 }

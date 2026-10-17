@@ -26,6 +26,8 @@ export interface GaugeProps {
   readonly caption?: string
   readonly fractionDigits?: number
   readonly className?: string
+  /** Número menor e régua mais justa, para o cartão de resultado do simulador (TASK-095). */
+  readonly compact?: boolean
   /** @deprecated Compatibilidade com o medidor circular do ADR-017; a régua ocupa a largura dada. */
   readonly size?: number
 }
@@ -66,6 +68,7 @@ export function Gauge({
   caption,
   fractionDigits = 1,
   className,
+  compact = false,
 }: GaugeProps) {
   const hasValue = value !== null && Number.isFinite(value)
   const target = hasValue ? Math.max(0, value) : 0
@@ -79,7 +82,13 @@ export function Gauge({
 
   return (
     <div
-      className={cx(styles.gauge, styles[tone], over && styles.over, className)}
+      className={cx(
+        styles.gauge,
+        styles[tone],
+        over && styles.over,
+        compact && styles.compact,
+        className,
+      )}
       role="meter"
       aria-label={label}
       aria-valuemin={0}

@@ -1,0 +1,57 @@
+/* Chip de contexto (TASK-095): uma linha de carimbo com o resumo da operação. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: 100%;
+  height: 34px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border: 1px solid var(--color-border-ink);
+  background: var(--color-surface-1);
+  color: var(--color-text-1);
+  text-align: left;
+}
+
+.chip:hover .text {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.caption {
+  flex: none;
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+
+.text {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress {
+  flex: none;
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-2);
+}
+
+.chevron {
+  flex: none;
+  color: var(--color-text-2);
+}
+
+/* Passos pendentes: o filete laranja à esquerda chama para a folha "Configurar". */
+.incomplete {
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}

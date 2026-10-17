@@ -1,0 +1,45 @@
+/* Folha lateral sobre a cena (TASK-095): papel com moldura de tinta, título em caixa alta pequena. */
+.sheet {
+  display: flex;
+  flex-direction: column;
+  width: var(--sheet-width, 344px);
+  max-width: 100%;
+  max-height: 100%;
+  min-height: 0;
+  border: 1px solid var(--color-border-ink);
+  background: var(--color-surface-1);
+  box-shadow: var(--shadow-overlay);
+}
+
+/* O `hidden` precisa vencer o `display: flex` acima: fechada, a folha some, mas não é desmontada. */
+.sheet[hidden] {
+  display: none;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  min-height: 40px;
+  padding: 0 var(--space-2) 0 var(--space-4);
+  border-bottom: 1px solid var(--color-border-ink);
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}

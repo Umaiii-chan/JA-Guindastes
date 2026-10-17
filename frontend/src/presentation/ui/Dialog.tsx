@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { cx } from './cx'
 import styles from './Dialog.module.css'
 import { IconButton } from './IconButton'
+import { usePortalTarget } from './portalTarget'
 import { useModal } from './useModal'
 
 export interface DialogProps {
@@ -34,6 +35,7 @@ export function Dialog({
   const id = useId()
   const panelRef = useRef<HTMLDivElement>(null)
   useModal(open, panelRef, onClose)
+  const portalTarget = usePortalTarget()
 
   if (!open) return null
 
@@ -66,6 +68,6 @@ export function Dialog({
         {footer && <footer className={styles.footer}>{footer}</footer>}
       </div>
     </div>,
-    document.body,
+    portalTarget,
   )
 }

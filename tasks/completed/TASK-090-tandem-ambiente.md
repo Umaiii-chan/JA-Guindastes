@@ -20,3 +20,8 @@ Testes: `backend/tests/presentation/test_evaluations_tandem_environment.py`,
 
 - Cadeia de acessórios do guindaste 2 (a tela só tem a do 1).
 - Correção do `HookLoad.currentAttachOffsetM` com o moitão trocado (TASK-093).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-17 (PR #47). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

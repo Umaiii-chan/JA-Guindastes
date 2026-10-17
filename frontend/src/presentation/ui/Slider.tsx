@@ -25,6 +25,17 @@ export interface SliderProps {
   readonly icon?: ReactNode
   readonly id?: string
   readonly className?: string
+  /**
+   * Versão compacta para a barra de comando do simulador (TASK-095): rótulo em caixa alta pequena,
+   * valor em mono ao lado, sem os limites embaixo; a observação fica para leitores de tela (o
+   * marcador `*` ao lado do rótulo a mostra ao passar o mouse).
+   */
+  readonly compact?: boolean
+  /**
+   * Rótulo curto à vista (ex.: "Cabo"), com o `label` completo como nome acessível e dica. O rótulo
+   * curto é parte do completo (WCAG 2.5.3).
+   */
+  readonly shortLabel?: string
 }
 
 /** Fração preenchida da trilha, de 0 a 100, para o CSS (`--slider-fill`). */
@@ -60,6 +71,8 @@ export function Slider({
   icon,
   id,
   className,
+  compact = false,
+  shortLabel,
 }: SliderProps) {
   const generatedId = useId()
   const inputId = id ?? generatedId
@@ -81,16 +94,36 @@ export function Slider({
   }
 
   return (
-    <div className={cx(styles.slider, (disabled || unavailable) && styles.disabled, className)}>
+    <div
+      className={cx(
+        styles.slider,
+        compact && styles.compact,
+        (disabled || unavailable) && styles.disabled,
+        className,
+      )}
+    >
       <div className={styles.header}>
-        <label htmlFor={inputId} className={styles.label}>
+        <label
+          htmlFor={inputId}
+          className={styles.label}
+          title={shortLabel !== undefined && typeof label === 'string' ? label : undefined}
+        >
           {icon && (
             <span className={styles.icon} aria-hidden="true">
               {icon}
             </span>
           )}
-          {label}
+          {shortLabel ?? label}
         </label>
+        {compact && note && (
+          <span
+            className={styles.noteMark}
+            title={typeof note === 'string' ? note : undefined}
+            aria-hidden="true"
+          >
+            *
+          </span>
+        )}
         <output htmlFor={inputId} className={styles.value}>
           {value === undefined ? '—' : format(value)}
         </output>
@@ -115,20 +148,21 @@ export function Slider({
           step={step}
           value={value ?? 0}
           disabled={disabled || unavailable}
+          aria-label={shortLabel !== undefined && typeof label === 'string' ? label : undefined}
           aria-describedby={note ? noteId : undefined}
           aria-valuetext={value === undefined ? undefined : format(value)}
           onChange={(event) => onChange(event.currentTarget.valueAsNumber)}
           onKeyDown={wraps ? handleKeyDown : undefined}
         />
       </div>
-      {min !== undefined && max !== undefined && (
+      {!compact && min !== undefined && max !== undefined && (
         <div className={styles.bounds} aria-hidden="true">
           <span>{format(min)}</span>
           <span>{format(max)}</span>
         </div>
       )}
       {note && (
-        <p className={styles.note} id={noteId}>
+        <p className={cx(styles.note, compact && 'visually-hidden')} id={noteId}>
           {note}
         </p>
       )}

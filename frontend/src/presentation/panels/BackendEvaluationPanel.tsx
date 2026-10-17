@@ -1,4 +1,4 @@
-import { ChevronRight, CircleAlert } from 'lucide-react'
+import { ChevronDown, ChevronRight, CircleAlert } from 'lucide-react'
 import { type ReactNode, useId } from 'react'
 
 import {
@@ -11,6 +11,7 @@ import {
   LINEAR_INTERPOLATION_STRATEGY,
   type EvaluationError,
   type EvaluationResult,
+  type NotEvaluableResult,
   type SafetyAlertSeverity,
   type TippingRisk,
 } from '../../domain/evaluation/evaluation'
@@ -25,6 +26,7 @@ import {
   StatusPill,
   type Tone,
 } from '../ui'
+import { useResultDetails } from '../simulator/layout/resultDetails'
 import styles from './BackendEvaluationPanel.module.css'
 import { reasonLabel } from './reasonLabels'
 
@@ -84,14 +86,17 @@ function formatNumber(value: number, fractionDigits: number): string {
 const meters = (value: number) => `${formatNumber(value, 2)} m`
 const kilograms = (value: number) => `${formatNumber(value, 0)} kg`
 
+/** Gravidade mais alta primeiro: o primeiro alerta é o que aparece no primeiro nível do cartão. */
+const ALERT_ORDER: Record<SafetyAlertSeverity, number> = { CRITICAL: 0, ATTENTION: 1, INFO: 2 }
+
 /**
- * Ficha do resultado OFICIAL, calculado no backend (RN-008), como o carimbo de uma prancha
- * (ADR-019): faixa de título com a situação; célula da utilização (número grande em mono e a régua
- * graduada); célula dos valores (capacidade, zona, raio e a conta carga + gancho = peso comparado);
- * célula das notas (motivos, detalhes da consulta e a nota PROVISÓRIO da consulta conservadora,
- * ADR-015). "Não avaliável" mostra os motivos (RN-007). Com zonas de giro (TASK-046), mostra a zona
- * usada e as parcelas do peso comparado, todas vindas do backend. A cor só compara o peso comparado
- * com a capacidade; não há níveis de alerta (PEND-004).
+ * Ficha do resultado OFICIAL, calculado no backend (RN-008), no cartão sobre a cena (TASK-095;
+ * ADR-045, com o visual do ADR-019). No primeiro nível, o que se olha o tempo todo: a situação, a
+ * régua da utilização, a capacidade, o peso comparado, o raio, o risco de tombamento e o alerta mais
+ * grave. Em "Detalhes" (no HTML mesmo fechado), a conta carga + gancho + acessórios = peso comparado,
+ * a zona de giro, o limite do modelo e a capacidade efetiva, todos os alertas e a consulta da tabela.
+ * "Não avaliável" mostra os motivos (RN-007). A cor só compara o peso comparado com a capacidade; não
+ * há níveis de alerta (PEND-004).
  */
 export function BackendEvaluationPanel({
   result,
@@ -101,7 +106,10 @@ export function BackendEvaluationPanel({
   loadWeightKg = null,
   slow = false,
 }: BackendEvaluationPanelProps) {
-  const titleId = `${useId()}-title`
+  const baseId = useId()
+  const titleId = `${baseId}-title`
+  const detailsId = `${baseId}-details`
+  const details = useResultDetails()
   const shown = inputProblem === null && error === null ? result : null
   const status = evaluationStatus(shown)
   const presentation =
@@ -123,6 +131,15 @@ export function BackendEvaluationPanel({
     : [{ from: 0, to: FULL_CAPACITY_PERCENT, tone: 'ok' }]
   // Zona de giro usada pelo backend (TASK-046); some numa configuração sem zonas.
   const zoneLabel = shown ? (shown.rotationZoneName ?? shown.rotationZoneCode) : null
+  const alerts = [...(shown?.alerts ?? [])].sort(
+    (a, b) => ALERT_ORDER[a.severity] - ALERT_ORDER[b.severity],
+  )
+  const topAlert = alerts[0] ?? null
+  const comparedWeight =
+    shown?.comparedWeightKg !== null && shown?.comparedWeightKg !== undefined
+      ? kilograms(shown.comparedWeightKg)
+      : '—'
+  const controls = [detailsId, details.extraId].filter(Boolean).join(' ')
 
   return (
     <section className={styles.hud} aria-labelledby={titleId} aria-busy={pending}>
@@ -135,29 +152,9 @@ export function BackendEvaluationPanel({
           style={{ visibility: pending ? 'visible' : 'hidden' }}
           aria-hidden={!pending}
         >
-          <Spinner size={10} /> atualizando…
+          <Spinner size={10} /> <span className={styles.pendingText}>atualizando…</span>
         </span>
         <span className={styles.headerSpacer} aria-hidden="true" />
-        <span
-          className={styles.kind}
-          title="A tabela de carga cobre o estado"
-          style={{ visibility: shown?.kind === 'EVALUATED' ? 'visible' : 'hidden' }}
-          aria-hidden={shown?.kind !== 'EVALUATED'}
-        >
-          Avaliado
-        </span>
-        {/* Os selos mantêm o lugar mesmo sem valor: só o conteúdo e a visibilidade mudam. */}
-        {shown?.tippingRisk != null ? (
-          <StatusPill
-            className={cx(styles.headerPill, styles.riskPill)}
-            tone={TIPPING_RISK_PRESENTATION[shown.tippingRisk].tone}
-            size="lg"
-          >
-            {TIPPING_RISK_PRESENTATION[shown.tippingRisk].label}
-          </StatusPill>
-        ) : (
-          <span className={cx(styles.headerPill, styles.riskPill)} aria-hidden="true" />
-        )}
         <StatusPill
           className={cx(styles.headerPill, styles.statusPill)}
           tone={presentation.tone}
@@ -169,32 +166,156 @@ export function BackendEvaluationPanel({
         </StatusPill>
       </header>
 
-      <div className={styles.cells}>
-        <div className={cx(styles.cell, styles.cellUtilization)}>
-          <Gauge
-            value={utilization}
-            tone={presentation.tone}
-            label="Utilização"
-            bands={gaugeBands}
-            caption={
-              status === 'over'
-                ? limit
-                  ? 'acima do limite'
-                  : 'acima de 100 %'
-                : shown?.kind === 'NOT_EVALUABLE'
-                  ? 'sem utilização'
-                  : limit
-                    ? `do limite de ${formatNumber(limit.limitPercent, 0)} %`
-                    : undefined
-            }
-          />
+      <div className={styles.summary}>
+        <Gauge
+          compact
+          value={utilization}
+          tone={presentation.tone}
+          label="Utilização"
+          bands={gaugeBands}
+          caption={
+            status === 'over'
+              ? limit
+                ? 'acima do limite'
+                : 'acima de 100 %'
+              : shown?.kind === 'NOT_EVALUABLE'
+                ? 'sem utilização'
+                : limit
+                  ? `do limite de ${formatNumber(limit.limitPercent, 0)} %`
+                  : undefined
+          }
+        />
+
+        <dl className={styles.keyMetrics}>
+          <Metric label="Capacidade" loading={waitingFirst && pending}>
+            {shown?.capacity ? kilograms(shown.capacity.maximumCapacityKg) : '—'}
+          </Metric>
+          <Metric label="Peso comparado" loading={waitingFirst && pending}>
+            {comparedWeight}
+          </Metric>
+          <Metric label="Raio" loading={waitingFirst && pending}>
+            {shown?.workingRadiusM !== null && shown?.workingRadiusM !== undefined
+              ? meters(shown.workingRadiusM)
+              : '—'}
+          </Metric>
+        </dl>
+
+        <div className={styles.badges}>
+          {shown?.tippingRisk != null && (
+            <StatusPill
+              className={styles.riskPill}
+              tone={TIPPING_RISK_PRESENTATION[shown.tippingRisk].tone}
+              size="sm"
+            >
+              {TIPPING_RISK_PRESENTATION[shown.tippingRisk].label}
+            </StatusPill>
+          )}
+          <span className={styles.headerSpacer} aria-hidden="true" />
+          <span
+            className={styles.kind}
+            title="A tabela de carga cobre o estado"
+            style={{ visibility: shown?.kind === 'EVALUATED' ? 'visible' : 'hidden' }}
+            aria-hidden={shown?.kind !== 'EVALUATED'}
+          >
+            Avaliado
+          </span>
+        </div>
+      </div>
+
+      {inputProblem !== null ? (
+        <EmptyState
+          compact
+          className={styles.note}
+          tone="neutral"
+          icon={<ChevronRight size={16} />}
+          title="Aguardando os passos"
+          description={inputProblem}
+        />
+      ) : error !== null ? (
+        <EmptyState
+          compact
+          className={styles.note}
+          tone="danger"
+          role="alert"
+          icon={<CircleAlert size={16} />}
+          title="Não foi possível avaliar"
+          description={
+            <>
+              {error.message} <code>{error.code}</code>
+            </>
+          }
+        />
+      ) : result === null ? (
+        <p className={styles.waiting}>Aguardando a primeira avaliação do servidor…</p>
+      ) : result.kind === 'NOT_EVALUABLE' ? (
+        <NotEvaluableReasons result={result} />
+      ) : null}
+
+      {/* Com os detalhes abertos, a lista completa dos alertas está logo abaixo. */}
+      {topAlert !== null && !details.open && (
+        <p className={styles.topAlert} data-severity={topAlert.severity}>
+          <Badge tone={ALERT_PRESENTATION[topAlert.severity].tone}>
+            {ALERT_PRESENTATION[topAlert.severity].label}
+          </Badge>
+          <span className={styles.topAlertText}>{topAlert.message}</span>
+          {alerts.length > 1 && (
+            <span className={styles.moreAlerts}>+{alerts.length - 1} em Detalhes</span>
+          )}
+        </p>
+      )}
+
+      {slow && pending && inputProblem === null && (
+        <p className={styles.waiting} role="status">
+          {SLOW_BACKEND_MESSAGE}
+        </p>
+      )}
+
+      <button
+        type="button"
+        className={styles.detailsToggle}
+        aria-expanded={details.open}
+        aria-controls={controls}
+        onClick={details.toggle}
+      >
+        <ChevronDown size={14} aria-hidden="true" data-open={details.open || undefined} />
+        Detalhes
+      </button>
+
+      <div id={detailsId} className={styles.details} hidden={!details.open}>
+        <div className={styles.parts} role="group" aria-label="Peso comparado com a capacidade">
+          <dl className={styles.part}>
+            <Metric label="Carga">{loadWeightKg === null ? '—' : kilograms(loadWeightKg)}</Metric>
+          </dl>
+          <span className={styles.partsOperator} aria-hidden="true">
+            +
+          </span>
+          <dl className={styles.part}>
+            <Metric label="Gancho">
+              {shown?.hookBlockWeightKg !== null && shown?.hookBlockWeightKg !== undefined
+                ? kilograms(shown.hookBlockWeightKg)
+                : '—'}
+            </Metric>
+          </dl>
+          {shown?.accessoriesWeightKg !== null && shown?.accessoriesWeightKg !== undefined && (
+            <>
+              <span className={styles.partsOperator} aria-hidden="true">
+                +
+              </span>
+              <dl className={styles.part}>
+                <Metric label="Acessórios">{kilograms(shown.accessoriesWeightKg)}</Metric>
+              </dl>
+            </>
+          )}
+          <span className={styles.partsOperator} aria-hidden="true">
+            =
+          </span>
+          <dl className={cx(styles.part, styles.partTotal)}>
+            <Metric label="Peso comparado">{comparedWeight}</Metric>
+          </dl>
         </div>
 
-        <div className={cx(styles.cell, styles.cellValues)}>
-          <dl className={styles.keyMetrics}>
-            <Metric label="Capacidade" loading={waitingFirst && pending}>
-              {shown?.capacity ? kilograms(shown.capacity.maximumCapacityKg) : '—'}
-            </Metric>
+        {(zoneLabel !== null || limit) && (
+          <dl className={styles.detailMetrics} aria-label="Zona de giro e limite do modelo">
             {zoneLabel !== null && (
               <Metric label="Zona de giro">
                 <span className={styles.zoneValue} title={shown?.rotationZoneCode ?? undefined}>
@@ -202,113 +323,36 @@ export function BackendEvaluationPanel({
                 </span>
               </Metric>
             )}
-            <Metric label="Raio" loading={waitingFirst && pending}>
-              {shown?.workingRadiusM !== null && shown?.workingRadiusM !== undefined
-                ? meters(shown.workingRadiusM)
-                : '—'}
-            </Metric>
-          </dl>
-
-          {limit && (
-            <dl className={styles.keyMetrics} aria-label="Limite de capacidade do modelo">
-              <Metric label="Limite do modelo">{formatNumber(limit.limitPercent, 0)} %</Metric>
-              <Metric label="Capacidade efetiva">{kilograms(limit.effectiveCapacityKg)}</Metric>
-            </dl>
-          )}
-          {limit && reductionNotes(limit).length > 0 && (
-            <p className={styles.meta} role="note">
-              Capacidade {reductionNotes(limit).join(' e ')}.
-            </p>
-          )}
-
-          <div className={styles.parts} role="group" aria-label="Peso comparado com a capacidade">
-            <dl className={styles.part}>
-              <Metric label="Carga">{loadWeightKg === null ? '—' : kilograms(loadWeightKg)}</Metric>
-            </dl>
-            <span className={styles.partsOperator} aria-hidden="true">
-              +
-            </span>
-            <dl className={styles.part}>
-              <Metric label="Gancho">
-                {shown?.hookBlockWeightKg !== null && shown?.hookBlockWeightKg !== undefined
-                  ? kilograms(shown.hookBlockWeightKg)
-                  : '—'}
-              </Metric>
-            </dl>
-            {shown?.accessoriesWeightKg !== null && shown?.accessoriesWeightKg !== undefined && (
+            {limit && (
               <>
-                <span className={styles.partsOperator} aria-hidden="true">
-                  +
-                </span>
-                <dl className={styles.part}>
-                  <Metric label="Acessórios">{kilograms(shown.accessoriesWeightKg)}</Metric>
-                </dl>
+                <Metric label="Limite do modelo">{formatNumber(limit.limitPercent, 0)} %</Metric>
+                <Metric label="Capacidade efetiva">{kilograms(limit.effectiveCapacityKg)}</Metric>
               </>
             )}
-            <span className={styles.partsOperator} aria-hidden="true">
-              =
-            </span>
-            <dl className={cx(styles.part, styles.partTotal)}>
-              <Metric label="Peso comparado">
-                {shown?.comparedWeightKg !== null && shown?.comparedWeightKg !== undefined
-                  ? kilograms(shown.comparedWeightKg)
-                  : '—'}
-              </Metric>
-            </dl>
-          </div>
-        </div>
+          </dl>
+        )}
+        {limit && reductionNotes(limit).length > 0 && (
+          <p className={styles.meta} role="note">
+            Capacidade {reductionNotes(limit).join(' e ')}.
+          </p>
+        )}
 
-        <div className={cx(styles.cell, styles.cellNotes)}>
-          {inputProblem !== null ? (
-            <EmptyState
-              compact
-              className={styles.note}
-              tone="neutral"
-              icon={<ChevronRight size={16} />}
-              title="Aguardando os passos"
-              description={inputProblem}
-            />
-          ) : error !== null ? (
-            <EmptyState
-              compact
-              className={styles.note}
-              tone="danger"
-              role="alert"
-              icon={<CircleAlert size={16} />}
-              title="Não foi possível avaliar"
-              description={
-                <>
-                  {error.message} <code>{error.code}</code>
-                </>
-              }
-            />
-          ) : result === null ? (
-            <p className={styles.waiting}>Aguardando a primeira avaliação do servidor…</p>
-          ) : (
-            <EvaluationDetails result={result} />
-          )}
+        {alerts.length > 0 && (
+          <ul className={styles.alerts} aria-label="Alertas de segurança">
+            {alerts.map((alert) => (
+              <li key={alert.code} className={styles.alert} data-severity={alert.severity}>
+                <Badge tone={ALERT_PRESENTATION[alert.severity].tone}>
+                  {ALERT_PRESENTATION[alert.severity].label}
+                </Badge>
+                <span>{alert.message}</span>
+              </li>
+            ))}
+          </ul>
+        )}
 
-          <div className={styles.alertsBox}>
-            {shown !== null && shown.alerts !== undefined && shown.alerts.length > 0 && (
-              <ul className={styles.alerts} aria-label="Alertas de segurança">
-                {shown.alerts.map((alert) => (
-                  <li key={alert.code} className={styles.alert} data-severity={alert.severity}>
-                    <Badge tone={ALERT_PRESENTATION[alert.severity].tone}>
-                      {ALERT_PRESENTATION[alert.severity].label}
-                    </Badge>
-                    <span>{alert.message}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {slow && pending && inputProblem === null && (
-            <p className={styles.waiting} role="status">
-              {SLOW_BACKEND_MESSAGE}
-            </p>
-          )}
-        </div>
+        {inputProblem === null && error === null && result !== null && (
+          <EvaluationDetails result={result} />
+        )}
       </div>
     </section>
   )
@@ -408,45 +452,46 @@ function EvaluationDetails({ result }: { readonly result: EvaluationResult }) {
     })
   }
 
+  if (rows.length === 0) return null
   return (
-    <>
-      {result.kind === 'NOT_EVALUABLE' && (
-        <div className={styles.reasons}>
-          <p>
-            Motivos
-            {result.rotationZoneName !== null || result.rotationZoneCode !== null
-              ? ` (zona ${result.rotationZoneName ?? result.rotationZoneCode})`
-              : ''}
-            :
-          </p>
-          <ul>
-            {result.reasons.map((reason, index) => (
-              <li key={`${reason.code}-${index}`}>{reasonLabel(reason.code)}</li>
-            ))}
-          </ul>
-        </div>
+    <div className={styles.query}>
+      <p className={styles.queryTitle}>Detalhes da consulta</p>
+      <dl className={styles.rows}>
+        {rows.map((row) => (
+          <div className={styles.row} key={row.label}>
+            <dt>{row.label}</dt>
+            <dd>{row.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {result.kind === 'EVALUATED' && (
+        <p className={cx(styles.meta, styles.detailsNote)}>
+          {result.capacityLimit
+            ? 'A cor é o nível devolvido pelo servidor: o peso comparado (carga + gancho) contra a capacidade efetiva do modelo.'
+            : 'A cor compara o peso comparado (carga + gancho) com a capacidade da tabela.'}
+        </p>
       )}
-      {rows.length > 0 && (
-        <details className={styles.details}>
-          <summary>Detalhes da consulta</summary>
-          <dl className={styles.rows}>
-            {rows.map((row) => (
-              <div className={styles.row} key={row.label}>
-                <dt>{row.label}</dt>
-                <dd>{row.value}</dd>
-              </div>
-            ))}
-          </dl>
-          {result.kind === 'EVALUATED' && (
-            <p className={cx(styles.meta, styles.detailsNote)}>
-              {result.capacityLimit
-                ? 'A cor é o nível devolvido pelo servidor: o peso comparado (carga + gancho) contra a capacidade efetiva do modelo.'
-                : 'A cor compara o peso comparado (carga + gancho) com a capacidade da tabela.'}
-            </p>
-          )}
-        </details>
-      )}
-    </>
+    </div>
+  )
+}
+
+/** Motivos do "não avaliável" (RN-007), no primeiro nível do cartão. */
+function NotEvaluableReasons({ result }: { readonly result: NotEvaluableResult }) {
+  return (
+    <div className={styles.reasons}>
+      <p>
+        Motivos
+        {result.rotationZoneName !== null || result.rotationZoneCode !== null
+          ? ` (zona ${result.rotationZoneName ?? result.rotationZoneCode})`
+          : ''}
+        :
+      </p>
+      <ul>
+        {result.reasons.map((reason, index) => (
+          <li key={`${reason.code}-${index}`}>{reasonLabel(reason.code)}</li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

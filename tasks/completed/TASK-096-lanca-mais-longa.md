@@ -12,3 +12,8 @@ mais longa entre colunas". Registrada no ADR-043, que substitui o ADR-030 quanto
   coluna continua "não suportado" (RN-007); acima da maior coluna, `BOOM_LENGTH_ABOVE_CHART_MAX`.
 - [x] **CA-3** — A estratégia ganha testes próprios, que falham com a regra antiga.
 - [x] **CA-4** — ADR-043, índice dos ADRs e `docs/demo.md` atualizados.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-17 (PR #43). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

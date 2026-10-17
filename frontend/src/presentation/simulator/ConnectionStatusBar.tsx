@@ -13,6 +13,11 @@ export interface ConnectionStatusBarProps {
   readonly slow?: boolean
   /** Ações de câmera (predefinições da TASK-041). Sem elas, mostra a dica de mouse. */
   readonly cameraActions?: ReactNode
+  /**
+   * Barra de vistas sobre a cena (TASK-095): a conexão vira um ponto de cor, com o texto para
+   * leitores de tela e na dica ao passar o mouse.
+   */
+  readonly compact?: boolean
 }
 
 const CONNECTION: Record<ConnectionStatus, { tone: Tone; label: string; pulse: boolean }> = {
@@ -34,18 +39,31 @@ export function ConnectionStatusBar({
   pending,
   slow = false,
   cameraActions,
+  compact = false,
 }: ConnectionStatusBarProps) {
   const connection = CONNECTION[connectionStatus]
+  const pendingText = slow ? 'aguardando o servidor…' : 'atualizando…'
   return (
-    <div className={styles.bar} role="group" aria-label="Status da conexão e câmera">
-      <span className={styles.cell}>
-        <StatusPill tone={connection.tone} pulse={connection.pulse} size="sm" live>
+    <div
+      className={cx(styles.bar, compact && styles.compact)}
+      role="group"
+      aria-label="Status da conexão e câmera"
+    >
+      <span className={cx(styles.cell, compact && styles.dotCell)} title={connection.label}>
+        <StatusPill
+          className={compact ? styles.dotOnly : undefined}
+          tone={connection.tone}
+          pulse={connection.pulse}
+          size="sm"
+          live
+        >
           {connection.label}
         </StatusPill>
       </span>
       {pending && (
-        <span className={cx(styles.cell, styles.pending)}>
-          <Spinner size={10} /> {slow ? 'aguardando o servidor…' : 'atualizando…'}
+        <span className={cx(styles.cell, styles.pending)} title={pendingText}>
+          <Spinner size={10} />{' '}
+          <span className={compact ? 'visually-hidden' : undefined}>{pendingText}</span>
         </span>
       )}
       <span className={styles.spacer} aria-hidden="true" />

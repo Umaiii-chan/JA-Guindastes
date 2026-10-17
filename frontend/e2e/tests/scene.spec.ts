@@ -7,7 +7,12 @@
 import type { Locator, Page } from '@playwright/test'
 
 import { expect, test } from './auth.js'
-import { chooseConfiguration, fillValidLoad, mockCatalog } from './catalogMock.js'
+import {
+  chooseConfiguration,
+  fillValidLoad,
+  mockCatalog,
+  openResultDetails,
+} from './catalogMock.js'
 
 function geometryValue(page: Page, label: string): Locator {
   return page.getByRole('region', { name: /Geometria/ }).locator(`dt:text-is("${label}") + dd`)
@@ -21,13 +26,17 @@ async function open(page: Page, path: string): Promise<string[]> {
   return pageErrors
 }
 
-/** Passos 1 e 2 concluídos: abre o passo 3 (Posição), com os sliders. */
+/**
+ * Passos 1 e 2 concluídos: abre o passo 3 (Posição). Os sliders ficam na barra de comando e a
+ * geometria nos "Detalhes" do cartão de resultado (TASK-095), que o teste abre.
+ */
 async function openPositionStep(page: Page): Promise<void> {
   await chooseConfiguration(page)
   await page.getByRole('button', { name: 'Continuar para Carga' }).click()
   await fillValidLoad(page)
   await page.getByRole('button', { name: 'Continuar para Posição' }).click()
   await expect(page.getByLabel('Inclinação da lança')).toBeEnabled()
+  await openResultDetails(page)
 }
 
 /** Leva o slider ao mínimo e ao máximo pelo teclado (eventos reais do navegador) e devolve o valor lido em cada ponta. */
@@ -78,7 +87,7 @@ test('a cena 3D aparece num canvas que ocupa a página do simulador', async ({ p
   await expect(canvas).toBeVisible()
   const box = await canvas.boundingBox()
   expect(box?.width ?? 0).toBeGreaterThan(600)
-  // A faixa de gravação (TASK-057) ocupa parte da altura da página.
+  // Desde a TASK-095 a cena ocupa o palco inteiro e os painéis flutuam sobre ela.
   expect(box?.height ?? 0).toBeGreaterThan(300)
   await expect(page.getByText('Não foi possível iniciar a cena 3D')).toHaveCount(0)
   await expect(page.getByRole('group', { name: 'Status da conexão e câmera' })).toBeVisible()
