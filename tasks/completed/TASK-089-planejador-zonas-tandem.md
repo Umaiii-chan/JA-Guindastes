@@ -10,3 +10,8 @@ sobre a TASK-088 (`task/TASK-088-planejador-caminho`).
 - [x] **CA-3** — (F-28) O `timed_out` da busca chega à resposta da API (`timed_out`) e a tela mostra um aviso simples quando a busca foi cortada.
 - [x] **CA-4** — (F-04) Pares de tandem com os corpos sobrepostos ou com giros em sentidos opostos são recusados, com o motivo nas notas (correção mínima, sem o tandem completo).
 - [x] **CA-5** — (F-03) A tela envia o centro de gravidade da Carga (`cg_offset_m`) ao planejar; o backend usa os pontos de içamento a 1/4 e 3/4 do comprimento, como a cena (ADR-041).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-17 (01h06, horário de Brasília; PR #53). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).
