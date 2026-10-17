@@ -40,9 +40,10 @@ from app.domain.services.planning.crane_body import distance_to_crane_body_m
 from app.domain.services.planning.library_boxes import (
     bed_contains,
     expand_obstacles,
-    is_platform_truck,
-    platform_truck_bed_ratio,
-    platform_truck_cab_parts,
+    is_load_support,
+    support_higher_parts,
+    support_of,
+    support_top_ratio,
 )
 from app.domain.services.planning.models import CraneStateValues, PlanLoad, PlanPoint
 from app.domain.services.planning.scene import (
@@ -305,24 +306,50 @@ class DeliverySurface:
     rest_y: float
     """Altura (m) da base da carga apoiada: o terreno sob a pegada ou o topo da carreta."""
     supports: tuple[ObstacleSpec, ...]
-    """Veículos-plataforma sob a pegada, que recebem a carga por cima."""
+    """Objetos com superfície de apoio (caminhão plataforma, carreta prancha, contêiner) sob a
+    pegada,
+    que recebem a carga por cima."""
     blockers: tuple[ObstacleSpec, ...]
     """Outros obstáculos sob a pegada, acima de onde ela pousaria: a entrega não é possível."""
 
 
-def _supports_load(obstacle: ObstacleSpec, x: float, z: float) -> bool:
-    """O obstáculo recebe por cima a carga centrada em (x, z)? Só o caminhão plataforma da
-    biblioteca (a cena só tem carroceria nele, `loadBedsOf`), e só se o centro da pegada cai dentro
-    da carroceria (o mesmo critério da cena, `loadBeds.ts`); senão a carga fica no terreno e o
-    caminhão, como qualquer outro obstáculo, é colisão. Uma caixa "carreta" não recebe a carga."""
-    return is_platform_truck(obstacle) and bed_contains(obstacle, x, z)
+def over_capacity(obstacle: ObstacleSpec, load: PlanLoad | None) -> bool:
+    """A carga pesa mais do que o apoio aguenta? Só com capacidade CONHECIDA (`capacity_kg`): sem
+    dado o peso não é limitado (o apoio é FICTÍCIO e o plano o diz). `load=None` não confere (a
+    carga já está no apoio, na coleta)."""
+    spec = support_of(obstacle)
+    return (
+        load is not None
+        and spec is not None
+        and spec.capacity_kg is not None
+        and load.weight_kg > spec.capacity_kg
+    )
+
+
+def _supports_load(
+    obstacle: ObstacleSpec, x: float, z: float, load: PlanLoad | None = None
+) -> bool:
+    """O obstáculo recebe por cima a carga centrada em (x, z)? Só um objeto da biblioteca que
+    declara
+    superfície de apoio (`LOAD_SUPPORTS`: caminhão plataforma, carreta prancha, contêiner; a cena só
+    tem apoio neles, `loadBedsOf`), só se o centro da pegada cai dentro dela (o mesmo critério
+    da cena,
+    `loadBeds.ts`) e, com `load`, só se o peso cabe na capacidade conhecida do apoio; senão a carga
+    fica no terreno e o objeto, como qualquer outro obstáculo, é colisão. Uma caixa "carreta" não
+    recebe a carga."""
+    return (
+        is_load_support(obstacle)
+        and bed_contains(obstacle, x, z)
+        and not over_capacity(obstacle, load)
+    )
 
 
 def support_top_y(terrain: TerrainSpec, obstacle: ObstacleSpec) -> float:
-    """Altura (m) em que a carga repousa sobre o caminhão plataforma: o topo da carroceria
-    (`loadBed` do frontend: 0,53 da altura), não o da caixa inteira (cabine)."""
+    """Altura (m) em que a carga repousa sobre o apoio: o topo da superfície de apoio (`loadBed` do
+    frontend: 0,53 da altura no caminhão plataforma; o topo do contêiner e da prancha), não o da
+    caixa inteira (cabine)."""
     top = obstacle_top_y(terrain, obstacle)
-    return top - obstacle.height_m * (1.0 - platform_truck_bed_ratio())
+    return top - obstacle.height_m * (1.0 - support_top_ratio(obstacle))
 
 
 def _surface(
@@ -333,10 +360,15 @@ def _surface(
     rotation_y_deg: float,
     *,
     low_obstacles_block: bool,
+    check_capacity: bool = False,
 ) -> DeliverySurface:
     under = _under_footprint(scenario, load, x, z, rotation_y_deg)
     rest = cargo_base_y(scenario.terrain, load.length_m, load.width_m, x, z, rotation_y_deg)
-    supports = tuple(obstacle for obstacle in under if _supports_load(obstacle, x, z))
+    supports = tuple(
+        obstacle
+        for obstacle in under
+        if _supports_load(obstacle, x, z, load if check_capacity else None)
+    )
     if supports:
         rest = max(rest, max(support_top_y(scenario.terrain, item) for item in supports))
     blockers = [
@@ -346,11 +378,12 @@ def _surface(
         and (low_obstacles_block or obstacle_top_y(scenario.terrain, obstacle) > rest + 1e-6)
         and _in_height_range(scenario.terrain, obstacle, rest, rest + load.height_m)
     ]
-    # Apoiada na carroceria, a carga não pode invadir os trechos mais altos do caminhão (a cabine).
+    # Apoiada na superfície de apoio, a carga não pode invadir os trechos mais altos do objeto (a
+    # cabine do caminhão plataforma; o contêiner e a prancha não têm).
     for truck in supports:
         blockers.extend(
             part
-            for part in platform_truck_cab_parts(truck, scenario.terrain)
+            for part in support_higher_parts(truck, scenario.terrain)
             if footprint_overlaps_obstacle(
                 part, x, z, load.width_m / 2, load.length_m / 2, rotation_y_deg
             )
@@ -363,8 +396,11 @@ def delivery_surface(
     scenario: ScenarioSpec, load: PlanLoad, x: float, z: float, rotation_y_deg: float
 ) -> DeliverySurface:
     """Superfície da entrega com a carga centrada em (x, z) e girada de `rotation_y_deg`: onde ela
-    repousa (o terreno ou a carroceria do caminhão plataforma) e o que a impede."""
-    return _surface(scenario, load, x, z, rotation_y_deg, low_obstacles_block=False)
+    repousa (o terreno ou a superfície de apoio de um objeto) e o que a impede. Um apoio com
+    capacidade conhecida menor que o peso da carga não recebe (vira obstáculo comum)."""
+    return _surface(
+        scenario, load, x, z, rotation_y_deg, low_obstacles_block=False, check_capacity=True
+    )
 
 
 def pick_surface(scenario: ScenarioSpec, load: PlanLoad, cargo: PlanPoint) -> DeliverySurface:
@@ -387,27 +423,41 @@ def delivery_cover(
     scenario: ScenarioSpec, load: PlanLoad, center: PlanPoint
 ) -> tuple[ObstacleSpec, ...]:
     """Obstáculos que impedem a entrega em qualquer giro da carga: o centro da entrega fica dentro
-    deles, eles não são a carreta e passam de qualquer altura em que a carga poderia pousar ali."""
+    deles, eles não são um apoio que aguenta a carga e passam de qualquer altura em que a carga
+    poderia pousar ali."""
     radius = math.hypot(load.length_m, load.width_m) / 2
     rest_limit = terrain_peak_near(scenario.terrain, center.x, center.z, radius)
     obstacles = expand_obstacles(scenario)
     ground = terrain_height_at(scenario.terrain, center.x, center.z)
     for obstacle in obstacles:
         if (
-            _supports_load(obstacle, center.x, center.z)
+            _supports_load(obstacle, center.x, center.z, load)
             and distance_to_obstacle_m(obstacle, center.x, center.z) <= radius
         ):
             rest_limit = max(rest_limit, support_top_y(scenario.terrain, obstacle))
     return tuple(
         obstacle
         for obstacle in obstacles
-        if not _supports_load(obstacle, center.x, center.z)
+        if not _supports_load(obstacle, center.x, center.z, load)
         and (
             obstacle.elevation_m is None
             or obstacle_top_y(scenario.terrain, obstacle) - obstacle.height_m <= ground + 1e-6
         )
         and distance_to_obstacle_m(obstacle, center.x, center.z) == 0.0
         and obstacle_top_y(scenario.terrain, obstacle) > rest_limit + 1e-6
+    )
+
+
+def overloaded_supports(
+    scenario: ScenarioSpec, load: PlanLoad, center: PlanPoint
+) -> tuple[ObstacleSpec, ...]:
+    """Apoios sob o centro da entrega cuja capacidade CONHECIDA é menor que o peso da carga."""
+    return tuple(
+        obstacle
+        for obstacle in expand_obstacles(scenario)
+        if is_load_support(obstacle)
+        and bed_contains(obstacle, center.x, center.z)
+        and over_capacity(obstacle, load)
     )
 
 
@@ -743,6 +793,8 @@ __all__ = [
     "pick_surface",
     "samples_within",
     "segment_hits_solid",
+    "over_capacity",
+    "overloaded_supports",
     "support_top_y",
     "solids_of",
     "swing_arc",

@@ -20,13 +20,17 @@ LIBRARY_MODELS: dict[str, str] = {
     "galpao-fechado": "galpão fechado",
     "barracao-aberto": "barracão com porta aberta (a carga pode ficar dentro, saindo pela porta)",
     "caminhao": "caminhão",
-    "caminhao-plataforma": "caminhão plataforma ou carreta (prancha)",
+    "caminhao-plataforma": "caminhão plataforma (carroceria plana que recebe a carga por cima)",
+    "carreta-prancha": "carreta prancha, semirreboque plano com convés a 1,5 m que recebe a carga por cima (13 m de comprimento)",
     "caminhao-bau": "caminhão baú",
     "sedan": "carro sedã",
     "suv": "carro utilitário",
     "van": "van",
     "guindaste-estacionado": "guindaste estacionado",
-    "conteiner": "contêiner",
+    "conteiner": "contêiner genérico (teto plano que recebe a carga por cima)",
+    "conteiner-20": "contêiner ISO de 20 pés (6,06 m x 2,44 m x 2,59 m), teto plano que recebe a carga por cima",
+    "conteiner-40": "contêiner ISO de 40 pés (12,19 m x 2,44 m x 2,59 m), teto plano que recebe a carga por cima",
+    "conteiner-40hc": "contêiner ISO de 40 pés high cube (12,19 m x 2,44 m x 2,90 m), teto plano que recebe a carga por cima",
 }
 """Objetos da biblioteca do editor 3D (TASK-072), espelho de `frontend/src/domain/environment/
 objectLibrary.ts`: o backend só guarda o `model_id`, e a IA escolhe por esta lista (TASK-076)."""
@@ -80,9 +84,9 @@ ser deixada (posição, giro e raio da área de entrega, de 1 a 5 m).
 - "crane": onde o guindaste fica, perto o bastante para alcançar a carga e a entrega, sem ficar \
 dentro de um obstáculo. Distâncias que o texto informar (por exemplo, "a 20 m") valem entre os \
 pontos citados.
-- "obstacles": construções, veículos, árvores e outros objetos do local. PREFIRA SEMPRE um objeto da biblioteca (kind "model") quando houver um parecido: árvore, casa, galpão, barracão, caminhão, carreta, carro, van, contêiner. Um barracão ou galpão de onde a carga sai é o "barracao-aberto", com a carga DENTRO e o guindaste FORA, de frente para a porta. Só use caixa ou cilindro para o que não existe na biblioteca (muro, pilha de material, poste, tanque). No máximo 20 obstáculos; use "label" em português, curto e legível (ex.: "Árvore 1", "Carreta").
+- "obstacles": construções, veículos, árvores e outros objetos do local. PREFIRA SEMPRE um objeto da biblioteca (kind "model") quando houver um parecido: árvore, casa, galpão, barracão, caminhão, carreta prancha, carro, van, contêiner (de 20 ou 40 pés). Um barracão ou galpão de onde a carga sai é o "barracao-aberto", com a carga DENTRO e o guindaste FORA, de frente para a porta. Só use caixa ou cilindro para o que não existe na biblioteca (muro, pilha de material, poste, tanque). No máximo 20 obstáculos; use "label" em português, curto e legível (ex.: "Árvore 1", "Carreta").
 - O guindaste que faz o içamento é SÓ o campo "crane": se o texto disser onde ele fica, coloque essa posição em "crane". NUNCA o repita em "obstacles" (nem como "guindaste-estacionado"). Use "guindaste-estacionado" apenas para OUTRO guindaste parado no local, quando o texto pedir.
-- Área livre: em volta do guindaste (cerca de 14 m de comprimento por 8 m de largura, contando as patolas) não pode haver NENHUM obstáculo; nada pode ficar sobre a carga na coleta (deixe pelo menos 2 m de folga) e, sobre o ponto de entrega, só a carreta ou caminhão plataforma de destino, nunca carro, árvore ou outro objeto. Escolha as coordenadas com cuidado e confira cada obstáculo contra essas áreas. O simulador confere as posições depois e afasta o que estiver em cima dessas áreas.
+- Área livre: em volta do guindaste (cerca de 14 m de comprimento por 8 m de largura, contando as patolas) não pode haver NENHUM obstáculo; nada pode ficar sobre a carga na coleta (deixe pelo menos 2 m de folga) e, sobre o ponto de entrega, só o apoio de destino (caminhão plataforma, carreta prancha ou contêiner da biblioteca), nunca carro, árvore ou outro objeto. Escolha as coordenadas com cuidado e confira cada obstáculo contra essas áreas. O simulador confere as posições depois e afasta o que estiver em cima dessas áreas.
 - Inclinação do terreno em % (subida em metros a cada 100 m) só se o texto falar em terreno \
 inclinado; senão 0. Vento (m/s) e tipo de solo só se o texto falar deles; senão null.
 - "summary": uma ou duas frases em português descrevendo o que você montou. "assumptions": lista de \

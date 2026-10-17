@@ -19,6 +19,20 @@ Git (`assets/source/kenney/`).
   origem, vértices soldados e quantizados (`KHR_mesh_quantization`). A geometria e a textura de
   paleta são as originais.
 
+## Carreta prancha (do próprio projeto)
+
+`carreta-prancha.glb` não vem de um kit: é desenhado por código (caixas e cilindros, sem textura) por
+`frontend/scripts/build-carreta-prancha.mjs` e é trabalho do próprio projeto, sem licença de terceiros.
+Semirreboque plano de 3 eixos, convés de 2,6 m x 13 m a 1,5 m do chão. As medidas são típicas e
+**FICTÍCIAS** (não são de um fabricante). Recebe a carga por cima (TASK-108; ADR-052).
+
+## Contêineres de 20 e 40 pés (TASK-108; ADR-052)
+
+`conteiner-20`, `conteiner-40` e `conteiner-40hc` usam o mesmo arquivo do contêiner da Kenney
+(`conteiner.glb`, CC0), esticado por eixo até a medida ISO 668 (20 pés: 6,058 x 2,438 x 2,591 m; 40 pés:
+12,192 x 2,438 x 2,591 m; *high cube*: 2,896 m de altura). O teto é plano; o visual das ondulações e das
+portas é aproximado.
+
 ## Galpão com frente aberta (Sketchfab, CC BY 4.0)
 
 `barracao-aberto.glb` ("Galpão com frente aberta" na biblioteca) vem do modelo abaixo. Os galpões

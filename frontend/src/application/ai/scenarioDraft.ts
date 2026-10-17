@@ -27,8 +27,13 @@ export function keepLibraryProportions(obstacle: Obstacle): Obstacle {
   if (obstacle.kind !== 'model') return obstacle
   const object = findLibraryObject(obstacle.modelId)
   if (!object) return obstacle
-  const { w, d, h } = object.baseSize
-  const realSize = object.category === 'veiculo' || object.category === 'guindaste'
+  // Contêiner ISO de 20/40 pés (`defaultSize`) tem a medida real fixa, como os veículos: a escala uniforme
+  // do GLB (6 m) o deixaria alto demais.
+  const { w, d, h } = object.defaultSize ?? object.baseSize
+  const realSize =
+    object.category === 'veiculo' ||
+    object.category === 'guindaste' ||
+    object.defaultSize !== undefined
   const footprint = (obstacle.widthM * obstacle.depthM) / (w * d)
   const raw = realSize || !(footprint > 0) ? 1 : Math.sqrt(footprint)
   const scale = Math.min(MAX_LIBRARY_SCALE, Math.max(MIN_LIBRARY_SCALE, raw))

@@ -36,6 +36,7 @@ from app.domain.services.planning.crane_body import (
     BODY_MIN_X_M,
     BODY_MIN_Z_M,
 )
+from app.domain.services.planning.library_boxes import LOAD_SUPPORTS
 
 CRANE_MARGIN_M = 1.0
 """FICTÍCIO (ADR-012): folga em volta do corpo do guindaste, para um objeto não encostar nele."""
@@ -44,7 +45,10 @@ DELIVERY_MARGIN_M = 1.0
 STEP_M = 0.5
 MAX_DISPLACEMENT_M = 60.0
 
-PLATFORM_MODEL_IDS = frozenset({"caminhao-plataforma"})
+PLATFORM_MODEL_IDS = frozenset(LOAD_SUPPORTS)
+"""Objetos da biblioteca que recebem a carga por cima (ADR-052): caminhão plataforma, carreta
+prancha
+e contêineres. O nome ficou da TASK-102."""
 ANCHORED_MODEL_IDS = frozenset({"barracao-aberto"})
 
 _EPSILON = 1e-9
@@ -125,8 +129,10 @@ class ScenarioLayout:
 
 
 def is_platform_vehicle(obstacle: ObstacleSpec) -> bool:
-    """Caminhão plataforma da biblioteca: a carga pode ser entregue na carroceria dele (ADR-049; o
-    planejador e a cena só apoiam a carga nele). Uma caixa chamada "carreta" é obstáculo comum."""
+    """Objeto da biblioteca com superfície de apoio (caminhão plataforma, carreta prancha,
+    contêiner):
+    a carga pode ser entregue em cima dele (ADR-049 e ADR-052; o planejador e a cena só apoiam a
+    carga neles). Uma caixa chamada "carreta" é obstáculo comum."""
     return obstacle.model_id in PLATFORM_MODEL_IDS
 
 

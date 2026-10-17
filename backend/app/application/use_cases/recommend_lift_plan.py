@@ -36,7 +36,13 @@ from app.domain.entities.scenario import ObstacleSpec, ScenarioSpec
 from app.domain.services.environment_factors import SoilKind
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
 from app.domain.services.planning.crane_body import crane_bodies_overlap
-from app.domain.services.planning.library_boxes import is_platform_truck, owner_id
+from app.domain.services.planning.library_boxes import (
+    bed_contains,
+    expand_obstacles,
+    is_load_support,
+    owner_id,
+    support_of,
+)
 from app.domain.services.planning.models import (
     CranePlan,
     CraneStateValues,
@@ -63,6 +69,7 @@ from app.domain.services.planning.sweep import (
     COLLISION_CABLE,
     COLLISION_LOAD,
     delivery_cover,
+    overloaded_supports,
     pick_cover,
 )
 from app.domain.services.planning.tandem import (
@@ -291,6 +298,7 @@ class RecommendLiftPlan:
         deadline = self._clock() + self._time_budget_s
 
         entries, notes = self._read_catalog()
+        notes.extend(_support_notes(request))
         if not entries:
             return PlanningResult((), (*notes, "Nenhum guindaste com tabela de carga ativa."))
 
@@ -665,16 +673,52 @@ def _names(obstacles: Sequence[ObstacleSpec]) -> str:
     return ", ".join(f"«{label}»" for label in dict.fromkeys(item.label for item in obstacles))
 
 
-_BED_HINT = (
-    "O centro da carga precisa ficar sobre a carroceria (traseira) do caminhão plataforma, "
-    "e a carga não pode passar sobre a cabine. "
+_BED_HINTS = {
+    "caminhao-plataforma": (
+        "O centro da carga precisa ficar sobre a carroceria (traseira) do caminhão plataforma, "
+        "e a carga não pode passar sobre a cabine. "
+    ),
+    "carreta-prancha": "O centro da carga precisa ficar sobre o convés da carreta prancha. ",
+}
+_CONTAINER_HINT = "O centro da carga precisa ficar sobre o teto do contêiner. "
+_NO_SUPPORT_HINT = (
+    "só os objetos da biblioteca com superfície de apoio (caminhão plataforma, carreta prancha e "
+    "contêiner) recebem a carga por cima. "
 )
 
 
-def _has_truck(obstacles: Sequence[ObstacleSpec], scenario: ScenarioSpec) -> bool:
-    """Algum dos obstáculos (ou das partes deles) é um caminhão plataforma do cenário?"""
-    trucks = {item.id for item in scenario.obstacles if is_platform_truck(item)}
-    return any(owner_id(obstacle) in trucks for obstacle in obstacles)
+def _support_hint(obstacles: Sequence[ObstacleSpec], scenario: ScenarioSpec) -> str:
+    """Dica do apoio do cenário entre os obstáculos (ou as partes deles); vazia se nenhum é
+    apoio."""
+    owners = {item.id: item for item in scenario.obstacles if is_load_support(item)}
+    hints: dict[str, None] = {}
+    for obstacle in obstacles:
+        owner = owners.get(owner_id(obstacle))
+        if owner is not None and owner.model_id is not None:
+            hints[_BED_HINTS.get(owner.model_id, _CONTAINER_HINT)] = None
+    return "".join(hints)
+
+
+def _support_notes(request: PlanningRequest) -> list[str]:
+    """Rótulo FICTÍCIO (ou a capacidade conhecida) dos apoios sob a coleta e a entrega (ADR-052)."""
+    notes: list[str] = []
+    for label, point in (("Coleta", request.pick), ("Entrega", request.delivery)):
+        for obstacle in expand_obstacles(request.scenario):
+            spec = support_of(obstacle)
+            if spec is None or not bed_contains(obstacle, point.x, point.z):
+                continue
+            if spec.capacity_kg is None:
+                notes.append(
+                    f"{label} sobre «{obstacle.label}» ({spec.label}): apoio FICTÍCIO, sem "
+                    "capacidade de carga conhecida; o peso apoiado não foi conferido."
+                )
+            elif label == "Entrega":
+                notes.append(
+                    f"{label} sobre «{obstacle.label}» ({spec.label}): carga de "
+                    f"{_fmt(request.load.weight_kg, 0)} kg dentro da capacidade de "
+                    f"{_fmt(spec.capacity_kg, 0)} kg ({spec.capacity_source})."
+                )
+    return notes
 
 
 def _blocked_ends_note(request: PlanningRequest) -> str | None:
@@ -683,20 +727,26 @@ def _blocked_ends_note(request: PlanningRequest) -> str | None:
     if covered:
         return (
             f"A carga na coleta fica sob ou dentro de {_names(covered)}: o gancho não chega a ela "
-            f"por cima. {_BED_HINT if _has_truck(covered, request.scenario) else ''}"
+            f"por cima. {_support_hint(covered, request.scenario)}"
             "Tire a carga de baixo do obstáculo ou mude o ponto de coleta."
         )
     blocked = delivery_cover(request.scenario, request.load, request.delivery)
     if blocked:
+        heavy = overloaded_supports(request.scenario, request.load, request.delivery)
+        if heavy:
+            limits = ", ".join(
+                f"«{item.label}» suporta no máximo {_fmt(spec.capacity_kg, 0)} kg"
+                for item in heavy
+                if (spec := support_of(item)) is not None and spec.capacity_kg is not None
+            )
+            return (
+                f"O ponto de entrega fica sobre {_names(heavy)}, mas {limits} e a carga pesa "
+                f"{_fmt(request.load.weight_kg, 0)} kg. Mude o ponto de entrega ou o apoio."
+            )
         return (
             f"O ponto de entrega fica sob ou dentro de {_names(blocked)}: "
-            + (
-                _BED_HINT
-                if _has_truck(blocked, request.scenario)
-                else "só o caminhão plataforma da biblioteca recebe a carga por cima, na "
-                "carroceria (traseira)."
-            )
-            + " Mude o ponto de entrega."
+            + (_support_hint(blocked, request.scenario) or _NO_SUPPORT_HINT)
+            + "Mude o ponto de entrega."
         )
     return None
 

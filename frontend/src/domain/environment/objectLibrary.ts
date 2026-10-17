@@ -52,6 +52,24 @@ export interface ObjectSize {
   readonly h: number
 }
 
+/**
+ * O que se sabe da capacidade de carga de uma superfície de apoio (TASK-108; ADR-052). Sem dado
+ * (`capacityKg` ausente) o apoio é FICTÍCIO: o peso apoiado não é conferido e a interface e o plano
+ * dizem isso. `source` cita de onde vem o número, ou o rótulo FICTÍCIO.
+ */
+export interface LoadBedInfo {
+  /** Capacidade (kg) de carga apoiada em cima, SE houver dado; ausente = sem dado. */
+  readonly capacityKg?: number
+  readonly source: string
+}
+
+/** Rótulo de um apoio sem capacidade conhecida. */
+export const NO_CAPACITY_SOURCE =
+  'FICTÍCIO: sem dado de capacidade para carga apoiada neste objeto; o peso apoiado não é conferido'
+
+/** `loadBedInfo` de um apoio que não declarou dado: FICTÍCIO. */
+const FICTITIOUS_BED: LoadBedInfo = { source: NO_CAPACITY_SOURCE }
+
 export interface LibraryObject {
   readonly id: string
   readonly label: string
@@ -61,10 +79,19 @@ export interface LibraryObject {
   readonly baseSize: ObjectSize
   readonly collision: readonly CollisionBox[]
   /**
-   * Superfície onde a carga pode ser solta (TASK-101): a carroceria de um caminhão plataforma. É uma
-   * das caixas de `collision`; o topo dela (`y + h`) é a altura de apoio. Só quem declara recebe carga.
+   * Superfície onde a carga pode ser solta (TASK-101; ADR-052): a carroceria do caminhão plataforma, o
+   * convés da carreta prancha e o teto dos contêineres. É uma das caixas de `collision`; o topo dela
+   * (`y + h`) é a altura de apoio. Só quem declara recebe carga.
    */
   readonly loadBed?: CollisionBox
+  /** Capacidade conhecida do apoio (só com `loadBed`); sem ele o apoio é FICTÍCIO (`NO_CAPACITY_SOURCE`). */
+  readonly loadBedInfo?: LoadBedInfo
+  /**
+   * Tamanho (m) com que o objeto entra no cenário quando é posto pela paleta, se diferente do `baseSize`
+   * (o do arquivo): o contêiner de 40 pés usa o mesmo GLB esticado até a medida ISO. A escala do
+   * obstáculo é o tamanho dele ÷ `baseSize`, então `collision` e `loadBed` seguem no referencial do GLB.
+   */
+  readonly defaultSize?: ObjectSize
   /**
    * Deslocamento (m) a aplicar ao modelo carregado para que o centro da planta fique na origem; só
    * para um GLB que não foi gerado já centrado (o guindaste estacionado).
@@ -237,6 +264,15 @@ const HOUSE_D: ObjectSize = { w: 8.08, d: 4.73, h: 5.69 }
 const WAREHOUSE: ObjectSize = { w: 11.82, d: 14.95, h: 8.44 }
 const HANGAR_SIZE: ObjectSize = { w: 19.22, d: 27.44, h: 8.27 }
 const CONTAINER: ObjectSize = { w: 2.72, d: 6, h: 2.54 }
+/** Contêineres ISO 668 (medidas externas): 8 pés de largura, 8,5 pés de altura (9,5 no high cube). */
+const ISO_CONTAINER_20: ObjectSize = { w: 2.438, d: 6.058, h: 2.591 }
+const ISO_CONTAINER_40: ObjectSize = { w: 2.438, d: 12.192, h: 2.591 }
+const ISO_CONTAINER_40_HC: ObjectSize = { w: 2.438, d: 12.192, h: 2.896 }
+/**
+ * Carreta prancha de 3 eixos (semirreboque plano): convés de 2,6 m x 13 m a 1,5 m do chão. Medidas
+ * típicas, FICTÍCIAS (não são de um fabricante); o GLB é gerado por `scripts/build-carreta-prancha.mjs`.
+ */
+const FLATBED_TRAILER: ObjectSize = { w: 2.6, d: 13, h: 1.5 }
 const TRUCK: ObjectSize = { w: 4.05, d: 7.96, h: 3.51 }
 const TRUCK_FLAT: ObjectSize = { w: 4.05, d: 7.41, h: 3.51 }
 const TRUCK_BOX: ObjectSize = { w: 3.6, d: 7.8, h: 3.96 }
@@ -357,6 +393,7 @@ export const OBJECT_LIBRARY: readonly LibraryObject[] = [
     baseSize: TRUCK_FLAT,
     collision: TRUCK_FLAT_COLLISION,
     loadBed: TRUCK_FLAT_COLLISION[0],
+    loadBedInfo: FICTITIOUS_BED,
   },
   {
     id: 'caminhao-bau',
@@ -420,6 +457,36 @@ export const OBJECT_LIBRARY: readonly LibraryObject[] = [
     file: 'objetos/conteiner.glb',
     baseSize: CONTAINER,
     collision: solid(CONTAINER),
+    loadBed: solid(CONTAINER)[0],
+    loadBedInfo: FICTITIOUS_BED,
+  },
+  ...(
+    [
+      ['conteiner-20', "Contêiner 20' (ISO)", ISO_CONTAINER_20],
+      ['conteiner-40', "Contêiner 40' (ISO)", ISO_CONTAINER_40],
+      ['conteiner-40hc', "Contêiner 40' high cube (ISO)", ISO_CONTAINER_40_HC],
+    ] as const
+  ).map(([id, label, size]): LibraryObject => ({
+    id,
+    label,
+    category: 'outro',
+    // O mesmo GLB do contêiner genérico, esticado até a medida ISO (`defaultSize`): o teto é plano.
+    file: 'objetos/conteiner.glb',
+    baseSize: CONTAINER,
+    defaultSize: size,
+    collision: solid(CONTAINER),
+    loadBed: solid(CONTAINER)[0],
+    loadBedInfo: FICTITIOUS_BED,
+  })),
+  {
+    id: 'carreta-prancha',
+    label: 'Carreta prancha',
+    category: 'veiculo',
+    file: 'objetos/carreta-prancha.glb',
+    baseSize: FLATBED_TRAILER,
+    collision: solid(FLATBED_TRAILER),
+    loadBed: solid(FLATBED_TRAILER)[0],
+    loadBedInfo: FICTITIOUS_BED,
   },
 ]
 
@@ -458,9 +525,9 @@ export function newModelObstacle(
     label,
     kind: 'model',
     modelId: object.id,
-    widthM: object.baseSize.w,
-    depthM: object.baseSize.d,
-    heightM: object.baseSize.h,
+    widthM: (object.defaultSize ?? object.baseSize).w,
+    depthM: (object.defaultSize ?? object.baseSize).d,
+    heightM: (object.defaultSize ?? object.baseSize).h,
     rotationYDeg: 0,
   }
 }
