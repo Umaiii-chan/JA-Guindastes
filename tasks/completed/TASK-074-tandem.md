@@ -19,3 +19,8 @@ Testes essenciais: `backend/tests/domain/test_tandem_load_split.py`,
 `backend/tests/presentation/test_evaluations_tandem.py`, `frontend/tests/domain/tandem/tandem.test.ts`,
 `frontend/tests/domain/collision/multiCraneCollisions.test.ts`,
 `frontend/tests/three/scene/MultiCrane.test.ts`.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PR #28). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

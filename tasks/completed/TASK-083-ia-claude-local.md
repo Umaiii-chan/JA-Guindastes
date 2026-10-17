@@ -19,3 +19,8 @@ Testes essenciais: `backend/tests/infrastructure/test_claude_cli_provider.py` (c
 - `build_prompt` sem esquema e `CLAUDE_CLI_PATH` inválido.
 - Teste do script `run-local-claude.ps1` (hoje só verificado à mão).
 - `.claude/launch.json` para o painel de preview (não feito).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PR #36). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

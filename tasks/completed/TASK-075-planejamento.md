@@ -24,3 +24,8 @@ Decisão: `docs/decisions/ADR-038-planejamento-da-operacao.md`.
 
 Capturas: `docs/assets/screenshots/leva-f/task-075-*.png` (coleta e entrega a 15 m, com um container no
 meio).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PR #29). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

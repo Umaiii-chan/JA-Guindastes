@@ -14,3 +14,8 @@ Decisão: [ADR-039](../../docs/decisions/ADR-039-assistente-de-ia-gemini.md). Re
 - [x] **CA-8** — Testes com provedor falso (sem rede) no backend e no frontend; uma execução real com a chave do `.env` local gerou o cenário de "içar uma viga de 8 t de 6 m de dentro do barracão até a carreta a 20 m" (capturas em `docs/assets/screenshots/leva-f/TASK-076-*.jpg`).
 
 Testes essenciais: `backend/tests/infrastructure/test_gemini_provider.py`, `backend/tests/application/test_ai_assistant.py`, `backend/tests/presentation/test_ai.py`, `frontend/tests/presentation/ai/assistant.test.tsx`.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PR #27). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).
