@@ -2,10 +2,10 @@
 
 | Campo                  | Valor                                                    |
 | ---------------------- | -------------------------------------------------------- |
-| **Status**             | Proposto                                                 |
+| **Status**             | Aceito                                                   |
 | **Data**               | 2026-10-16                                               |
 | **Autor**              | agente Claude Code (Opus 5.5), sessão de 2026-10-16      |
-| **Decisores**          | Anderson Sehnem                                          |
+| **Decisores**          | Anderson Sehnem, em chat em 2026-10-17                   |
 | **Tarefa relacionada** | TASK-091                                                 |
 | **Substitui**          | — (complementa o ADR-028, que segue Aceito e sem mudança) |
 
@@ -24,7 +24,8 @@ o corpo do guindaste nem os obstáculos.
    cadeia de acessórios de um guindaste são conferidos contra todas as caixas do corpo dos outros
    (`multiCraneCollisions.ts`, `MultiCrane.crossReport`), e bloqueiam o comando como as outras
    colisões da carga. O **cabo** (de G à ponta) de um guindaste contra a **lança** de outro também
-   **bloqueia**: é contato entre guindastes, como lança contra lança (contra obstáculos, o cabo
+   **bloqueia** (aceito por Anderson Sehnem, em chat em 2026-10-17: "pode bloquear o cabo contra a
+   lança de outro guindaste"): é contato entre guindastes, como lança contra lança (contra obstáculos, o cabo
    continua só alertando, ADR-028 § 2). O cabo vira uma caixa fina vertical de 0,1 m de lado
    (FICTÍCIO, `CABLE_HALF_WIDTH_M`), para ter profundidade de penetração. A colisão leva o nome do
    guindaste dono (`CollisionHit.owner`), e só a carga dele fica vermelha.
@@ -68,7 +69,7 @@ dizer que ela está no ar.
 ## Impacto na documentação
 
 - [ ] `docs/architecture.md` atualizado (não cita as colisões em detalhe; nada a mudar)
-- [ ] `docs/known-gaps.md` atualizado (pendência acima, para a pessoa responsável decidir)
+- [ ] `docs/known-gaps.md` atualizado (a pendência do cabo contra a lança foi decidida em 2026-10-17: bloqueia; veja Decisores)
 - [ ] índice em `docs/decisions/README.md` atualizado (fica para quem integrar as frentes paralelas,
       como no ADR-028, para não conflitar)
 
