@@ -86,6 +86,7 @@ import { EnvironmentSection } from '../../presentation/simulator/EnvironmentSect
 import { GuidedStepsPanel } from '../../presentation/simulator/GuidedStepsPanel'
 import { buttonClassName, EmptyState } from '../../presentation/ui'
 import { FICTITIOUS_MAX_LEVELING_DEG } from '../../three/crane/OutriggerController'
+import type { OutriggerSceneReport } from '../../three/scene/mountCraneScene'
 import type { CraneCommands, CraneState } from '../../three/crane/types'
 import type {
   ExtraCraneInput,
@@ -149,6 +150,10 @@ export function SimulatorRoute() {
   const [tandemFrame, setTandemFrame] = useState<TandemSceneFrame | null>(null)
   const [tandemMessage, setTandemMessage] = useState<TandemMessage | null>(null)
   const [outriggers, setOutriggers] = useState<OutriggerState>(RETRACTED_OUTRIGGERS)
+  // Patolas na cena (TASK-093): o que a animação já alcançou e se o modelo as desenha.
+  const [outriggerScene, setOutriggerScene] = useState<OutriggerSceneReport | null>(null)
+  // É esse estado que a tela mostra e a avaliação recebe (F-27); sem cena, vale o comando.
+  const reachedOutriggers = crane && outriggerScene ? outriggerScene.state : outriggers
   const { load, setLoad, requestedStep, setRequestedStep, accessoryIds, setAccessoryIds } =
     useSimulatorDraft()
   const { state: accessoryCatalog, reload: reloadAccessories } = useAccessoryCatalog()
@@ -233,7 +238,7 @@ export function SimulatorRoute() {
     crane?.state ?? null,
     selectedConfiguration?.id ?? '',
     loadWeightText,
-    { extensionPercent: outriggers.extensionPercent, jacksSet: outriggers.jacksSet },
+    { extensionPercent: reachedOutriggers.extensionPercent, jacksSet: reachedOutriggers.jacksSet },
     accessoryIds,
     scenario.groundSlopeDeg,
     scenarioExtras,
@@ -694,6 +699,7 @@ export function SimulatorRoute() {
           follower && tandemEngaged ? { [follower.item.id]: tandemStatuses[1] ?? 'unknown' } : {}
         }
         outriggers={playbackFrame?.outriggers ?? outriggers}
+        onOutriggersChange={setOutriggerScene}
         operatingArea={operatingAreaEnabled ? operatingArea.area : null}
         scenario={
           playbackFrame ? (recording.player.recording?.scenario ?? scenario.spec) : scenario.spec
@@ -782,7 +788,10 @@ export function SimulatorRoute() {
                     {activeExtra === null && (
                       <OutriggerPanel
                         state={outriggers}
+                        reached={reachedOutriggers}
+                        moving={crane !== null && (outriggerScene?.moving ?? false)}
                         maxLevelingDeg={FICTITIOUS_MAX_LEVELING_DEG}
+                        modelAvailable={crane !== null && (outriggerScene?.modelAvailable ?? false)}
                         onChange={setOutriggers}
                       />
                     )}

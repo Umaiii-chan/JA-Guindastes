@@ -7,8 +7,9 @@ import {
 } from '../../domain/crane/outriggers'
 import { boxInFrameOf } from './rigLandmarks'
 
-// Animação das patolas (leva E; TASK-054; ADR-024; RN-013). Só desenho: o estado que vale para o
-// cálculo é o enviado ao backend (RN-008), não a posição dos nós.
+// Animação das patolas (leva E; TASK-054; ADR-024; RN-013). Só desenho: quem calcula é o backend
+// (RN-008), com o estado que a tela envia. Desde a TASK-093 esse estado é `reportedState`, o que a
+// animação já alcançou, e não o comando; a posição dos nós não entra em conta nenhuma.
 
 /** Posições das patolas: dianteira/traseira, esquerda/direita. */
 export const OUTRIGGER_POSITIONS = ['fl', 'fr', 'rl', 'rr'] as const
@@ -69,6 +70,8 @@ export class OutriggerController {
   private extensionPercent = 0
   private jackFraction = 0
   private levelingFraction = 0
+  /** Estado desenhado no último marco da animação (ver `reportedState`). */
+  private milestone: OutriggerState = RETRACTED_OUTRIGGERS
   private lastMs: number | null = null
   private readonly rests = new Map<Object3D, Rest>()
 
@@ -92,6 +95,24 @@ export class OutriggerController {
     }
   }
 
+  /**
+   * Estado que vale para a tela e para a avaliação (TASK-093, F-27): o que a animação já alcançou,
+   * nunca mais do que o comando. Campo a campo, é o menos pronto entre o alvo e o desenho do último
+   * marco: vigas chegando a 100 % ou saindo dele, macacos apoiando ou subindo, e o fim da animação.
+   * Assim "pronta" só vale quando os macacos apoiam no desenho, e recolher deixa de valer na hora.
+   * Entre os marcos o valor não muda, para não mandar um estado novo a cada quadro.
+   */
+  get reportedState(): OutriggerState {
+    const { target, milestone } = this
+    const jacksSet = target.jacksSet && milestone.jacksSet
+    return {
+      extensionPercent: Math.min(target.extensionPercent, milestone.extensionPercent),
+      jacksSet,
+      // Sem os macacos apoiados não há nivelamento (`levelingTarget`).
+      levelingDeg: jacksSet ? Math.min(target.levelingDeg, milestone.levelingDeg) : 0,
+    }
+  }
+
   /** `true` se o modelo 3D tem ao menos um nó de patola. */
   hasModel(): boolean {
     return this.findNodes().length > 0
@@ -110,6 +131,7 @@ export class OutriggerController {
       this.levelingFraction = this.levelingTarget()
       this.apply()
     }
+    this.captureMilestone()
     this.options.invalidate()
   }
 
@@ -168,8 +190,29 @@ export class OutriggerController {
       before[0] !== this.extensionPercent ||
       before[1] !== this.jackFraction ||
       before[2] !== this.levelingFraction
-    if (changed) this.apply()
+    if (changed) {
+      this.apply()
+      this.captureMilestone()
+    }
     return changed
+  }
+
+  /** Guarda o desenho num marco da animação (ou o alvo, quando ela acaba); ver `reportedState`. */
+  private captureMilestone(): void {
+    if (!this.animating) {
+      this.milestone = this.target
+      return
+    }
+    const drawn = this.currentState
+    const previous = this.milestone
+    const full = drawn.extensionPercent >= 100
+    if (drawn.jacksSet === previous.jacksSet && full === previous.extensionPercent >= 100) return
+    this.milestone = {
+      // Para baixo: nunca diz mais do que o desenho.
+      extensionPercent: Math.floor(drawn.extensionPercent),
+      jacksSet: drawn.jacksSet,
+      levelingDeg: Math.floor(drawn.levelingDeg * 10) / 10,
+    }
   }
 
   /** Pronta para a tabela de carga: vigas a 100 % e macacos apoiados (RN-013). */

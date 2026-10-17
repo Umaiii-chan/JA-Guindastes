@@ -1,7 +1,7 @@
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Vector3 } from 'three'
 import { describe, expect, it, vi } from 'vitest'
 
-import { RETRACTED_OUTRIGGERS } from '../../../src/domain/crane/outriggers'
+import { outriggersReady, RETRACTED_OUTRIGGERS } from '../../../src/domain/crane/outriggers'
 import {
   FICTITIOUS_MAX_LEVELING_DEG,
   OUTRIGGER_POSITIONS,
@@ -225,5 +225,95 @@ describe('OutriggerController — sapatas no terreno (F-25)', () => {
       () => 5,
     )
     expect(heightAt(1, 2)).toBe(0)
+  })
+})
+
+// TASK-093 (auditoria de 2026-10-16, F-27): "Patolas prontas" e o estado enviado ao backend
+// mudavam na hora do comando, enquanto a animação leva até 6,5 s.
+describe('OutriggerController — estado alcançado pela animação (F-27)', () => {
+  const READY_LEVELED = { extensionPercent: 100, jacksSet: true, levelingDeg: 3 }
+
+  it('"pronta" só quando os macacos apoiam no desenho; o nivelamento vale ao terminar', () => {
+    const controller = new OutriggerController({ getRoot: () => null, invalidate: () => {} })
+
+    controller.setState(READY_LEVELED)
+    expect(controller.reportedState).toEqual(RETRACTED_OUTRIGGERS)
+
+    run(controller, 1) // vigas a ~33 %
+    expect(controller.reportedState).toEqual(RETRACTED_OUTRIGGERS)
+
+    run(controller, 2.5) // vigas a 100 % (3 s), macacos descendo
+    expect(controller.reportedState).toEqual({
+      extensionPercent: 100,
+      jacksSet: false,
+      levelingDeg: 0,
+    })
+    expect(outriggersReady(controller.reportedState)).toBe(false)
+
+    run(controller, 1.5) // macacos apoiados (4,5 s), nivelando
+    expect(controller.reportedState).toEqual({
+      extensionPercent: 100,
+      jacksSet: true,
+      levelingDeg: 0,
+    })
+    expect(outriggersReady(controller.reportedState)).toBe(true)
+
+    run(controller, 5)
+    expect(controller.animating).toBe(false)
+    expect(controller.reportedState).toEqual(READY_LEVELED)
+  })
+
+  it('recolher deixa de valer na hora, mesmo com os macacos ainda apoiados no desenho', () => {
+    const controller = new OutriggerController({ getRoot: () => null, invalidate: () => {} })
+    controller.setState(READY_LEVELED)
+    run(controller, 10)
+
+    controller.setState(RETRACTED_OUTRIGGERS)
+    run(controller, 0.5)
+
+    expect(controller.currentState.jacksSet).toBe(true)
+    expect(controller.reportedState).toEqual(RETRACTED_OUTRIGGERS)
+  })
+
+  it('entre os marcos o estado não muda a cada quadro', () => {
+    const controller = new OutriggerController({ getRoot: () => null, invalidate: () => {} })
+    controller.setState({ extensionPercent: 60, jacksSet: false, levelingDeg: 0 })
+    const seen = new Set<string>()
+    controller.update(clockMs)
+    for (let i = 0; i < 100; i++) {
+      clockMs += 50
+      controller.update(clockMs)
+      seen.add(JSON.stringify(controller.reportedState))
+    }
+
+    expect([...seen]).toEqual([
+      JSON.stringify(RETRACTED_OUTRIGGERS),
+      JSON.stringify({ extensionPercent: 60, jacksSet: false, levelingDeg: 0 }),
+    ])
+  })
+
+  it('com movimento reduzido, vale o comando na hora', () => {
+    const controller = new OutriggerController({
+      getRoot: () => null,
+      invalidate: () => {},
+      reducedMotion: true,
+    })
+
+    controller.setState(READY_LEVELED)
+
+    expect(controller.reportedState).toEqual(READY_LEVELED)
+  })
+
+  it('sem macacos apoiados, o nivelamento informado é 0', () => {
+    const controller = new OutriggerController({ getRoot: () => null, invalidate: () => {} })
+
+    controller.setState({ extensionPercent: 100, jacksSet: false, levelingDeg: 3 })
+    run(controller, 10)
+
+    expect(controller.reportedState).toEqual({
+      extensionPercent: 100,
+      jacksSet: false,
+      levelingDeg: 0,
+    })
   })
 })

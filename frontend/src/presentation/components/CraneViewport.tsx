@@ -13,6 +13,7 @@ import {
   type CameraPresetOptions,
   type CraneSceneHandle,
   mountCraneScene,
+  type OutriggerSceneReport,
 } from '../../three/scene/mountCraneScene'
 import type {
   ExtraCraneInput,
@@ -96,6 +97,11 @@ interface CraneViewportProps {
    */
   outriggers?: OutriggerState
   /**
+   * Recebe o estado que a animação das patolas já alcançou, se ela ainda anda e se o modelo tem
+   * patolas (TASK-093). Chamado na montagem e nos marcos da animação. Não remonta a cena.
+   */
+  onOutriggersChange?: (report: OutriggerSceneReport) => void
+  /**
    * Área de operação (TASK-055; ADR-025), desenhada no chão; `null` (padrão) não desenha nada. Não
    * remonta a cena.
    */
@@ -148,6 +154,7 @@ export function CraneViewport({
   onCollisionChange,
   onCargoChange,
   outriggers,
+  onOutriggersChange,
   operatingArea = null,
   accessories = null,
   onAccessoryModelResult,
@@ -174,6 +181,7 @@ export function CraneViewport({
   const operatingAreaRef = useRef(operatingArea)
   const appliedPresetRef = useRef<CameraPreset | undefined>(undefined)
   const outriggersRef = useRef(outriggers)
+  const outriggerCallbackRef = useRef(onOutriggersChange)
   const accessoriesRef = useRef<readonly SceneAccessory[]>(accessories ?? [])
   const accessoryResultRef = useRef(onAccessoryModelResult)
   const editorRef = useRef(editor)
@@ -219,6 +227,7 @@ export function CraneViewport({
       onAccessoryModelResult: (id, loaded) => accessoryResultRef.current?.(id, loaded),
       onExtraCranesChange: (commands) => extraChangeRef.current?.(commands),
       onTandemFrame: (frame) => tandemFrameRef.current?.(frame),
+      onOutriggersChange: (report) => outriggerCallbackRef.current?.(report),
     })
     sceneRef.current = handle
     handle.setAccessories(accessoriesRef.current)
@@ -334,6 +343,10 @@ export function CraneViewport({
   useEffect(() => {
     cargoCallbackRef.current = onCargoChange
   }, [onCargoChange])
+
+  useEffect(() => {
+    outriggerCallbackRef.current = onOutriggersChange
+  }, [onOutriggersChange])
 
   useEffect(() => {
     // TASK-052 desenha o cenário; TASK-053 usa os mesmos dados para colidir.
