@@ -12,9 +12,10 @@ class LoadChartInterpolator(Protocol):
     uso de valor conservador (PEND-003). Por isso a estratégia fica atrás desta interface e pode ser
     trocada sem mudar os casos de uso.
 
-    Implementações: `ExactPointLookup` (só ponto exato; referência e testes) e
-    `ConservativeTabulatedLookup` (ADR-015, provisória: menor capacidade entre os vizinhos), que é
-    a estratégia ligada na raiz de composição (`app.main`).
+    Implementações: `ExactPointLookup` (só ponto exato; referência e testes),
+    `ConservativeTabulatedLookup` (ADR-015/029, provisória: menor capacidade entre os vizinhos) e
+    `LinearInterpolationLookup` (ADR-030, provisória: interpolação linear), que é a estratégia
+    ligada na raiz de composição (`app.main`).
 
     Contrato de toda implementação:
     - devolve `CapacityFound` só quando a tabela suporta a consulta (RN-004);

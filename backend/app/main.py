@@ -103,7 +103,8 @@ from app.presentation.api.upload_limits import UploadLimits
 logger = logging.getLogger(__name__)
 
 load_chart_interpolator = LinearInterpolationLookup()
-"""Estratégia de consulta da composição: provisória (ADR-015; PEND-001, PEND-003)."""
+"""Estratégia de consulta da composição: interpolação linear provisória (ADR-030; PEND-001,
+PEND-003), a mesma na avaliação, na área de operação e no planejamento."""
 
 
 class UnconfiguredCraneGeometryProvider:
