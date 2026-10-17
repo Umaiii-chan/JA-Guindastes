@@ -233,8 +233,9 @@ describe('página Tabelas', () => {
 
     const alert = await screen.findByText('Não foi possível ativar a v1')
     expect(alert.closest('[role="alert"]')?.textContent).toContain('mudou ao mesmo tempo')
-    // "A lista é relida": a falha de ativação dispara uma nova listagem.
-    await waitFor(() => expect(listings()).toBe(beforeActivation + 1))
+    // "A lista é relida": a falha de ativação dispara uma nova listagem (pode haver mais de uma, se outra
+    // releitura estiver em curso).
+    await waitFor(() => expect(listings()).toBeGreaterThan(beforeActivation))
   })
 
   it('linha do tempo pela rota nova: tabelas gravadas em outro lugar, da maior versão para a menor (v10 antes de v7) e a ativa na matriz', async () => {
