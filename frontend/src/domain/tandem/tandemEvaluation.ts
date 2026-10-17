@@ -1,10 +1,19 @@
 // Avaliação do içamento com dois guindastes, como o backend a devolve (TASK-074; RN-016). Quem divide
 // a carga e aplica os 75 % da capacidade é o backend; o frontend só mostra (RN-008).
 
-import type { EvaluationResult, SafetyAlert } from '../evaluation/evaluation'
+import type { EvaluationInput, EvaluationResult, SafetyAlert } from '../evaluation/evaluation'
+
+/**
+ * Ambiente e acessórios de um guindaste do tandem (TASK-090; RN-014, RN-015): os mesmos campos
+ * opcionais da avaliação individual, cada guindaste com os dele. O vento é comum (`TandemInput`).
+ */
+export type TandemCraneEnvironment = Pick<
+  EvaluationInput,
+  'outriggers' | 'groundSlopeDeg' | 'accessoryIds' | 'soilKinds' | 'obstacleConflicts'
+>
 
 /** Um guindaste do pedido: configuração, posição, estado operacional e ponto de içamento. */
-export interface TandemCraneInput {
+export interface TandemCraneInput extends TandemCraneEnvironment {
   readonly configurationId: string
   readonly placement: { readonly x: number; readonly z: number; readonly headingDeg: number }
   readonly state: {
@@ -13,7 +22,10 @@ export interface TandemCraneInput {
     readonly turretRotationDeg: number
     readonly cableLengthM: number
   }
-  /** Ponto de içamento sobre a carga, no plano do mundo (m). */
+  /**
+   * Ponto de içamento sobre a carga, no plano do mundo (m). O backend confere se o gancho, pela
+   * posição, pelo rumo e pelo estado, está sobre ele (TASK-090).
+   */
   readonly hookPoint: { readonly x: number; readonly z: number }
 }
 
@@ -23,6 +35,8 @@ export interface TandemInput {
   readonly loadCg: { readonly x: number; readonly z: number }
   /** Exatamente dois guindastes: o 1 conduz e o 2 acompanha. */
   readonly cranes: readonly [TandemCraneInput, TandemCraneInput]
+  /** Vento no local, em m/s, para os dois guindastes (TASK-090; RN-015). */
+  readonly windSpeedMs?: number
 }
 
 export interface TandemResult {

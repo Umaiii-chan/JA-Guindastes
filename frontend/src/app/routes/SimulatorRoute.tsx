@@ -54,7 +54,7 @@ import {
   defaultCargoBetween,
 } from '../../application/tandem/tandemScenario'
 import type { CargoPlacement } from '../../domain/environment/environment'
-import { cargoCgWorld, type TandemLoad } from '../../domain/tandem/tandem'
+import type { TandemLoad } from '../../domain/tandem/tandem'
 import type { TandemInput } from '../../domain/tandem/tandemEvaluation'
 import { environmentSummary } from '../../application/environment/scenarioEditing'
 import {
@@ -98,6 +98,7 @@ import { useAuth } from '../auth/authContext'
 import { useCatalog } from '../catalog/catalogContext'
 import { chooseCraneSetup } from '../craneSetup'
 import { buildEvaluationInput } from '../evaluationInput'
+import { buildTandemInput } from '../tandemInput'
 import { useScenario } from '../scenario/scenarioContext'
 import { sceneRotationZoneCode } from '../sceneRotationZone'
 import { useSimulationRecording } from '../simulator/useSimulationRecording'
@@ -523,6 +524,7 @@ export function SimulatorRoute() {
       ? { followerId: follower.item.id, load: tandemLoad, cargo: tandemCargo }
       : null
   const tandemEngaged = tandemFrame !== null
+  // Cada guindaste vai com o próprio ambiente e os pontos de içamento da carga (TASK-090).
   const tandemInput: TandemInput | null =
     tandemEngaged &&
     tandemFrame &&
@@ -530,24 +532,22 @@ export function SimulatorRoute() {
     tandemLoad &&
     validLoad &&
     selectedConfiguration !== null
-      ? {
+      ? buildTandemInput({
+          frame: tandemFrame,
+          load: tandemLoad,
           loadWeightKg: validLoad.weightKg,
-          loadCg: cargoCgWorld(tandemFrame.cargo, tandemLoad),
-          cranes: [
-            {
-              configurationId: selectedConfiguration.id,
-              placement: scenario.spec.crane,
-              state: tandemFrame.leaderState,
-              hookPoint: { x: tandemFrame.hooks[0].x, z: tandemFrame.hooks[0].z },
-            },
-            {
-              configurationId: follower.configuration.id,
-              placement: follower.item.placement,
-              state: tandemFrame.followerState,
-              hookPoint: { x: tandemFrame.hooks[1].x, z: tandemFrame.hooks[1].z },
-            },
-          ],
-        }
+          spec: scenario.spec,
+          leader: {
+            configurationId: selectedConfiguration.id,
+            placement: scenario.spec.crane,
+            evaluation: input,
+          },
+          follower: {
+            configurationId: follower.configuration.id,
+            placement: follower.item.placement,
+            parameters: follower.choice.setup.geometryParameters,
+          },
+        })
       : null
   const tandemEvaluation = useTandemEvaluation(tandemInput)
   const tandemStatuses = tandemEvaluation.result
@@ -560,7 +560,10 @@ export function SimulatorRoute() {
       : tandemStatuses.includes('warning')
         ? 'warning'
         : tandemStatuses.every((status) => status === 'ok')
-          ? 'ok'
+          ? // Içamento não permitido (gancho fora do ponto, CG fora) não fica verde (TASK-090).
+            tandemEvaluation.result.tandemOk
+            ? 'ok'
+            : 'over'
           : 'unknown'
 
   // No tandem engatado, a cena mostra a situação do Guindaste 1 (a do outro vai no gancho dele).
