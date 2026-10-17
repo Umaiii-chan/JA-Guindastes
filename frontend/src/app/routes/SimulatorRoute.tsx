@@ -417,12 +417,14 @@ export function SimulatorRoute() {
       locked ||
       (evaluationInput.problem === null && evaluation.error === null && !evaluation.pending),
   })
-  // Área de operação (TASK-055): só lança e carga mudam a grade; ψ e R não entram.
+  // Área de operação (TASK-055): só lança, carga e acessórios mudam a grade; ψ e R não entram.
+  // Os acessórios somam ao peso comparado como na avaliação (RN-014; TASK-094).
   const operatingArea = useOperatingArea({
     enabled: operatingAreaEnabled,
     configurationId: input?.configurationId ?? null,
     boomLengthM: input?.boomLengthM ?? null,
     loadWeightKg: input?.loadWeightKg ?? null,
+    accessoryIds,
   })
   // Na reprodução, a cena mostra o que foi gravado: carga, acessórios, patolas e ambiente.
   const sceneLoad = playbackFrame

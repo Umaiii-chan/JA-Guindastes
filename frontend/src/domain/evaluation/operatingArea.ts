@@ -31,6 +31,8 @@ export interface OperatingAreaRequest {
   readonly configurationId: string
   readonly boomLengthM: number
   readonly loadWeightKg: number
+  /** Cadeia de acessórios de içamento (RN-014), a mesma da avaliação; somam ao peso comparado. */
+  readonly accessoryIds?: readonly string[]
   readonly psiStepDeg?: number
   readonly radiusStepM?: number
 }
