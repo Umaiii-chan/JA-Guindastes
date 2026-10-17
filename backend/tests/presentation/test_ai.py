@@ -149,7 +149,11 @@ def test_scenario_from_text_returns_the_draft_for_review(setup: Setup) -> None:
     assert data["scenario"]["cargo"] == {"x": 12, "z": 0, "rotation_y_deg": 0}
     assert data["scenario"]["delivery"]["radius_m"] == 3
     assert len(data["scenario"]["obstacles"]) == 2
-    assert data["assumptions"] == ["Largura e altura da viga estimadas."]
+    # A parede ficava na ponta da viga (comprimento em Z local, como na cena) e sai (TASK-094).
+    assert data["assumptions"] == [
+        "Largura e altura da viga estimadas.",
+        "Parede lateral movido de (12; 4) para (12; 5) para não ficar sobre a carga na coleta.",
+    ]
     assert setup.limiter.keys == [setup.auth.operator.id]
 
 
