@@ -259,6 +259,11 @@ export function PlanningPanel({
               Nenhum guindaste serve para esta operação.
             </Notice>
           )}
+          {result.timedOut && (
+            <Notice tone="warning" compact>
+              A busca parou no tempo limite: pode haver uma opção melhor que não foi avaliada.
+            </Notice>
+          )}
           {result.notes.map((note) => (
             <p key={note} className={styles.hint}>
               {note}

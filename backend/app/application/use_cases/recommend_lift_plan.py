@@ -35,6 +35,7 @@ from app.domain.entities.load_chart import LoadChart
 from app.domain.entities.scenario import ObstacleSpec, ScenarioSpec
 from app.domain.services.environment_factors import SoilKind
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
+from app.domain.services.planning.crane_body import crane_bodies_overlap
 from app.domain.services.planning.library_boxes import is_platform_truck, owner_id
 from app.domain.services.planning.models import (
     CranePlan,
@@ -95,6 +96,13 @@ REPLACED_HOOK_ATTACH_M = 0.01
 """Amarração das lingas quando um moitão substitui o gancho (`REPLACED_HOOK_ATTACH_M` da cena)."""
 MIN_TANDEM_SEPARATION_M = 8.0
 """Distância mínima entre os eixos dos dois guindastes do tandem."""
+TANDEM_PLANS_PER_SIDE = 6
+"""Planos guardados por configuração para cada ponto de içamento, de onde saem os pares."""
+TANDEM_BODIES = "tandem_corpos"
+"""Motivo de descarte: no par do tandem, os corpos dos dois guindastes se sobrepõem."""
+TANDEM_SENSES = "tandem_sentidos"
+"""Motivo de descarte: no par do tandem, os dois giram em sentidos opostos."""
+_MIN_SWING_FOR_SENSE_DEG = 0.5
 _ASSUMED_OUTRIGGERS = OutriggerSetting(extension_percent=100.0, jacks_set=True)
 
 _REJECTION_TEXT = {
@@ -110,6 +118,10 @@ _REJECTION_TEXT = {
     COLLISION_LOAD: "com a carga batendo em obstáculo no caminho",
     PICK_COVERED: "com a carga na coleta sob obstáculo",
     DELIVERY_BLOCKED: "com a carga na entrega sobre ou sob obstáculo que não é a carroceria",
+}
+_TANDEM_PAIR_TEXT = {
+    TANDEM_BODIES: "com os corpos dos guindastes sobrepostos",
+    TANDEM_SENSES: "com giros em sentidos opostos",
 }
 
 
@@ -183,6 +195,8 @@ class Recommendation:
 class PlanningResult:
     recommendations: tuple[Recommendation, ...]
     notes: tuple[str, ...] = field(default=())
+    timed_out: bool = False
+    """A busca parou no orçamento de tempo (`TIME_BUDGET_S`): pode haver opção não avaliada."""
 
 
 @dataclass(frozen=True)
@@ -329,10 +343,38 @@ class RecommendLiftPlan:
             )
 
         rejections: dict[str, int] = {}
+        timed_out = False
+
+        def tracked(
+            crane: PlannerCrane,
+            pick: PlanPoint,
+            delivery: PlanPoint,
+            *,
+            keep: int,
+            share_kg: float | None = None,
+            capacity_share: float = 1.0,
+            cargo_pick: PlanPoint | None = None,
+            cargo_delivery: PlanPoint | None = None,
+        ) -> PlanSearch:
+            """A busca, juntando os descartes e lembrando se o orçamento de tempo acabou (F-28)."""
+            nonlocal timed_out
+            found = search(
+                crane,
+                pick,
+                delivery,
+                keep=keep,
+                share_kg=share_kg,
+                capacity_share=capacity_share,
+                cargo_pick=cargo_pick,
+                cargo_delivery=cargo_delivery,
+            )
+            timed_out = timed_out or found.timed_out
+            _merge(rejections, found)
+            return found
+
         singles: list[CranePlan] = []
         for crane in planner_cranes:
-            found = search(crane, request.pick, request.delivery, keep=1)
-            _merge(rejections, found)
+            found = tracked(crane, request.pick, request.delivery, keep=1)
             singles.extend(found.plans)
         singles.sort(key=plan_sort_key)
         geometries = {crane.configuration_id: crane.geometry for crane in planner_cranes}
@@ -343,9 +385,9 @@ class RecommendLiftPlan:
                 _single_recommendation(plan, geometries[plan.configuration_id])
                 for plan in valid_singles[:MAX_SINGLE_RESULTS]
             ]
-            return PlanningResult(tuple(chosen), tuple(notes))
+            return PlanningResult(tuple(chosen), tuple(notes), timed_out)
 
-        tandems = self._plan_tandem(planner_cranes, request, search, geometries, rejections)
+        tandems = self._plan_tandem(planner_cranes, request, tracked, geometries, rejections)
         valid_tandems = [item for item in tandems if item.valid]
         if valid_tandems:
             return PlanningResult(
@@ -354,6 +396,7 @@ class RecommendLiftPlan:
                     *notes,
                     "Nenhum guindaste sozinho atende: a recomendação usa dois guindastes (tandem).",
                 ),
+                timed_out,
             )
 
         fallback: list[Recommendation] = [
@@ -365,7 +408,13 @@ class RecommendLiftPlan:
         )
         return PlanningResult(
             tuple(fallback[:MAX_FALLBACK_RESULTS]),
-            (*notes, _rejection_note(rejections), "Nenhuma opção atende ao limite de capacidade."),
+            (
+                *notes,
+                _rejection_note(rejections),
+                *_tandem_pair_note(rejections),
+                "Nenhuma opção atende ao limite de capacidade.",
+            ),
+            timed_out,
         )
 
     # ---- catálogo ------------------------------------------------------------------------------
@@ -445,14 +494,13 @@ class RecommendLiftPlan:
                     crane,
                     pick,
                     delivery,
-                    keep=3,
+                    keep=TANDEM_PLANS_PER_SIDE,
                     share_kg=share,
                     capacity_share=TANDEM_CAPACITY_SHARE,
                     # A carga inteira fica no centro dela, com o giro dado pelos dois ganchos.
                     cargo_pick=request.pick,
                     cargo_delivery=request.delivery,
                 )
-                _merge(rejections, found)
                 plans.extend(found.plans)
             side_plans.append(plans)
 
@@ -463,8 +511,13 @@ class RecommendLiftPlan:
                     plan_a.placement.x - plan_b.placement.x,
                     plan_a.placement.z - plan_b.placement.z,
                 )
-                if separation >= MIN_TANDEM_SEPARATION_M:
-                    pairs.append((plan_a, plan_b))
+                if separation < MIN_TANDEM_SEPARATION_M:
+                    continue
+                problem = _impossible_pair(plan_a, plan_b)
+                if problem is not None:
+                    rejections[problem] = rejections.get(problem, 0) + 1
+                    continue
+                pairs.append((plan_a, plan_b))
 
         def pair_key(pair: tuple[CranePlan, CranePlan]) -> tuple[bool, float, int]:
             first, second = pair
@@ -570,7 +623,42 @@ def _planner_crane(entry: _Entry) -> PlannerCrane:
         boom_lengths_m=tuple(lengths),
         manufacturer_id=entry.crane.manufacturer_id,
         crane_id=entry.crane.id,
+        zone_boundaries_deg=_zone_boundaries(entry.configuration),
     )
+
+
+def _zone_boundaries(configuration: CraneConfiguration) -> tuple[float, ...]:
+    zones = configuration.rotation_zones
+    return () if zones is None else tuple(sorted({zone.start_deg for zone in zones.zones}))
+
+
+def _tandem_pair_note(rejections: dict[str, int]) -> tuple[str, ...]:
+    """Por que pares de guindastes ficaram fora do tandem (F-04), se ficaram."""
+    parts = [
+        f"{rejections[key]} {text}"
+        for key, text in _TANDEM_PAIR_TEXT.items()
+        if rejections.get(key, 0) > 0
+    ]
+    if not parts:
+        return ()
+    return ("Pares de guindastes descartados para o tandem: " + "; ".join(parts) + ".",)
+
+
+def _impossible_pair(first: CranePlan, second: CranePlan) -> str | None:
+    """Por que o par não serve para o tandem, ou `None` (correção mínima do F-04, TASK-089).
+
+    Cada guindaste é planejado sozinho; o par só é aceito se os corpos não se sobrepõem e os dois
+    giram no mesmo sentido (em sentidos opostos, a distância entre os ganchos muda no caminho, e a
+    carga, rígida, não acompanha)."""
+    if crane_bodies_overlap(first.placement, second.placement):
+        return TANDEM_BODIES
+    if (
+        abs(first.swing_deg) > _MIN_SWING_FOR_SENSE_DEG
+        and abs(second.swing_deg) > _MIN_SWING_FOR_SENSE_DEG
+        and first.swing_deg * second.swing_deg < 0
+    ):
+        return TANDEM_SENSES
+    return None
 
 
 def _names(obstacles: Sequence[ObstacleSpec]) -> str:
@@ -619,9 +707,10 @@ def _merge(rejections: dict[str, int], search: PlanSearch) -> None:
 
 
 def _rejection_note(rejections: dict[str, int]) -> str:
+    combinations = {k: v for k, v in rejections.items() if k not in _TANDEM_PAIR_TEXT}
     parts = [
         f"{count} {_REJECTION_TEXT.get(key, 'sem tabela para o estado')}"
-        for key, count in sorted(rejections.items(), key=lambda item: -item[1])[:3]
+        for key, count in sorted(combinations.items(), key=lambda item: -item[1])[:3]
         if count > 0
     ]
     if not parts:

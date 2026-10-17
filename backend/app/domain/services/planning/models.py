@@ -110,6 +110,9 @@ class PlannerCrane:
     manufacturer_id: str = ""
     crane_id: str = ""
     """De onde a configuração vem no catálogo (para a tela escolher a mesma)."""
+    zone_boundaries_deg: tuple[float, ...] = ()
+    """Fronteiras das zonas de giro (ψ, em graus, ADR-018); vazio sem zonas. No giro, o pior ponto
+    de uma zona pode ficar na fronteira, entre dois quadros-chave (TASK-089)."""
 
 
 @dataclass(frozen=True, slots=True)
