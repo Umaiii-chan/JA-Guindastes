@@ -19,6 +19,7 @@ import {
   readString,
 } from '../shared/readJson'
 import { readCapacityLimit } from '../shared/evaluationCapacityLimit'
+import { readStability } from '../shared/evaluationStability'
 import { readSafety } from '../shared/evaluationSafety'
 import { readAccessories } from '../shared/evaluationAccessories'
 import { readZoneAndWeights } from '../shared/evaluationZone'
@@ -155,6 +156,7 @@ export function mapEvaluationResponse(json: unknown): EvaluationResult {
     loadChartVersion: readNullableString(body, 'load_chart_version', path),
     ...readZoneAndWeights(body, path),
     ...readCapacityLimit(body, path),
+    ...readStability(body, path),
     ...readSafety(body, path),
     ...readAccessories(body, path),
   }

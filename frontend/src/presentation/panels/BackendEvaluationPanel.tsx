@@ -179,6 +179,11 @@ export function BackendEvaluationPanel({
               ? meters(shown.workingRadiusM)
               : '—'}
           </Metric>
+          <Metric label="Estabilidade" loading={waitingFirst && pending}>
+            {shown?.stability
+              ? `${formatNumber(shown.stability.tippingRatioPercent, 0)} % do limite`
+              : '—'}
+          </Metric>
         </dl>
 
         <div className={styles.badges}>
