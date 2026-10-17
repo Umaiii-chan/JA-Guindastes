@@ -14,3 +14,8 @@ com as mesmas imagens Docker do `docker-compose.yml`. O deploy no Render/Vercel 
 ## Testes a escrever depois
 
 - Teste de fumaça do site publicado (login, avaliação, IA) rodando contra a URL do Railway.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PRs #33 e #34). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1). A tarefa foi encerrada sem `handoffs/TASK-080.md`; o histórico dela está nos PRs #33 e #34.

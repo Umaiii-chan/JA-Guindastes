@@ -27,3 +27,8 @@ TASK-063/078) e a cena 3D ficava pequena.
 - Teste de estabilidade (TASK-078) no Playwright: carga acima do limite aparecendo e sumindo, com a
   altura do canvas idêntica; idem com uma colisão real (medida só com DOM simulado).
 - Conferir a ficha com resultado real e alertas longos (a medida foi feita no estado "aguardando").
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PR #37). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1). A meta de canvas ≥ 55 % da altura em 1440×900 segue para a TASK-095 (nova tela do simulador).

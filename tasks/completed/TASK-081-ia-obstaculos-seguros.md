@@ -20,3 +20,8 @@ Testes essenciais: `backend/tests/domain/services/test_scenario_layout.py` (carr
 - Falha por limite de 60 m (o obstáculo fica onde estava).
 - Caso de uso `scenario_from_text` com resposta falsa do modelo trazendo o carro sobre o guindaste, conferindo a suposição no rascunho.
 - Exibição das novas suposições na prévia do frontend.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PR #35). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).
