@@ -19,9 +19,11 @@ from app.domain.entities.scenario import (
     TerrainFeatureSpec,
     TerrainSpec,
 )
+from app.domain.services.planning.library_boxes import owner_id
 from app.domain.services.planning.models import CraneStateValues, PlanLoad, PlanPoint
 from app.domain.services.planning.scene import direction, distance_to_obstacle_m
 from app.domain.services.planning.sweep import (
+    COLLISION_APPROACH,
     COLLISION_BOOM,
     COLLISION_CABLE,
     COLLISION_LOAD,
@@ -35,6 +37,7 @@ from app.domain.services.planning.sweep import (
     footprint_overlaps_obstacle,
     load_crossings,
     pick_cover,
+    pick_surface,
     samples_within,
     segment_hits_solid,
     solids_of,
@@ -66,6 +69,24 @@ RADIUS_LOAD = math.hypot(LOAD.length_m, LOAD.width_m) / 2
 
 def box(identifier: str, x: float, z: float, w: float, d: float, h: float, **kw: object):  # type: ignore[no-untyped-def]
     return ObstacleSpec(identifier, identifier, ObstacleKind.BOX, x, z, w, d, h, 0.0, **kw)  # type: ignore[arg-type]
+
+
+def bed_truck(x: float, z: float, bed_top_m: float) -> ObstacleSpec:
+    """Caminhão plataforma da biblioteca (4,05 × 7,41 m, sem giro) com o CENTRO da carroceria em
+    (x, z) e o topo dela a `bed_top_m` (a carroceria fica 1,85 m atrás do centro do caminhão e tem
+    0,53 da altura do objeto; `loadBed` de objectLibrary.ts)."""
+    return ObstacleSpec(
+        "CARRETA",
+        "Caminhão plataforma",
+        ObstacleKind.MODEL,
+        x,
+        z + 1.85,
+        4.05,
+        7.41,
+        bed_top_m / (1.86 / 3.51),
+        0.0,
+        "caminhao-plataforma",
+    )
 
 
 def pole(x: float, z: float, height: float = 8.0) -> ObstacleSpec:
@@ -269,8 +290,8 @@ def test_coleta_dentro_do_galpao_fica_coberta() -> None:
     assert pick_cover(scenario, LOAD, PlanPoint(-13.0, 0.0)) == ()
 
 
-def test_entrega_sobre_a_carreta_apoia_no_topo_dela() -> None:
-    truck = box("CARRETA", 7.5, 0.0, 2.5, 9.0, 1.3)
+def test_entrega_sobre_a_carroceria_apoia_no_topo_dela() -> None:
+    truck = bed_truck(7.5, 0.0, 1.3)
     scenario = ScenarioSpec(obstacles=(truck,))
 
     surface = delivery_surface(scenario, LOAD, 7.5, 0.0, 0.0)
@@ -347,6 +368,50 @@ def test_carroceria_acompanha_o_giro_e_a_escala_do_caminhao() -> None:
     assert delivery_surface(scenario, LOAD, 13.7, 5.0, 90.0).supports == ()
 
 
+def test_caixa_carreta_nao_recebe_a_carga_por_cima() -> None:
+    # A cena só tem carroceria no modelo da biblioteca (`loadBedsOf` ignora o que não é `model`):
+    # uma caixa chamada "Carreta" é obstáculo comum, e a carga entregue nela colidiria.
+    trailer = box("CARRETA", 0.0, 0.0, 2.5, 9.0, 1.3)
+    scenario = ScenarioSpec(obstacles=(trailer,))
+
+    surface = delivery_surface(scenario, LOAD, 0.0, 0.0, 0.0)
+
+    assert surface.supports == ()
+    assert surface.rest_y == pytest.approx(0.0)
+    assert surface.blockers == (trailer,)
+    assert delivery_cover(scenario, LOAD, PlanPoint(0.0, 0.0)) == (trailer,)
+
+
+def test_carga_comprida_com_a_ponta_sobre_a_cabine_nao_e_entregue() -> None:
+    # O centro cai na carroceria, mas a ponta da carga de 6 m passa sobre a cabine (mais alta que a
+    # carroceria): a cena a colide, então o plano também. Truck em escala 1 em (0, 0).
+    truck = _platform_truck()
+    scenario = ScenarioSpec(obstacles=(truck,))
+    long_load = PlanLoad(weight_kg=1000.0, length_m=6.0, width_m=1.2, height_m=0.5)
+
+    surface = delivery_surface(scenario, long_load, 0.0, -0.5, 0.0)
+
+    assert surface.supports == (truck,)
+    assert surface.rest_y == pytest.approx(1.86)
+    assert surface.blockers and {owner_id(part) for part in surface.blockers} == {"C1"}
+    # A carga curta, centrada na carroceria, cabe sem tocar na cabine.
+    assert delivery_surface(scenario, LOAD, 0.0, -1.85, 0.0).blockers == ()
+
+
+def test_coleta_sobre_a_carroceria_apoia_no_topo_e_nao_e_coberta() -> None:
+    truck = _platform_truck()
+    scenario = ScenarioSpec(obstacles=(truck,))
+    load = PlanLoad(weight_kg=1500.0, length_m=3.0, width_m=1.5, height_m=1.2)
+
+    surface = pick_surface(scenario, load, PlanPoint(0.0, -1.85))
+
+    assert surface.supports == (truck,)
+    assert surface.rest_y == pytest.approx(1.86)
+    assert pick_cover(scenario, load, PlanPoint(0.0, -1.85)) == ()
+    # Com o centro sobre a cabine a carga fica no terreno, dentro do caminhão: coberta.
+    assert pick_cover(scenario, load, PlanPoint(0.0, 1.5)) == (truck,)
+
+
 def test_entrega_sob_outro_obstaculo_e_recusada() -> None:
     container = box("CONTAINER", 7.5, 0.0, 2.5, 6.0, 2.5)
     scenario = ScenarioSpec(obstacles=(container,))
@@ -359,7 +424,7 @@ def test_entrega_sob_outro_obstaculo_e_recusada() -> None:
 
 
 def test_obstaculo_baixo_sob_a_carga_sobre_a_carreta_nao_bloqueia() -> None:
-    truck = box("CARRETA", 0.0, 0.0, 2.5, 9.0, 1.3)
+    truck = bed_truck(0.0, 0.0, 1.3)
     curb = box("MEIO-FIO", 0.0, 0.0, 3.0, 0.3, 0.2)
 
     surface = delivery_surface(ScenarioSpec(obstacles=(truck, curb)), LOAD, 0.0, 0.0, 0.0)
@@ -506,7 +571,7 @@ def test_pose_de_partida_e_aproximacao_sao_conferidas() -> None:
         delivery_load_top_y=1.0,
     )
 
-    assert hit in (COLLISION_BOOM, COLLISION_CABLE)
+    assert hit == COLLISION_APPROACH
 
 
 def test_sem_obstaculo_nao_ha_colisao() -> None:
