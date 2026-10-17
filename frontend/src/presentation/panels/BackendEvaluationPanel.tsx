@@ -181,7 +181,7 @@ export function BackendEvaluationPanel({
           </Metric>
           <Metric label="Estabilidade" loading={waitingFirst && pending}>
             {shown?.stability
-              ? `${formatNumber(shown.stability.tippingRatioPercent, 0)} % do limite`
+              ? `${formatNumber(shown.stability.tippingRatioPercent, 0)} % do limite (fictício)`
               : '—'}
           </Metric>
         </dl>

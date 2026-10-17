@@ -243,7 +243,8 @@ def _assess_stability(
                 AlertSeverity.CRITICAL,
                 f"Margem de estabilidade esgotada no lado {stability.critical_edge} "
                 f"({percent:.0f} % do limite; a carga passa de "
-                f"{profile.stability.tipping_load_limit_ratio * 100:g} % da carga de tombamento).",
+                f"{profile.stability.tipping_load_limit_ratio * 100:g} % da carga de tombamento; "
+                "parâmetros fictícios).",
             )
         )
     elif stability.tipping_ratio >= profile.stability.attention_ratio:
@@ -251,7 +252,8 @@ def _assess_stability(
             SafetyAlert(
                 "STABILITY_NEAR_LIMIT",
                 AlertSeverity.ATTENTION,
-                f"Estabilidade em {percent:.0f} % do limite no lado {stability.critical_edge}.",
+                f"Estabilidade em {percent:.0f} % do limite no lado {stability.critical_edge} "
+                "(parâmetros fictícios).",
             )
         )
 

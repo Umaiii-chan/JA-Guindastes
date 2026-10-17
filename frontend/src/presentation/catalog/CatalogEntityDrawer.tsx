@@ -178,9 +178,9 @@ const LIMIT_FIELDS: Record<CraneLimitKey, { label: string; unit: string; hint: s
     hint: 'Inclinação máxima que os macacos conseguem corrigir.',
   },
   slopeDeratingPercentPerDeg: {
-    label: 'Redução por grau de inclinação (%)',
+    label: 'Redução por grau de inclinação (%) — obsoleto',
     unit: '%',
-    hint: 'Quanto a capacidade cai a cada grau de inclinação do terreno.',
+    hint: 'Sem efeito: a inclinação entra como momento de tombamento (RN-017), não como redução.',
   },
   craneMassKg: {
     label: 'Massa do guindaste (kg)',

@@ -18,12 +18,13 @@ percentuais fixos, sem estática:
 - o risco de tombamento era só "utilização acima do limite, patolas não estendidas, inclinação acima do
   máximo ou fora da tabela" (RN-013): nenhuma conta de momentos;
 - a pressão nas sapatas usava `(massa + peso) × 0,5 ÷ área` em todas as sapatas, um 0,5 fictício que
-  não depende do raio nem do giro (RN-015); com a lança sobre a diagonal e a 85 % do tombamento a
-  fração real da sapata mais carregada é de cerca de 0,59, e no caso comum, 0,36;
+  não depende do raio nem do giro (RN-015); com os parâmetros FICTÍCIOS, a fração do peso total na
+  sapata mais carregada é 0,36 no caso comum (lança de 20 m, 4 000 kg) e sobe a 0,81 com a lança
+  sobre a diagonal no limite de tombamento (`ρ = 1`);
 - o vento era uma rampa de 9,8 a 13,8 m/s que cortava a capacidade a 50 % (RN-015), sem relação com a
   área exposta da carga, que é o que a EN 13000 usa;
 - a inclinação residual reduzia a capacidade em 10 % por grau, sem efeito sobre o centro de gravidade
-  nem sobre a flecha da lança.
+  nem sobre os momentos.
 
 O Anderson decidiu (D1): trocar as duas regras por **física, o mais próximo do real possível**.
 
@@ -33,7 +34,9 @@ O Anderson decidiu (D1): trocar as duas regras por **física, o mais próximo do
    polígono das quatro sapatas, `ρ = O / S`: o momento de tombamento sobre o momento estabilizante
    do lado. Estabilizam o chassi com as patolas, a torre com o contrapeso (gira com ψ) e a lança (CG
    no meio entre o pino e a ponta, da geometria do ADR-013). Tomba a carga comparada fatorada
-   (`Q / 0,85`) no gancho, deslocada para fora pela flecha da lança, mais o vento e a inclinação.
+   (`Q / 0,85`) no gancho, deslocada para fora pela flecha da lança, mais o vento e a inclinação. O
+   fator só vale para a carga que tomba o lado: do lado de dentro da linha a carga estabiliza, com o
+   peso sem fator.
    Risco **alto** com `ρ ≥ 1` (`TIPPING_MARGIN_EXCEEDED`) ou sapatas sem apoio
    (`OUTRIGGERS_LIFT_OFF`); **atenção** de `ρ` ≥ 90 % (`STABILITY_NEAR_LIMIT`).
 2. **Margem de norma.** Carga comparada ≤ 85 % da carga de tombamento sobre patolas: com a carga
@@ -49,8 +52,9 @@ O Anderson decidiu (D1): trocar as duas regras por **física, o mais próximo do
    peso comparado em toneladas. Acima de `v_max`: bloqueio (`WIND_ABOVE_LIMIT`); de 90 %: atenção
    (`WIND_NEAR_LIMIT`). O vento também gera momento (`F = ½ ρ_ar v² A`, carga e lança). O frontend
    envia `load_wind_area_m2` (maior face × 1,2) só com a carga pendurada.
-5. **Inclinação residual como momento.** Cada massa na altura `h` se desloca `h · sen α` para fora da
-   linha de tombamento. Sem direção da inclinação no contrato, vale o pior sentido para todos os
+5. **Inclinação residual como momento.** Cada massa na altura `h` (o CG de cada peso e o da carga, no
+   gancho) se desloca `h · sen α` para fora da linha de tombamento; a flecha da lança já entra no raio
+   da carga (item 1) e não depende da inclinação. Sem direção da inclinação no contrato, vale o pior sentido para todos os
    lados. A inclinação máxima do modelo continua como limite duro (a tabela não vale acima dela).
 6. **Mantidos:** utilização acima do limite (RN-011), patolas não totalmente estendidas e apoiadas com
    carga suspensa, operação fora da tabela e obstáculos no raio de giro. Os campos `slope_factor` e

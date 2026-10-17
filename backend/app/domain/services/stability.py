@@ -253,7 +253,11 @@ def _tipping_ratio(
             normal = (-normal[0], -normal[1])  # para fora do polígono
 
         stabilizing = sum(w * _inward(a, normal, x, z) for w, x, z, _h in crane_parts)
-        net = stabilizing + factored_load * _inward(a, normal, load[1], load[2]) - extra_overturning
+        load_distance = _inward(a, normal, load[1], load[2])
+        # O fator da carga só vale para o lado que tomba: do lado de dentro da linha a carga
+        # estabiliza, e fatorá-la para cima contaria estabilidade a mais.
+        load_weight = factored_load if load_distance < 0 else load[0]
+        net = stabilizing + load_weight * load_distance - extra_overturning
         if stabilizing > _EPS:
             ratio = max(0.0, (stabilizing - net) / stabilizing)
         else:
