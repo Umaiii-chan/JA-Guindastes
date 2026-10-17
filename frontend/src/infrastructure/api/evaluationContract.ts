@@ -23,6 +23,62 @@ export interface EvaluationRequestDto {
   readonly soil_kinds?: readonly string[]
   readonly wind_speed_ms?: number
   readonly obstacle_conflicts?: readonly string[]
+  /** TASK-107 (ADR-051): rede elétrica e contexto do içamento; ausente = não calcula. */
+  readonly site?: SiteDto
+}
+
+/** `SitePayload` de `backend/app/presentation/api/site_schemas.py`. */
+export interface SiteDto {
+  readonly power_lines: readonly {
+    readonly id: string
+    readonly label: string
+    readonly x1_m: number
+    readonly z1_m: number
+    readonly x2_m: number
+    readonly z2_m: number
+    readonly height_m: number
+    readonly voltage_kv: number
+  }[]
+  readonly crane_x_m: number
+  readonly crane_z_m: number
+  readonly crane_heading_deg: number
+  readonly load_length_m?: number
+  readonly load_width_m?: number
+  readonly load_height_m?: number
+  readonly sling_angle_deg?: number
+  readonly hook_attach_m?: number
+  readonly tandem?: boolean
+  readonly load_over_occupied?: boolean
+}
+
+/** O `site` da requisição (TASK-107), só quando informado. */
+export function toSiteDto(input: EvaluationInput): { site?: SiteDto } {
+  const site = input.site
+  if (!site) return {}
+  return {
+    site: {
+      power_lines: site.powerLines.map((line) => ({
+        id: line.id,
+        label: line.label,
+        x1_m: line.x1M,
+        z1_m: line.z1M,
+        x2_m: line.x2M,
+        z2_m: line.z2M,
+        height_m: line.heightM,
+        voltage_kv: line.voltageKv,
+      })),
+      crane_x_m: site.craneXM,
+      crane_z_m: site.craneZM,
+      crane_heading_deg: site.craneHeadingDeg,
+      ...(site.loadLengthM !== undefined && { load_length_m: site.loadLengthM }),
+      ...(site.loadWidthM !== undefined && { load_width_m: site.loadWidthM }),
+      ...(site.loadHeightM !== undefined && { load_height_m: site.loadHeightM }),
+      ...(site.slingAngleDeg !== undefined && { sling_angle_deg: site.slingAngleDeg }),
+      ...(site.hookAttachM !== undefined && { hook_attach_m: site.hookAttachM }),
+      ...(site.tandem !== undefined && { tandem: site.tandem }),
+      ...(site.loadOverOccupied !== undefined && { load_over_occupied: site.loadOverOccupied }),
+    },
+  }
 }
 
 /** Campos do ambiente da requisição (TASK-067), só os informados. */
@@ -30,8 +86,10 @@ export function toEnvironmentDto(input: EvaluationInput): {
   soil_kinds?: readonly string[]
   wind_speed_ms?: number
   obstacle_conflicts?: readonly string[]
+  site?: SiteDto
 } {
   return {
+    ...toSiteDto(input),
     ...(input.soilKinds && input.soilKinds.length === 4 ? { soil_kinds: input.soilKinds } : {}),
     ...(input.windSpeedMs !== undefined && { wind_speed_ms: input.windSpeedMs }),
     ...(input.obstacleConflicts && input.obstacleConflicts.length > 0
@@ -118,8 +176,31 @@ export interface EvaluationResponseDto {
     readonly severity: 'INFO' | 'ATTENTION' | 'CRITICAL'
     readonly message: string
   }[]
+  /** TASK-107 (ADR-051): distância às redes e classificação do içamento (só com `site`). */
+  readonly power_lines?: readonly PowerLineClearanceDto[]
+  readonly critical_lift?: CriticalLiftDto | null
   /** TASK-051 (RN-011): limite de capacidade do modelo e nível; `null` em `NOT_EVALUABLE`. */
   readonly capacity_limit?: CapacityLimitDto | null
+}
+
+/** `PowerLineClearanceResponse` (TASK-107; ADR-051). */
+export interface PowerLineClearanceDto {
+  readonly line_id: string
+  readonly label: string
+  readonly voltage_kv: number
+  readonly required_m: number
+  readonly distance_m: number
+  readonly swept_distance_m: number
+  readonly status: 'OK' | 'ATTENTION' | 'VIOLATION'
+  readonly swept_status: 'OK' | 'ATTENTION' | 'VIOLATION'
+  readonly nearest_part: 'boom' | 'cable' | 'load'
+}
+
+/** `CriticalLiftResponse` (TASK-107; ADR-051). */
+export interface CriticalLiftDto {
+  readonly is_critical: boolean
+  readonly triggers: readonly { readonly code: string; readonly message: string }[]
+  readonly plan_items: readonly string[]
 }
 
 /** `CapacityLimitResponse` (TASK-051; ADR-022). */

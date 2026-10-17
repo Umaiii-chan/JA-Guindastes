@@ -8,9 +8,12 @@ import {
 import {
   CONSERVATIVE_PROVISIONAL_STRATEGY,
   LINEAR_INTERPOLATION_STRATEGY,
+  type CriticalLift,
   type EvaluationError,
   type EvaluationResult,
   type NotEvaluableResult,
+  type PowerLineClearance,
+  type PowerLineClearanceStatus,
   type SafetyAlertSeverity,
 } from '../../domain/evaluation/evaluation'
 import {
@@ -320,8 +323,12 @@ export function BackendEvaluationPanel({
 
         {alerts.length > 0 && (
           <ul className={styles.alerts} aria-label="Alertas de segurança">
-            {alerts.map((alert) => (
-              <li key={alert.code} className={styles.alert} data-severity={alert.severity}>
+            {alerts.map((alert, index) => (
+              <li
+                key={`${alert.code}-${index}`}
+                className={styles.alert}
+                data-severity={alert.severity}
+              >
                 <Badge tone={ALERT_PRESENTATION[alert.severity].tone}>
                   {ALERT_PRESENTATION[alert.severity].label}
                 </Badge>
@@ -330,6 +337,11 @@ export function BackendEvaluationPanel({
             ))}
           </ul>
         )}
+
+        {shown && (shown.powerLines?.length ?? 0) > 0 && (
+          <PowerLineDistances items={shown.powerLines ?? []} />
+        )}
+        {shown?.criticalLift?.isCritical && <CriticalLiftPlan lift={shown.criticalLift} />}
 
         {inputProblem === null && error === null && result !== null && (
           <EvaluationDetails result={result} />
@@ -353,6 +365,59 @@ function Metric({
       <dt>{label}</dt>
       <dd>{loading ? <Skeleton width="80%" height={16} /> : children}</dd>
     </div>
+  )
+}
+
+const CLEARANCE_PRESENTATION: Record<PowerLineClearanceStatus, { tone: Tone; label: string }> = {
+  OK: { tone: 'ok', label: 'Distância ok' },
+  ATTENTION: { tone: 'warning', label: 'Perto da mínima' },
+  VIOLATION: { tone: 'danger', label: 'Abaixo da mínima' },
+}
+
+const PART_LABELS = { boom: 'lança', cable: 'cabo', load: 'carga' } as const
+
+function meters2(value: number): string {
+  return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m`
+}
+
+/** Distância de cada rede ao guindaste, agora e girando (TASK-107; ADR-051); o cálculo é do backend. */
+function PowerLineDistances({ items }: { readonly items: readonly PowerLineClearance[] }) {
+  return (
+    <ul className={styles.alerts} aria-label="Distância às redes elétricas">
+      {items.map((item) => {
+        const worst = item.status === 'VIOLATION' || item.sweptStatus === 'VIOLATION'
+        const near = item.status === 'ATTENTION' || item.sweptStatus === 'ATTENTION'
+        const presentation = CLEARANCE_PRESENTATION[worst ? 'VIOLATION' : near ? 'ATTENTION' : 'OK']
+        return (
+          <li key={item.lineId} className={styles.alert}>
+            <Badge tone={presentation.tone}>{presentation.label}</Badge>
+            <span>
+              {item.label} ({item.voltageKv.toLocaleString('pt-BR')} kV):{' '}
+              {PART_LABELS[item.nearestPart]} a {meters2(item.distanceM)}, girando{' '}
+              {meters2(item.sweptDistanceM)}; mínima {meters2(item.requiredM)}.
+            </span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+/** Içamento crítico: os gatilhos e o plano de içamento exigido (TASK-107; ADR-051). */
+function CriticalLiftPlan({ lift }: { readonly lift: CriticalLift }) {
+  return (
+    <section className={styles.alert} aria-label="Içamento crítico">
+      <Badge tone="warning">Içamento crítico</Badge>
+      <div>
+        <p>{lift.triggers.map((trigger) => trigger.message).join('; ')}.</p>
+        <p>Plano de içamento exigido:</p>
+        <ul>
+          {lift.planItems.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </div>
+    </section>
   )
 }
 

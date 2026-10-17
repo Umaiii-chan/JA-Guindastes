@@ -4,21 +4,34 @@ import { useState } from 'react'
 import {
   addFeature,
   addObstacle,
+  addPowerLine,
   FEATURE_KIND_LABELS,
   MAX_OBSTACLES,
+  MAX_POWER_LINES,
   MAX_TERRAIN_FEATURES,
   OBSTACLE_KIND_LABELS,
   type PrimitiveObstacleKind,
   removeFeature,
   removeObstacle,
+  removePowerLine,
   SLOPE_PERCENT_LIMIT,
   updateFeature,
   updateObstacle,
+  updatePowerLine,
   withCranePlacement,
   withSlope,
 } from '../../application/environment/scenarioEditing'
 import type { ScenarioSummary } from '../../application/environment/ports'
 import type { Obstacle, ScenarioSpec, TerrainFeature } from '../../domain/environment/environment'
+import {
+  formatVoltageKv,
+  POWER_LINE_MAX_HEIGHT_M,
+  POWER_LINE_MAX_KV,
+  POWER_LINE_MIN_HEIGHT_M,
+  POWER_LINE_VOLTAGE_OPTIONS_KV,
+  type PowerLine,
+  requiredClearanceM,
+} from '../../domain/environment/powerLine'
 import { Button, Field, IconButton, Input, Notice, Select } from '../ui'
 import styles from './environment.module.css'
 import { NumberField } from './NumberField'
@@ -117,6 +130,106 @@ function FeatureEditor({
             />
           </>
         )}
+      </div>
+    </fieldset>
+  )
+}
+
+/**
+ * Trecho de rede elétrica (TASK-107; ADR-051): a tensão é escolhida na lista (ou digitada) e define
+ * a distância mínima da tabela ASME B30.5, que o backend confere contra a lança, o cabo e a carga.
+ */
+function PowerLineEditor({
+  line,
+  onChange,
+  onRemove,
+}: {
+  readonly line: PowerLine
+  onChange(changes: Partial<Omit<PowerLine, 'id'>>): void
+  onRemove(): void
+}) {
+  const clearance = requiredClearanceM(line.voltageKv)
+  const options = POWER_LINE_VOLTAGE_OPTIONS_KV.includes(line.voltageKv)
+    ? POWER_LINE_VOLTAGE_OPTIONS_KV
+    : [...POWER_LINE_VOLTAGE_OPTIONS_KV, line.voltageKv].sort((a, b) => a - b)
+  return (
+    <fieldset className={styles.item} aria-label={`Rede elétrica ${line.id}`}>
+      <legend className={styles.itemLegend}>
+        Rede elétrica <span className={styles.itemId}>{line.id}</span>
+      </legend>
+      <IconButton
+        className={styles.itemRemove}
+        label={`Remover rede elétrica ${line.id}`}
+        icon={<Trash2 size={14} />}
+        size="sm"
+        onClick={onRemove}
+      />
+      <Field label="Nome">
+        <Input
+          type="text"
+          autoComplete="off"
+          value={line.label}
+          onChange={(event) => onChange({ label: event.currentTarget.value })}
+        />
+      </Field>
+      <Field label="Tensão">
+        <Select
+          value={String(line.voltageKv)}
+          onChange={(event) => onChange({ voltageKv: Number(event.currentTarget.value) })}
+        >
+          {options.map((kv) => (
+            <option key={kv} value={String(kv)}>
+              {formatVoltageKv(kv)}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <p className={styles.fineprint} role="status">
+        {clearance === null
+          ? 'Tensão fora da tabela.'
+          : `Distância mínima: ${clearance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m (ASME B30.5).`}
+      </p>
+      <div className={styles.grid2}>
+        <NumberField
+          label="Início X (m)"
+          unit="m"
+          value={line.x1M}
+          onCommit={(x1M) => onChange({ x1M })}
+        />
+        <NumberField
+          label="Início Z (m)"
+          unit="m"
+          value={line.z1M}
+          onCommit={(z1M) => onChange({ z1M })}
+        />
+        <NumberField
+          label="Fim X (m)"
+          unit="m"
+          value={line.x2M}
+          onCommit={(x2M) => onChange({ x2M })}
+        />
+        <NumberField
+          label="Fim Z (m)"
+          unit="m"
+          value={line.z2M}
+          onCommit={(z2M) => onChange({ z2M })}
+        />
+        <NumberField
+          label="Altura (m)"
+          unit="m"
+          min={POWER_LINE_MIN_HEIGHT_M}
+          max={POWER_LINE_MAX_HEIGHT_M}
+          value={line.heightM}
+          onCommit={(heightM) => onChange({ heightM })}
+        />
+        <NumberField
+          label="Tensão (kV)"
+          unit="kV"
+          positive
+          max={POWER_LINE_MAX_KV}
+          value={line.voltageKv}
+          onCommit={(voltageKv) => onChange({ voltageKv })}
+        />
       </div>
     </fieldset>
   )
@@ -405,6 +518,34 @@ export function EnvironmentPanel({
             </Button>
           ))}
         </div>
+      </section>
+
+      <section className={styles.section} aria-labelledby="env-power-lines">
+        <h3 id="env-power-lines" className={styles.heading}>
+          Rede elétrica
+        </h3>
+        {(spec.powerLines ?? []).map((line) => (
+          <PowerLineEditor
+            key={line.id}
+            line={line}
+            onChange={(changes) => onChange(updatePowerLine(spec, line.id, changes))}
+            onRemove={() => onChange(removePowerLine(spec, line.id))}
+          />
+        ))}
+        <div className={styles.actions} role="group" aria-label="Adicionar rede elétrica">
+          <Button
+            size="sm"
+            icon={<Plus size={13} />}
+            disabled={(spec.powerLines?.length ?? 0) >= MAX_POWER_LINES}
+            onClick={() => onChange(addPowerLine(spec))}
+          >
+            Rede elétrica
+          </Button>
+        </div>
+        <p className={styles.fineprint}>
+          O planejamento mantém a distância mínima da tabela e a avaliação confere a lança, o cabo e
+          a carga em qualquer giro.
+        </p>
       </section>
 
       <section className={styles.section} aria-labelledby="env-crane">

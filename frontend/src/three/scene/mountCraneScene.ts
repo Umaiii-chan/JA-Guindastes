@@ -811,6 +811,7 @@ export function mountCraneScene(
       rotationZones.dispose()
       operatingArea.dispose()
       contents.obstacles.dispose()
+      contents.powerLines.dispose()
       labelRenderer.domElement.remove()
       scaleBar.element.remove()
       crane.setCollisionGuard(null)

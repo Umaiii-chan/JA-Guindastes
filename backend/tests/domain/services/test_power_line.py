@@ -1,6 +1,8 @@
 """Distância mínima de rede elétrica e içamento crítico (D4; TASK-107; ADR-051). Dados FICTÍCIOS."""
 
+import json
 import math
+from pathlib import Path
 
 import pytest
 
@@ -241,3 +243,26 @@ def test_varios_gatilhos_somam_os_motivos_e_o_plano_sem_repetir() -> None:
     assert [t.code for t in result.triggers] == ["TANDEM", "LOAD_OVER_OCCUPIED", "POWER_LINE_CLOSE"]
     assert len(set(result.plan_items)) == len(result.plan_items)
     assert any("NR-10" in item for item in result.plan_items)
+
+
+# --- paridade com o frontend (tabela única de casos) ---------------------------------------
+
+
+_CASOS = json.loads(
+    (
+        Path(__file__).resolve().parents[2] / "fixtures" / "power_line_clearance_cases.json"
+    ).read_text(encoding="utf-8")
+)
+
+
+@pytest.mark.parametrize("caso", _CASOS["casos"], ids=lambda c: f"{c['tensao_kv']} kV")
+def test_tabela_unica_de_distancia_minima(caso: dict[str, float]) -> None:
+    assert required_clearance_m(caso["tensao_kv"]) == pytest.approx(
+        caso["minima_m"], abs=_CASOS["tolerancia"]
+    )
+
+
+@pytest.mark.parametrize("kv", _CASOS["fora_da_tabela_kv"])
+def test_tabela_unica_recusa_a_tensao_fora_da_tabela(kv: float) -> None:
+    with pytest.raises(InvalidVoltageError):
+        required_clearance_m(kv)
