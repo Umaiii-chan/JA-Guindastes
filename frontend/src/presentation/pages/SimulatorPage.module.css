@@ -270,6 +270,22 @@
   background: var(--color-surface-1);
 }
 
+/* Faixa da execução do planejamento (TASK-104): o painel de planejamento a monta aqui por portal. */
+.runStrip {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  pointer-events: none;
+}
+
+.runStrip:empty {
+  display: none;
+}
+
+.runStrip > * {
+  pointer-events: auto;
+}
+
 /* Barra de comando: o que se usa o tempo todo, numa linha (ou duas, em tela estreita). */
 .commandBar {
   display: flex;
@@ -300,6 +316,18 @@
 }
 
 /* "Ocultar painéis": fica a barra de vistas, os avisos de colisão e o player. Nada é desmontado. */
+.sealSlot {
+  display: none;
+  grid-column: 4;
+  grid-row: 2;
+  justify-self: end;
+  align-self: start;
+}
+
+.stage[data-panels-hidden] .sealSlot {
+  display: block;
+}
+
 .stage[data-panels-hidden] .hideable {
   display: none;
 }

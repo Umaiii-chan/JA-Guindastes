@@ -6,6 +6,10 @@ import {
   CAMERA_TRANSITION_MS,
   type CameraPreset,
   type CameraView,
+  type FrameInsets,
+  freeFrame,
+  type FreeFrame,
+  NO_FRAME_INSETS,
   resolveCameraPreset,
 } from '../camera/cameraPresets'
 import { CameraTransition } from '../camera/cameraTransition'
@@ -147,6 +151,11 @@ export interface CraneSceneHandle {
    * acompanha o guindaste.
    */
   setScenario(scenario: ScenarioSpec | null): void
+  /**
+   * Margens do quadro cobertas por painéis sobre a cena (TASK-104), em px. As predefinições passam a
+   * enquadrar o guindaste na área livre, sem mudar o tamanho do quadro. Zeros desfazem.
+   */
+  setFrameInsets(insets: FrameInsets): void
   /** Leva a câmera a uma predefinição, enquadrando o estado atual do guindaste. */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
   /**
@@ -329,15 +338,29 @@ export function mountCraneScene(
     controls.target.set(view.target.x, view.target.y, view.target.z)
   }
 
+  let frameInsets: FrameInsets = NO_FRAME_INSETS
+  const currentFreeFrame = (): FreeFrame =>
+    freeFrame(container.clientWidth || 1, container.clientHeight || 1, frameInsets, camera.fov)
+  /** Desloca a imagem para o centro do quadro cair no centro da área livre (sem painéis, desfaz). */
+  const applyFrameOffset = (): void => {
+    const width = container.clientWidth
+    const height = container.clientHeight
+    if (width <= 0 || height <= 0) return
+    const free = currentFreeFrame()
+    if (free.inset) camera.setViewOffset(width, height, free.offsetX, free.offsetY, width, height)
+    else camera.clearViewOffset()
+  }
+
   /** Enquadramento da predefinição para o estado atual do guindaste e a proporção do quadro. */
   const presetView = (preset: CameraPreset): CameraView => {
+    const free = currentFreeFrame()
     const view = resolveCameraPreset(preset, {
       turretRotationDeg: crane.getState().turretRotationDeg,
       geometry: crane.getOperationalGeometry(),
       maxReachM: radiusIndicator.reach.maxM,
       operatorEye: contents.operatorEye ?? undefined,
-      aspect: camera.aspect,
-      fovDeg: camera.fov,
+      aspect: free.aspect,
+      fovDeg: free.fovDeg,
     })
     // As predefinições enquadram o guindaste na origem; com o cenário, o conjunto se desloca com ele
     // (só a posição: o rumo do chassi não gira a câmera). Com mais guindastes, vale o centro deles.
@@ -391,6 +414,7 @@ export function mountCraneScene(
     renderer.setSize(width, height, false)
     labelRenderer.setSize(width, height)
     resizeCamera(camera, width, height)
+    applyFrameOffset()
     // Quadro mais estreito ou mais alto: a predefinição seguida se reenquadra, sem cortar a lança.
     if (followedPreset && !transition) jumpTo(presetView(followedPreset))
     invalidate()
@@ -604,6 +628,19 @@ export function mountCraneScene(
     },
     hookAttachOffsetM() {
       return contents.hookLoad.currentAttachOffsetM
+    },
+    setFrameInsets(insets) {
+      if (disposed) return
+      const same =
+        insets.top === frameInsets.top &&
+        insets.right === frameInsets.right &&
+        insets.bottom === frameInsets.bottom &&
+        insets.left === frameInsets.left
+      if (same) return
+      frameInsets = insets
+      applyFrameOffset()
+      if (followedPreset && !transition) jumpTo(presetView(followedPreset))
+      invalidate()
     },
     setCameraPreset(preset, options = {}) {
       if (disposed) return

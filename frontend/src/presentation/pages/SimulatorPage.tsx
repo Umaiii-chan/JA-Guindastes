@@ -22,8 +22,15 @@ import {
 import { SimulatorSheet } from '../simulator/layout/SimulatorSheet'
 import { SimulatorToolbar, type SimulatorToolbarItem } from '../simulator/layout/SimulatorToolbar'
 import { cx, PortalTargetContext } from '../ui'
+import { FrameInsetsContext } from '../ui/frameInsets'
+import { NO_FRAME_INSETS, type FrameInsets } from '../../three/camera/cameraPresets'
+import { RunStripTargetContext } from '../simulator/layout/runStrip'
 
 import styles from './SimulatorPage.module.css'
+
+/** Folga (px) entre o painel e a área que a câmera considera livre; em cima é maior, para a cabeça da lança. */
+const GAP_PX = 8
+const TOP_GAP_PX = 20
 
 export interface SimulatorPageProps {
   /** Cena 3D (o `CraneViewport` com o limite de erro): ocupa o palco inteiro, atrás de tudo. */
@@ -32,6 +39,8 @@ export interface SimulatorPageProps {
   readonly steps: ReactNode
   /** Resumo dos passos para o chip de contexto; com passos pendentes, "Configurar" abre sozinha. */
   readonly setup?: SimulatorSetupSummary
+  /** Selo mínimo (situação e risco), à vista mesmo com os painéis ocultos. */
+  readonly resultSeal?: ReactNode
   /** Ficha do resultado do backend (ou a do tandem), no cartão do canto direito. */
   readonly result: ReactNode
   /** Geometria de pré-visualização e o relatório, nos "Detalhes" do cartão. */
@@ -131,6 +140,7 @@ export function SimulatorPage({
   steps,
   setup,
   result,
+  resultSeal,
   geometry,
   statusBar,
   commandBar,
@@ -155,7 +165,20 @@ export function SimulatorPage({
     setup?.incomplete ? 'setup' : null,
   )
   const [bottomDock, setBottomDock] = useState<HTMLDivElement | null>(null)
+  const [toolbarEl, setToolbarEl] = useState<HTMLDivElement | null>(null)
+  const [cardEl, setCardEl] = useState<HTMLDivElement | null>(null)
+  const [topEl, setTopEl] = useState<HTMLDivElement | null>(null)
+  // Faixa flutuante da execução do planejamento: recebe, por portal, o que o painel mostra.
+  const [runStripEl, setRunStripEl] = useState<HTMLDivElement | null>(null)
+  // Margens da cena cobertas por painéis (TASK-104): a câmera enquadra o guindaste na área livre.
+  const [frameInsets, setFrameInsets] = useState<FrameInsets>(NO_FRAME_INSETS)
   const baseId = useId()
+  // Alvo das janelas: o palco em tela cheia. Ao sair dela com uma janela aberta, o alvo não volta ao
+  // `body` (o portal remontaria a janela e perderia o que foi digitado): fica no palco enquanto a
+  // janela estiver aberta.
+  const portalTarget =
+    fullscreen || (stage?.querySelector('[aria-modal="true"]') ?? null) !== null ? stage : null
+
   const sheetDomId = useCallback((id: SimulatorSheetId) => `${baseId}-sheet-${id}`, [baseId])
 
   const content: Record<SimulatorSheetId, ReactNode> = {
@@ -225,6 +248,43 @@ export function SimulatorPage({
     return () => observer.disconnect()
   }, [stage, bottomDock])
 
+  // Mede o que os painéis fixos cobrem da cena (barra de ferramentas, cartão de resultado, linha do
+  // topo e faixa de baixo). Folhas abertas não contam: são passageiras.
+  useEffect(() => {
+    if (!stage || typeof ResizeObserver === 'undefined') return
+    const measure = () => {
+      const box = stage.getBoundingClientRect()
+      const visible = (element: HTMLElement | null) => {
+        const rect = element?.getBoundingClientRect()
+        return rect && rect.width > 0 && rect.height > 0 ? rect : null
+      }
+      const toolbar = visible(toolbarEl)
+      const card = visible((cardEl?.firstElementChild as HTMLElement | null) ?? null)
+      const top = visible(topEl)
+      const bottom = visible(bottomDock)
+      const next: FrameInsets = {
+        left: toolbar ? Math.max(0, Math.round(toolbar.right - box.left) + GAP_PX) : 0,
+        right: card ? Math.max(0, Math.round(box.right - card.left) + GAP_PX) : 0,
+        top: top ? Math.max(0, Math.round(top.bottom - box.top) + TOP_GAP_PX) : 0,
+        bottom: bottom ? Math.max(0, Math.round(box.bottom - bottom.top) + GAP_PX) : 0,
+      }
+      setFrameInsets((prev) =>
+        prev.left === next.left &&
+        prev.right === next.right &&
+        prev.top === next.top &&
+        prev.bottom === next.bottom
+          ? prev
+          : next,
+      )
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    for (const element of [stage, toolbarEl, cardEl?.firstElementChild, topEl, bottomDock]) {
+      if (element) observer.observe(element)
+    }
+    return () => observer.disconnect()
+  }, [stage, toolbarEl, cardEl, topEl, bottomDock, panelsHidden, fullscreen])
+
   // Sincroniza quando o navegador sai da tela cheia por conta própria.
   useEffect(() => {
     if (!fullscreen) return
@@ -263,107 +323,121 @@ export function SimulatorPage({
       data-sheet-open={activeSheet !== null || undefined}
     >
       {/* Em tela cheia, as janelas são montadas aqui dentro para aparecer por cima (F-21). */}
-      <PortalTargetContext.Provider value={fullscreen ? stage : null}>
+      <PortalTargetContext.Provider value={portalTarget}>
         <SimulatorLayoutContext.Provider value={layout}>
-          <div className={styles.scene}>
-            {viewport}
-            <span className={styles.corners} aria-hidden="true" />
-          </div>
+          <RunStripTargetContext.Provider value={runStripEl}>
+            <FrameInsetsContext.Provider value={panelsHidden ? NO_FRAME_INSETS : frameInsets}>
+              <div className={styles.scene}>
+                {viewport}
+                <span className={styles.corners} aria-hidden="true" />
+              </div>
+            </FrameInsetsContext.Provider>
 
-          <div className={styles.hud}>
-            <div className={cx(styles.toolbar, styles.hideable)}>
-              <SimulatorToolbar items={toolbarItems} active={activeSheet} onToggle={toggleSheet} />
-            </div>
-
-            <div className={cx(styles.sheets, styles.hideable)}>
-              {sheets.map((sheet) => (
-                <SimulatorSheet
-                  key={sheet.id}
-                  id={sheetDomId(sheet.id)}
-                  title={sheet.title}
-                  open={activeSheet === sheet.id}
-                  onClose={closeSheet}
-                >
-                  {content[sheet.id]}
-                </SimulatorSheet>
-              ))}
-            </div>
-
-            <div className={styles.center}>
-              {editorToolbar && (
-                <div className={cx(styles.panelSlot, styles.editor, styles.hideable)}>
-                  {editorToolbar}
-                </div>
-              )}
-              {sceneOverlay && <div className={styles.alerts}>{sceneOverlay}</div>}
-            </div>
-
-            <div className={cx(styles.cardSlot, styles.hideable)}>
-              <ResultCard result={result} extra={geometry} />
-            </div>
-
-            <div ref={setBottomDock} className={styles.bottom}>
-              {playback && <div className={cx(styles.panelSlot, styles.playback)}>{playback}</div>}
-              {/* Coleta e entrega logo acima da barra de comando: a dica ("faltam 2 m") e o
-                  Engatar/Soltar ficam junto dos controles que levam o gancho até a carga. */}
-              {operationBar && (
-                <div className={cx(styles.panelSlot, styles.operation, styles.hideable)}>
-                  {operationBar}
-                </div>
-              )}
-              {commandBar && (
-                <div
-                  className={cx(styles.panelSlot, styles.commandBar, styles.hideable)}
-                  role="group"
-                  aria-label="Barra de comando"
-                >
-                  {commandBar}
-                </div>
-              )}
-            </div>
-            <div className={styles.top}>
-              {setup && (
-                <div className={cx(styles.panelSlot, styles.hideable)}>
-                  <ContextChip
-                    summary={setup}
-                    expanded={activeSheet === 'setup'}
-                    controls={sheetDomId('setup')}
-                    onOpen={() => toggleSheet('setup')}
-                  />
-                </div>
-              )}
-              <div className={styles.viewBar}>
-                {statusBar}
-                <div className={styles.viewActions}>
-                  <button
-                    type="button"
-                    className={styles.viewAction}
-                    onClick={() => setPanelsHidden((hidden) => !hidden)}
-                    aria-pressed={panelsHidden}
-                    title={panelsHidden ? 'Mostrar os painéis' : 'Ocultar os painéis da cena'}
-                  >
-                    {panelsHidden ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
-                    <span className={styles.viewActionText}>
-                      {panelsHidden ? 'Mostrar painéis' : 'Ocultar painéis'}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.viewAction}
-                    onClick={toggleFullscreen}
-                    aria-pressed={fullscreen}
-                    title={fullscreen ? 'Sair da tela cheia (Esc)' : 'Simulação em tela cheia'}
-                  >
-                    {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                    <span className={styles.viewActionText}>
-                      {fullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
-                    </span>
-                  </button>
+            <div className={styles.hud}>
+              <div ref={setTopEl} className={styles.top}>
+                {setup && (
+                  <div className={cx(styles.panelSlot, styles.hideable)}>
+                    <ContextChip
+                      summary={setup}
+                      expanded={activeSheet === 'setup'}
+                      controls={sheetDomId('setup')}
+                      onOpen={() => toggleSheet('setup')}
+                    />
+                  </div>
+                )}
+                <div className={styles.viewBar}>
+                  {statusBar}
+                  <div className={styles.viewActions}>
+                    <button
+                      type="button"
+                      className={styles.viewAction}
+                      onClick={() => setPanelsHidden((hidden) => !hidden)}
+                      aria-pressed={panelsHidden}
+                      title={panelsHidden ? 'Mostrar os painéis' : 'Ocultar os painéis da cena'}
+                    >
+                      {panelsHidden ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+                      <span className={styles.viewActionText}>
+                        {panelsHidden ? 'Mostrar painéis' : 'Ocultar painéis'}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.viewAction}
+                      onClick={toggleFullscreen}
+                      aria-pressed={fullscreen}
+                      title={fullscreen ? 'Sair da tela cheia (Esc)' : 'Simulação em tela cheia'}
+                    >
+                      {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                      <span className={styles.viewActionText}>
+                        {fullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
+              <div ref={setToolbarEl} className={cx(styles.toolbar, styles.hideable)}>
+                <SimulatorToolbar
+                  items={toolbarItems}
+                  active={activeSheet}
+                  onToggle={toggleSheet}
+                />
+              </div>
+
+              <div className={cx(styles.sheets, styles.hideable)}>
+                {sheets.map((sheet) => (
+                  <SimulatorSheet
+                    key={sheet.id}
+                    id={sheetDomId(sheet.id)}
+                    title={sheet.title}
+                    open={activeSheet === sheet.id}
+                    onClose={closeSheet}
+                  >
+                    {content[sheet.id]}
+                  </SimulatorSheet>
+                ))}
+              </div>
+
+              <div className={styles.center}>
+                {editorToolbar && (
+                  <div className={cx(styles.panelSlot, styles.editor, styles.hideable)}>
+                    {editorToolbar}
+                  </div>
+                )}
+                {sceneOverlay && <div className={styles.alerts}>{sceneOverlay}</div>}
+              </div>
+
+              <div ref={setCardEl} className={cx(styles.cardSlot, styles.hideable)}>
+                <ResultCard result={result} extra={geometry} />
+              </div>
+              {resultSeal && (
+                <div className={cx(styles.sealSlot, styles.panelSlot)}>{resultSeal}</div>
+              )}
+
+              <div ref={setBottomDock} className={styles.bottom}>
+                <div ref={setRunStripEl} className={styles.runStrip} />
+                {playback && (
+                  <div className={cx(styles.panelSlot, styles.playback)}>{playback}</div>
+                )}
+                {/* Coleta e entrega logo acima da barra de comando: a dica ("faltam 2 m") e o
+                  Engatar/Soltar ficam junto dos controles que levam o gancho até a carga. */}
+                {operationBar && (
+                  <div className={cx(styles.panelSlot, styles.operation, styles.hideable)}>
+                    {operationBar}
+                  </div>
+                )}
+                {commandBar && (
+                  <div
+                    className={cx(styles.panelSlot, styles.commandBar, styles.hideable)}
+                    role="group"
+                    aria-label="Barra de comando"
+                  >
+                    {commandBar}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-          {dialogs}
+            {dialogs}
+          </RunStripTargetContext.Provider>
         </SimulatorLayoutContext.Provider>
       </PortalTargetContext.Provider>
     </div>

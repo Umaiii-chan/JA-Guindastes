@@ -176,3 +176,37 @@
   justify-content: flex-end;
   padding-top: var(--space-1);
 }
+
+/* Faixa sobre a cena (TASK-104): execução da trajetória e passo a passo, mesmo com a folha fechada. */
+.strip {
+  display: grid;
+  gap: var(--space-2);
+  width: min(100%, 720px);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-ink);
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-surface-1);
+}
+
+.stripRun {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.stripBody {
+  flex: 1;
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.strip .guide {
+  padding: 0;
+  border: 0;
+  gap: var(--space-1);
+}
+
+.strip .guideAction {
+  font-size: var(--font-size-md);
+}

@@ -116,13 +116,14 @@ export function Slider({
           {shortLabel ?? label}
         </label>
         {compact && note && (
-          <span
+          <button
+            type="button"
             className={styles.noteMark}
-            title={typeof note === 'string' ? note : undefined}
-            aria-hidden="true"
+            aria-label={`Observação sobre ${typeof label === 'string' ? label : 'o controle'}`}
+            aria-describedby={noteId}
           >
             *
-          </span>
+          </button>
         )}
         <output htmlFor={inputId} className={styles.value}>
           {value === undefined ? '—' : format(value)}
@@ -155,14 +156,14 @@ export function Slider({
           onKeyDown={wraps ? handleKeyDown : undefined}
         />
       </div>
-      {!compact && min !== undefined && max !== undefined && (
-        <div className={styles.bounds} aria-hidden="true">
+      {min !== undefined && max !== undefined && (
+        <div className={cx(styles.bounds, compact && styles.boundsFloating)} aria-hidden="true">
           <span>{format(min)}</span>
           <span>{format(max)}</span>
         </div>
       )}
       {note && (
-        <p className={cx(styles.note, compact && 'visually-hidden')} id={noteId}>
+        <p className={cx(styles.note, compact && styles.noteFloating)} id={noteId}>
           {note}
         </p>
       )}

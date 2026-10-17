@@ -2,7 +2,6 @@ import { ChevronDown, ChevronRight, CircleAlert } from 'lucide-react'
 import { type ReactNode, useId } from 'react'
 
 import {
-  type EvaluationStatus,
   evaluationStatus,
   FULL_CAPACITY_PERCENT,
 } from '../../application/evaluation/evaluationStatus'
@@ -13,7 +12,6 @@ import {
   type EvaluationResult,
   type NotEvaluableResult,
   type SafetyAlertSeverity,
-  type TippingRisk,
 } from '../../domain/evaluation/evaluation'
 import {
   Badge,
@@ -28,6 +26,7 @@ import {
 } from '../ui'
 import { useResultDetails } from '../simulator/layout/resultDetails'
 import styles from './BackendEvaluationPanel.module.css'
+import { STATUS_PRESENTATION, TIPPING_RISK_PRESENTATION } from './evaluationPresentation'
 import { reasonLabel } from './reasonLabels'
 
 export type EvaluationTransportLabel = 'websocket' | 'rest'
@@ -51,24 +50,6 @@ export const SLOW_BACKEND_MESSAGE =
 
 export const PROVISIONAL_MARK = 'PROVISÓRIO — consulta conservadora'
 export const INTERPOLATED_MARK = 'PROVISÓRIO — interpolado entre pontos da tabela'
-
-/**
- * Cor e texto de cada situação (ADR-019 § 1). Com `capacityLimit` (TASK-051; RN-011), a situação é o
- * nível que o backend devolveu (`OK`, `WARNING`, `OVER`); sem ele, só `ok` e `over`.
- */
-const STATUS_PRESENTATION: Record<EvaluationStatus, { tone: Tone; label: string }> = {
-  ok: { tone: 'ok', label: 'Dentro da capacidade' },
-  warning: { tone: 'warning', label: 'Perto do limite' },
-  over: { tone: 'danger', label: 'Acima da capacidade' },
-  unknown: { tone: 'neutral', label: 'Sem avaliação' },
-}
-
-/** Selo do risco de tombamento por regras (RN-013; TASK-055): cor e texto de cada nível. */
-const TIPPING_RISK_PRESENTATION: Record<TippingRisk, { tone: Tone; label: string }> = {
-  LOW: { tone: 'ok', label: 'Risco de tombamento: baixo' },
-  ATTENTION: { tone: 'warning', label: 'Risco de tombamento: atenção' },
-  HIGH: { tone: 'danger', label: 'Risco de tombamento: alto' },
-}
 
 const ALERT_PRESENTATION: Record<SafetyAlertSeverity, { tone: Tone; label: string }> = {
   INFO: { tone: 'info', label: 'Informação' },

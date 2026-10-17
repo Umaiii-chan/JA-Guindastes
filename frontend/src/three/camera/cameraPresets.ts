@@ -53,6 +53,72 @@ export interface CameraFraming {
   readonly fovDeg?: number
 }
 
+/** Margens (px) do quadro cobertas por painéis sobre a cena (TASK-104). */
+export interface FrameInsets {
+  readonly top: number
+  readonly right: number
+  readonly bottom: number
+  readonly left: number
+}
+
+export const NO_FRAME_INSETS: FrameInsets = Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 })
+
+/** A área livre nunca fica menor que esta fração do quadro, mesmo com painéis enormes. */
+const MIN_FREE_FRACTION = 0.4
+
+/** Área livre do quadro: o que a câmera enquadra, e o deslocamento da imagem para ela. */
+export interface FreeFrame {
+  /** Largura ÷ altura da área livre. */
+  readonly aspect: number
+  /** Campo de visão vertical (°) que a área livre ocupa dentro do campo do quadro inteiro. */
+  readonly fovDeg: number
+  /** `x` e `y` de `PerspectiveCamera.setViewOffset` (px): levam o centro da área livre ao do quadro. */
+  readonly offsetX: number
+  readonly offsetY: number
+  /** Sem painéis cobrindo, não há deslocamento a aplicar. */
+  readonly inset: boolean
+}
+
+/**
+ * Área livre de um quadro `width` × `height` descontadas as margens dos painéis. O enquadramento das
+ * predefinições usa a proporção e o campo de visão da área livre e a câmera desloca a imagem (view
+ * offset) para o centro dela cair no centro da área livre, sem mudar o tamanho do quadro nem remontar
+ * a cena.
+ */
+export function freeFrame(
+  width: number,
+  height: number,
+  insets: FrameInsets,
+  fovDeg: number,
+): FreeFrame {
+  const clamp = (value: number) => (Number.isFinite(value) ? Math.max(0, value) : 0)
+  let { left, right, top, bottom } = {
+    left: clamp(insets.left),
+    right: clamp(insets.right),
+    top: clamp(insets.top),
+    bottom: clamp(insets.bottom),
+  }
+  const squeeze = (a: number, b: number, size: number): [number, number] => {
+    const max = size * (1 - MIN_FREE_FRACTION)
+    const sum = a + b
+    return sum > max ? [(a * max) / sum, (b * max) / sum] : [a, b]
+  }
+  ;[left, right] = squeeze(left, right, width)
+  ;[top, bottom] = squeeze(top, bottom, height)
+  const freeWidth = width - left - right
+  const freeHeight = height - top - bottom
+  const inset = left + right + top + bottom > 0
+  const tanHalf = Math.tan((fovDeg * DEG) / 2) * (freeHeight / height)
+  return {
+    aspect: freeWidth / freeHeight,
+    fovDeg: inset ? (2 * Math.atan(tanHalf)) / DEG : fovDeg,
+    // O centro da área livre (left + freeW/2) deve ir para width/2 no plano virtual: x = W/2 - cx.
+    offsetX: (right - left) / 2,
+    offsetY: (bottom - top) / 2,
+    inset,
+  }
+}
+
 /** Limites da órbita: distância ao alvo e altura mínima da câmera acima do chão (y = 0). */
 export const CAMERA_LIMITS = Object.freeze({
   minDistanceM: 4,

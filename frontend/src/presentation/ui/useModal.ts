@@ -23,6 +23,8 @@ export function useModal(
   open: boolean,
   containerRef: RefObject<HTMLElement | null>,
   onClose: () => void,
+  /** Onde a janela está montada: se mudar, o React a remonta e o foco precisa ser refeito. */
+  mountTarget?: HTMLElement,
 ): void {
   const onCloseRef = useRef(onClose)
   useEffect(() => {
@@ -72,5 +74,5 @@ export function useModal(
       document.body.style.overflow = previousOverflow
       previouslyFocused?.focus?.()
     }
-  }, [open, containerRef])
+  }, [open, containerRef, mountTarget])
 }
