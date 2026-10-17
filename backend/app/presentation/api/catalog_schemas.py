@@ -219,12 +219,12 @@ _LIMIT_DESCRIPTIONS = {
     "(padrão 1,0, FICTÍCIO; RN-013).",
     "max_leveling_deg": "Correção máxima de nivelamento pelos macacos, em graus (padrão 3,0, "
     "FICTÍCIO).",
-    "slope_derating_percent_per_deg": "Redução da capacidade por grau de inclinação residual, em % "
-    "(padrão 10; RN-015).",
-    "crane_mass_kg": "Massa do guindaste, em kg, para a pressão nas sapatas (padrão 36000; "
-    "RN-015).",
+    "slope_derating_percent_per_deg": "OBSOLETO, sem efeito desde a TASK-106: a inclinação não "
+    "reduz mais a capacidade e entra como momento de tombamento (RN-017, que substitui a RN-015).",
+    "crane_mass_kg": "Massa do guindaste, em kg, para a estabilidade e a pressão nas sapatas "
+    "(padrão 36000, FICTÍCIO; RN-017).",
     "outrigger_pad_area_m2": "Área de cada sapata, em m², para a pressão no solo (padrão 0,5; "
-    "RN-015).",
+    "RN-017).",
 }
 
 

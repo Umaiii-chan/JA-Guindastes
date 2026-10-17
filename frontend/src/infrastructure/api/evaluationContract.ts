@@ -22,6 +22,8 @@ export interface EvaluationRequestDto {
   /** TASK-067 (RN-015): opcionais; ausentes não têm efeito. */
   readonly soil_kinds?: readonly string[]
   readonly wind_speed_ms?: number
+  /** TASK-106 (RN-017): área de vento da carga, em m². */
+  readonly load_wind_area_m2?: number
   readonly obstacle_conflicts?: readonly string[]
   /** TASK-107 (ADR-051): rede elétrica e contexto do içamento; ausente = não calcula. */
   readonly site?: SiteDto
@@ -85,6 +87,7 @@ export function toSiteDto(input: EvaluationInput): { site?: SiteDto } {
 export function toEnvironmentDto(input: EvaluationInput): {
   soil_kinds?: readonly string[]
   wind_speed_ms?: number
+  load_wind_area_m2?: number
   obstacle_conflicts?: readonly string[]
   site?: SiteDto
 } {
@@ -92,6 +95,7 @@ export function toEnvironmentDto(input: EvaluationInput): {
     ...toSiteDto(input),
     ...(input.soilKinds && input.soilKinds.length === 4 ? { soil_kinds: input.soilKinds } : {}),
     ...(input.windSpeedMs !== undefined && { wind_speed_ms: input.windSpeedMs }),
+    ...(input.loadWindAreaM2 !== undefined && { load_wind_area_m2: input.loadWindAreaM2 }),
     ...(input.obstacleConflicts && input.obstacleConflicts.length > 0
       ? { obstacle_conflicts: input.obstacleConflicts }
       : {}),

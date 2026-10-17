@@ -121,17 +121,19 @@ def test_vento_acima_do_limite_vale_para_os_dois(client: TestClient) -> None:
         assert "WIND_ABOVE_LIMIT" in codes(evaluation["alerts"])
 
 
-def test_vento_moderado_reduz_a_capacidade_do_tandem(client: TestClient) -> None:
-    # 11,8 m/s → fator de vento 0,75 (RN-015): 2550 kg × 0,75 = 1912,5 kg, abaixo dos 2000 kg.
+def test_vento_perto_do_limite_e_atencao_e_nao_reduz_a_capacidade(client: TestClient) -> None:
+    # 8,5 m/s: entre 90 % (8,1) e 100 % (9,0) da velocidade da tabela (RN-017): atenção, e o vento
+    # não é mais fator da capacidade (2550 kg continuam 2550 kg).
     payload = side_by_side()
-    payload["wind_speed_ms"] = 11.8
+    payload["wind_speed_ms"] = 8.5
 
     data = client.post(TANDEM, json=payload).json()
 
-    limit = data["evaluations"][0]["capacity_limit"]
-    assert limit["wind_factor"] == pytest.approx(0.75)
-    assert limit["effective_capacity_kg"] == pytest.approx(1_912.5)
-    assert data["tandem_ok"] is False
+    evaluation = data["evaluations"][0]
+    assert evaluation["capacity_limit"]["wind_factor"] == pytest.approx(1.0)
+    assert evaluation["capacity_limit"]["effective_capacity_kg"] == pytest.approx(2_550)
+    assert "WIND_NEAR_LIMIT" in codes(evaluation["alerts"])
+    assert data["tandem_ok"] is True
 
 
 def test_solo_fraco_sob_um_guindaste_reprova_o_tandem(client: TestClient) -> None:

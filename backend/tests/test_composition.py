@@ -89,6 +89,7 @@ NOT_EVALUABLE_WITHOUT_DATA = {
             "message": "Inclinação do terreno não informada: não entrou na avaliação do risco.",
         },
     ],
+    "stability": None,
 }
 
 

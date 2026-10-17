@@ -64,13 +64,7 @@ from app.domain.services import rigging
 from app.domain.services.capacity_limit import CapacityLimit, evaluate_capacity_limit
 from app.domain.services.compared_load_weight import weight_compared_with_capacity
 from app.domain.services.critical_lift import CriticalLiftAssessment, assess_critical_lift
-from app.domain.services.environment_factors import (
-    SoilKind,
-    slope_blocks,
-    slope_factor,
-    wind_blocks,
-    wind_factor,
-)
+from app.domain.services.environment_factors import SoilKind, slope_blocks, wind_blocks
 from app.domain.services.geometry_service import calculate_operational_geometry
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
 from app.domain.services.planning.planner import HOOK_ATTACH_M, REPLACED_HOOK_ATTACH_M
@@ -89,6 +83,7 @@ from app.domain.services.safety_assessment import (
     assess_safety,
     limit_level,
 )
+from app.domain.services.stability import StabilityResult, assess_stability, wind_limit_ms
 from app.domain.services.utilization import calculate_utilization_percent
 from app.domain.value_objects.capacity_query import CapacityQuery
 from app.domain.value_objects.capacity_result import (
@@ -151,6 +146,8 @@ class EvaluatedOperation:
     - `capacity_limit`: o limite de capacidade do modelo e a faixa OK/WARNING/OVER (RN-011;
       TASK-051), calculado sobre a capacidade da tabela. `None` só se a capacidade efetiva for 0.
     - `accessories`: os acessórios de içamento somados ao peso comparado (TASK-056; RN-014).
+    - `stability`: a estática da operação (RN-017; TASK-106): tombamento por momentos sobre o
+      polígono das sapatas, reação em cada sapata e flecha. `None` se a geometria não foi calculada.
     """
 
     geometry: OperationalGeometry
@@ -163,6 +160,7 @@ class EvaluatedOperation:
     tipping_risk: TippingRisk | None = None
     alerts: tuple[SafetyAlert, ...] = ()
     accessories: tuple[Accessory, ...] = ()
+    stability: StabilityResult | None = None
     power_line_clearances: tuple[LineClearance, ...] = ()
     critical_lift: CriticalLiftAssessment | None = None
 
@@ -218,6 +216,7 @@ class NotEvaluableOperation:
     tipping_risk: TippingRisk | None = None
     alerts: tuple[SafetyAlert, ...] = ()
     accessories: tuple[Accessory, ...] = ()
+    stability: StabilityResult | None = None
     power_line_clearances: tuple[LineClearance, ...] = ()
     critical_lift: CriticalLiftAssessment | None = None
 
@@ -344,14 +343,17 @@ class EvaluateOperation:
         wind_speed_ms: float | None = None,
         obstacle_conflicts: Sequence[str] = (),
         capacity_factor: float = 1.0,
+        load_wind_area_m2: float | None = None,
         site: SiteContext | None = None,
     ) -> OperationEvaluation:
         """Avalia como `_evaluate_load_chart` e acrescenta o risco de tombamento e os alertas.
 
         `outriggers` e `ground_slope_deg` são opcionais (leva E; ADR-025): ausentes, não entram
         no risco e geram alertas INFO de "não informado" (RN-013). `soil_kinds`, `wind_speed_ms` e
-        `obstacle_conflicts` (RN-015; ADR-033) também são opcionais, mas ausentes não geram alerta.
-        A inclinação e o vento reduzem a capacidade efetiva (`capacity_limit`).
+        `obstacle_conflicts` (RN-017) também são opcionais, mas ausentes não geram alerta.
+        A inclinação residual e o vento entram na estática de estabilidade (`stability`, RN-017;
+        ADR-050), e não mais como fatores da capacidade efetiva. `load_wind_area_m2` é a área de
+        vento da carga (`A_W`, EN 13000); ausente, a velocidade máxima de rajada é a da tabela.
 
         `capacity_factor` (RN-016; TASK-074) é um fator adicional sobre a capacidade efetiva, para
         o içamento com dois guindastes (0,75). O padrão (1) não muda nada.
@@ -370,6 +372,25 @@ class EvaluateOperation:
             wind_speed_ms=wind_speed_ms,
             profile=profile,
             capacity_factor=capacity_factor,
+            load_wind_area_m2=load_wind_area_m2,
+        )
+        stability = (
+            None
+            if evaluation.geometry is None
+            else assess_stability(
+                params=profile.stability,
+                crane_mass_kg=profile.crane_mass_kg,
+                geometry=evaluation.geometry,
+                turret_rotation_deg=state.turret_rotation.degrees,
+                boom_length_m=state.boom_length.meters,
+                compared_weight_kg=evaluation.compared_weight.kilograms,
+                outrigger_extension_percent=(
+                    None if outriggers is None else outriggers.extension_percent
+                ),
+                ground_slope_deg=ground_slope_deg,
+                wind_speed_ms=wind_speed_ms,
+                load_wind_area_m2=load_wind_area_m2,
+            )
         )
         capacity = evaluation.capacity
         if isinstance(capacity, CapacityFound):
@@ -377,9 +398,7 @@ class EvaluateOperation:
                 evaluation.compared_weight.kilograms,
                 capacity.max_capacity.kilograms,
                 profile,
-                slope_factor(ground_slope_deg, profile)
-                * wind_factor(wind_speed_ms)
-                * capacity_factor,
+                capacity_factor,
             )
         else:
             level = None
@@ -393,12 +412,20 @@ class EvaluateOperation:
             outside_chart=outside_chart,
             outriggers=outriggers,
             ground_slope_deg=ground_slope_deg,
-            compared_weight_kg=evaluation.compared_weight.kilograms,
             soil_kinds=soil_kinds,
             wind_speed_ms=wind_speed_ms,
             obstacle_conflicts=obstacle_conflicts,
+            stability=stability,
+            wind_limit_ms=wind_limit_ms(
+                evaluation.compared_weight.kilograms, load_wind_area_m2, profile.stability
+            ),
         )
-        result = replace(evaluation, tipping_risk=assessment.tipping_risk, alerts=assessment.alerts)
+        result = replace(
+            evaluation,
+            tipping_risk=assessment.tipping_risk,
+            alerts=assessment.alerts,
+            stability=stability,
+        )
         if site is None:
             return result
         return self._with_site(
@@ -407,6 +434,9 @@ class EvaluateOperation:
             profile=profile,
             ground_slope_deg=ground_slope_deg,
             wind_speed_ms=wind_speed_ms,
+            wind_limit=wind_limit_ms(
+                evaluation.compared_weight.kilograms, load_wind_area_m2, profile.stability
+            ),
         )
 
     def _with_site(
@@ -417,6 +447,7 @@ class EvaluateOperation:
         profile: SafetyProfile,
         ground_slope_deg: float | None,
         wind_speed_ms: float | None,
+        wind_limit: float,
     ) -> OperationEvaluation:
         """Distância às redes e içamento crítico; os alertas novos entram sem tocar no risco."""
         clearances = _power_line_clearances(result, site)
@@ -433,6 +464,7 @@ class EvaluateOperation:
             load_over_occupied=site.load_over_occupied,
             min_clearance_ratio=min_ratio,
             wind_speed_ms=wind_speed_ms,
+            wind_limit_ms=wind_limit,
             ground_slope_deg=ground_slope_deg,
             max_ground_slope_deg=profile.max_ground_slope_deg,
             soil_attention=any(alert.code in _SOIL_ATTENTION_CODES for alert in result.alerts),
@@ -460,6 +492,7 @@ class EvaluateOperation:
         wind_speed_ms: float | None = None,
         profile: SafetyProfile | None = None,
         capacity_factor: float = 1.0,
+        load_wind_area_m2: float | None = None,
     ) -> OperationEvaluation:
         """Avalia `state` com o peso da carga `load_weight` na configuração `configuration_id`.
 
@@ -542,11 +575,14 @@ class EvaluateOperation:
                 capacity.max_capacity,
                 compared_weight,
                 self._crane_limits(configuration_id),
-                slope_factor=slope_factor(ground_slope_deg, safety_profile),
-                wind_factor=wind_factor(wind_speed_ms),
                 extra_factor=capacity_factor,
                 blocked=slope_blocks(ground_slope_deg, safety_profile)
-                or wind_blocks(wind_speed_ms),
+                or wind_blocks(
+                    wind_speed_ms,
+                    wind_limit_ms(
+                        compared_weight.kilograms, load_wind_area_m2, safety_profile.stability
+                    ),
+                ),
             ),
             accessories=accessories,
         )

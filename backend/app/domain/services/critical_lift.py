@@ -7,7 +7,8 @@ dono do produto; FICTÍCIOS e configuráveis até haver norma interna da empresa
 - içamento em tandem (dois guindastes);
 - carga sobre pessoas ou estruturas ocupadas;
 - distância à rede elétrica abaixo de 1,5× a mínima (inclui a violação da mínima);
-- vento acima de 70 % do limite de bloqueio (`WIND_RATIO_TRIGGER`);
+- vento acima de 70 % da velocidade máxima de rajada da carga (`wind_limit_ms`, EN 13000;
+  ADR-050), a que bloqueia a operação (`WIND_RATIO_TRIGGER`);
 - solo sob as sapatas em atenção, ou inclinação do terreno a 70 % ou mais do máximo do modelo
   (`SLOPE_RATIO_TRIGGER`).
 
@@ -18,7 +19,6 @@ materiais) é o contexto do plano de içamento; a NR-10, o da rede elétrica (AD
 
 from dataclasses import dataclass
 
-from app.domain.services.environment_factors import WIND_BLOCK_LIMIT_MS
 from app.domain.services.power_line import ATTENTION_FACTOR
 
 CAPACITY_RATIO_TRIGGER = 0.75
@@ -75,6 +75,7 @@ def assess_critical_lift(
     load_over_occupied: bool,
     min_clearance_ratio: float | None,
     wind_speed_ms: float | None,
+    wind_limit_ms: float | None,
     ground_slope_deg: float | None,
     max_ground_slope_deg: float,
     soil_attention: bool,
@@ -85,6 +86,8 @@ def assess_critical_lift(
       capacidade;
     - `min_clearance_ratio`: a menor razão distância ÷ mínima entre os trechos de rede (varrida pelo
       giro); `None` sem rede no cenário;
+    - `wind_limit_ms`: velocidade máxima de rajada desta carga (`stability.wind_limit_ms`); `None`
+      desliga o gatilho de vento;
     - `soil_attention`: algum apoio com solo em atenção ou acima do suporte.
     """
     triggers: list[CriticalLiftTrigger] = []
@@ -110,12 +113,16 @@ def assess_critical_lift(
                 f"(crítico abaixo de {ATTENTION_FACTOR:g}×)",
             )
         )
-    if wind_speed_ms is not None and wind_speed_ms > WIND_BLOCK_LIMIT_MS * WIND_RATIO_TRIGGER:
+    if (
+        wind_speed_ms is not None
+        and wind_limit_ms is not None
+        and wind_speed_ms > wind_limit_ms * WIND_RATIO_TRIGGER
+    ):
         triggers.append(
             CriticalLiftTrigger(
                 "WIND_NEAR_LIMIT",
-                f"vento de {wind_speed_ms:.1f} m/s, acima de {WIND_RATIO_TRIGGER * 100:.0f} % do "
-                f"limite ({WIND_BLOCK_LIMIT_MS:g} m/s)",
+                f"vento de {wind_speed_ms:.1f} m/s, acima de {WIND_RATIO_TRIGGER * 100:.0f} % da "
+                f"velocidade máxima de rajada da carga ({wind_limit_ms:.1f} m/s)",
             )
         )
     slope_near = (

@@ -476,11 +476,10 @@ def test_ficticio_outriggers_and_slope_drive_the_risk(client: TestClient) -> Non
     ).json()
 
     assert body["tipping_risk"] == "HIGH"
-    # A inclinação também reduz a capacidade efetiva (RN-015), levando à faixa de atenção.
+    # A inclinação deixou de reduzir a capacidade (RN-017): entra como momento de tombamento.
     assert [a["code"] for a in body["alerts"]] == [
         "OUTRIGGERS_NOT_READY",
         "GROUND_SLOPE_EXCEEDED",
-        "CAPACITY_LIMIT_WARNING",
     ]
 
 
@@ -526,6 +525,37 @@ def test_ficticio_outside_the_chart_with_load_is_high(client: TestClient) -> Non
 )
 def test_ficticio_invalid_new_inputs_are_422(client: TestClient, extra: dict[str, Any]) -> None:
     assert client.post(EVALUATIONS_PATH, json=body_ficticio(**extra)).status_code == 422
+
+
+def test_ficticio_stability_reports_pad_reactions_and_the_en13000_wind_limit(
+    client: TestClient,
+) -> None:
+    ready = {"extension_percent": 100, "jacks_set": True}
+    # Rajada de 5 m/s e carga de 40 m²: acima de 1,2 m²/t, a velocidade máxima cai de 9 m/s para
+    # 9 · √(1,2 / (A_W / m_H)) com `m_H` o peso comparado, em toneladas (RN-017; EN 13000).
+    body = client.post(
+        EVALUATIONS_PATH,
+        json=body_ficticio(
+            outriggers=ready,
+            ground_slope_deg=0.0,
+            wind_speed_ms=5.0,
+            load_wind_area_m2=40.0,
+        ),
+    ).json()
+
+    stability = body["stability"]
+    compared_t = body["compared_weight_kg"] / 1000
+    assert stability["wind_limit_ms"] == pytest.approx(9.0 * math.sqrt(1.2 / (40.0 / compared_t)))
+    assert len(stability["pad_reactions_kg"]) == 4
+    assert sum(stability["pad_reactions_kg"]) == pytest.approx(36_000 + body["compared_weight_kg"])
+    assert stability["tipped"] is False
+    assert 0 < stability["tipping_ratio_percent"] < 100
+    assert stability["wind_force_n"] > 0
+    # Sem o campo de área, a carga não recebe vento e o limite é o da tabela
+    plain = client.post(EVALUATIONS_PATH, json=body_ficticio(wind_speed_ms=5.0)).json()
+    assert plain["stability"]["wind_limit_ms"] == pytest.approx(9.0)
+    assert plain["capacity_limit"]["slope_factor"] == 1.0
+    assert plain["capacity_limit"]["wind_factor"] == 1.0
 
 
 # Rede elétrica e içamento crítico (D4; TASK-107; ADR-051) -------------------------------------

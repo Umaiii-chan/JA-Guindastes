@@ -86,3 +86,4 @@ Crie um ADR quando a decisão:
 | [ADR-047](ADR-047-carga-sobre-carroceria-acompanha-o-caminhao.md) | Carga solta sobre a carroceria acompanha o caminhão movido no editor | Proposto | 2026-10-17 |
 | [ADR-048](ADR-048-faixa-de-execucao-e-enquadramento-na-area-livre.md) | Faixa de execução do planejamento sobre a cena e enquadramento da câmera na área livre | Proposto | 2026-10-17 |
 | [ADR-049](ADR-049-apoio-so-na-carroceria-do-caminhao-plataforma.md) | Apoio da carga só na carroceria do caminhão plataforma da biblioteca (substitui a Decisão 5 do ADR-042) | Proposto | 2026-10-17 |
+| [ADR-050](ADR-050-estabilidade-por-fisica.md) | Estabilidade por física: momentos no polígono das patolas, vento EN 13000 e inclinação como momento (substitui RN-013 e RN-015) | Aceito | 2026-10-17 |

@@ -56,7 +56,15 @@ class OperatingAreaRequest(BaseModel):
         default=None, ge=0, description="Inclinação residual do terreno, em graus (opcional)."
     )
     wind_speed_ms: float | None = Field(
-        default=None, ge=0, description="Velocidade do vento, em m/s (opcional)."
+        default=None,
+        ge=0,
+        description="Rajada de 3 s no ponto mais alto, em m/s (EN 13000; opcional; RN-017).",
+    )
+    load_wind_area_m2: float | None = Field(
+        default=None,
+        ge=0,
+        description="Área de vento da carga `A_W`, em m² (opcional; RN-017): define a velocidade "
+        "máxima de rajada e a força do vento sobre a carga.",
     )
     accessory_ids: list[AccessoryId] = Field(
         default_factory=list,
@@ -143,6 +151,7 @@ def create_operating_area_router(dependency: ComputeOperatingAreaDependency) -> 
                 ground_slope_deg=request.ground_slope_deg,
                 wind_speed_ms=request.wind_speed_ms,
                 accessory_ids=tuple(request.accessory_ids),
+                load_wind_area_m2=request.load_wind_area_m2,
             )
         except OperatingAreaConfigurationNotFoundError:
             raise HTTPException(

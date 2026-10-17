@@ -24,6 +24,7 @@ import {
   loadWeightTextForEvaluation,
   validateLoadForm,
 } from '../../application/load/loadForm'
+import { loadWindAreaM2 } from '../../application/load/loadWindArea'
 import {
   completedStepCount,
   GUIDED_STEPS,
@@ -242,9 +243,18 @@ export function SimulatorRoute() {
     obstacleConflictIds(scenario.spec, crane?.geometry.workingRadiusM ?? null, collision),
   )
   const validLoad = validateLoadForm(load).load
+  // Com a carga posicionada no chão, o peso só entra na avaliação depois de engatar (TASK-073): antes
+  // disso, vale só o gancho e os acessórios, com carga 0.
+  const cargoMode = scenario.spec.cargo !== undefined && validLoad !== null
+  const cargoHooked = cargoStatus.state?.phase === 'hooked'
+  const loadWeightText = cargoMode && !cargoHooked ? '0' : loadWeightTextForEvaluation(load)
+  // A carga só recebe vento (e entra no limite de rajada da EN 13000) quando está pendurada: no chão,
+  // a avaliação vê só o gancho (TASK-106; RN-017).
+  const loadHanging = validLoad !== null && !(cargoMode && !cargoHooked)
   const scenarioExtras = {
     soilKinds: soilKindsUnderShoes(scenario.spec),
     windSpeedMs: windSpeedForEvaluation(scenario.spec),
+    loadWindAreaM2: loadHanging ? loadWindAreaM2(validLoad) : undefined,
     obstacleConflicts: conflicts,
     // Rede elétrica, posição do guindaste, carga e contexto do içamento (TASK-107; ADR-051).
     site: buildEvaluationSite({
@@ -255,12 +265,6 @@ export function SimulatorRoute() {
     }),
   }
   const scenarioExtrasKey = JSON.stringify(scenarioExtras)
-
-  // Com a carga posicionada no chão, o peso só entra na avaliação depois de engatar (TASK-073): antes
-  // disso, vale só o gancho e os acessórios, com carga 0.
-  const cargoMode = scenario.spec.cargo !== undefined && validLoad !== null
-  const cargoHooked = cargoStatus.state?.phase === 'hooked'
-  const loadWeightText = cargoMode && !cargoHooked ? '0' : loadWeightTextForEvaluation(load)
   // RN-013: a avaliação recebe a inclinação residual (terreno − nivelamento dos macacos apoiados),
   // não a bruta do terreno (TASK-094). O nivelamento é o que a animação já alcançou, como a extensão
   // e os macacos (F-27; TASK-099).

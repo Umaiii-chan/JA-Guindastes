@@ -185,6 +185,7 @@ def critical(**overrides: object):  # type: ignore[no-untyped-def]
         "load_over_occupied": False,
         "min_clearance_ratio": None,
         "wind_speed_ms": None,
+        "wind_limit_ms": 20.0,
         "ground_slope_deg": None,
         "max_ground_slope_deg": 3.0,
         "soil_attention": False,
@@ -209,7 +210,7 @@ def test_icamento_comum_nao_e_critico() -> None:
         ({"load_over_occupied": True}, "LOAD_OVER_OCCUPIED"),
         ({"min_clearance_ratio": 1.49}, "POWER_LINE_CLOSE"),
         ({"min_clearance_ratio": 0.5}, "POWER_LINE_CLOSE"),
-        ({"wind_speed_ms": 9.7}, "WIND_NEAR_LIMIT"),
+        ({"wind_speed_ms": 14.1}, "WIND_NEAR_LIMIT"),
         ({"soil_attention": True}, "GROUND_CONDITIONS"),
         ({"ground_slope_deg": 2.1}, "GROUND_CONDITIONS"),
     ],
@@ -228,7 +229,8 @@ def test_cada_gatilho_torna_o_icamento_critico(overrides: dict[str, object], cod
         {"capacity_usage_ratio": 0.7499},
         {"min_clearance_ratio": 1.5},
         {"min_clearance_ratio": 3.0},
-        {"wind_speed_ms": 9.66},  # 70 % de 13,8 m/s: o limite não entra, "acima de" entra
+        {"wind_speed_ms": 14.0},  # 70 % de 20 m/s: o limite não entra, "acima de" entra
+        {"wind_speed_ms": 30.0, "wind_limit_ms": None},  # sem limite conhecido, sem gatilho
         {"ground_slope_deg": 2.0},  # 70 % de 3° = 2,1°
         {"capacity_usage_ratio": None},
     ],

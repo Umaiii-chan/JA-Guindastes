@@ -27,11 +27,7 @@ from app.domain.entities.scenario import (
 )
 from app.domain.entities.scenario import SoilKind as ScenarioSoilKind
 from app.domain.services import rigging
-from app.domain.services.environment_factors import (
-    SOIL_BEARING_CAPACITY_KPA,
-    SoilKind,
-    pad_pressure_kpa,
-)
+from app.domain.services.environment_factors import SoilKind
 from app.domain.services.planning.crane_body import (
     BODY_HEIGHT_M,
     crane_body_overlaps_obstacle,
@@ -275,11 +271,9 @@ def _site_at(
     slope = round(ground_slope_under_crane_deg(scenario.terrain, placement), 2)
     if slope > crane.profile.max_ground_slope_deg:
         return "inclinacao"
+    # O solo não filtra mais aqui: a pressão de cada sapata depende do raio e do giro (estática do
+    # polígono, RN-017), então é conferida em cada estado avaliado (SOIL_BEARING_EXCEEDED).
     soils = _to_env_soil(soil_kinds_under_shoes(scenario, placement))
-    if soils:
-        pressure = pad_pressure_kpa(compared_kg, crane.profile)
-        if any(pressure > SOIL_BEARING_CAPACITY_KPA[kind] for kind in soils):
-            return "solo"
     rp = math.hypot(pick.x - x, pick.z - z)
     rd = math.hypot(delivery.x - x, delivery.z - z)
     reach = max(rp, rd)

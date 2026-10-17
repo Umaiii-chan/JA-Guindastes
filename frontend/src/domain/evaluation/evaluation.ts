@@ -25,8 +25,10 @@ export interface EvaluationInput {
   readonly accessoryIds?: readonly string[]
   /** Solo sob as 4 sapatas (dianteira esquerda e direita, traseira esquerda e direita; TASK-067). */
   readonly soilKinds?: readonly SoilKind[]
-  /** Velocidade do vento, em m/s (TASK-067). */
+  /** Rajada de 3 s no ponto mais alto, em m/s (TASK-067; EN 13000, TASK-106). */
   readonly windSpeedMs?: number
+  /** Área de vento da carga `A_W`, em m² (TASK-106; RN-017): só com a carga pendurada. */
+  readonly loadWindAreaM2?: number
   /** Ids dos obstáculos no raio de giro (TASK-067). */
   readonly obstacleConflicts?: readonly string[]
   /**
@@ -103,10 +105,29 @@ export interface CapacityLimitResult {
   /** Início da faixa de atenção, em % do limite. */
   readonly warningBandPercent: number
   readonly level: CapacityStatusLevel
-  /** Fator de inclinação aplicado à capacidade efetiva (1 = sem efeito; RN-015). */
+  /** Obsoleto: sempre 1 (a inclinação entra na estática, RN-017). */
   readonly slopeFactor?: number
-  /** Fator de vento aplicado à capacidade efetiva (1 = sem efeito; RN-015). */
+  /** Obsoleto: sempre 1 (o vento entra na estática e no limite de rajada, RN-017). */
   readonly windFactor?: number
+}
+
+/** Estática da operação devolvida pelo backend (TASK-106; RN-017; ADR-050). */
+export interface StabilityResult {
+  /** Momento de tombamento ÷ estabilizante do lado crítico, em %: 100 % é o limite da norma. */
+  readonly tippingRatioPercent: number
+  /** Lado do polígono de apoio mais crítico (dianteira, lado direito, traseira, lado esquerdo). */
+  readonly criticalEdge: string
+  /** As sapatas perderam o apoio. */
+  readonly tipped: boolean
+  /** Reação em cada sapata (dianteira esquerda e direita, traseira esquerda e direita), em kgf. */
+  readonly padReactionsKg: readonly number[]
+  /** Fração do peso total na sapata mais carregada. */
+  readonly worstPadShare: number
+  readonly deflectionM: number
+  readonly padHalfSpanM: number
+  /** Velocidade máxima de rajada para esta carga (EN 13000), em m/s. */
+  readonly windLimitMs: number
+  readonly windForceN: number
 }
 
 /** Risco de tombamento por regras (RN-013; TASK-055). */
@@ -188,6 +209,8 @@ interface EvaluationCommon {
   /** TASK-055 (RN-013). */
   readonly tippingRisk?: TippingRisk | null
   readonly alerts?: readonly SafetyAlert[]
+  /** TASK-106 (RN-017): margem de tombamento e reação nas sapatas. */
+  readonly stability?: StabilityResult
   /** TASK-056 (RN-014): soma dos acessórios incluída no peso comparado. */
   readonly accessoriesWeightKg?: number | null
   readonly accessories?: readonly EvaluatedAccessory[]
