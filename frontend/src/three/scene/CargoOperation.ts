@@ -12,6 +12,7 @@ import {
   releaseCargo,
   samePlacement,
 } from '../../domain/cargo/cargoOperation'
+import { followLoadBed } from '../../domain/cargo/cargoFollow'
 import { GROUND_CARGO_ID, hookWorldFrame } from '../../domain/collision/collisions'
 import {
   type CargoPlacement,
@@ -96,11 +97,21 @@ export class CargoOperation {
 
   /** Cenário: posição inicial da carga, ponto de entrega e terreno. */
   setScenario(spec: ScenarioSpec): void {
+    const previous = this.spec
     this.spec = spec
     const placement = spec.cargo ?? null
     if (!samePlacement(placement, this.placement)) {
       this.placement = placement ? { ...placement } : null
       this.resetLive()
+    } else if (this.live && this.size) {
+      // Carga solta sobre a carroceria acompanha o caminhão movido no editor (TASK-103; ADR-047).
+      this.live = followLoadBed(
+        this.live,
+        this.size,
+        previous.obstacles,
+        spec.obstacles,
+        previous.terrain,
+      )
     }
     this.sync()
   }
@@ -144,7 +155,7 @@ export class CargoOperation {
     return true
   }
 
-  /** Solta, se a carga estiver perto do chão. Devolve se soltou. */
+  /** Solta, se a carga estiver perto do apoio (chão ou carroceria). Devolve se soltou. */
   release(nowMs: number): boolean {
     const state = this.effectiveState()
     const size = this.size

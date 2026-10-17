@@ -78,15 +78,23 @@ export function rectsOverlap(a: readonly Point[], b: readonly Point[]): boolean 
   return true
 }
 
+/** A carroceria mais alta sob a pegada (cantos da base da carga), ou `null` se não há nenhuma. */
+export function loadBedUnder(
+  footprint: readonly Point[],
+  beds: readonly LoadBed[],
+): LoadBed | null {
+  let found: LoadBed | null = null
+  for (const bed of beds) {
+    if (!rectsOverlap(footprint, bed.corners)) continue
+    if (found === null || bed.topY > found.topY) found = bed
+  }
+  return found
+}
+
 /** Maior topo de carroceria sob a pegada (cantos da base da carga), ou `null` se não há nenhuma. */
 export function loadBedTopUnder(
   footprint: readonly Point[],
   beds: readonly LoadBed[],
 ): number | null {
-  let top: number | null = null
-  for (const bed of beds) {
-    if (!rectsOverlap(footprint, bed.corners)) continue
-    top = top === null ? bed.topY : Math.max(top, bed.topY)
-  }
-  return top
+  return loadBedUnder(footprint, beds)?.topY ?? null
 }
