@@ -10,3 +10,8 @@ Achados F-01, F-02 e F-13 da auditoria AUD-01 (2026-10-16, base `784a9e1`), no p
 - [x] **CA-3 (F-13)** — Coleta sob ou dentro de obstáculo é recusada com motivo claro (nome do obstáculo); entrega sobre a carreta ou o caminhão plataforma apoia a carga no topo dele; outro obstáculo na entrega recusa; aproximação, engate, subida e descida são conferidas. O frontend não muda (a diferença com a soltura da cena fica no handoff).
 - [x] **CA-4** — O tempo de `recommend_lift_plan` no fixture `planejamento_ficticio.py` fica dentro do orçamento de 2,5 s, medido antes e depois.
 - [x] **CA-5** — Testes de regressão a partir das provas da auditoria (p1, p2 e p8), com dados FICTÍCIOS.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-17 (00h51, horário de Brasília; PR #48). Revisão independente (AGENTS.md § 3): a Coruja revisou e aprovou na segunda rodada. As pendências do `handoffs/TASK-088.md` § 8 (perguntas 2 a 5, sem bloquear) seguem na TASK-102 (branch `task/TASK-102-pendencias-planejador`).
