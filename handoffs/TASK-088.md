@@ -204,3 +204,35 @@ A máquina estava carregada (outras frentes rodando): uma medição isolada do o
   (L·Δθ²/8 por trecho, coberto pelos 0,15 m): é dedução, conferida só nos testes.
 - `test_recommend_lift_plan_caminho.py` reproduz a trajetória quadro a quadro e é a melhor prova
   de ponta a ponta no backend; não há teste na cena (frontend) desta tarefa.
+
+## 12. Depois da revisão do PR #48 (2026-10-17)
+
+Correções pedidas pela revisora (papel: Implementador, Claude Code, worktree `plano088`):
+
+- **IMPORTANTE-3 (feito).** Na pose de entrega o cabo não é mais conferido contra o apoio da
+  carga (`first_path_collision(delivery_supports=...)`, `sweep.py` `_static_collision`); a lança
+  continua conferida. Teste: `test_carga_baixa_sobre_a_carreta_nao_e_recusada_pelo_cabo` (carga de
+  1500 kg, 3×1,5 m, carreta de 1,3 m, h = 1,2/0,5/0,3/0,2/0,1 m). Sem a correção, h = 0,2 e 0,1 falham.
+- **IMPORTANTE-1 (feito, com ressalva).** Decisão do maestro: o "barracao-aberto" é OCO. Novo
+  `planning/library_boxes.py` espelha `hangarBoxes()` (30 caixas, mesma escala por eixo e giro do
+  objeto); cada caixa vira uma parte do obstáculo (mesmo id com sufixo `#n` e mesmo nome;
+  `ObstacleSpec.elevation_m`, só do planejador). Coleta, entrega e caminho usam as partes, com a
+  conferência vertical (teto com vão por baixo); o planejador também tenta uma altura de transporte
+  que passa sob o teto antes da que passa por cima. Teste que fixa os números (cita
+  `objectLibrary.ts`): `test_library_boxes.py`. **Ressalva (FATO):** o cenário da IA
+  (carga dentro do barracão, guindaste fora) deixa de ser recusado na coleta, mas com o guindaste da
+  fixture ainda não sai plano: os descartes são `colisao_cabo` (o cabo da lança alta atravessa o
+  teto; com a lança baixa, a ficha da fixture não alcança) e `inclinacao`/`cabo`. Hipótese: um
+  guindaste real com lança longa e baixa fecha o plano; não verifiquei com a ficha real. O teste
+  `test_carga_dentro_do_barracao_aberto_nao_e_mais_recusada_na_coleta` fixa só "não recusa na
+  coleta". Falta o teste "voltou a ter plano" (precisa de uma ficha que alcance).
+- **IMPORTANTE-2 (ii) e MENOR-4: NÃO feitos** (prazo). Registrados em `docs/known-gaps.md` (L-016),
+  junto com a parte (i) (soltura sobre a carreta, do frontend).
+- **ADR-042:** aceito pela pessoa responsável (commit próprio).
+
+Verificação (em `backend/`): `uv run ruff check .` ✅ `All checks passed!`; `uv run ruff format
+--check .` ✅; `uv run mypy app` ✅ `Success: no issues found in 177 source files`; `uv run
+lint-imports` ✅ `Contracts: 3 kept, 0 broken.`; `uv run pytest tests/domain/services/planning
+tests/application` ✅ (sem falhas). Suíte completa e `check-structure.sh` NÃO rodados (prazo).
+Tempo de `test_cenario_cheio_responde_dentro_do_orcamento` (orçamento 2,5 s): antes 0,13 s;
+depois 0,08 / 0,08 / 0,12 s (sem barracão no cenário).
