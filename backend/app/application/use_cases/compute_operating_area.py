@@ -40,16 +40,17 @@ from app.domain.entities.load_chart import LoadChart
 from app.domain.services.compared_load_weight import weight_compared_with_capacity
 from app.domain.services.environment_factors import (
     slope_blocks,
-    slope_factor,
     wind_blocks,
-    wind_factor,
 )
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
 from app.domain.services.safety_assessment import LimitLevel, limit_level
+from app.domain.services.stability import assess_stability, wind_limit_ms
 from app.domain.value_objects.capacity_query import CapacityQuery
 from app.domain.value_objects.capacity_result import CapacityFound
+from app.domain.value_objects.crane_geometry import CraneGeometry
 from app.domain.value_objects.length import Length
 from app.domain.value_objects.mass import Mass
+from app.domain.value_objects.operational_geometry import OperationalGeometry, Point3D
 from app.domain.value_objects.rotation_zone import RotationZone
 from app.domain.value_objects.safety_profile import SafetyProfile
 
@@ -93,6 +94,63 @@ class OperatingArea:
     cells: tuple[OperatingAreaCell, ...]
 
 
+@dataclass(frozen=True)
+class _StabilityInputs:
+    """O que a estática de cada célula da grade usa além do raio e do giro (RN-017)."""
+
+    crane: CraneGeometry
+    profile: SafetyProfile
+    ground_slope_deg: float | None
+    wind_speed_ms: float | None
+    load_wind_area_m2: float | None
+
+
+def _worst_level(a: AreaLevel, b: AreaLevel) -> AreaLevel:
+    order = (AreaLevel.GREEN, AreaLevel.YELLOW, AreaLevel.RED)
+    return max(a, b, key=order.index)
+
+
+def _stability_level(
+    inputs: _StabilityInputs, boom_length_m: float, radius_m: float, psi_deg: float, compared: Mass
+) -> AreaLevel:
+    """Nível da estática da célula `(ψ, R)`: a lança com o ângulo que dá o raio `R` e o cabo mínimo.
+
+    Raio sem lança possível (`R − a` fora de `[−L, L]`, ou ponta atrás do eixo): a célula não tem
+    estática, e a faixa da tabela decide, como antes."""
+    crane = inputs.crane
+    cosine = (radius_m - crane.boom_pivot_offset_m) / boom_length_m
+    if not 0 <= cosine <= 1:
+        return AreaLevel.GREEN
+    angle = math.acos(cosine)
+    direction = (math.sin(math.radians(psi_deg)), math.cos(math.radians(psi_deg)))
+    pivot_y = crane.boom_pivot_height.meters
+    tip_y = pivot_y + boom_length_m * math.sin(angle)
+    hook_y = tip_y - crane.cable_length_min.meters
+    offset = crane.boom_pivot_offset_m
+    geometry = OperationalGeometry(
+        working_radius=Length(radius_m),
+        boom_pivot=Point3D(offset * direction[0], pivot_y, offset * direction[1]),
+        boom_tip=Point3D(radius_m * direction[0], tip_y, radius_m * direction[1]),
+        hook=Point3D(radius_m * direction[0], hook_y, radius_m * direction[1]),
+    )
+    stability = assess_stability(
+        params=inputs.profile.stability,
+        crane_mass_kg=inputs.profile.crane_mass_kg,
+        geometry=geometry,
+        turret_rotation_deg=psi_deg,
+        boom_length_m=boom_length_m,
+        compared_weight_kg=compared.kilograms,
+        ground_slope_deg=inputs.ground_slope_deg,
+        wind_speed_ms=inputs.wind_speed_ms,
+        load_wind_area_m2=inputs.load_wind_area_m2,
+    )
+    if stability.tipped or stability.tipping_ratio >= 1.0:
+        return AreaLevel.RED
+    if stability.tipping_ratio >= inputs.profile.stability.attention_ratio:
+        return AreaLevel.YELLOW
+    return AreaLevel.GREEN
+
+
 class ComputeOperatingArea:
     def __init__(
         self,
@@ -122,10 +180,12 @@ class ComputeOperatingArea:
         ground_slope_deg: float | None = None,
         wind_speed_ms: float | None = None,
         accessory_ids: Sequence[str] = (),
+        load_wind_area_m2: float | None = None,
     ) -> OperatingArea:
-        """Calcula a grade. Inclinação e vento reduzem a capacidade em todas as células (RN-015);
-        terreno inclinado demais ou vento acima do limite deixam tudo vermelho. `accessory_ids`
-        (RN-014): cada ocorrência soma o peso do acessório ao peso comparado, como na avaliação.
+        """Calcula a grade. Terreno inclinado demais ou vento acima do limite (EN 13000) deixam
+        tudo vermelho; em cada célula, a estabilidade (RN-017) também conta: `ρ ≥ 1` é vermelho e
+        a faixa de atenção é amarela, com a inclinação e o vento como momento, como na avaliação.
+        `accessory_ids` (RN-014): cada ocorrência soma o peso do acessório ao peso comparado.
         Levanta `OperatingAreaConfigurationNotFoundError` ou `OperatingAreaInvalidInputError`."""
         geometry = self._geometry_provider.get_crane_geometry(configuration_id)
         if geometry is None:
@@ -154,8 +214,18 @@ class ComputeOperatingArea:
         profile = self._profile(configuration_id)
         hook = rules.hook_block_weight or Mass(0.0)
         compared = weight_compared_with_capacity(load_weight, hook, accessories)
-        factor = slope_factor(ground_slope_deg, profile) * wind_factor(wind_speed_ms)
-        blocked = slope_blocks(ground_slope_deg, profile) or wind_blocks(wind_speed_ms)
+        # A inclinação e o vento deixaram de ser fatores da capacidade (RN-017; ADR-050).
+        factor = 1.0
+        blocked = slope_blocks(ground_slope_deg, profile) or wind_blocks(
+            wind_speed_ms, wind_limit_ms(compared.kilograms, load_wind_area_m2, profile.stability)
+        )
+        stability_inputs = _StabilityInputs(
+            crane=geometry,
+            profile=profile,
+            ground_slope_deg=ground_slope_deg,
+            wind_speed_ms=wind_speed_ms,
+            load_wind_area_m2=load_wind_area_m2,
+        )
 
         # A tabela ativa de cada zona é buscada uma vez (a consulta ao banco é o custo).
         charts: dict[str | None, LoadChart | None] = {}
@@ -179,6 +249,11 @@ class ComputeOperatingArea:
                 level = self._cell_level(
                     zones, chart_for, boom_length_m, radius, compared, profile, factor, blocked
                 )
+                if level is not AreaLevel.RED and not blocked:
+                    level = _worst_level(
+                        level,
+                        _stability_level(stability_inputs, boom_length_m, radius, psi, compared),
+                    )
                 cells.append(OperatingAreaCell(psi_deg=psi, radius_m=radius, level=level))
 
         return OperatingArea(

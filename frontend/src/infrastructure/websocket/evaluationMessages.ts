@@ -24,6 +24,7 @@ import {
   readString,
 } from '../shared/readJson'
 import { readCapacityLimit } from '../shared/evaluationCapacityLimit'
+import { readStability } from '../shared/evaluationStability'
 import { readSafety } from '../shared/evaluationSafety'
 import { readAccessories } from '../shared/evaluationAccessories'
 import { readZoneAndWeights } from '../shared/evaluationZone'
@@ -50,6 +51,7 @@ export interface OperationalStatePayloadDto {
   /** TASK-067 (RN-015): opcionais; ausentes não têm efeito. */
   readonly soil_kinds?: readonly string[]
   readonly wind_speed_ms?: number
+  readonly load_wind_area_m2?: number
   readonly obstacle_conflicts?: readonly string[]
 }
 
@@ -203,6 +205,7 @@ function mapEvaluatedPayload(payload: JsonRecord): EvaluationResult {
     loadChartVersion: readNullableString(payload, 'load_chart_version', path),
     ...readZoneAndWeights(payload, path),
     ...readCapacityLimit(payload, path),
+    ...readStability(payload, path),
     ...readSafety(payload, path),
     ...readAccessories(payload, path),
   }

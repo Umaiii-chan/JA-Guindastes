@@ -202,3 +202,30 @@ def test_accessories_without_a_catalog_are_422() -> None:
 @pytest.mark.parametrize("ids", [[""], ["x" * 65], ["ACC"] * 21, "ACC"])
 def test_malformed_accessory_ids_are_422(ids: Any) -> None:
     assert post(accessory_client(), accessory_ids=ids).status_code == 422
+
+
+def test_wind_above_the_gust_limit_turns_the_whole_grid_red() -> None:
+    client = make_client()
+
+    assert level_at(post(client, wind_speed_ms=5.0).json(), 0.0, 12.0) == "GREEN"
+    blocked = post(client, wind_speed_ms=10.0).json()  # acima dos 9 m/s da tabela (EN 13000)
+    assert {cell["level"] for cell in blocked["cells"]} == {"RED"}
+
+
+def test_the_load_wind_area_lowers_the_gust_limit() -> None:
+    # 1 500 kg com 30 m² de vento: A_W / m_H = 20 m²/t, v_max = 9 · √(1,2 / 20) = 2,2 m/s (RN-017)
+    client = make_client()
+
+    assert level_at(post(client, wind_speed_ms=3.0).json(), 0.0, 12.0) == "GREEN"
+    windy = post(client, wind_speed_ms=3.0, load_wind_area_m2=30.0).json()
+    assert {cell["level"] for cell in windy["cells"]} == {"RED"}
+
+
+def test_a_light_crane_tips_where_the_table_still_allows_the_load() -> None:
+    # R = 21 m: a tabela dá 2 000 kg (1 500 kg = 75 %), e a estática de um guindaste de 36 000 kg
+    # fica longe do tombamento (ρ ≈ 0,46); com 6 000 kg, o momento estabilizante cai 6× e ρ > 1.
+    heavy = post(make_client()).json()
+    light = post(make_client(SafetyProfile(crane_mass_kg=6_000.0))).json()
+
+    assert level_at(heavy, 0.0, 21.0) == "GREEN"
+    assert level_at(light, 0.0, 21.0) == "RED"

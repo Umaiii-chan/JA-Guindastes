@@ -23,6 +23,8 @@ export function residualGroundSlopeDeg(
 export interface ScenarioEvaluationExtras {
   readonly soilKinds?: readonly SoilKind[]
   readonly windSpeedMs?: number
+  /** Área de vento da carga `A_W` (TASK-106; RN-017), só com a carga pendurada. */
+  readonly loadWindAreaM2?: number
   readonly obstacleConflicts?: readonly string[]
 }
 
@@ -73,6 +75,9 @@ export function buildEvaluationInput(
       ...(scenarioExtras.windSpeedMs === undefined
         ? {}
         : { windSpeedMs: scenarioExtras.windSpeedMs }),
+      ...(scenarioExtras.loadWindAreaM2 === undefined
+        ? {}
+        : { loadWindAreaM2: scenarioExtras.loadWindAreaM2 }),
       ...(scenarioExtras.obstacleConflicts && scenarioExtras.obstacleConflicts.length > 0
         ? { obstacleConflicts: scenarioExtras.obstacleConflicts }
         : {}),
