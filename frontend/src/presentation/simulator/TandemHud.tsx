@@ -1,4 +1,4 @@
-import { CircleAlert } from 'lucide-react'
+import { ChevronDown, CircleAlert } from 'lucide-react'
 
 import { evaluationStatus } from '../../application/evaluation/evaluationStatus'
 import type {
@@ -10,6 +10,7 @@ import type {
 import { TANDEM_CAPACITY_FACTOR } from '../../domain/tandem/tandem'
 import type { TandemResult } from '../../domain/tandem/tandemEvaluation'
 import { Badge, EmptyState, Spinner, StatusPill, type Tone } from '../ui'
+import { useResultDetails } from './layout/resultDetails'
 import styles from './TandemHud.module.css'
 
 export interface TandemHudProps {
@@ -53,6 +54,8 @@ function format(value: number, digits = 0): string {
  */
 export function TandemHud({ result, error, pending, labels }: TandemHudProps) {
   const ok = result?.tandemOk === true
+  // No cartão de resultado (TASK-095), "Detalhes" mostra a geometria de pré-visualização.
+  const details = useResultDetails()
   return (
     <section
       className={styles.hud}
@@ -120,6 +123,18 @@ export function TandemHud({ result, error, pending, labels }: TandemHudProps) {
             ))}
           </ul>
         </div>
+      )}
+      {details.extraId !== null && (
+        <button
+          type="button"
+          className={styles.detailsToggle}
+          aria-expanded={details.open}
+          aria-controls={details.extraId}
+          onClick={details.toggle}
+        >
+          <ChevronDown size={14} aria-hidden="true" data-open={details.open || undefined} />
+          Detalhes
+        </button>
       )}
     </section>
   )

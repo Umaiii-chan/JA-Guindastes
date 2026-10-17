@@ -149,3 +149,35 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+/* Cartão de resultado do simulador (TASK-095): "Detalhes" abre a geometria no próprio cartão. */
+.hud {
+  height: auto;
+}
+
+.detailsToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: 30px;
+  padding: 0 var(--space-4);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-1);
+  text-align: left;
+}
+
+.detailsToggle:hover {
+  background: var(--color-surface-2);
+}
+
+.detailsToggle svg {
+  color: var(--color-text-2);
+  transform: rotate(-90deg);
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.detailsToggle svg[data-open] {
+  transform: none;
+}

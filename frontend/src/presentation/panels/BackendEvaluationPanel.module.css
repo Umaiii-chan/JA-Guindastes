@@ -1,90 +1,89 @@
 /*
- * Ficha do resultado como carimbo de prancha (ADR-019). Faixa de título com a situação; embaixo, a
- * linha da utilização (número grande em mono ao lado da régua graduada) de ponta a ponta e, sob ela,
- * duas células separadas por um filete vertical: os valores (tabela densa) e as notas.
+ * Ficha do resultado no cartão sobre a cena (TASK-095; ADR-042, com o visual do ADR-019): faixa de
+ * título com a situação; a régua da utilização; os três números que se olham o tempo todo; o risco e o
+ * alerta mais grave; e "Detalhes", que abre no próprio cartão a conta do peso, o limite, os alertas e
+ * a consulta.
  */
 .hud {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-height: 0;
-  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .header {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  min-width: 0;
   min-height: 36px;
-  padding: 3px var(--space-2) 3px var(--space-4);
-  border-bottom: 1px solid var(--color-border);
+  padding: 3px var(--space-2) 3px var(--space-3);
+  border-bottom: 1px solid var(--color-border-ink);
+  overflow: hidden;
 }
 
 .title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  flex: none;
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--letter-spacing-wide);
+  letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
 }
 
+/* "atualizando…": só o indicador à vista (o texto fica para leitores de tela); sempre ocupa o
+   lugar (TASK-078), só a visibilidade muda. */
 .pending {
   display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-xs);
+  width: 12px;
   color: var(--color-text-1);
+}
+
+.pendingText {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .headerSpacer {
   flex: 1;
 }
 
-.kind {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-2);
-  text-transform: lowercase;
-}
-
-.cells {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  align-content: start;
-  min-height: 0;
-}
-
-.cell {
-  display: grid;
-  align-content: start;
-  gap: 4px;
-  padding: 6px var(--space-4);
+/* Selo da situação: encolhe com reticências em vez de empurrar o título; espaçamento menor que o
+   dos outros selos grandes para "Dentro da capacidade" caber no cartão. */
+.headerPill {
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  letter-spacing: 0.04em;
 }
 
-/* Utilização: a linha inteira, sobre um filete. */
-.cellUtilization {
-  grid-column: 1 / -1;
-  align-content: center;
-  padding-top: 4px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--color-border);
+.headerPill > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.cellNotes {
+/* ── Primeiro nível: régua, números e selos ──────────────────────────────────────────────── */
+
+.summary {
+  display: grid;
   gap: var(--space-2);
-  border-left: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-3) var(--space-1);
 }
-
-/* ── Valores: rótulo em caixa alta pequena sobre o número em mono ─────────── */
 
 .keyMetrics {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
-  gap: var(--space-3);
+  grid-template-columns: repeat(3, auto);
+  justify-content: space-between;
+  gap: var(--space-2);
   margin: 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
 }
 
 .metric {
@@ -105,10 +104,11 @@
 }
 
 .metric dd {
+  min-height: 1.5em;
   margin: 0;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums slashed-zero;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-1);
   white-space: nowrap;
@@ -116,21 +116,146 @@
   text-overflow: ellipsis;
 }
 
-.zoneValue {
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
+.badges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 22px;
+  min-width: 0;
 }
 
-/* Conta do peso comparado: carga + gancho = peso comparado, em linha, sobre um filete. */
-.parts {
+.riskPill {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.riskPill > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kind {
+  flex: none;
+  min-width: 8ch;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-2);
+  text-align: right;
+  text-transform: lowercase;
+}
+
+/* ── Notas: aguardando, erro, motivos e o alerta mais grave ──────────────────────────────── */
+
+.note {
+  margin: 0 var(--space-3) var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  column-gap: var(--space-2);
+}
+
+.note > p {
+  font-size: var(--font-size-sm);
+}
+
+.waiting {
+  padding: 0 var(--space-3) var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.reasons {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) auto minmax(0, 0.8fr) auto minmax(0, 1.4fr);
-  align-items: end;
-  gap: 6px;
-  margin: 0;
-  padding-top: 6px;
+  gap: var(--space-1);
+  padding: 0 var(--space-3) var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+}
+
+.reasons ul {
+  list-style: none;
+  display: grid;
+  gap: 2px;
+}
+
+.topAlert {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0 var(--space-3) var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-1);
+}
+
+.topAlertText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.moreAlerts {
+  flex: none;
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-2);
+}
+
+/* ── Detalhes ───────────────────────────────────────────────────────────────────────────── */
+
+.detailsToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: 30px;
+  padding: 0 var(--space-3);
   border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-1);
+  text-align: left;
+}
+
+.detailsToggle:hover {
+  background: var(--color-surface-2);
+}
+
+.detailsToggle:focus-visible {
+  outline-offset: -2px;
+}
+
+.detailsToggle svg {
+  flex: none;
+  color: var(--color-text-2);
+  transform: rotate(-90deg);
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.detailsToggle svg[data-open] {
+  transform: none;
+}
+
+.details {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.details[hidden] {
+  display: none;
+}
+
+/* Conta do peso comparado: carga + gancho = peso comparado, em linha. */
+.parts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 4px var(--space-2);
+  margin: 0;
 }
 
 .part {
@@ -139,7 +264,7 @@
 }
 
 .parts .metric dd {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
 }
 
 .partTotal .metric dd {
@@ -153,47 +278,56 @@
   color: var(--color-text-2);
 }
 
-/* ── Notas ──────────────────────────────────────────────────────────────── */
-
-.waiting {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-2);
+.detailMetrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: var(--space-2);
+  margin: 0;
 }
 
-.reasons {
+.zoneValue {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.meta {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-3);
+}
+
+/* Alertas de segurança (RN-013; TASK-055): uma linha por alerta, com a gravidade em selo. */
+.alerts {
   display: grid;
   gap: var(--space-1);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-2);
-}
-
-.reasons ul {
+  margin: 0;
+  padding: 0;
   list-style: none;
-  display: grid;
-  gap: 2px;
 }
 
-.details {
-  border-bottom: 1px solid var(--color-border);
-}
-
-.details summary {
-  padding: 2px 0 4px;
+.alert {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
   color: var(--color-text-1);
-  cursor: pointer;
-  list-style-position: inside;
 }
 
-.details summary:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.query {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.queryTitle {
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-2);
 }
 
 .rows {
   display: grid;
-  padding-bottom: var(--space-1);
 }
 
 .row {
@@ -217,145 +351,6 @@
   text-align: right;
 }
 
-/* PROVISÓRIO: carimbo retangular pequeno e inclinado, seguido da nota em texto corrido. */
-.provisional {
-  font-size: var(--font-size-2xs);
-  line-height: 1.5;
-  color: var(--color-text-2);
-}
-
-.provisional strong {
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-1);
-}
-
-.provisionalStamp {
-  display: table;
-  margin: 0 0 4px 2px;
-  padding: 0 4px;
-  border: 1.5px solid var(--color-status-warning-text);
-  color: var(--color-status-warning-text);
-  font-size: var(--font-size-3xs);
-  font-weight: var(--font-weight-bold);
-  font-stretch: var(--font-stretch-condensed);
-  letter-spacing: var(--letter-spacing-caps);
-  line-height: 1.5;
-  transform: rotate(-3deg);
-}
-
-.meta {
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-3);
-}
-
 .detailsNote {
   padding: 0 0 var(--space-1);
-}
-
-/* Aguardando ou erro dentro da célula de notas: nota compacta, sem ocupar a ficha. */
-.cellNotes .note {
-  padding: var(--space-2) var(--space-3);
-  column-gap: var(--space-2);
-}
-
-.cellNotes .note > p {
-  font-size: var(--font-size-sm);
-}
-
-/* Alertas de segurança (RN-013; TASK-055): uma linha por alerta, com a gravidade em selo. */
-.alerts {
-  display: grid;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.alert {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-1);
-}
-
-/* ── Campos estáveis (TASK-078): nada muda de largura nem de altura durante a simulação ─────── */
-
-.header {
-  min-width: 0;
-  overflow: hidden;
-}
-
-.title {
-  flex: none;
-}
-
-/* "atualizando…" e "Avaliado" sempre ocupam o lugar; só a visibilidade muda. */
-.pending {
-  flex: none;
-  min-width: 11ch;
-  white-space: nowrap;
-}
-
-.kind {
-  flex: none;
-  min-width: 8ch;
-  text-align: right;
-}
-
-/* Selos do cabeçalho: base fixa, encolhem com reticências em vez de empurrar o vizinho. */
-.headerPill {
-  flex: 0 1 var(--pill-basis, 12.5rem);
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-}
-
-.headerPill > span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.riskPill {
-  --pill-basis: 16rem;
-}
-
-.statusPill {
-  --pill-basis: 12.5rem;
-}
-
-/* Reserva do selo de risco quando ainda não há valor: só o espaço, sem desenhar nada. */
-span.riskPill {
-  display: block;
-  height: 30px;
-  visibility: hidden;
-}
-
-.metric dd {
-  min-height: 1.5em;
-  font-variant-numeric: tabular-nums slashed-zero;
-}
-
-.keyMetrics .metric {
-  min-width: 9ch;
-}
-
-/* Alertas de segurança: sem espaço reservado vazio; lista longa rola por dentro. */
-.alertsBox {
-  max-height: 56px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-/* Linhas dos detalhes da consulta: altura limitada, rolagem por dentro. */
-.rows {
-  max-height: 148px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.row dd {
-  min-width: 8ch;
-  white-space: nowrap;
 }
