@@ -1,0 +1,158 @@
+import { describe, expect, it } from 'vitest'
+
+import {
+  cargoBaseY,
+  cargoStatusOf,
+  checkEngage,
+  checkRelease,
+  engageCargo,
+  type HookReference,
+  initialCargoState,
+  releaseCargo,
+} from '../../../src/domain/cargo/cargoOperation'
+import { loadBedsOf, rectsOverlap } from '../../../src/domain/cargo/loadBeds'
+import { rotY } from '../../../src/domain/collision/obb'
+import {
+  type DeliveryPoint,
+  EMPTY_SCENARIO,
+  type Obstacle,
+  type TerrainSpec,
+} from '../../../src/domain/environment/environment'
+import { findLibraryObject, newModelObstacle } from '../../../src/domain/environment/objectLibrary'
+
+// Dados FICTÍCIOS. Caminhão plataforma no centro (0, 0), tamanho real da biblioteca: carroceria na
+// metade de trás (z de −3,705 a 0), 4,05 m de largura e topo a 53 % de 3,51 m.
+const FLAT: TerrainSpec = EMPTY_SCENARIO.terrain
+// A caixa da biblioteca é arredondada ao centímetro: 3,51 × 0,53 = 1,86 m.
+const BED_TOP = 1.86
+const SIZE = { lengthM: 2, widthM: 2, heightM: 1 }
+
+function truck(modelId: string, rotationYDeg = 0): Obstacle {
+  const object = findLibraryObject(modelId)
+  if (!object) throw new Error(`sem ${modelId}`)
+  return {
+    ...newModelObstacle(object, `obs-${modelId}`, modelId),
+    centerX: 0,
+    centerZ: 0,
+    rotationYDeg,
+  }
+}
+
+const PLATFORM = truck('caminhao-plataforma')
+
+function hookAt(x: number, y: number, z: number): HookReference {
+  return {
+    frame: { rot: rotY(0), pos: { x, y, z } },
+    yawDeg: 0,
+    attachOffsetM: 1,
+    accessoriesDropM: 0,
+  }
+}
+
+const pose = (x: number, z: number, rotationYDeg = 0) => ({ x, z, rotationYDeg })
+
+describe('carroceria do caminhão plataforma como superfície de apoio', () => {
+  it('só o caminhão plataforma tem carroceria; outros objetos não recebem carga', () => {
+    expect(loadBedsOf([PLATFORM], FLAT)).toHaveLength(1)
+    expect(loadBedsOf([truck('caminhao-bau'), truck('caminhao')], FLAT)).toHaveLength(0)
+    expect(loadBedsOf([{ ...PLATFORM, kind: 'box', modelId: undefined }], FLAT)).toHaveLength(0)
+  })
+
+  it('sobre a carroceria, a base assenta no topo dela', () => {
+    expect(cargoBaseY(FLAT, SIZE, pose(0, -1.85), [PLATFORM])).toBeCloseTo(BED_TOP, 6)
+  })
+
+  it('ao lado do caminhão, a base fica no chão', () => {
+    expect(cargoBaseY(FLAT, SIZE, pose(4, -1.85), [PLATFORM])).toBe(0)
+    expect(cargoBaseY(FLAT, SIZE, pose(0, -1.85), [])).toBe(0)
+  })
+
+  it('só encostando na borda da carroceria, a base fica no chão', () => {
+    // Carga de z = 0,01 a 2,01: fora da carroceria, que termina em z = 0,005 (caixa arredondada).
+    expect(cargoBaseY(FLAT, SIZE, pose(0, 1.01), [PLATFORM])).toBe(0)
+  })
+
+  it('parcialmente fora da carroceria, a carga se apoia nela', () => {
+    // Carga de z = −0,5 a 1,5: metade sobre a carroceria, metade para fora.
+    expect(cargoBaseY(FLAT, SIZE, pose(0, 0.5), [PLATFORM])).toBeCloseTo(BED_TOP, 6)
+  })
+
+  it('acompanha o giro do caminhão e a altura do terreno sob ele', () => {
+    const turned = truck('caminhao-plataforma', 90)
+    // Girada 90°, a carroceria passa para x de 0 a 3,705 (rotY: +Z vira +X, então −Z vira −X).
+    const beds = loadBedsOf([turned], FLAT)
+    const xs = beds[0]!.corners.map((corner) => corner.x)
+    expect(Math.min(...xs)).toBeCloseTo(-3.705, 2)
+    expect(Math.max(...xs)).toBeCloseTo(0, 1)
+    expect(cargoBaseY(FLAT, SIZE, pose(-1.85, 0), [turned])).toBeCloseTo(BED_TOP, 6)
+    expect(cargoBaseY(FLAT, SIZE, pose(1.85, 0), [turned])).toBe(0)
+
+    const slope: TerrainSpec = { slopeXPercent: 0, slopeZPercent: 0, features: [] }
+    expect(loadBedsOf([PLATFORM], slope)[0]?.topY).toBeCloseTo(BED_TOP, 6)
+  })
+
+  it('rectsOverlap: separados e encostados não se sobrepõem', () => {
+    const square = (x: number) => [
+      { x, z: 0 },
+      { x: x + 1, z: 0 },
+      { x: x + 1, z: 1 },
+      { x, z: 1 },
+    ]
+    expect(rectsOverlap(square(0), square(0.5))).toBe(true)
+    expect(rectsOverlap(square(0), square(1))).toBe(false)
+    expect(rectsOverlap(square(0), square(3))).toBe(false)
+  })
+})
+
+describe('soltar sobre a carroceria', () => {
+  const OBSTACLES = [PLATFORM]
+  const DELIVERY: DeliveryPoint = { x: 0, z: -1.85, rotationYDeg: 0, radiusM: 2 }
+  // Carga engatada no chão em (10, 0), com o gancho 0,4 m acima do topo (1 m): lingas de 0,4 m.
+  const start = initialCargoState({ x: 10, z: 0, rotationYDeg: 0 })
+  const hooked = engageCargo(start, hookAt(10, 2.4, 0), SIZE, FLAT, OBSTACLES)
+
+  // Base da carga = G − 1 (gancho) − 0,4 (lingas) − 1 (altura) = G − 2,4; o gancho segue a carga.
+  const hookOver = (baseY: number, x: number, z: number) => hookAt(x + 10, baseY + 2.4, z)
+
+  it('solta a até 0,2 m do topo da carroceria, não do chão', () => {
+    const over = hookOver(BED_TOP + 0.1, -10, -1.85)
+    const check = checkRelease(over, hooked.hooked!, SIZE, FLAT, OBSTACLES)
+    expect(check.heightAboveGroundM).toBeCloseTo(0.1, 6)
+    expect(check.canRelease).toBe(true)
+    // Sem a carroceria no cenário, a mesma posição está a 1,96 m do chão: não solta.
+    expect(checkRelease(over, hooked.hooked!, SIZE, FLAT).canRelease).toBe(false)
+  })
+
+  it('alto demais sobre a carroceria não solta', () => {
+    const over = hookOver(BED_TOP + 0.5, -10, -1.85)
+    expect(checkRelease(over, hooked.hooked!, SIZE, FLAT, OBSTACLES).canRelease).toBe(false)
+  })
+
+  it('ao lado do caminhão vale a regra do chão', () => {
+    const near = hookOver(0.1, -6, -1.85)
+    expect(checkRelease(near, hooked.hooked!, SIZE, FLAT, OBSTACLES).canRelease).toBe(true)
+    const high = hookOver(BED_TOP + 0.1, -6, -1.85)
+    expect(checkRelease(high, hooked.hooked!, SIZE, FLAT, OBSTACLES).canRelease).toBe(false)
+  })
+
+  it('solta e a carga fica apoiada na carroceria, entregue no alvo', () => {
+    const over = hookOver(BED_TOP + 0.1, -10, -1.85)
+    const status = cargoStatusOf(hooked, over, SIZE, FLAT, DELIVERY, OBSTACLES)
+    expect(status.canRelease).toBe(true)
+    const released = releaseCargo(hooked, over, SIZE, FLAT, DELIVERY, 1000, OBSTACLES)
+    expect(released.phase).toBe('ground')
+    expect(released.result).toBe('delivered')
+    expect(released.z).toBeCloseTo(-1.85, 3)
+    expect(cargoBaseY(FLAT, SIZE, released, OBSTACLES)).toBeCloseTo(BED_TOP, 6)
+  })
+
+  it('engatar de novo a carga que está na carroceria conta o topo dela', () => {
+    const onBed = initialCargoState({ x: 0, z: -1.85, rotationYDeg: 0 })
+    const top = BED_TOP + SIZE.heightM
+    // Fim do gancho (G − 1) 0,3 m acima do topo.
+    const check = checkEngage(hookAt(0, top + 1.3, -1.85), onBed, SIZE, FLAT, OBSTACLES)
+    expect(check.gapM).toBeCloseTo(0.3, 6)
+    expect(check.canEngage).toBe(true)
+    expect(checkEngage(hookAt(0, top + 1.3, -1.85), onBed, SIZE, FLAT).canEngage).toBe(false)
+  })
+})

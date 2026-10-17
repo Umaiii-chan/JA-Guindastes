@@ -61,6 +61,11 @@ export interface LibraryObject {
   readonly baseSize: ObjectSize
   readonly collision: readonly CollisionBox[]
   /**
+   * Superfície onde a carga pode ser solta (TASK-101): a carroceria de um caminhão plataforma. É uma
+   * das caixas de `collision`; o topo dela (`y + h`) é a altura de apoio. Só quem declara recebe carga.
+   */
+  readonly loadBed?: CollisionBox
+  /**
    * Deslocamento (m) a aplicar ao modelo carregado para que o centro da planta fique na origem; só
    * para um GLB que não foi gerado já centrado (o guindaste estacionado).
    */
@@ -240,6 +245,13 @@ const SUV: ObjectSize = { w: 2.55, d: 4.59, h: 2.21 }
 const VAN: ObjectSize = { w: 2.85, d: 5.23, h: 2.56 }
 const PARKED_CRANE: ObjectSize = { w: 6.2, d: 18.88, h: 4.57 }
 
+/** Trechos do caminhão plataforma: a carroceria (traseira, 0,53 da altura) vem primeiro. */
+const TRUCK_FLAT_COLLISION = vehicle(TRUCK_FLAT, [
+  [0, 0.5, 0.53, 1],
+  [0.5, 0.8, 1, 0.9],
+  [0.8, 1, 0.62, 1],
+])
+
 export const OBJECT_LIBRARY: readonly LibraryObject[] = [
   {
     id: 'arvore-carvalho',
@@ -343,11 +355,8 @@ export const OBJECT_LIBRARY: readonly LibraryObject[] = [
     category: 'veiculo',
     file: 'objetos/caminhao-plataforma.glb',
     baseSize: TRUCK_FLAT,
-    collision: vehicle(TRUCK_FLAT, [
-      [0, 0.5, 0.53, 1],
-      [0.5, 0.8, 1, 0.9],
-      [0.8, 1, 0.62, 1],
-    ]),
+    collision: TRUCK_FLAT_COLLISION,
+    loadBed: TRUCK_FLAT_COLLISION[0],
   },
   {
     id: 'caminhao-bau',
@@ -482,4 +491,22 @@ export function scaledCollisionBoxes(
     d: box.d * scale.z,
     h: box.h * scale.y,
   }))
+}
+
+/** A superfície de carga do objeto (`loadBed`) já escalada para o tamanho do obstáculo. */
+export function scaledLoadBed(
+  obstacle: Pick<Obstacle, 'widthM' | 'depthM' | 'heightM'>,
+  object: LibraryObject,
+): CollisionBox | undefined {
+  const bed = object.loadBed
+  if (!bed) return undefined
+  const scale = modelScale(obstacle, object)
+  return {
+    x: bed.x * scale.x,
+    z: bed.z * scale.z,
+    y: bed.y * scale.y,
+    w: bed.w * scale.x,
+    d: bed.d * scale.z,
+    h: bed.h * scale.y,
+  }
 }
