@@ -20,7 +20,7 @@
 
 - Falta um teste de componente do `SimulatorRoute` para o valor enviado depois de "Apoiar e nivelar"
   (registrado também no handoff da TASK-094).
-- ADR-044 (TASK-091) aguardando decisão.
+- ADR-044 (TASK-091) aceito em 2026-10-17 (TASK-100, PR #52).
 
 ## E2E `objetosReais.spec.ts` (único vermelho na development)
 

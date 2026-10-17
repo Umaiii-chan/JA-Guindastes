@@ -20,4 +20,4 @@ do SAT e das caixas estava certa; faltava cobertura. RN-012; ADR-028; decisões 
 
 ## Encerramento
 
-Mergeada pela pessoa responsável em 2026-10-17 (PR #49). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1). O ADR-044 (cabo contra a lança de outro guindaste bloqueia o comando) segue Proposto, aguardando a pessoa responsável.
+Mergeada pela pessoa responsável em 2026-10-17 (PR #49). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1). O ADR-044 (cabo contra a lança de outro guindaste bloqueia o comando) foi aceito pela pessoa responsável em 2026-10-17 (TASK-100, PR #52).
