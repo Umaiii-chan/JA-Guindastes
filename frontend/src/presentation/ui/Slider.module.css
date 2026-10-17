@@ -200,8 +200,50 @@
 
 .noteMark {
   margin-left: 2px;
+  padding: 0 3px;
+  border: 1px solid currentColor;
+  background: none;
+  font: inherit;
+  line-height: 1.1;
   color: var(--color-status-warning-text);
   cursor: help;
+}
+
+/* Barra de comando: os limites e a observação não ocupam linha; aparecem ao passar o mouse ou ao focar
+   o controle (a observação também pelo botão "*"), por cima da barra. */
+.compact {
+  position: relative;
+}
+
+.boundsFloating,
+.noteFloating {
+  visibility: hidden;
+}
+
+/* Os limites ocupam uma linha reservada dentro do próprio controle (não saem da moldura da barra). */
+.boundsFloating {
+  line-height: 1.2;
+}
+
+/* A observação cobre o próprio controle (e só ele), nunca a linha de coleta e entrega acima da barra. */
+.noteFloating {
+  position: absolute;
+  inset: 0 auto auto 0;
+  z-index: 2;
+  box-sizing: border-box;
+  width: max(100%, 24ch);
+  min-height: 100%;
+  margin: 0;
+  padding: 2px 6px;
+  background: var(--color-surface-1);
+  box-shadow: 0 0 0 1px var(--color-border-ink);
+}
+
+.compact:hover .boundsFloating,
+.compact:focus-within .boundsFloating,
+.compact:has(.noteMark:hover) .noteFloating,
+.compact:has(.noteMark:focus-visible) .noteFloating {
+  visibility: visible;
 }
 
 .compact .header {

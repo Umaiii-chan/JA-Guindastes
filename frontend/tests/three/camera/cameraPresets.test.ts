@@ -1,3 +1,4 @@
+import { PerspectiveCamera, Vector3 } from 'three'
 import { describe, expect, it } from 'vitest'
 
 import { calculateOperationalGeometry } from '../../../src/domain/geometry/operationalGeometry'
@@ -8,9 +9,11 @@ import {
   type CameraFraming,
   type CameraView,
   fitDistance,
+  freeFrame,
   framingPoints,
   isViewWithinLimits,
   maxPolarAngleAboveGround,
+  NO_FRAME_INSETS,
   OPERATOR_EYE_LOCAL,
   PERSPECTIVE_ELEVATION_DEG,
   perspectiveForAspect,
@@ -277,5 +280,84 @@ describe('cameraPresets', () => {
       expect(maxPolarAngleAboveGround(100, 5)).toBe(CAMERA_LIMITS.maxPolarAngleRad)
       expect(maxPolarAngleAboveGround(1, 0)).toBe(Math.PI / 2)
     })
+  })
+})
+
+// Painéis sobre a cena (TASK-104; ADR-048): o guindaste cabe na área livre do quadro.
+describe('área livre do quadro', () => {
+  it('sem margens, não muda a proporção, o campo de visão nem desloca a imagem', () => {
+    const free = freeFrame(1366, 768, NO_FRAME_INSETS, 50)
+    expect(free.inset).toBe(false)
+    expectClose(free.aspect, 1366 / 768, 1e-12)
+    expect(free.fovDeg).toBe(50)
+    expect(free.offsetX).toBe(0)
+    expect(free.offsetY).toBe(0)
+  })
+
+  it('desconta as margens da proporção e do campo de visão e desloca para o centro livre', () => {
+    const free = freeFrame(1000, 800, { top: 100, right: 300, bottom: 200, left: 100 }, 50)
+    expect(free.inset).toBe(true)
+    expectClose(free.aspect, 600 / 500, 1e-12)
+    expect(free.fovDeg).toBeLessThan(50)
+    expectClose(free.offsetX, (300 - 100) / 2, 1e-12)
+    expectClose(free.offsetY, (200 - 100) / 2, 1e-12)
+  })
+
+  it('nunca deixa a área livre menor que 40 % do quadro', () => {
+    const free = freeFrame(1000, 800, { top: 700, right: 900, bottom: 700, left: 900 }, 50)
+    expectClose(free.aspect, (1000 * 0.4) / (800 * 0.4), 1e-9)
+  })
+
+  it.each(['perspectiva', 'lateral', 'topo'] as const)(
+    'vista %s: os pontos do conjunto caem dentro da área livre, projetados na câmera real',
+    (preset) => {
+      const width = 1366
+      const height = 768
+      const insets = { top: 60, right: 340, bottom: 150, left: 90 }
+      const free = freeFrame(width, height, insets, CAMERA_FOV_DEG)
+      const base = framing(0)
+      const view = resolveCameraPreset(preset, {
+        ...base,
+        aspect: free.aspect,
+        fovDeg: free.fovDeg,
+      })
+      const camera = new PerspectiveCamera(CAMERA_FOV_DEG, width / height, 0.1, 2000)
+      camera.setViewOffset(width, height, free.offsetX, free.offsetY, width, height)
+      camera.position.set(view.position.x, view.position.y, view.position.z)
+      camera.up.set(0, preset === 'topo' ? 0 : 1, preset === 'topo' ? -1 : 0)
+      camera.lookAt(new Vector3(view.target.x, view.target.y, view.target.z))
+      camera.updateMatrixWorld()
+      // A lateral enquadra só a lança, o gancho e o eixo de giro (o chassi atravessado a alargaria).
+      const points =
+        preset === 'lateral'
+          ? [...framingPoints(base).slice(-2), { x: 0, y: 0, z: 0 }]
+          : framingPoints(base)
+      for (const point of points) {
+        const ndc = new Vector3(point.x, point.y, point.z).project(camera)
+        const px = ((ndc.x + 1) / 2) * width
+        const py = ((1 - ndc.y) / 2) * height
+        // Folga de 1 px para o arredondamento.
+        expect(px).toBeGreaterThanOrEqual(insets.left - 1)
+        expect(px).toBeLessThanOrEqual(width - insets.right + 1)
+        expect(py).toBeGreaterThanOrEqual(insets.top - 1)
+        expect(py).toBeLessThanOrEqual(height - insets.bottom + 1)
+      }
+    },
+  )
+
+  it('os pontos extras (caixa do modelo 3D) entram no enquadramento: a vista afasta para caber', () => {
+    const base = framing(0)
+    const tall: Vec3[] = [{ x: 0, y: 40, z: 0 }]
+    for (const preset of ['perspectiva', 'lateral'] as const) {
+      const plain = resolveCameraPreset(preset, base)
+      const withModel = resolveCameraPreset(preset, { ...base, extraPoints: tall })
+      const distance = (view: CameraView) =>
+        Math.hypot(
+          view.position.x - view.target.x,
+          view.position.y - view.target.y,
+          view.position.z - view.target.z,
+        )
+      expect(distance(withModel)).toBeGreaterThan(distance(plain))
+    }
   })
 })

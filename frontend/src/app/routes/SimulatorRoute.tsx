@@ -43,6 +43,8 @@ import { SimulatorPage } from '../../presentation/pages/SimulatorPage'
 import { accessoryModelUrl } from '../../domain/accessory/accessory'
 import { AccessoryPanel } from '../../presentation/panels/AccessoryPanel'
 import { BackendEvaluationPanel } from '../../presentation/panels/BackendEvaluationPanel'
+import { evaluationSealItems } from '../../presentation/panels/evaluationPresentation'
+import { ResultSeal } from '../../presentation/simulator/layout/ResultSeal'
 import { CatalogSelectionPanel } from '../../presentation/panels/CatalogSelectionPanel'
 import { EnvironmentPanel } from '../../presentation/panels/EnvironmentPanel'
 import {
@@ -881,6 +883,24 @@ export function SimulatorRoute() {
             </fieldset>
             <RecordingControls controller={recording} />
           </>
+        }
+        resultSeal={
+          <ResultSeal
+            items={
+              tandemActive && tandemEngaged
+                ? [
+                    tandemEvaluation.result === null
+                      ? { tone: 'neutral', label: 'Sem avaliação' }
+                      : tandemEvaluation.result.tandemOk
+                        ? { tone: 'ok', label: 'Içamento permitido' }
+                        : { tone: 'danger', label: 'Içamento não permitido' },
+                  ]
+                : evaluationSealItems(
+                    shownResult,
+                    evaluationInput.problem !== null || evaluation.error !== null,
+                  )
+            }
+          />
         }
         result={
           <>

@@ -1,3 +1,5 @@
+import type { LucideIcon } from 'lucide-react'
+import { Cloud, CircleDashed, LoaderCircle, RefreshCw, Wifi, WifiOff } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import type { ConnectionStatus } from '../../domain/evaluation/evaluation'
@@ -20,13 +22,17 @@ export interface ConnectionStatusBarProps {
   readonly compact?: boolean
 }
 
-const CONNECTION: Record<ConnectionStatus, { tone: Tone; label: string; pulse: boolean }> = {
-  idle: { tone: 'neutral', label: 'Conexão não iniciada', pulse: false },
-  connecting: { tone: 'info', label: 'Conectando ao servidor…', pulse: true },
-  connected: { tone: 'ok', label: 'Tempo real', pulse: false },
-  reconnecting: { tone: 'warning', label: 'Reconectando…', pulse: true },
-  closed: { tone: 'neutral', label: 'Conexão fechada', pulse: false },
-  rest: { tone: 'ok', label: 'Conectado', pulse: false },
+/** `Icon`: no modo compacto, cada estado tem uma forma própria, além da cor e do pulso. */
+const CONNECTION: Record<
+  ConnectionStatus,
+  { tone: Tone; label: string; pulse: boolean; Icon: LucideIcon }
+> = {
+  idle: { tone: 'neutral', label: 'Conexão não iniciada', pulse: false, Icon: CircleDashed },
+  connecting: { tone: 'info', label: 'Conectando ao servidor…', pulse: true, Icon: LoaderCircle },
+  connected: { tone: 'ok', label: 'Tempo real', pulse: false, Icon: Wifi },
+  reconnecting: { tone: 'warning', label: 'Reconectando…', pulse: true, Icon: RefreshCw },
+  closed: { tone: 'neutral', label: 'Conexão fechada', pulse: false, Icon: WifiOff },
+  rest: { tone: 'ok', label: 'Conectado', pulse: false, Icon: Cloud },
 }
 
 /**
@@ -50,20 +56,24 @@ export function ConnectionStatusBar({
       aria-label="Status da conexão e câmera"
     >
       <span className={cx(styles.cell, compact && styles.dotCell)} title={connection.label}>
-        <StatusPill
-          className={compact ? styles.dotOnly : undefined}
-          tone={connection.tone}
-          pulse={connection.pulse}
-          size="sm"
-          live
-        >
-          {connection.label}
-        </StatusPill>
+        {compact ? (
+          <span
+            className={cx(styles.stateIcon, connection.pulse && styles.statePulse)}
+            data-tone={connection.tone}
+            role="status"
+          >
+            <connection.Icon size={14} aria-hidden="true" />
+            <span className="visually-hidden">{connection.label}</span>
+          </span>
+        ) : (
+          <StatusPill tone={connection.tone} pulse={connection.pulse} size="sm" live>
+            {connection.label}
+          </StatusPill>
+        )}
       </span>
       {pending && (
         <span className={cx(styles.cell, styles.pending)} title={pendingText}>
-          <Spinner size={10} />{' '}
-          <span className={compact ? 'visually-hidden' : undefined}>{pendingText}</span>
+          <Spinner size={10} /> <span>{pendingText}</span>
         </span>
       )}
       <span className={styles.spacer} aria-hidden="true" />

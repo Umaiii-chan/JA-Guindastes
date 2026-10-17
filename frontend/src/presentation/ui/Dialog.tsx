@@ -34,8 +34,8 @@ export function Dialog({
 }: DialogProps) {
   const id = useId()
   const panelRef = useRef<HTMLDivElement>(null)
-  useModal(open, panelRef, onClose)
   const portalTarget = usePortalTarget()
+  useModal(open, panelRef, onClose, portalTarget)
 
   if (!open) return null
 

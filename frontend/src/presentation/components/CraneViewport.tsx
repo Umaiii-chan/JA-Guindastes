@@ -7,6 +7,7 @@ import type { OutriggerState } from '../../domain/crane/outriggers'
 import type { OperatingArea } from '../../domain/evaluation/operatingArea'
 import type { SceneAccessory } from '../../three/accessories/AccessoryChain'
 import type { CameraPreset } from '../../three/camera/cameraPresets'
+import { useFrameInsets } from '../ui/frameInsets'
 import type { CraneCommands, CraneSetup } from '../../three/crane/types'
 import type { LoadDimensions } from '../../three/scene/loadBox'
 import {
@@ -191,6 +192,8 @@ export function CraneViewport({
   const tandemFrameRef = useRef(onTandemFrame)
   const extraStatusesRef = useRef(extraStatuses)
   const tandemStatusRef = useRef(tandemStatus)
+  const frameInsets = useFrameInsets()
+  const frameInsetsRef = useRef(frameInsets)
 
   useImperativeHandle(
     ref,
@@ -245,6 +248,7 @@ export function CraneViewport({
     for (const [id, status] of Object.entries(extraStatusesRef.current ?? {})) {
       handle.setExtraEvaluationStatus(id, status)
     }
+    handle.setFrameInsets(frameInsetsRef.current)
     const preset = cameraPresetRef.current
     if (preset) handle.setCameraPreset(preset, { animate: false })
     appliedPresetRef.current = preset
@@ -385,6 +389,11 @@ export function CraneViewport({
     operatingAreaRef.current = operatingArea
     sceneRef.current?.setOperatingArea(operatingArea)
   }, [operatingArea])
+
+  useEffect(() => {
+    frameInsetsRef.current = frameInsets
+    sceneRef.current?.setFrameInsets(frameInsets)
+  }, [frameInsets])
 
   useEffect(() => {
     cameraPresetRef.current = cameraPreset

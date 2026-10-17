@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { Footprints, MapPin, Play, Square, Wand2 } from 'lucide-react'
 
 import type { CargoPlacement, DeliveryPoint } from '../../domain/environment/environment'
@@ -10,6 +11,7 @@ import {
 import { ExplainRecommendationButton } from '../ai'
 import { NumberField } from '../panels/NumberField'
 import { Badge, Button, Notice, Spinner, type Tone } from '../ui'
+import { useRunStripTarget } from './layout/runStrip'
 import styles from './PlanningPanel.module.css'
 
 export interface PlanningPlaybackView {
@@ -139,6 +141,125 @@ function Card({
   )
 }
 
+/** Andamento da trajetória: barra, fase e velocidade. */
+function TrajectoryRun({
+  playback,
+  compact = false,
+}: {
+  readonly playback: PlanningPlaybackView
+  readonly compact?: boolean
+}) {
+  return (
+    <>
+      <div
+        className={styles.progress}
+        role="progressbar"
+        aria-label="Andamento da trajetória"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(playback.progress * 100)}
+        data-compact={compact || undefined}
+      >
+        <div
+          className={styles.progressBar}
+          style={{ width: `${Math.round(playback.progress * 100)}%` }}
+        />
+      </div>
+      <div className={styles.playRow}>
+        <span>{playback.phase ? PLAN_PHASE_LABELS[playback.phase] : ''}</span>
+        <span className={styles.speed} role="group" aria-label="Velocidade">
+          {playback.speeds.map((speed) => (
+            <Button
+              key={speed}
+              size="sm"
+              variant={speed === playback.speed ? 'primary' : 'ghost'}
+              onClick={() => playback.onSpeed(speed)}
+            >
+              {speed}×
+            </Button>
+          ))}
+        </span>
+      </div>
+    </>
+  )
+}
+
+/** Passo a passo: a próxima ação em destaque e os botões. */
+function GuideCard({ guide }: { readonly guide: PlanningGuideView }) {
+  return (
+    <div className={styles.guide} role="status" aria-live="polite" aria-label="Passo a passo">
+      <span className={styles.guideCount}>
+        {guide.counter} · {guide.title}
+      </span>
+      {guide.finished ? (
+        <p className={styles.guideAction} data-done>
+          Operação concluída.
+        </p>
+      ) : guide.reached ? (
+        <p className={styles.guideAction} data-done>
+          {guide.doneText}
+        </p>
+      ) : (
+        <>
+          <p className={styles.guideAction}>{guide.actions[0]}</p>
+          {guide.actions.length > 1 && (
+            <p className={styles.guideMore}>Depois: {guide.actions.slice(1).join(' · ')}</p>
+          )}
+        </>
+      )}
+      <div className={styles.actions}>
+        {!guide.finished && guide.manual && guide.reached && (
+          <Button size="sm" variant="primary" onClick={guide.onConfirm}>
+            Carga solta
+          </Button>
+        )}
+        {!guide.finished && (
+          <Button size="sm" variant="ghost" onClick={guide.onPrevious}>
+            Voltar
+          </Button>
+        )}
+        {!guide.finished && (
+          <Button size="sm" variant="ghost" onClick={guide.onSkip}>
+            Pular passo
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" onClick={guide.onExit}>
+          Sair
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Faixa compacta sobre a cena (TASK-104): a execução da trajetória (fase, progresso, velocidade e
+ * Parar) e o passo a passo (próxima ação e botões), visíveis mesmo com a folha "Planejar" fechada.
+ * Só muda onde aparece: o estado e os comandos são os do painel.
+ */
+function RunStrip({
+  playback,
+  guide,
+}: {
+  readonly playback: PlanningPlaybackView
+  readonly guide: PlanningGuideView
+}) {
+  return (
+    <div className={styles.strip} role="region" aria-label="Execução do planejamento">
+      {playback.playing && (
+        <div className={styles.stripRun}>
+          <Button size="sm" icon={<Square size={14} />} onClick={playback.onStop}>
+            Parar
+          </Button>
+          <div className={styles.stripBody}>
+            <TrajectoryRun playback={playback} compact />
+          </div>
+        </div>
+      )}
+      {guide.active && <GuideCard guide={guide} />}
+    </div>
+  )
+}
+
 /**
  * Painel "Planejar operação" (TASK-075): coleta e entrega da carga, as recomendações do backend
  * (guindaste, posição e trajetória), "Aplicar", "Executar trajetória" e o passo a passo. Só
@@ -164,6 +285,7 @@ export function PlanningPanel({
   playback,
   guide,
 }: PlanningPanelProps) {
+  const stripTarget = useRunStripTarget()
   const distance = Math.hypot(pick.x - delivery.x, pick.z - delivery.z)
   const recommendations = result?.recommendations ?? []
   const selected = recommendations[selectedIndex]
@@ -180,6 +302,9 @@ export function PlanningPanel({
 
   return (
     <div className={styles.panel}>
+      {stripTarget &&
+        (playback.playing || guide.active) &&
+        createPortal(<RunStrip playback={playback} guide={guide} />, stripTarget)}
       <div className={styles.section}>
         <span className={styles.heading}>Coleta da carga</span>
         <div className={styles.grid3}>
@@ -313,9 +438,11 @@ export function PlanningPanel({
               Aplicar
             </Button>
             {playback.playing ? (
-              <Button size="sm" icon={<Square size={14} />} onClick={playback.onStop}>
-                Parar
-              </Button>
+              !stripTarget && (
+                <Button size="sm" icon={<Square size={14} />} onClick={playback.onStop}>
+                  Parar
+                </Button>
+              )
             ) : (
               <Button
                 size="sm"
@@ -352,84 +479,16 @@ export function PlanningPanel({
               Use “Aplicar” para posicionar o guindaste antes de executar a trajetória.
             </p>
           )}
-          {(playback.playing || playback.progress > 0) && (
-            <>
-              <div
-                className={styles.progress}
-                role="progressbar"
-                aria-label="Andamento da trajetória"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.round(playback.progress * 100)}
-              >
-                <div
-                  className={styles.progressBar}
-                  style={{ width: `${Math.round(playback.progress * 100)}%` }}
-                />
-              </div>
-              <div className={styles.playRow}>
-                <span>{playback.phase ? PLAN_PHASE_LABELS[playback.phase] : ''}</span>
-                <span className={styles.speed} role="group" aria-label="Velocidade">
-                  {playback.speeds.map((speed) => (
-                    <Button
-                      key={speed}
-                      size="sm"
-                      variant={speed === playback.speed ? 'primary' : 'ghost'}
-                      onClick={() => playback.onSpeed(speed)}
-                    >
-                      {speed}×
-                    </Button>
-                  ))}
-                </span>
-              </div>
-            </>
+          {playback.playing && stripTarget && (
+            <p className={styles.hint}>Execução na faixa sobre a cena.</p>
+          )}
+          {(playback.playing ? !stripTarget : playback.progress > 0) && (
+            <TrajectoryRun playback={playback} />
           )}
         </div>
       )}
 
-      {guide.active && (
-        <div className={styles.guide} role="status" aria-live="polite" aria-label="Passo a passo">
-          <span className={styles.guideCount}>
-            {guide.counter} · {guide.title}
-          </span>
-          {guide.finished ? (
-            <p className={styles.guideAction} data-done>
-              Operação concluída.
-            </p>
-          ) : guide.reached ? (
-            <p className={styles.guideAction} data-done>
-              {guide.doneText}
-            </p>
-          ) : (
-            <>
-              <p className={styles.guideAction}>{guide.actions[0]}</p>
-              {guide.actions.length > 1 && (
-                <p className={styles.guideMore}>Depois: {guide.actions.slice(1).join(' · ')}</p>
-              )}
-            </>
-          )}
-          <div className={styles.actions}>
-            {!guide.finished && guide.manual && guide.reached && (
-              <Button size="sm" variant="primary" onClick={guide.onConfirm}>
-                Carga solta
-              </Button>
-            )}
-            {!guide.finished && (
-              <Button size="sm" variant="ghost" onClick={guide.onPrevious}>
-                Voltar
-              </Button>
-            )}
-            {!guide.finished && (
-              <Button size="sm" variant="ghost" onClick={guide.onSkip}>
-                Pular passo
-              </Button>
-            )}
-            <Button size="sm" variant="ghost" onClick={guide.onExit}>
-              Sair
-            </Button>
-          </div>
-        </div>
-      )}
+      {guide.active && !stripTarget && <GuideCard guide={guide} />}
 
       {status === 'loading' && (
         <span className={styles.hint}>

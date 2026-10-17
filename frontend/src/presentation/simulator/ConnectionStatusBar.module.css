@@ -71,18 +71,33 @@
   padding: 0 var(--space-2) 0 var(--space-3);
 }
 
-.dotOnly.dotOnly {
-  gap: 0;
-  padding: 0;
-  border: 0;
-  background: none;
+/* Conexão no modo compacto: um ícone por estado (forma) na cor da situação. */
+.stateIcon {
+  display: inline-grid;
+  place-items: center;
+  color: var(--color-text-2);
 }
 
-.dotOnly > span:last-child {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+.stateIcon[data-tone='ok'] {
+  color: var(--color-status-ok);
+}
+
+.stateIcon[data-tone='warning'] {
+  color: var(--color-status-warning-text);
+}
+
+.stateIcon[data-tone='info'] {
+  color: var(--color-status-info);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .statePulse {
+    animation: state-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes state-pulse {
+  50% {
+    opacity: 0.4;
+  }
 }
