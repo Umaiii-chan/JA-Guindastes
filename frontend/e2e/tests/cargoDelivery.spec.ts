@@ -209,17 +209,29 @@ test.describe('coleta e entrega da carga', () => {
     // Começa a gravar: engatar, soltar e a posição da carga vão nos quadros.
     const recordingPanel = page.getByRole('region', { name: 'Gravação de simulações' })
     await recordingPanel.getByRole('button', { name: 'Gravar' }).click()
+    // Cada passo é um comando na cena e uma avaliação, e no CI (sem GPU, WebSocket real) custa mais que
+    // aqui: por isso a busca é curta. Primeira vez, varre o giro e a lança e refina; na segunda, a entrega
+    // é a imagem espelhada da carga (x → −x, mesmo raio), então o giro é o oposto e a lança é a mesma, e
+    // basta um refino. As asserções da dica ("faltam X m") continuam as mesmas.
+    const refine = async (rounds: number): Promise<void> => {
+      for (let round = 0; round < rounds; round += 1) {
+        const angle = Number(await turret.inputValue())
+        await minimise(page, turret, angle - 3, angle + 3, 1)
+        const length = Number(await boomLength.inputValue())
+        await minimise(page, boomLength, length - 0.6, length + 0.6, 0.1)
+      }
+    }
     const approach = async (): Promise<void> => {
       await minimise(page, turret, -90, 90, 10)
       const lengthMin = Number(await boomLength.getAttribute('min'))
       const lengthMax = Number(await boomLength.getAttribute('max'))
       await minimise(page, boomLength, lengthMin, lengthMax, 1)
-      for (let round = 0; round < 3; round += 1) {
-        const angle = Number(await turret.inputValue())
-        await minimise(page, turret, angle - 6, angle + 6, 1)
-        const length = Number(await boomLength.inputValue())
-        await minimise(page, boomLength, length - 1, length + 1, 0.1)
-      }
+      await refine(2)
+    }
+    const approachMirrored = async (): Promise<void> => {
+      await turret.fill(String(-Number(await turret.inputValue())))
+      await settle(page)
+      await refine(1)
     }
     await cable.press('Home')
     await approach()
@@ -261,7 +273,7 @@ test.describe('coleta e entrega da carga', () => {
     await shot(page, 'task-073-carga-no-gancho')
 
     // Leva até o alvo, do outro lado: gira e ajusta a lança até a dica dizer que chegou.
-    await approach()
+    await approachMirrored()
     expect(await missingMeters(page)).toBeLessThan(1.5)
 
     // Baixa até o chão e solta.
