@@ -15,6 +15,7 @@ import type { CargoPlacement } from '../../domain/environment/environment'
 import {
   liftPointsWorld,
   type PlanPoint,
+  slingTopsWorld,
   type TandemLoad,
   type WorldPoint,
 } from '../../domain/tandem/tandem'
@@ -95,7 +96,10 @@ export class TandemCargo {
     this.root.visible = true
   }
 
-  /** Carga içada na pose `cargo`, com as lingas partindo dos ganchos. */
+  /**
+   * Carga içada na pose `cargo`, com as lingas partindo do fim de cada gancho (G menos o engate do
+   * gancho em uso e a cadeia de acessórios, `load.hookDropsM`), não de dentro do moitão.
+   */
   showHoisted(
     cargo: HoistedCargoPose,
     load: TandemLoad,
@@ -111,9 +115,9 @@ export class TandemCargo {
     const sideX = Math.cos(heading) * spread
     const sideZ = -Math.sin(heading) * spread
     const vertices: number[] = []
-    for (const hook of hooks) {
+    for (const from of slingTopsWorld(hooks, load)) {
       for (const sign of [-1, 1]) {
-        vertices.push(hook.x, hook.y, hook.z, hook.x + sign * sideX, top, hook.z + sign * sideZ)
+        vertices.push(from.x, from.y, from.z, from.x + sign * sideX, top, from.z + sign * sideZ)
       }
     }
     this.setSlings(vertices)
