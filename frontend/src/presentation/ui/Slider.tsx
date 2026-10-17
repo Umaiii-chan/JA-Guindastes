@@ -119,7 +119,7 @@ export function Slider({
           <button
             type="button"
             className={styles.noteMark}
-            aria-label={`Observação sobre ${typeof label === 'string' ? label : 'o controle'}`}
+            aria-label="Ver observação"
             aria-describedby={noteId}
           >
             *

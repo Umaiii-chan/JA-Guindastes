@@ -27,9 +27,11 @@ describe('slider compacto', () => {
     )
     expect(screen.getByText('30')).toBeTruthy()
     expect(screen.getByText('1')).toBeTruthy()
-    const mark = screen.getByRole('button', { name: /Observação sobre Comprimento do cabo/ })
+    const mark = screen.getByRole('button', { name: 'Ver observação' })
     const noteId = mark.getAttribute('aria-describedby') as string
     expect(document.getElementById(noteId)?.textContent).toBe('Cabo máximo FICTÍCIO')
+    // O rótulo do controle continua único (os E2E o procuram por trecho do texto).
+    expect(screen.getAllByLabelText(/comprimento do cabo/i)).toHaveLength(1)
     expect(screen.getByLabelText('Comprimento do cabo').getAttribute('aria-describedby')).toBe(
       noteId,
     )

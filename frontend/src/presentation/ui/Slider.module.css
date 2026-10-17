@@ -217,33 +217,32 @@
 
 .boundsFloating,
 .noteFloating {
-  position: absolute;
-  z-index: 1;
   visibility: hidden;
+}
+
+/* Os limites ocupam uma linha reservada dentro do próprio controle (não saem da moldura da barra). */
+.boundsFloating {
+  line-height: 1.2;
+}
+
+/* A observação cobre o próprio controle (e só ele), nunca a linha de coleta e entrega acima da barra. */
+.noteFloating {
+  position: absolute;
+  inset: 0 auto auto 0;
+  z-index: 2;
+  box-sizing: border-box;
+  width: max(100%, 24ch);
+  min-height: 100%;
+  margin: 0;
+  padding: 2px 6px;
   background: var(--color-surface-1);
   box-shadow: 0 0 0 1px var(--color-border-ink);
-}
-
-.boundsFloating {
-  top: 100%;
-  left: 0;
-  right: 0;
-  padding: 0 2px;
-}
-
-.noteFloating {
-  bottom: 100%;
-  left: 0;
-  width: max-content;
-  max-width: 30ch;
-  margin: 0 0 4px;
-  padding: 2px 6px;
 }
 
 .compact:hover .boundsFloating,
 .compact:focus-within .boundsFloating,
 .compact:has(.noteMark:hover) .noteFloating,
-.compact:focus-within .noteFloating {
+.compact:has(.noteMark:focus-visible) .noteFloating {
   visibility: visible;
 }
 

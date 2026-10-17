@@ -11,6 +11,7 @@ import type { Locator, Page, Route } from '@playwright/test'
 
 import { expect, hasBackend, test } from './auth.js'
 import { chooseConfiguration, fillValidLoad, mockCatalog } from './catalogMock.js'
+import { topGround } from './topView.js'
 
 const SCREENSHOT_DIR = process.env.E2E_SCREENSHOT_DIR?.trim() ?? ''
 const WEIGHT_KG = 3000
@@ -140,23 +141,20 @@ test.describe('coleta e entrega da carga', () => {
     // Espera a câmera chegar à vista de cima: o clique no chão depende do enquadramento final.
     await page.waitForTimeout(1200)
     await page.getByRole('button', { name: 'Editar ambiente' }).click()
-    const canvas = page.locator('.crane-viewport__canvas canvas')
-    const box = (await canvas.boundingBox())!
-    const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    const ground = await topGround(page)
     const placeCargo = async (x: number, y: number) => {
       await page.getByRole('button', { name: 'Posicionar carga' }).click()
       await page.mouse.click(x, y)
       await settle(page)
     }
-    // Perto do guindaste (cerca de 15 m). A vista de cima enquadra o alcance pela altura do quadro,
-    // então o deslocamento vem em fração dela: até a TASK-095 eram 70 e 45 px num quadro de 410 px
-    // de altura (o editor encolhia a cena); desde ela, a cena ocupa o palco e o editor flutua.
-    const dx = box.height * 0.17
-    const dy = box.height * 0.11
-    await placeCargo(center.x + dx, center.y + dy)
+    // Perto do guindaste (cerca de 15 m): +13 m em X e +8,4 m em Z, e a entrega espelhada em X. Os
+    // pixels vêm da escala e do centro livre da vista de cima (TASK-104), não do centro do quadro.
+    const cargoAt = ground.at(13, 8.4)
+    const deliveryAt = ground.at(-13, 8.4)
+    await placeCargo(cargoAt.x, cargoAt.y)
     await expect(strip(page)).toContainText('Agora marque onde a carga deve chegar')
     await page.getByRole('button', { name: 'Ponto de entrega' }).click()
-    await page.mouse.click(center.x - dx, center.y + dy)
+    await page.mouse.click(deliveryAt.x, deliveryAt.y)
     await settle(page)
     await expect(strip(page).getByRole('button', { name: 'Engatar' })).toBeDisabled()
     // Com a carga no chão, só o gancho e os acessórios entram na avaliação.

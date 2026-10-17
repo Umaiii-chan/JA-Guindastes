@@ -1,4 +1,11 @@
-import { NeutralToneMapping, PCFShadowMap, SRGBColorSpace, WebGLRenderer } from 'three'
+import {
+  Box3,
+  NeutralToneMapping,
+  PCFShadowMap,
+  SRGBColorSpace,
+  Vector3,
+  WebGLRenderer,
+} from 'three'
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js'
 
 import type { ScenarioSpec } from '../../domain/environment/environment'
@@ -9,6 +16,7 @@ import {
   type FrameInsets,
   freeFrame,
   type FreeFrame,
+  type Vec3,
   NO_FRAME_INSETS,
   resolveCameraPreset,
 } from '../camera/cameraPresets'
@@ -352,6 +360,28 @@ export function mountCraneScene(
   }
 
   /** Enquadramento da predefinição para o estado atual do guindaste e a proporção do quadro. */
+  /**
+   * Cantos da caixa do modelo 3D no referencial do guindaste (m). Com o GLB, a cabeça da lança passa
+   * da ponta estimada pela geometria de pré-visualização; sem ele (guindaste provisório), nada.
+   */
+  const modelBoxCorners = (): Vec3[] => {
+    if (!contents.usingModel) return []
+    const root = contents.rig.base
+    craneAnchorUpdate()
+    const box = new Box3().setFromObject(root)
+    if (box.isEmpty()) return []
+    const inverse = contents.craneAnchor.matrixWorld.clone().invert()
+    const corners: Vec3[] = []
+    for (const x of [box.min.x, box.max.x])
+      for (const y of [box.min.y, box.max.y])
+        for (const z of [box.min.z, box.max.z]) {
+          const local = new Vector3(x, y, z).applyMatrix4(inverse)
+          corners.push({ x: local.x, y: Math.max(local.y, 0), z: local.z })
+        }
+    return corners
+  }
+  const craneAnchorUpdate = (): void => contents.craneAnchor.updateWorldMatrix(true, true)
+
   const presetView = (preset: CameraPreset): CameraView => {
     const free = currentFreeFrame()
     const view = resolveCameraPreset(preset, {
@@ -359,6 +389,7 @@ export function mountCraneScene(
       geometry: crane.getOperationalGeometry(),
       maxReachM: radiusIndicator.reach.maxM,
       operatorEye: contents.operatorEye ?? undefined,
+      extraPoints: modelBoxCorners(),
       aspect: free.aspect,
       fovDeg: free.fovDeg,
     })
@@ -562,6 +593,8 @@ export function mountCraneScene(
       invalidate()
       crane.revalidate()
       contents.multi.onPrimaryModelChanged()
+      // O modelo 3D mudou o olho do operador e a caixa do guindaste: refaz a vista seguida.
+      if (!disposed && followedPreset && !transition) jumpTo(presetView(followedPreset))
       options.onModelResult?.(result)
     })
   }

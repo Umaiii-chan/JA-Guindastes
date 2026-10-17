@@ -38,6 +38,26 @@ revisão pós-merge do PR #54. Desenho no [ADR-048](../docs/decisions/ADR-048-fa
   únicas, ativas só fora de campos de texto e sem janela modal; o mesmo comando existe nos botões da
   barra de vistas. Pendência: se a pessoa responsável quiser, oferecer desligar ou remapear os atalhos.
 
+### Correções da revisão da Coruja no PR #59
+
+- **CI (rotationZones:53)**: o botão do slider agora tem `aria-label="Ver observação"` (não contém o
+  rótulo do controle); `getByLabel` dos 4 sliders resolve a um só elemento (teste unitário com o cabo).
+- **E2E por deslocamento fixo**: novo `e2e/tests/topView.ts` (`topGround`): o centro vem das variáveis
+  `--frame-inset-*` do palco (`data-simulator-stage`) e a escala da escala gráfica da cena (exata no
+  Topo). `cargoDelivery` e `tipoDeCarga` usam metros (+13/+8,4 e +27,3/+17,4 m, equivalentes aos
+  deslocamentos antigos). `objetosReais` só tira capturas na vista Topo e clica por fração do canvas
+  fora do Topo: não precisou mudar.
+- **Câmera pulando**: a faixa de execução não entra mais nas margens (cobre a cena por cima) e uma margem
+  só muda a câmera se variar ≥ 24 px (ou passar de/para zero). Reenquadra com salto, sem animação
+  (decisão: a animação teria de levar o deslocamento da imagem junto).
+- **Perspectiva cortada**: o enquadramento usava só a ponta estimada da geometria de pré-visualização;
+  a cabeça da lança do GLB passa dela. Agora a caixa do modelo 3D medida na cena entra nos pontos
+  (`extraPoints`), e a vista seguida é refeita quando o GLB substitui o provisório (também refaz o olho
+  do operador). Verificado nas capturas (padrão e clicando em Perspectiva).
+- **Slider (menores)**: os limites ocupam uma linha reservada dentro do controle (não saem da moldura);
+  a observação cobre só o próprio controle, ao passar o mouse ou focar o `*`.
+- **Testes da faixa**: transição `playing` true → false e folha abrindo/fechando durante a execução.
+
 ## 3. Arquivos modificados
 
 `git diff --stat anderson/development...HEAD`: ver o PR. Nada em `backend/`, `frontend/src/domain/cargo`
@@ -51,9 +71,13 @@ nem `e2e/tests/objetosReais.spec.ts`.
 | `npm run lint` | ✅ | `eslint .` sem erros |
 | `npm run format:check` | ✅ | `All matched files use Prettier code style!` |
 | `npm run typecheck` | ✅ | `tsc -b && tsc -p e2e` sem erros |
-| `npm test` | ✅ | `135 passed`, `1208 passed, 1 skipped` |
+| `npm test` | ✅ | `135 passed`, `1211 passed, 1 skipped` |
 | `npm run build` | ✅ | `built in 583ms` (aviso de chunk já existente) |
-| `E2E_PREVIEW_PORT=5396 npx playwright test e2e/tests/scene.spec.ts` | ✅ | `7 passed (34.2s)` |
+| `E2E_PREVIEW_PORT=5396 npx playwright test e2e/tests/scene.spec.ts` | ✅ | `7 passed (34.2s)` (primeira rodada) |
+| idem `cargoDelivery.spec.ts` | ✅ | `1 passed (3.5m)` |
+| idem `tipoDeCarga.spec.ts` | ✅ | `2 passed (1.2m)` |
+| idem `objetosReais.spec.ts` | ✅ | `1 passed (1.3m)` |
+| idem `rotationZones.spec.ts` (sem backend) | ✅ | `2 passed, 2 skipped (com backend)` |
 | Outros E2E | NÃO EXECUTADOS | pedido de rodar no máximo um arquivo |
 | E2E com backend / execução real de trajetória | NÃO EXECUTADO | sem backend; a faixa foi coberta só por teste de componente |
 
@@ -65,13 +89,15 @@ view offset e confere que ficam dentro da área livre).
 ## 5. Capturas (1366×768, Playwright, sem backend)
 
 `docs/assets/screenshots/task-104-{antes,depois}-1366x768-{perspectiva,lateral,topo,operador}.png`,
-mais `task-104-depois-1366x768-limites-slider.png` e `…-paineis-ocultos.png`. "Antes" é a
+e `task-104-depois-1366x768-perspectiva-padrao.png` (vista padrão depois da troca do modelo, sem clicar)
+ao lado de `…-perspectiva.png` (depois de clicar em Perspectiva): a lança toda cabe. "Antes" é a
 `development` @ `13da390`. Não há captura da faixa de execução (exige backend para planejar).
 
 ## 6. Decisões
 
 - Portal em vez de levantar o estado para a página: a lógica não sai do `PlanningPanel`.
 - View offset em vez de mexer no tamanho do canvas: não remonta nem redimensiona a cena.
+- ADR renumerado para 048.
 - Folga de 20 px no topo (cabeça da lança) e 8 px nos outros lados.
 - ADR-048 (o 047 é da TASK-103).
 

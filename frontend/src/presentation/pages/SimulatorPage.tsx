@@ -31,6 +31,18 @@ import styles from './SimulatorPage.module.css'
 /** Folga (px) entre o painel e a área que a câmera considera livre; em cima é maior, para a cabeça da lança. */
 const GAP_PX = 8
 const TOP_GAP_PX = 20
+const STRIP_GAP_PX = 8
+/** Variação mínima (px) de uma margem para a câmera se reenquadrar: ignora o tremor do layout. */
+const INSETS_STEP_PX = 24
+
+/** As margens mudaram o bastante (ou uma passou a existir ou deixou de existir)? */
+function insetsChanged(prev: FrameInsets, next: FrameInsets): boolean {
+  return (['top', 'right', 'bottom', 'left'] as const).some(
+    (side) =>
+      (prev[side] === 0) !== (next[side] === 0) ||
+      Math.abs(prev[side] - next[side]) >= INSETS_STEP_PX,
+  )
+}
 
 export interface SimulatorPageProps {
   /** Cena 3D (o `CraneViewport` com o limite de erro): ocupa o palco inteiro, atrás de tudo. */
@@ -262,28 +274,43 @@ export function SimulatorPage({
       const card = visible((cardEl?.firstElementChild as HTMLElement | null) ?? null)
       const top = visible(topEl)
       const bottom = visible(bottomDock)
+      // A faixa de execução aparece, some e muda de altura com o passo: não conta nas margens, para a
+      // câmera não se reenquadrar no meio da operação (ela cobre um pouco da cena, por cima).
+      const strip = visible(runStripEl)
+      const stripHeight = strip ? Math.round(strip.height) + STRIP_GAP_PX : 0
       const next: FrameInsets = {
         left: toolbar ? Math.max(0, Math.round(toolbar.right - box.left) + GAP_PX) : 0,
         right: card ? Math.max(0, Math.round(box.right - card.left) + GAP_PX) : 0,
         top: top ? Math.max(0, Math.round(top.bottom - box.top) + TOP_GAP_PX) : 0,
-        bottom: bottom ? Math.max(0, Math.round(box.bottom - bottom.top) + GAP_PX) : 0,
+        bottom: bottom
+          ? Math.max(0, Math.round(box.bottom - bottom.top) - stripHeight + GAP_PX)
+          : 0,
       }
-      setFrameInsets((prev) =>
-        prev.left === next.left &&
-        prev.right === next.right &&
-        prev.top === next.top &&
-        prev.bottom === next.bottom
-          ? prev
-          : next,
-      )
+      setFrameInsets((prev) => (insetsChanged(prev, next) ? next : prev))
     }
     measure()
     const observer = new ResizeObserver(measure)
-    for (const element of [stage, toolbarEl, cardEl?.firstElementChild, topEl, bottomDock]) {
+    for (const element of [
+      stage,
+      toolbarEl,
+      cardEl?.firstElementChild,
+      topEl,
+      bottomDock,
+      runStripEl,
+    ]) {
       if (element) observer.observe(element)
     }
     return () => observer.disconnect()
-  }, [stage, toolbarEl, cardEl, topEl, bottomDock, panelsHidden, fullscreen])
+  }, [stage, toolbarEl, cardEl, topEl, bottomDock, runStripEl, panelsHidden, fullscreen])
+
+  // Margens em vigor, em variáveis do palco (para conferência e para os E2E acharem o centro livre).
+  useEffect(() => {
+    if (!stage) return
+    const applied = panelsHidden ? NO_FRAME_INSETS : frameInsets
+    for (const side of ['top', 'right', 'bottom', 'left'] as const) {
+      stage.style.setProperty(`--frame-inset-${side}`, `${applied[side]}px`)
+    }
+  }, [stage, frameInsets, panelsHidden])
 
   // Sincroniza quando o navegador sai da tela cheia por conta própria.
   useEffect(() => {
@@ -318,6 +345,7 @@ export function SimulatorPage({
   return (
     <div
       ref={setStage}
+      data-simulator-stage=""
       className={cx(styles.stage, fullscreen && styles.full)}
       data-panels-hidden={panelsHidden || undefined}
       data-sheet-open={activeSheet !== null || undefined}

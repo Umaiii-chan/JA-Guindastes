@@ -344,4 +344,20 @@ describe('área livre do quadro', () => {
       }
     },
   )
+
+  it('os pontos extras (caixa do modelo 3D) entram no enquadramento: a vista afasta para caber', () => {
+    const base = framing(0)
+    const tall: Vec3[] = [{ x: 0, y: 40, z: 0 }]
+    for (const preset of ['perspectiva', 'lateral'] as const) {
+      const plain = resolveCameraPreset(preset, base)
+      const withModel = resolveCameraPreset(preset, { ...base, extraPoints: tall })
+      const distance = (view: CameraView) =>
+        Math.hypot(
+          view.position.x - view.target.x,
+          view.position.y - view.target.y,
+          view.position.z - view.target.z,
+        )
+      expect(distance(withModel)).toBeGreaterThan(distance(plain))
+    }
+  })
 })

@@ -47,6 +47,12 @@ export interface CameraFraming {
    * da torre). Sem ele, vale `OPERATOR_EYE_LOCAL`, do modelo provisório.
    */
   readonly operatorEye?: Vec3
+  /**
+   * Pontos a mais que o conjunto ocupa (m, referencial da base): os cantos da caixa do modelo 3D
+   * medida na cena, para a cabeça da lança do modelo real caber (a geometria de pré-visualização
+   * é só uma estimativa).
+   */
+  readonly extraPoints?: readonly Vec3[]
   /** Largura ÷ altura do quadro. Padrão: `DEFAULT_CAMERA_ASPECT`. */
   readonly aspect?: number
   /** Campo de visão vertical (°). Padrão: `CAMERA_FOV_DEG`. */
@@ -370,6 +376,7 @@ export function framingPoints(framing: CameraFraming): Vec3[] {
     // A cabeça da lança (polias) passa um pouco da ponta calculada.
     { x: tip.xM, y: tip.yM + BOOM_HEAD_MARGIN_M, z: tip.zM },
     { x: hook.xM, y: Math.max(hook.yM, 0), z: hook.zM },
+    ...(framing.extraPoints ?? []),
   ]
 }
 
@@ -425,6 +432,16 @@ export function resolveCameraPreset(preset: CameraPreset, framing: CameraFraming
         { x: along.x * radius, y: 0, z: along.z * radius },
         { x: hook.xM, y: framing.geometry.tipHeightM + BOOM_HEAD_MARGIN_M, z: hook.zM },
         { x: -along.x * 3, y: 0, z: -along.z * 3 },
+        // O ponto mais alto do modelo 3D (a cabeça da lança do GLB passa da ponta estimada).
+        ...(framing.extraPoints?.length
+          ? [
+              {
+                x: hook.xM,
+                y: Math.max(...framing.extraPoints.map((point) => point.y)),
+                z: hook.zM,
+              },
+            ]
+          : []),
       ]
       const distance = fitDistance(points, target, direction, {
         fovDeg,

@@ -114,6 +114,38 @@ describe('faixa da execução do planejamento', () => {
     expect(screen.queryByRole('region', { name: 'Execução do planejamento' })).toBeNull()
   })
 
+  it('a faixa some quando a execução termina (playing true → false)', () => {
+    const page = (props: PlanningPanelProps) => (
+      <SimulatorPage
+        viewport={<div />}
+        steps={<p>passos</p>}
+        result={<p>resultado</p>}
+        statusBar={<div />}
+        planning={<PlanningPanel {...props} />}
+      />
+    )
+    const { rerender } = render(
+      page(panelProps({ playback: playback({ playing: true, progress: 0.5 }) })),
+    )
+    expect(screen.getByRole('region', { name: 'Execução do planejamento' })).toBeTruthy()
+    rerender(page(panelProps({ playback: playback({ playing: false, progress: 1 }) })))
+    expect(screen.queryByRole('region', { name: 'Execução do planejamento' })).toBeNull()
+  })
+
+  it('abrir e fechar a folha durante a execução não duplica nem apaga a faixa', () => {
+    renderInSimulator(panelProps({ playback: playback({ playing: true, progress: 0.3 }) }))
+    const toggle = screen.getByRole('button', { name: 'Planejar' })
+    for (let round = 0; round < 2; round += 1) {
+      fireEvent.click(toggle) // abre
+      expect(screen.getAllByRole('button', { name: 'Parar' })).toHaveLength(1)
+      expect(screen.getAllByRole('progressbar', { name: 'Andamento da trajetória' })).toHaveLength(
+        1,
+      )
+      fireEvent.click(toggle) // fecha
+      expect(screen.getByRole('region', { name: 'Execução do planejamento' })).toBeTruthy()
+    }
+  })
+
   it('fora do simulador, a execução continua no próprio painel', () => {
     const { rerender } = render(
       <PlanningPanel {...panelProps({ playback: playback({ playing: true, progress: 0.2 }) })} />,
