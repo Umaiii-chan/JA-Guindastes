@@ -16,8 +16,9 @@ export function CollisionAlerts({ collision }: CollisionAlertsProps) {
   // Um objeto da biblioteca tem várias caixas de colisão: a mesma frase não se repete.
   const hitMessages = [...new Set(hits.map(describeHit))]
   // Sem nada a avisar, o espaço continua reservado (altura fixa): o aviso não empurra a ficha.
-  // Só guindaste contra guindaste (TASK-074): o título não fala da carga.
-  const onlyCranes = hits.every((hit) => hit.subject === 'crane')
+  // Só guindaste contra guindaste (TASK-074), ou o cabo contra a lança do outro (TASK-091): o título
+  // não fala da carga.
+  const onlyCranes = hits.every((hit) => hit.subject === 'crane' || hit.subject === 'cable')
   const hitsTitle = onlyCranes ? 'Colisão entre os guindastes' : 'Colisão da carga'
   return (
     <div className={styles.box} role="group" aria-label="Colisões">
