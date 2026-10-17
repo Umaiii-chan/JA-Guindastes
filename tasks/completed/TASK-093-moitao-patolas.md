@@ -18,3 +18,8 @@ Evidência e limites em `handoffs/TASK-093.md` (§ 2, § 4 e § 7).
 - E2E com o moitão do catálogo e a carga no chão: engatar sem salto (precisa do backend semeado).
 - Teste da fiação de `mountCraneScene` (sapatas do guindaste principal, inclinação seguindo a animação,
   `onOutriggersChange`) com um renderer falso, se o projeto passar a ter um.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-17 (PR #45). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).
