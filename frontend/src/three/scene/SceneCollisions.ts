@@ -1,4 +1,5 @@
 import {
+  type AccessoryChainSpan,
   type CollisionReport,
   type CollisionState,
   type CraneBody,
@@ -97,6 +98,15 @@ export class SceneCollisions implements CollisionGuard {
     this.listener = listener
   }
 
+  /**
+   * Cadeia de acessórios pendurada no gancho (TASK-056; TASK-091): parte do ponto de amarração e desce
+   * a soma das alturas, os mesmos valores com que a cena desce a carga.
+   */
+  private chain(): AccessoryChainSpan | null {
+    const dropM = this.hookLoad.currentAccessoriesDropM
+    return dropM > 0 ? { topM: this.hookLoad.currentAttachOffsetM, dropM } : null
+  }
+
   evaluate(state: CraneState): CollisionReport {
     return evaluateCollisions({
       state,
@@ -105,6 +115,7 @@ export class SceneCollisions implements CollisionGuard {
       body: this.body,
       load: this.hookLoad.currentLayout,
       hook: this.hookLoad.currentHookBox,
+      chain: this.chain(),
     })
   }
 
