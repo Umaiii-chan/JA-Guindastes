@@ -149,15 +149,13 @@ test('TASK-072: barracão, árvores, caminhão e carro; a carga entra pela porta
   await page.getByRole('button', { name: 'Perspectiva' }).click()
   await page.waitForTimeout(1200)
 
-  // Lança alta sobre o barracão: baixar o cabo leva a carga de encontro ao telhado, e o comando é
-  // barrado com o nome do barracão no aviso.
+  // Com a carga dentro do barracão, levantar a lança a ergue de encontro ao telhado: o comando é
+  // barrado e o aviso de bloqueio cita o barracão. (Só o último comando fica no aviso: um comando
+  // seguinte que bata em outra coisa, como o terreno, trocaria o alvo citado.)
   await setSlider(page.getByLabel('Inclinação da lança'), 40)
-  await setSlider(page.getByLabel('Comprimento da lança'), 30)
-  await setSlider(page.getByLabel('Comprimento do cabo'), 12)
-  await expect(page.getByRole('alert').filter({ hasText: /bloqueado/ })).toBeVisible()
-  await expect(
-    page.getByRole('group', { name: 'Colisões' }).getByText(/Galpão com frente aberta/),
-  ).toBeVisible()
+  const blocked = page.getByRole('alert').filter({ hasText: /bloqueado/ })
+  await expect(blocked).toBeVisible()
+  await expect(blocked).toContainText(/atingiria o obstáculo «Galpão com frente aberta»/)
   if (SCREENSHOT_DIR) {
     await page.screenshot({ path: `${SCREENSHOT_DIR}/carga-barrada-pelo-telhado.png` })
   }
