@@ -28,3 +28,8 @@
 - Miniaturas com WebGL real em outro navegador e o cenário com os 100 obstáculos de objetos.
 - Salvar e reabrir um cenário com objetos contra o backend com Postgres (o teste do backend usa a
   memória).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PR #26). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).
