@@ -66,7 +66,7 @@ class FakeUsageLimiter:
 def scenario_ia_json(**changes: Any) -> dict[str, Any]:
     """Resposta FICTÍCIA do modelo para "içar uma viga de 8 t de dentro do barracão"."""
     data: dict[str, Any] = {
-        "summary": "Içamento de uma viga de 8 t de dentro de um barracão até uma carreta.",
+        "summary": "Içamento de uma viga de 8 t de um barracão a um caminhão plataforma.",
         "load": {
             "description": "Viga FICTÍCIA",
             "weight_kg": 8000,
@@ -89,13 +89,14 @@ def scenario_ia_json(**changes: Any) -> dict[str, Any]:
                 "rotation_y_deg": 0,
             },
             {
-                "label": "Carreta",
-                "kind": "box",
+                "label": "Caminhão plataforma",
+                "kind": "model",
+                "model_id": "caminhao-plataforma",
                 "center_x": -8,
                 "center_z": 0,
-                "width_m": 2.5,
-                "depth_m": 12,
-                "height_m": 1.5,
+                "width_m": 4.05,
+                "depth_m": 7.41,
+                "height_m": 3.51,
                 "rotation_y_deg": 0,
             },
         ],
