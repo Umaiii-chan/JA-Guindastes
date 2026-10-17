@@ -143,7 +143,7 @@ def test_a_tensao_escolhida_muda_a_distancia_exigida() -> None:
     alta = evaluate(SiteContext(power_lines=(line(height_m=8.0, kv=500.0),)))
 
     assert baixa.power_line_clearances[0].required_m == pytest.approx(3.048)
-    assert alta.power_line_clearances[0].required_m == pytest.approx(20 * 0.3048)
+    assert alta.power_line_clearances[0].required_m == pytest.approx(25 * 0.3048)
     assert alta.power_line_clearances[0].distance_m == baixa.power_line_clearances[0].distance_m
 
 

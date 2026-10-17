@@ -32,7 +32,7 @@ class SitePayload(BaseModel):
         default_factory=list,
         max_length=MAX_POWER_LINES,
         description="Trechos de rede elétrica do cenário; a tensão de cada um define a distância "
-        "mínima (tabela do dono, ADR-051; não é a do OSHA, L-018).",
+        "mínima (Tabela A do OSHA 1926.1408, ADR-051).",
     )
     crane_x_m: float = Field(default=0.0, description="Posição X do eixo de giro no mundo (m).")
     crane_z_m: float = Field(default=0.0, description="Posição Z do eixo de giro no mundo (m).")

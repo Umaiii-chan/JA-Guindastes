@@ -5,8 +5,8 @@ no ADR-051. Origem: `handoffs/TASK-090.md` § 8 item 3 (altura das lingas) e a l
 
 ## Critérios de aceite
 
-- [x] **CA-1** — Distância mínima de rede elétrica pela tabela decidida (3,05 m até 50 kV; +0,4 pol por kV
-  acima de 50 até 200 kV; 15, 20, 25 e 35 pés nas faixas seguintes), conferida contra a lança, o cabo e a
+- [x] **CA-1** — Distância mínima de rede elétrica pela Tabela A do OSHA 1926.1408 (3,05 m até 50 kV; 15, 20,
+  25, 35 e 45 pés nas faixas seguintes), conferida contra a lança, o cabo e a
   carga **em qualquer posição** (giro de 0° a 360°); tensão selecionável no editor do ambiente.
 - [x] **CA-2** — O planejador não propõe plano que viole a distância (teste independente), e a avaliação
   alerta com a razão (violação crítica; abaixo de 1,5× atenção) sem mudar o `tipping_risk`.

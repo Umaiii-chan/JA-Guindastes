@@ -24,9 +24,11 @@ O plano e a cena discordavam, e a carga planejada não pousava onde o plano dizi
    `height_m`, `voltage_kv`). Trecho reto horizontal, altura de 0,5 a 200 m, tensão de 0 (exclusive) a
    1000 kV, até 20 trechos. **A tensão é entrada do ambiente**: o editor oferece uma lista (0,38 a
    1000 kV) e aceita outro valor.
-2. **Distância mínima** (`domain/services/power_line.py`), a tabela decidida pelo dono: até 50 kV,
-   10 pés (3,05 m); acima de 50 até 200 kV, 10 pés + 0,4 pol por kV acima de 50; 15 pés de 200 a 350 kV;
-   20 pés de 350 a 500; 25 pés de 500 a 750; 35 pés de 750 a 1000. Fora de 0–1000 kV, recusa.
+2. **Distância mínima** (`domain/services/power_line.py`): a **Tabela A do OSHA 29 CFR 1926.1408**, conferida em
+   osha.gov — até 50 kV, 10 pés (3,05 m); acima de 50 até 200 kV, 15 pés (4,57 m); acima de 200 até 350,
+   20 pés (6,10 m); acima de 350 até 500, 25 pés (7,62 m); acima de 500 até 750, 35 pés (10,67 m); acima de 750
+   até 1000, 45 pés (13,72 m). O limite da faixa pertence a ela. Fora de 0–1000 kV, recusa. (A versão inicial
+   usava a fórmula antiga "10 pés + 0,4 pol por kV", passada de memória; foi trocada pela Tabela A.)
 3. **Conferência:** distância 3D mínima entre o cabo e a lança (pino→ponta), o cabo de aço
    (ponta→gancho) e a carga pendurada (cilindro com a meia-diagonal da pegada; no tandem, o alcance até o canto mais afastado da metade içada), **agora e com o giro
    varrido de 0° a 360°** (passo de 1°). Abaixo da mínima: alerta CRÍTICO
@@ -72,17 +74,6 @@ O plano e a cena discordavam, e a carga planejada não pousava onde o plano dizi
 5. **Paridade provada** por uma tabela de casos única,
    `backend/tests/fixtures/sling_geometry_cases.json`, lida pelo pytest e pelo vitest. A tabela de
    distância de rede tem a sua, `power_line_clearance_cases.json`.
-
-## ⚠️ Pendência de conferência da tabela de distância (a decidir pelo dono)
-
-A tabela do item 2 foi adotada como o dono a ditou ("ASME B30.5 / OSHA 1926.1408"). **Ela não confere
-com a Tabela A do OSHA 1926.1408**, conferida em osha.gov em 2026-10-17: até 50 kV, 10 pés; acima de 50
-até 200, **15 pés**; acima de 200 até 350, **20**; acima de 350 até 500, **25**; acima de 500 até 750,
-**35**; acima de 750 até 1000, **45** (a fórmula "10 pés + 0,4 pol por kV" vem de uma regra antiga).
-Acima de 50 kV a tabela implementada é **menos conservadora** que a do OSHA (138 kV: 3,94 m contra
-4,57 m). Os valores não foram trocados por conta do agente. Se o dono optar pelo OSHA, a mudança é só
-`power_line.py` (`required_clearance_m`), `powerLine.ts` e o JSON de casos. Registrado em
-`docs/known-gaps.md` (L-018).
 
 ## Alternativas consideradas
 

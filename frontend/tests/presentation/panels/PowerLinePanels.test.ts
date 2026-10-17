@@ -45,7 +45,7 @@ const CLEARANCE = {
   line_id: 'rede-1',
   label: 'Rede FICTÍCIA',
   voltage_kv: 138,
-  required_m: 3.94,
+  required_m: 4.572,
   distance_m: 1.02,
   swept_distance_m: 0.98,
   status: 'VIOLATION',
@@ -80,7 +80,7 @@ describe('HUD: distância à rede e içamento crítico', () => {
   it('lista cada rede com a distância agora, girando e a mínima da tabela', () => {
     const body = text(markup)
     expect(body).toContain('Abaixo da mínima')
-    expect(body).toContain('Rede FICTÍCIA (138 kV): lança a 1,02 m, girando 0,98 m; mínima 3,94 m.')
+    expect(body).toContain('Rede FICTÍCIA (138 kV): lança a 1,02 m, girando 0,98 m; mínima 4,57 m.')
   })
 
   it('mostra o içamento crítico, os gatilhos e o plano exigido', () => {
@@ -185,7 +185,7 @@ describe('painel do ambiente: rede elétrica', () => {
     const markup = renderToStaticMarkup(createElement(EnvironmentPanel, props(spec)))
     const body = text(markup)
 
-    expect(body).toContain('Distância mínima: 3,94 m (tabela do dono, não é a do OSHA).')
+    expect(body).toContain('Distância mínima: 4,57 m (OSHA 1926.1408, Tabela A).')
     expect(markup).toContain('<option value="138" selected="">138 kV</option>')
     for (const kv of ['13,8 kV', '230 kV', '500 kV', '1.000 kV']) expect(body).toContain(kv)
   })

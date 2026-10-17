@@ -1,5 +1,5 @@
 {
-  "_nota": "Tabela ÚNICA de distância mínima de rede elétrica (D4; ADR-051). Lida pelos testes do backend (tests/domain/services/test_power_line.py) e do frontend (tests/domain/environment/powerLine.test.ts). Valores de app.domain.services.power_line conferidos à mão com a tabela do ASME B30.5 (10 pés até 50 kV; +0,4 pol por kV de 50 a 200 kV; 15, 20, 25 e 35 pés nas faixas seguintes).",
+  "_nota": "Tabela ÚNICA de distância mínima de rede elétrica (D4; ADR-051): a Tabela A do OSHA 29 CFR 1926.1408, conferida em osha.gov (10, 15, 20, 25, 35 e 45 pés; o limite da faixa pertence a ela). Lida pelos testes do backend (tests/domain/services/test_power_line.py) e do frontend (tests/domain/environment/powerLine.test.ts).",
   "tolerancia": 1e-06,
   "casos": [
     {
@@ -20,19 +20,19 @@
     },
     {
       "tensao_kv": 50.1,
-      "minima_m": 3.049016
+      "minima_m": 4.572
     },
     {
       "tensao_kv": 69.0,
-      "minima_m": 3.24104
+      "minima_m": 4.572
     },
     {
       "tensao_kv": 100.0,
-      "minima_m": 3.556
+      "minima_m": 4.572
     },
     {
       "tensao_kv": 138.0,
-      "minima_m": 3.94208
+      "minima_m": 4.572
     },
     {
       "tensao_kv": 200.0,
@@ -40,39 +40,39 @@
     },
     {
       "tensao_kv": 200.1,
-      "minima_m": 4.572
+      "minima_m": 6.096
     },
     {
       "tensao_kv": 230.0,
-      "minima_m": 4.572
+      "minima_m": 6.096
     },
     {
       "tensao_kv": 345.0,
-      "minima_m": 4.572
+      "minima_m": 6.096
     },
     {
       "tensao_kv": 350.0,
-      "minima_m": 4.572
+      "minima_m": 6.096
     },
     {
       "tensao_kv": 350.1,
-      "minima_m": 6.096
-    },
-    {
-      "tensao_kv": 500.0,
-      "minima_m": 6.096
-    },
-    {
-      "tensao_kv": 500.1,
       "minima_m": 7.62
     },
     {
-      "tensao_kv": 765.0,
+      "tensao_kv": 500.0,
+      "minima_m": 7.62
+    },
+    {
+      "tensao_kv": 500.1,
       "minima_m": 10.668
     },
     {
+      "tensao_kv": 765.0,
+      "minima_m": 13.716
+    },
+    {
       "tensao_kv": 1000.0,
-      "minima_m": 10.668
+      "minima_m": 13.716
     }
   ],
   "fora_da_tabela_kv": [

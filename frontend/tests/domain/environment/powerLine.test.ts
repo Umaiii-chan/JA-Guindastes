@@ -59,9 +59,11 @@ describe('distância mínima de rede (paridade com o backend)', () => {
     expect(POWER_LINE_VOLTAGE_OPTIONS_KV.every(isValidVoltageKv)).toBe(true)
   })
 
-  it('a faixa de 50 a 200 kV emenda sem salto com a de 200 a 350 kV (15 pés)', () => {
-    expect(requiredClearanceM(200)).toBeCloseTo(15 * 0.3048, 6)
-    expect(requiredClearanceM(200.001)).toBeCloseTo(15 * 0.3048, 4)
+  it('a Tabela A é em degraus: o limite da faixa pertence a ela (50 kV = 10 pés, 50,1 kV = 15 pés)', () => {
+    expect(requiredClearanceM(50)).toBeCloseTo(10 * 0.3048, 9)
+    expect(requiredClearanceM(50.1)).toBeCloseTo(15 * 0.3048, 9)
+    expect(requiredClearanceM(200)).toBeCloseTo(15 * 0.3048, 9)
+    expect(requiredClearanceM(1000)).toBeCloseTo(45 * 0.3048, 9)
   })
 })
 

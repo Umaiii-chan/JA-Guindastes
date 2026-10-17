@@ -1,15 +1,15 @@
 """Distância mínima de rede elétrica aérea (D4; TASK-107; ADR-051). Serviço puro, sem E/S.
 
-A tabela é a decidida pelo dono do produto (ADR-051). **Ela NÃO é a Tabela A do OSHA 29 CFR
-1926.1408** (10/15/20/25/35/45 pés) e é menos conservadora acima de 50 kV (known-gaps L-018).
-A distância depende da tensão nominal, que o usuário escolhe no editor (entrada do ambiente):
+A tabela é a Tabela A do OSHA 29 CFR 1926.1408 ("Minimum clearance distances"), conferida em
+osha.gov. A distância depende da tensão nominal, que o usuário escolhe no editor (entrada do
+ambiente); o valor que segue "até" inclui a própria tensão:
 
 - até 50 kV: 10 pés (3,05 m);
-- acima de 50 até 200 kV: 10 pés + 0,4 pol por kV acima de 50;
-- acima de 200 até 350 kV: 15 pés (4,57 m);
-- acima de 350 até 500 kV: 20 pés (6,10 m);
-- acima de 500 até 750 kV: 25 pés (7,62 m);
-- acima de 750 até 1000 kV: 35 pés (10,67 m).
+- acima de 50 até 200 kV: 15 pés (4,57 m);
+- acima de 200 até 350 kV: 20 pés (6,10 m);
+- acima de 350 até 500 kV: 25 pés (7,62 m);
+- acima de 500 até 750 kV: 35 pés (10,67 m);
+- acima de 750 até 1000 kV: 45 pés (13,72 m).
 
 Fora de 0–1000 kV não há valor na tabela: `required_clearance_m` recusa, em vez de adivinhar.
 A NR-10 (instalações elétricas) e a NR-11 (movimentação de materiais) são o contexto normativo
@@ -36,23 +36,19 @@ from app.domain.entities.scenario import (
 )
 
 FEET_M = 0.3048
-INCH_M = 0.0254
-BASE_CLEARANCE_M = 10 * FEET_M
-"""10 pés: a distância até 50 kV e a base da faixa de 50 a 200 kV."""
-PER_KV_ABOVE_50_M = 0.4 * INCH_M
-LOW_BAND_KV = 50.0
-MID_BAND_KV = 200.0
 ATTENTION_FACTOR = 1.5
 """Abaixo de 1,5× a mínima o içamento é crítico (ADR-051) e o alerta pede atenção."""
 SWEEP_STEP_DEG = 1.0
 
-_STEPS: tuple[tuple[float, float], ...] = (
-    (350.0, 15 * FEET_M),
-    (500.0, 20 * FEET_M),
-    (750.0, 25 * FEET_M),
-    (POWER_LINE_MAX_KV, 35 * FEET_M),
+_TABLE_A: tuple[tuple[float, float], ...] = (
+    (50.0, 10 * FEET_M),
+    (200.0, 15 * FEET_M),
+    (350.0, 20 * FEET_M),
+    (500.0, 25 * FEET_M),
+    (750.0, 35 * FEET_M),
+    (POWER_LINE_MAX_KV, 45 * FEET_M),
 )
-"""(limite superior da faixa em kV, distância em m) acima de 200 kV."""
+"""Tabela A do OSHA 1926.1408: (limite superior da faixa em kV, distância mínima em m)."""
 
 
 class InvalidVoltageError(ValueError):
@@ -60,16 +56,12 @@ class InvalidVoltageError(ValueError):
 
 
 def required_clearance_m(voltage_kv: float) -> float:
-    """Distância mínima (m) da rede de `voltage_kv` kV (tabela do dono, ADR-051; não é a OSHA)."""
+    """Distância mínima (m) da rede de `voltage_kv` kV (Tabela A do OSHA 1926.1408; ADR-051)."""
     if not math.isfinite(voltage_kv) or voltage_kv <= 0 or voltage_kv > POWER_LINE_MAX_KV:
         raise InvalidVoltageError(
             f"tensão de {voltage_kv!r} kV fora da tabela (0 a {POWER_LINE_MAX_KV:g} kV)"
         )
-    if voltage_kv <= LOW_BAND_KV:
-        return BASE_CLEARANCE_M
-    if voltage_kv <= MID_BAND_KV:
-        return BASE_CLEARANCE_M + (voltage_kv - LOW_BAND_KV) * PER_KV_ABOVE_50_M
-    for upper, clearance in _STEPS:
+    for upper, clearance in _TABLE_A:
         if voltage_kv <= upper:
             return clearance
     raise InvalidVoltageError(f"tensão de {voltage_kv!r} kV fora da tabela")  # pragma: no cover

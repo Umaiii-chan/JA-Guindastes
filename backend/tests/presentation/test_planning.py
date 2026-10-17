@@ -185,8 +185,8 @@ def test_rede_eletrica_do_cenario_vira_zona_e_a_nota_diz_a_distancia_exigida() -
     response = make_client().post(PLANNING_PATH, json=payload)
 
     assert response.status_code == 200
-    # 138 kV: 10 pés + 0,4 pol × 88 kV = 3,05 + 0,89 = 3,94 m.
-    assert any("Rede elétrica" in n and "138 kV: 3.94 m" in n for n in response.json()["notes"])
+    # 138 kV: Tabela A do OSHA 1926.1408, 15 pés = 4,57 m.
+    assert any("Rede elétrica" in n and "138 kV: 4.57 m" in n for n in response.json()["notes"])
 
 
 def test_tensao_invalida_na_rede_do_cenario_e_422() -> None:

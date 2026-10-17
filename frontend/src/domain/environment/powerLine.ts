@@ -1,16 +1,17 @@
 // Rede elétrica aérea no cenário e a distância mínima exigida (D4; TASK-107; ADR-051), sem Three.js.
 //
-// A tabela é a decidida pelo dono do produto (ADR-051). NÃO é a Tabela A do OSHA 29 CFR 1926.1408
-// (10/15/20/25/35/45 pés): é menos conservadora acima de 50 kV (known-gaps L-018).
-// É a MESMA do backend (`backend/app/domain/services/power_line.py`), que é quem avalia: aqui ela só serve para mostrar a distância exigida ao escolher a tensão e para desenhar a zona. A
-// paridade é provada por uma tabela de casos única (`backend/tests/fixtures/power_line_clearance_cases.json`).
+// A tabela é a Tabela A do OSHA 29 CFR 1926.1408, conferida em osha.gov (ADR-051). É a MESMA do
+// backend (`backend/app/domain/services/power_line.py`), que é quem avalia: aqui ela só serve para mostrar
+// a distância exigida ao escolher a tensão e para desenhar a zona. A paridade é provada por uma tabela
+// de casos única (`backend/tests/fixtures/power_line_clearance_cases.json`). O valor que segue "até"
+// inclui a própria tensão.
 //
 //   até 50 kV ........................ 10 pés (3,05 m)
-//   acima de 50 até 200 kV ........... 10 pés + 0,4 pol por kV acima de 50
-//   acima de 200 até 350 kV .......... 15 pés
-//   acima de 350 até 500 kV .......... 20 pés
-//   acima de 500 até 750 kV .......... 25 pés
-//   acima de 750 até 1000 kV ......... 35 pés
+//   acima de 50 até 200 kV ........... 15 pés
+//   acima de 200 até 350 kV .......... 20 pés
+//   acima de 350 até 500 kV .......... 25 pés
+//   acima de 500 até 750 kV .......... 35 pés
+//   acima de 750 até 1000 kV ......... 45 pés
 //
 // NR-10 (instalações elétricas) e NR-11 (movimentação de materiais) são o contexto normativo
 // brasileiro; não trazem uma tabela própria de distância de guindaste. Eixos da cena (ADR-013): Y para
@@ -45,15 +46,15 @@ export const DEFAULT_POWER_LINE_VOLTAGE_KV = 13.8
 export const DEFAULT_POWER_LINE_HEIGHT_M = 12
 
 const FEET_M = 0.3048
-const INCH_M = 0.0254
-const BASE_CLEARANCE_M = 10 * FEET_M
-const PER_KV_ABOVE_50_M = 0.4 * INCH_M
 
-const STEPS: readonly (readonly [number, number])[] = [
-  [350, 15 * FEET_M],
-  [500, 20 * FEET_M],
-  [750, 25 * FEET_M],
-  [POWER_LINE_MAX_KV, 35 * FEET_M],
+/** Tabela A do OSHA 1926.1408: [limite superior da faixa em kV, distância mínima em m]. */
+const TABLE_A: readonly (readonly [number, number])[] = [
+  [50, 10 * FEET_M],
+  [200, 15 * FEET_M],
+  [350, 20 * FEET_M],
+  [500, 25 * FEET_M],
+  [750, 35 * FEET_M],
+  [POWER_LINE_MAX_KV, 45 * FEET_M],
 ]
 
 /** Tensão dentro da tabela (0 exclusive a 1000 kV)? */
@@ -64,9 +65,7 @@ export function isValidVoltageKv(voltageKv: number): boolean {
 /** Distância mínima (m) da rede de `voltageKv` kV; `null` se a tensão está fora da tabela. */
 export function requiredClearanceM(voltageKv: number): number | null {
   if (!isValidVoltageKv(voltageKv)) return null
-  if (voltageKv <= 50) return BASE_CLEARANCE_M
-  if (voltageKv <= 200) return BASE_CLEARANCE_M + (voltageKv - 50) * PER_KV_ABOVE_50_M
-  for (const [upper, clearance] of STEPS) {
+  for (const [upper, clearance] of TABLE_A) {
     if (voltageKv <= upper) return clearance
   }
   return null

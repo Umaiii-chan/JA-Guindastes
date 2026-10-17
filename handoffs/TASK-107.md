@@ -38,9 +38,8 @@
 
 ## 3. Decisões e achados
 
-- **⚠️ A tabela de distância decidida não confere com a Tabela A do OSHA 1926.1408** (10/15/20/25/35/45
-  pés; conferido em osha.gov). Acima de 50 kV a implementada é menos conservadora. Implementei como decidido
-  e registrei no ADR-051 e em L-018; a troca é local (`power_line.py`, `powerLine.ts`, JSON de casos).
+- Tabela de distância: o primeiro envio usou a fórmula antiga ("10 pés + 0,4 pol por kV", de memória); foi trocada pela
+  Tabela A do OSHA 1926.1408 (10/15/20/25/35/45 pés), conferida em osha.gov, por decisão do Claude Code (orquestrador).
 - Lingas a 60° ficam mais altas que a heurística antiga: testes de cena/colisão que dependiam da altura
   antiga foram ajustados (cabo mais curto, lingas de 45° ou pose engatada com 2 m), com comentário em cada um.
 - A regra de engate mudou: o gancho precisa estar perto do ponto em que as lingas esticam, não mais a até
