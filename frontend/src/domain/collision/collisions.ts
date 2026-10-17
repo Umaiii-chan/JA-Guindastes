@@ -1,7 +1,7 @@
-// Colisões da carga (TASK-053; ADR-028; RN-012), sem Three.js: a carga suspensa (e o gancho sem carga)
-// contra o terreno, o corpo do guindaste e os obstáculos; o cabo e a lança contra os obstáculos só
-// geram alerta. É PRÉ-VISUALIZAÇÃO e bloqueio de comando na cena: capacidade e segurança continuam
-// sendo do backend (RN-008).
+// Colisões da carga (TASK-053; ADR-028; RN-012), sem Three.js: a carga suspensa, o gancho e a cadeia
+// de acessórios (TASK-091) contra o terreno, o corpo do guindaste e os obstáculos; o cabo e a lança
+// contra os obstáculos só geram alerta. É PRÉ-VISUALIZAÇÃO e bloqueio de comando na cena: capacidade
+// e segurança continuam sendo do backend (RN-008).
 //
 // Referenciais: o guindaste fica em `scenario.crane` (eixo de giro em (x, z), apoiado no terreno nessa
 // posição) com o chassi girado em `headingDeg` em torno de +Y (mesmo sentido de `rotation.y`; com 0°
@@ -26,7 +26,6 @@ import {
   type Obb,
   obbFromFrame,
   obbPenetration,
-  obbSurfacePoints,
   rotX,
   rotY,
   segmentIntersectsObb,
@@ -35,6 +34,9 @@ import {
   compose,
   IDENTITY,
 } from './obb'
+import { obbTerrainDepth } from './terrainSampling'
+
+export { obbTerrainDepth, TERRAIN_TOLERANCE_M } from './terrainSampling'
 
 const DEG = Math.PI / 180
 
@@ -79,6 +81,28 @@ export interface HookBox {
   readonly half: Vec3
 }
 
+/**
+ * Cadeia de acessórios abaixo do gancho (TASK-056; TASK-091): começa no ponto de amarração (`topM`
+ * abaixo de G) e desce `dropM` (a soma de `riggingHeightM`, a mesma distância que a cena usa para
+ * descer a carga).
+ */
+export interface AccessoryChainSpan {
+  readonly topM: number
+  readonly dropM: number
+}
+
+/**
+ * Meia-largura (m) da caixa da cadeia de acessórios. FICTÍCIO (ADR-012): o catálogo só tem a altura
+ * de cada acessório (`riggingHeightM`), não a largura; 0,3 m cobre gancho giratório e manilha.
+ */
+export const ACCESSORY_CHAIN_HALF_WIDTH_M = 0.15
+
+/**
+ * Meia-largura (m) da caixa do cabo, do gancho à ponta da lança, contra a lança de outro guindaste
+ * (TASK-091). FICTÍCIO (ADR-012): o cabo real é mais fino, mas tem várias pernas (moitão).
+ */
+export const CABLE_HALF_WIDTH_M = 0.05
+
 export interface CollisionInput {
   readonly state: CollisionCraneState
   readonly geometryParameters: CraneGeometryParameters
@@ -89,13 +113,16 @@ export interface CollisionInput {
   readonly load: LoadBoxLayout | null
   /** Caixa do gancho, ou `null` se ainda não foi medida. */
   readonly hook: HookBox | null
+  /** Cadeia de acessórios (TASK-091); ausente, `null` ou sem altura = sem cadeia. */
+  readonly chain?: AccessoryChainSpan | null
 }
 
 /**
- * O que colide: a carga, o gancho sem carga ou, com dois guindastes (TASK-074), o próprio guindaste
- * (lança contra lança, lança contra o corpo do outro).
+ * O que colide: a carga, o gancho, a cadeia de acessórios (TASK-091), o cabo (só contra a lança de
+ * outro guindaste; TASK-091) ou, com dois guindastes (TASK-074), o próprio guindaste (lança contra
+ * lança, lança contra o corpo do outro).
  */
-export type CollisionSubject = 'load' | 'hook' | 'crane'
+export type CollisionSubject = 'load' | 'hook' | 'accessories' | 'cable' | 'crane'
 
 export type CollisionTarget =
   | { readonly kind: 'terrain' }
@@ -106,10 +133,15 @@ export type CollisionTarget =
   /** No tandem, o guindaste que acompanha não alcança o ponto de içamento dele (TASK-074). */
   | { readonly kind: 'tandem-reach'; readonly craneLabel: string }
 
-/** O que encostou em quê (a carga, ou o gancho sem carga). */
+/** O que encostou em quê (a carga, o gancho, a cadeia, o cabo ou o guindaste). */
 export interface CollisionHit {
   readonly subject: CollisionSubject
   readonly target: CollisionTarget
+  /**
+   * Com vários guindastes (TASK-091): nome do guindaste dono da carga, do gancho, da cadeia ou do cabo
+   * que encostou no outro. Ausente = o guindaste da própria guarda.
+   */
+  readonly owner?: string
 }
 
 /** Cabo ou lança atravessando um obstáculo: só alerta, não bloqueia (RN-012). */
@@ -143,9 +175,6 @@ export const NO_COLLISION: CollisionState = {
   penetrationM: 0,
   blocked: false,
 }
-
-/** Altura (m) abaixo do terreno que ainda se aceita (ruído numérico): a busca binária para dentro dela. */
-export const TERRAIN_TOLERANCE_M = 1e-4
 
 /** Posição e rumo do guindaste no mundo: referencial da base (origem em O, no terreno). */
 export function craneBaseTransform(scenario: ScenarioSpec): Transform {
@@ -259,9 +288,23 @@ export function hookWorldFrame(
   }
 }
 
+/** Caixa da cadeia de acessórios nos eixos locais de G (de G − `topM` até G − `topM` − `dropM`), ou `null`. */
+export function accessoryChainBox(chain: AccessoryChainSpan | null | undefined): HookBox | null {
+  if (!chain || !(chain.dropM > 0) || !Number.isFinite(chain.dropM)) return null
+  const top = Number.isFinite(chain.topM) && chain.topM > 0 ? chain.topM : 0
+  return {
+    center: { x: 0, y: -(top + chain.dropM / 2), z: 0 },
+    half: {
+      x: ACCESSORY_CHAIN_HALF_WIDTH_M,
+      y: chain.dropM / 2,
+      z: ACCESSORY_CHAIN_HALF_WIDTH_M,
+    },
+  }
+}
+
 /**
- * Caixa da carga e do gancho no mundo. O cabo pende na vertical (S-2), então os eixos são os da
- * torre (girada em ψ) com Y para cima, como no nó do gancho da cena.
+ * Caixa da carga, do gancho e da cadeia de acessórios no mundo. O cabo pende na vertical (S-2), então
+ * os eixos são os da torre (girada em ψ) com Y para cima, como no nó do gancho da cena.
  */
 export function payloadObbs(
   input: CollisionInput,
@@ -273,6 +316,11 @@ export function payloadObbs(
       subject: 'hook',
       obb: obbFromFrame(hookFrame, input.hook.center, input.hook.half),
     })
+  }
+  // TASK-091 (F-10; RN-012): a cadeia (gancho giratório, manilha…) também não atravessa nada.
+  const chain = accessoryChainBox(input.chain)
+  if (chain) {
+    parts.push({ subject: 'accessories', obb: obbFromFrame(hookFrame, chain.center, chain.half) })
   }
   if (input.load) {
     const { center, size, yawDeg } = input.load
@@ -291,28 +339,38 @@ export function payloadObbs(
   return parts
 }
 
-/** A caixa entra no terreno? Amostra a superfície da caixa e compara com a altura do terreno. */
+/**
+ * Caixa fina do cabo, de G até a ponta T (vertical, S-2), para conferir contra a lança de outro
+ * guindaste (TASK-091); `null` sem cabo abaixo da ponta.
+ */
+export function cableObb(
+  input: Pick<CollisionInput, 'state' | 'geometryParameters' | 'scenario'>,
+): Obb | null {
+  const { hookFrame, hook, tip } = suspension(input)
+  const lengthM = tip.y - hook.y
+  if (!(lengthM > 0)) return null
+  return obbFromFrame(
+    hookFrame,
+    { x: 0, y: lengthM / 2, z: 0 },
+    { x: CABLE_HALF_WIDTH_M, y: lengthM / 2, z: CABLE_HALF_WIDTH_M },
+  )
+}
+
+/** A caixa entra no terreno? Compara a face de baixo (e os picos das feições) com o terreno. */
 export function obbHitsTerrain(obb: Obb, terrain: TerrainSpec): boolean {
   return obbTerrainDepth(obb, terrain) > 0
 }
 
-/** Quanto (m) o ponto mais fundo da caixa está abaixo do terreno (0 se nenhum ponto passa da tolerância). */
-export function obbTerrainDepth(obb: Obb, terrain: TerrainSpec): number {
-  let depth = 0
-  for (const point of obbSurfacePoints(obb)) {
-    const below = terrainHeightAt(terrain, point.x, point.z) - point.y
-    if (below > TERRAIN_TOLERANCE_M) depth = Math.max(depth, below)
-  }
-  return depth
-}
-
-/** Frames do corpo que o gancho sem carga não pode atravessar (a lança é onde ele fica preso). */
+/**
+ * Frames do corpo que o gancho e a cadeia de acessórios não podem atravessar (a lança é onde o gancho
+ * fica preso por construção, e a cadeia pende logo abaixo dele).
+ */
 const HOOK_SOLID_FRAMES: ReadonlySet<BodyFrame> = new Set<BodyFrame>(['base', 'turret'])
 
 /**
- * Avalia o estado: o que a carga (ou o gancho) atinge e o que o cabo e a lança atravessam.
- * O gancho sem carga também é testado contra o terreno, os obstáculos e o chassi/torre (não contra
- * a lança, onde ele fica preso por construção).
+ * Avalia o estado: o que a carga, o gancho e a cadeia de acessórios atingem e o que o cabo e a lança
+ * atravessam. O gancho e a cadeia são testados contra o terreno, os obstáculos e o chassi/torre (não
+ * contra a lança, onde o gancho fica preso por construção).
  */
 export function evaluateCollisions(input: CollisionInput): CollisionReport {
   const { scenario } = input
@@ -331,7 +389,7 @@ export function evaluateCollisions(input: CollisionInput): CollisionReport {
       penetrationM += terrainDepth
     }
     for (const part of bodyObbs) {
-      if (subject === 'hook' && !HOOK_SOLID_FRAMES.has(part.frame)) continue
+      if (subject !== 'load' && !HOOK_SOLID_FRAMES.has(part.frame)) continue
       const depth = obbPenetration(obb, part.obb)
       if (depth > 0) {
         hits.push({ subject, target: { kind: 'crane', part: part.id, obb: part.obb } })
@@ -384,13 +442,20 @@ export function describeTarget(target: CollisionTarget): string {
   }
 }
 
+const SUBJECT_NAMES: Readonly<Record<Exclude<CollisionSubject, 'crane'>, string>> = {
+  load: 'A carga',
+  hook: 'O gancho',
+  accessories: 'A cadeia de acessórios',
+  cable: 'O cabo',
+}
+
 export function describeHit(hit: CollisionHit): string {
   if (hit.target.kind === 'tandem-reach') {
     return `O ${hit.target.craneLabel} não alcançaria o ponto de içamento dele.`
   }
   if (hit.subject === 'crane') return `Os guindastes colidiriam: ${describeTarget(hit.target)}.`
-  const subject = hit.subject === 'load' ? 'A carga' : 'O gancho'
-  return `${subject} atingiria ${describeTarget(hit.target)}.`
+  const owner = hit.owner ? ` do ${hit.owner}` : ''
+  return `${SUBJECT_NAMES[hit.subject]}${owner} atingiria ${describeTarget(hit.target)}.`
 }
 
 export function describeAlert(alert: CollisionAlert): string {
@@ -403,17 +468,18 @@ export function describeAlert(alert: CollisionAlert): string {
 
 /** Chave estável do conteúdo (sem as caixas), para avisar a UI só quando algo mudou. */
 export function collisionStateKey(state: CollisionState): string {
-  const hits = state.hits.map((hit) =>
-    hit.target.kind === 'terrain'
-      ? `${hit.subject}:terrain`
+  const hits = state.hits.map((hit) => {
+    const subject = hit.owner ? `${hit.subject}@${hit.owner}` : hit.subject
+    return hit.target.kind === 'terrain'
+      ? `${subject}:terrain`
       : hit.target.kind === 'crane'
-        ? `${hit.subject}:crane:${hit.target.part}`
+        ? `${subject}:crane:${hit.target.part}`
         : hit.target.kind === 'other-crane'
-          ? `${hit.subject}:other-crane:${hit.target.part}`
+          ? `${subject}:other-crane:${hit.target.part}`
           : hit.target.kind === 'tandem-reach'
-            ? `${hit.subject}:tandem-reach:${hit.target.craneLabel}`
-            : `${hit.subject}:obstacle:${hit.target.id}`,
-  )
+            ? `${subject}:tandem-reach:${hit.target.craneLabel}`
+            : `${subject}:obstacle:${hit.target.id}`
+  })
   const alerts = state.alerts.map((alert) => `${alert.segment}:${alert.obstacleId}`)
   return JSON.stringify([state.blocked, hits, alerts])
 }

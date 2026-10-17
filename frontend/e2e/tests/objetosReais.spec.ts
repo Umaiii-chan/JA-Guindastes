@@ -129,7 +129,8 @@ test('TASK-072: barracão, árvores, caminhão e carro; a carga entra pela porta
 
   // A carga está dentro do barracão, e a lança passou pela porta: nada a avisar.
   await page.waitForTimeout(800)
-  await expect(page.getByRole('group', { name: 'Colisões' })).toHaveCount(0)
+  // O grupo «Colisões» fica sempre sobre a cena (TASK-078; TASK-082); aqui, sem nenhum aviso.
+  await expect(page.getByRole('group', { name: 'Colisões' }).getByRole('listitem')).toHaveCount(0)
   await page.getByRole('button', { name: 'Topo' }).click()
   await page.waitForTimeout(1200)
   if (SCREENSHOT_DIR) {

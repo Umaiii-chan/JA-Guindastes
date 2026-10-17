@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 
+import type { CollisionState } from '../../../src/domain/collision/collisions'
 import { EMPTY_SCENARIO, type ScenarioSpec } from '../../../src/domain/environment/environment'
 import { PROVISIONAL_CRANE_SETUP } from '../../../src/three/crane/provisionalCraneSpec'
 import type { CraneCommands } from '../../../src/three/crane/types'
@@ -100,6 +101,83 @@ describe('MultiCrane — guindastes adicionais', () => {
     const report = guard.evaluate(contents.crane.getState())
 
     expect(report.hits.filter((hit) => hit.subject === 'crane')).toEqual([])
+  })
+})
+
+describe('MultiCrane — o que pende de um guindaste, fora do tandem (TASK-091; F-07)', () => {
+  // Carga FICTÍCIA de 4 × 2 × 1,5 m no principal. O adicional fica com a lança deitada (θ = 0),
+  // atravessando por baixo do gancho do principal (ψ = 0, para +Z).
+  const LOAD = { lengthM: 4, widthM: 2, heightM: 1.5 }
+
+  function sceneWithBoomUnderHook() {
+    const contents = buildCraneScene()
+    const primaryStates: CollisionState[] = []
+    const extraStates: CollisionState[] = []
+    contents.multi.configure({
+      invalidate: () => undefined,
+      loadModel: null,
+      signal: new AbortController().signal,
+      reducedMotion: true,
+      onCollision: (state) => extraStates.push(state),
+      onExtrasChange: () => undefined,
+      onTandemFrame: () => undefined,
+    })
+    contents.collisions.setListener((state) => primaryStates.push(state))
+    contents.crane.setCollisionGuard(contents.multi.guardFor(PRIMARY_CRANE_ID, contents.collisions))
+    contents.multi.setScenario(EMPTY_SCENARIO)
+    // Cabo curto: a carga do principal fica bem acima da lança do adicional.
+    contents.crane.setCableLength(1)
+    const hook = contents.crane.getOperationalGeometry().hook
+    // O adicional deita a lança longe dali e só depois vai para o lugar, de lado para o principal.
+    contents.multi.setExtras([{ ...SECOND, placement: { x: -40, z: hook.zM, headingDeg: 90 } }])
+    const extra = contents.multi.getExtra('extra-1')!
+    extra.crane.setCableLength(1)
+    extra.crane.setBoomAngle(0)
+    contents.multi.setExtras([{ ...SECOND, placement: { x: -9, z: hook.zM, headingDeg: 90 } }])
+    contents.hookLoad.setLoad(LOAD)
+    contents.crane.revalidate()
+    return { contents, extra, primaryStates, extraStates }
+  }
+
+  it('baixar o cabo do principal leva a carga até a lança do outro: o cabo para e avisa', () => {
+    const { contents, primaryStates } = sceneWithBoomUnderHook()
+    expect(primaryStates.at(-1)?.hits).toEqual([])
+    expect(contents.multi.getExtra('extra-1')?.crane.getState().boomAngleDeg).toBe(0)
+
+    const applied = contents.crane.setCableLength(10)
+
+    expect(applied).toBeLessThan(10)
+    const last = primaryStates.at(-1)!
+    expect(last.blocked).toBe(true)
+    expect(last.hits).toContainEqual(
+      expect.objectContaining({
+        subject: 'load',
+        owner: 'Guindaste 1',
+        target: expect.objectContaining({ kind: 'other-crane' }),
+      }),
+    )
+    // A carga atingida é a do principal: ela fica vermelha.
+    expect(contents.hookLoad.collisionHighlighted).toBe(true)
+    // No estado aplicado, nada colide: o cabo parou no último estado seguro.
+    const guard = contents.multi.guardFor(PRIMARY_CRANE_ID, contents.collisions)
+    expect(guard.evaluate(contents.crane.getState()).hits).toEqual([])
+  })
+
+  it('levantar a lança do outro por baixo da carga do principal também é barrado', () => {
+    const { contents, extra, extraStates } = sceneWithBoomUnderHook()
+    // A carga do principal desce até encostar na lança deitada do adicional.
+    contents.crane.setCableLength(10)
+
+    const raised = extra.crane.setBoomAngle(10)
+
+    expect(raised).toBeLessThan(1)
+    const last = extraStates.at(-1)!
+    expect(last.blocked).toBe(true)
+    expect(last.hits.some((hit) => hit.subject === 'load' && hit.owner === 'Guindaste 1')).toBe(
+      true,
+    )
+    // A carga é a do principal, não a do adicional: o gancho do adicional não fica vermelho.
+    expect(extra.hookLoad.collisionHighlighted).toBe(false)
   })
 })
 
