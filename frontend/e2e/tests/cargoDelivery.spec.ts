@@ -148,12 +148,15 @@ test.describe('coleta e entrega da carga', () => {
       await page.mouse.click(x, y)
       await settle(page)
     }
-    // Perto do guindaste (cerca de 15 m): com a barra do editor (que cresceu com o tandem), a vista de
-    // cima fica menor e 110 px já passam do alcance da lança.
-    await placeCargo(center.x + 70, center.y + 45)
+    // Perto do guindaste (cerca de 15 m). A vista de cima enquadra o alcance pela altura do quadro,
+    // então o deslocamento vem em fração dela: até a TASK-095 eram 70 e 45 px num quadro de 410 px
+    // de altura (o editor encolhia a cena); desde ela, a cena ocupa o palco e o editor flutua.
+    const dx = box.height * 0.17
+    const dy = box.height * 0.11
+    await placeCargo(center.x + dx, center.y + dy)
     await expect(strip(page)).toContainText('Agora marque onde a carga deve chegar')
     await page.getByRole('button', { name: 'Ponto de entrega' }).click()
-    await page.mouse.click(center.x - 70, center.y + 45)
+    await page.mouse.click(center.x - dx, center.y + dy)
     await settle(page)
     await expect(strip(page).getByRole('button', { name: 'Engatar' })).toBeDisabled()
     // Com a carga no chão, só o gancho e os acessórios entram na avaliação.
@@ -237,9 +240,11 @@ test.describe('coleta e entrega da carga', () => {
       delivery: expect.anything(),
     })
 
-    await recordingPanel.getByRole('button', { name: 'Gravações salvas' }).click()
-    await recordingPanel.getByRole('button', { name: 'Reproduzir Entrega FICTÍCIA' }).click()
-    const player = recordingPanel.getByRole('group', { name: 'Reprodução' })
+    // Desde a TASK-095, as gravações salvas ficam numa folha da barra de ferramentas e o player
+    // numa faixa sobre a cena; Gravar, Parar e Salvar seguem na barra de comando.
+    await page.getByRole('button', { name: 'Gravações salvas' }).click()
+    await page.getByRole('button', { name: 'Reproduzir Entrega FICTÍCIA' }).click()
+    const player = page.getByRole('group', { name: 'Reprodução' })
     await expect(player).toBeVisible()
     await expect(player.locator('button[data-kind="engage"]')).toHaveCount(1)
     await expect(player.locator('button[data-kind="release"]')).toHaveCount(1)

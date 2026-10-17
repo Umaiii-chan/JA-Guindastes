@@ -232,3 +232,16 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
+
+/* Cartão de resultado do simulador (TASK-095): número menor, régua mais perto dele. */
+.compact {
+  column-gap: var(--space-3);
+}
+
+.compact .readout {
+  min-width: 6.5ch;
+}
+
+.compact .number {
+  font-size: 1.75rem;
+}

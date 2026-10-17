@@ -106,7 +106,12 @@ test('com a carga posicionada no chão, o modelo do tipo aparece apoiado no terr
   const canvas = page.locator('.crane-viewport__canvas canvas')
   const box = (await canvas.boundingBox())!
   await page.getByRole('button', { name: 'Posicionar carga' }).click()
-  await page.mouse.click(box.x + box.width / 2 + 110, box.y + box.height / 2 + 70)
+  // A vista de cima enquadra o alcance pela altura do quadro: até a TASK-095 eram 110 e 70 px num
+  // quadro de 310 px de altura (o editor encolhia a cena); desde ela, a cena ocupa o palco.
+  await page.mouse.click(
+    box.x + box.width / 2 + box.height * 0.355,
+    box.y + box.height / 2 + box.height * 0.226,
+  )
   await page.getByRole('button', { name: 'Concluir' }).click()
   await page.waitForTimeout(2500)
   if (SCREENSHOT_DIR) await page.screenshot({ path: `${SCREENSHOT_DIR}/modelos-carga-no-chao.png` })

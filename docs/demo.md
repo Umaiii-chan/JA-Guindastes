@@ -173,13 +173,15 @@ Nos passos seguintes, troque `http://127.0.0.1:8080` por `http://localhost:5173`
 4. Passo **2 Carga**: preencha uma descrição (ex.: `Carga FICTÍCIA`), **"Peso (kg)"** = `3000` e
    comprimento, largura e altura maiores que zero (ex.: 2, 1 e 1 m). O peso só vai para a avaliação
    com o formulário inteiro válido; as dimensões só desenham a caixa pendurada no gancho.
-5. Passo **3 Posição**: deixe **"Giro da torre"** em 0° e **"Comprimento do cabo"** em 5,0 m (a pose
-   inicial, na zona `FRONTAL`) e mova **"Inclinação da lança"** e **"Comprimento da lança"**
-   conforme a tabela abaixo; depois gire a torre (cenários F e G). O resultado à direita atualiza
-   sozinho (WebSocket, com REST de reserva), mostra a situação com cor, o medidor de utilização, a
-   capacidade e o raio do backend, a zona de giro e as parcelas do peso comparado (carga, gancho e
-   total), e sempre traz a marca **"PROVISÓRIO — consulta conservadora (ADR-015)"**. O anel no chão
-   marca o raio de pré-visualização e ganha a cor da situação.
+5. Passo **3 Posição**: os controles ficam na **barra de comando**, embaixo da cena (TASK-095),
+   com rótulos curtos ("Giro", "Inclinação", "Lança", "Cabo"). Deixe **"Giro da torre"** em 0° e
+   **"Comprimento do cabo"** em 5,0 m (a pose inicial, na zona `FRONTAL`) e mova **"Inclinação da
+   lança"** e **"Comprimento da lança"** conforme a tabela abaixo; depois gire a torre (cenários F e
+   G). O cartão de resultado, no canto de cima à direita, atualiza sozinho (WebSocket, com REST de
+   reserva) e mostra a situação com cor, o medidor de utilização, a capacidade, o peso comparado e o
+   raio do backend; em **"Detalhes"**, a zona de giro, as parcelas do peso comparado (carga, gancho e
+   total) e a consulta da tabela. O anel no chão marca o raio de pré-visualização e ganha a cor da
+   situação.
 
 Valores esperados com as tabelas `demo-ficticia-v1` (zona `FRONTAL`) e
 `demo-ficticia-lateral-traseira-v1` (zona `LATERAL_TRASEIRA`) ativas, carga de 3 000 kg e gancho

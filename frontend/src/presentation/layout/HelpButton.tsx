@@ -63,8 +63,8 @@ export function HelpButton() {
               Geometria <Badge tone="neutral">pré-visualização</Badge>
             </dt>
             <dd>
-              O raio e as alturas mostrados ao lado da cena são uma prévia; o resultado oficial é o
-              da avaliação.
+              O raio e as alturas em “Detalhes”, no cartão de resultado, são uma prévia; o resultado
+              oficial é o da avaliação.
             </dd>
           </div>
           <div>
@@ -80,8 +80,17 @@ export function HelpButton() {
           <div>
             <dt>Cena 3D</dt>
             <dd>
-              Arraste para girar a câmera e role para aproximar. Os controles do passo “Posição” têm
-              teclado: setas, Home, End, PageUp e PageDown.
+              Arraste para girar a câmera e role para aproximar. Os controles da barra de comando,
+              embaixo da cena, têm teclado: setas, Home, End, PageUp e PageDown.
+            </dd>
+          </div>
+          <div>
+            <dt>Painéis e atalhos</dt>
+            <dd>
+              A barra à esquerda abre uma folha por vez (Configurar, Acessórios, Ambiente, Tandem,
+              Planejar e Gravações); clique de novo no botão ou tecle Esc para fechar. Teclas 1, 2,
+              3 e 4 escolhem a vista: perspectiva, lateral, topo e operador. “Ocultar painéis” deixa
+              só a cena e a barra de vistas.
             </dd>
           </div>
         </dl>

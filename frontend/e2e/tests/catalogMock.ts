@@ -97,3 +97,14 @@ export async function fillValidLoad(page: Page, weightKg = '3000'): Promise<void
   await load.getByLabel('Largura (m)', { exact: true }).fill('2')
   await load.getByLabel('Altura (m)', { exact: true }).fill('2')
 }
+
+/**
+ * Abre os "Detalhes" do cartão de resultado (TASK-095): a geometria de pré-visualização (raio,
+ * alturas da ponta e do gancho) fica neles. Sem efeito se já estiverem abertos.
+ */
+export async function openResultDetails(page: Page): Promise<void> {
+  const toggle = page
+    .getByRole('complementary', { name: 'Resultado da avaliação' })
+    .getByRole('button', { name: 'Detalhes' })
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click()
+}

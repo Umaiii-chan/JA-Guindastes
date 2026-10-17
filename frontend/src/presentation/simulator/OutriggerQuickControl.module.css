@@ -1,0 +1,50 @@
+/* Patolas na barra de comando (TASK-095): o estado como um rótulo de prancha e o atalho ao lado. */
+.quick {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.state {
+  display: grid;
+  gap: 0;
+  padding: 2px var(--space-2) 2px var(--space-3);
+  border-left: 3px solid var(--color-status-neutral);
+  text-align: left;
+}
+
+.state:hover .value {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.caption {
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-2);
+}
+
+.value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-1);
+  white-space: nowrap;
+}
+
+.ready {
+  border-left-color: var(--color-status-ok);
+}
+
+.notReady {
+  border-left-color: var(--color-status-warning);
+}
+
+/* Campos estáveis (TASK-078): o texto do estado não muda a largura da barra. */
+.value {
+  display: inline-block;
+  min-width: 19ch;
+}
