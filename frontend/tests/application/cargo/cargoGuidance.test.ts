@@ -102,20 +102,22 @@ describe('dicas da coleta e entrega', () => {
     }
     const input = { cargoPlaced: true, deliveryPlaced: true }
     const far = cargoGuidance({ ...input, status: hooked }).message
-    expect(far).toContain('do apoio, no chão ou na carroceria')
+    expect(far).toContain('do apoio, no chão ou sobre o veículo ou contêiner')
     expect(far).not.toMatch(/do chão \(/)
     const ready = cargoGuidance({
       ...input,
       status: { ...hooked, canRelease: true, heightAboveGroundM: 0.1 },
     }).message
-    expect(ready).toContain('rente ao apoio (chão ou carroceria)')
+    expect(ready).toContain('rente ao apoio (chão, carroceria, convés ou teto do contêiner)')
     expect(ready).toContain('Toque em Soltar')
     expect(ready).not.toContain('perto do chão')
     const noDelivery = cargoGuidance({
       ...input,
       status: { ...hooked, canRelease: true, distanceToDeliveryM: null },
     }).message
-    expect(noDelivery).toBe('A carga está rente ao apoio (chão ou carroceria). Toque em Soltar.')
+    expect(noDelivery).toBe(
+      'A carga está rente ao apoio (chão, carroceria, convés ou teto do contêiner). Toque em Soltar.',
+    )
   })
 
   it('mostra o sucesso com o tempo, e o aviso quando caiu fora', () => {

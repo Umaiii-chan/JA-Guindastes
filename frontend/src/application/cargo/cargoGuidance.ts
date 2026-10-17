@@ -9,6 +9,7 @@ import {
   ENGAGE_MIN_GAP_M,
   RELEASE_MAX_HEIGHT_M,
 } from '../../domain/cargo/cargoOperation'
+import { exceedsCapacity } from '../../domain/cargo/loadBeds'
 import { formatClock } from '../recording/playback'
 
 export type CargoStepId = 'position' | 'engage' | 'deliver'
@@ -34,7 +35,39 @@ export interface CargoGuidanceInput {
   /** A carga foi posicionada no cenário. */
   readonly cargoPlaced: boolean
   readonly deliveryPlaced: boolean
+  /** Peso da carga (kg), se já informado: com ele a dica confere a capacidade do apoio (ADR-052). */
+  readonly loadWeightKg?: number
 }
+
+/**
+ * O que dizer do apoio sob a carga (ADR-052): a capacidade conhecida contra o peso, ou o rótulo FICTÍCIO
+ * (sem capacidade conhecida, o peso não é conferido). Vazio sobre o terreno. A dica orienta; não trava.
+ */
+export function bedNote(
+  status: CargoStatus,
+  loadWeightKg?: number,
+): { text: string; warning: boolean } | null {
+  const bed = status.bed
+  // Sobre o mesmo apoio de onde foi coletada, a carga já estava ali: a capacidade não se confere (ADR-052).
+  if (!bed || bed.atPickup) return null
+  if (bed.capacityKg === null) {
+    return {
+      text: ` Apoio: ${bed.label}. Apoio FICTÍCIO: a capacidade de carga não é conhecida e o peso não foi conferido.`,
+      warning: false,
+    }
+  }
+  const kg = (value: number) => `${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`
+  if (loadWeightKg !== undefined && exceedsCapacity(bed, loadWeightKg)) {
+    return {
+      text: ` Atenção: ${bed.label} suporta no máximo ${kg(bed.capacityKg)} e a carga pesa ${kg(loadWeightKg)}.`,
+      warning: true,
+    }
+  }
+  return { text: ` Apoio: ${bed.label} (capacidade de ${kg(bed.capacityKg)}).`, warning: false }
+}
+
+/** O que conta como apoio nos textos da soltura: o chão ou o topo de um caminhão, carreta ou contêiner. */
+const SUPPORT_TEXT = 'chão, carroceria, convés ou teto do contêiner'
 
 function meters(value: number): string {
   return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m`
@@ -49,6 +82,7 @@ export function cargoGuidance({
   status,
   cargoPlaced,
   deliveryPlaced,
+  loadWeightKg,
 }: CargoGuidanceInput): CargoGuidance {
   const state = status.state
   const hooked = state?.phase === 'hooked'
@@ -137,15 +171,17 @@ export function cargoGuidance({
       message: `${prefix}Vá até a carga: ${needs.length > 0 ? needs.join(' e ') : 'aproxime o gancho'}.`,
     }
   }
+  const bed = bedNote(status, loadWeightKg)
   if (status.canRelease) {
     return {
       steps,
       currentStep,
-      tone: 'info',
+      tone: bed?.warning ? 'warning' : 'info',
       message:
-        status.distanceToDeliveryM === null
-          ? 'A carga está rente ao apoio (chão ou carroceria). Toque em Soltar.'
-          : `A carga está rente ao apoio (chão ou carroceria), a ${meters(status.distanceToDeliveryM)} do centro da entrega. Toque em Soltar.`,
+        (status.distanceToDeliveryM === null
+          ? `A carga está rente ao apoio (${SUPPORT_TEXT}). Toque em Soltar.`
+          : `A carga está rente ao apoio (${SUPPORT_TEXT}), a ${meters(status.distanceToDeliveryM)} do centro da entrega. Toque em Soltar.`) +
+        (bed?.text ?? ''),
     }
   }
   const parts: string[] = []
@@ -154,13 +190,13 @@ export function cargoGuidance({
   }
   if (status.heightAboveGroundM !== null) {
     parts.push(
-      `baixe-a até ${meters(RELEASE_MAX_HEIGHT_M)} do apoio, no chão ou na carroceria (está a ${meters(status.heightAboveGroundM)})`,
+      `baixe-a até ${meters(RELEASE_MAX_HEIGHT_M)} do apoio, no chão ou sobre o veículo ou contêiner (está a ${meters(status.heightAboveGroundM)})`,
     )
   }
   return {
     steps,
     currentStep,
-    tone: 'info',
-    message: `Carga engatada: ${parts.join(' e ')}.`,
+    tone: bed?.warning ? 'warning' : 'info',
+    message: `Carga engatada: ${parts.join(' e ')}.${bed?.text ?? ''}`,
   }
 }

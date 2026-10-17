@@ -9,6 +9,7 @@
 | **Tarefa relacionada** | TASK-102                                                                      |
 | **Substitui**          | só a Decisão 5 do ADR-042, quanto a quem recebe a carga por cima              |
 | **Complementa**        | ADR-046 (critério de apoio na cena), ADR-036 (biblioteca de objetos)          |
+| **Substituído em parte por** | ADR-052 (TASK-108): a Decisão 1 (só o caminhão plataforma recebe a carga) passa a valer para todo objeto da biblioteca que declara superfície de apoio (carreta prancha e contêineres incluídos); as Decisões 2 a 5 seguem |
 
 ## Contexto
 

@@ -14,7 +14,7 @@ import {
   terrainHeightAt,
 } from '../environment/environment'
 import { defaultGeometry, type SlingGeometry } from '../rigging/slingGeometry'
-import { loadBedsOf, loadBedTopUnder } from './loadBeds'
+import { type LoadBed, loadBedsOf, loadBedTopUnder, loadBedUnder } from './loadBeds'
 
 const DEG = Math.PI / 180
 
@@ -51,6 +51,23 @@ export interface CargoState {
 }
 
 /** Situação da operação para a interface. */
+/** O apoio (caminhão, carreta ou contêiner) sob a carga, para a interface dizer o que se sabe dele (ADR-052). */
+export interface BedStatus {
+  /** `id` do obstáculo do cenário que serve de apoio. */
+  readonly obstacleId: string
+  /** Nome do objeto da biblioteca ("Contêiner 40' (ISO)"). */
+  readonly label: string
+  /** Capacidade conhecida (kg); `null` = sem dado (FICTÍCIO). */
+  readonly capacityKg: number | null
+  /** De onde vem a capacidade, ou o rótulo FICTÍCIO. */
+  readonly source: string
+  /**
+   * A carga engatada ainda está sobre o MESMO apoio de onde foi coletada: o peso dela já estava ali, então a
+   * capacidade não se confere (só vale ao soltar em outro apoio).
+   */
+  readonly atPickup?: boolean
+}
+
 export interface CargoStatus {
   /** Há carga posicionada e com medidas válidas: vale o modo de coleta e entrega. */
   readonly active: boolean
@@ -71,6 +88,41 @@ export interface CargoStatus {
   readonly heightAboveGroundM: number | null
   /** Com a carga no gancho e um ponto de entrega: distância horizontal até o centro do alvo (m). */
   readonly distanceToDeliveryM: number | null
+  /** O apoio sobre o objeto sob a carga (no chão: onde ela está; no gancho: onde soltaria); `null` = o terreno. */
+  readonly bed?: BedStatus | null
+}
+
+/**
+ * O apoio sob o ponto onde a carga engatada soltaria. Se é o mesmo de onde ela foi coletada (`state.x`,
+ * `state.z` guardam o ponto de coleta enquanto ela está no gancho), vem marcado `atPickup`.
+ */
+function releaseBedStatus(
+  state: CargoState,
+  pose: { readonly x: number; readonly z: number },
+  terrain: TerrainSpec,
+  obstacles: readonly Obstacle[],
+): BedStatus | null {
+  const release = bedStatusAt(pose, terrain, obstacles)
+  if (!release) return null
+  const pickup = bedStatusAt(state, terrain, obstacles)
+  return pickup?.obstacleId === release.obstacleId ? { ...release, atPickup: true } : release
+}
+
+/** O apoio sob o ponto (centro da pegada), ou `null` se é o terreno. */
+export function bedStatusAt(
+  point: { readonly x: number; readonly z: number },
+  terrain: TerrainSpec,
+  obstacles: readonly Obstacle[],
+): BedStatus | null {
+  const bed: LoadBed | null = loadBedUnder(point, loadBedsOf(obstacles, terrain))
+  return bed
+    ? {
+        obstacleId: bed.obstacleId,
+        label: bed.objectLabel,
+        capacityKg: bed.capacityKg ?? null,
+        source: bed.capacitySource,
+      }
+    : null
 }
 
 export const INACTIVE_CARGO: CargoStatus = {
@@ -100,6 +152,9 @@ export function cargoStatusKey(status: CargoStatus): string {
     tenth(status.offsetM),
     tenth(status.heightAboveGroundM),
     tenth(status.distanceToDeliveryM),
+    status.bed
+      ? [status.bed.obstacleId, status.bed.capacityKg, status.bed.atPickup ?? false]
+      : null,
   ])
 }
 
@@ -382,6 +437,7 @@ export function cargoStatusOf(
       offsetM: check.offsetM,
       heightAboveGroundM: null,
       distanceToDeliveryM: null,
+      bed: bedStatusAt(state, terrain, obstacles),
     }
   }
   if (!state.hooked) return { ...INACTIVE_CARGO, ...base }
@@ -397,5 +453,6 @@ export function cargoStatusOf(
     distanceToDeliveryM: delivery
       ? Math.hypot(check.pose.x - delivery.x, check.pose.z - delivery.z)
       : null,
+    bed: releaseBedStatus(state, check.pose, terrain, obstacles),
   }
 }

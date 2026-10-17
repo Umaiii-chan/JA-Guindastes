@@ -1,12 +1,14 @@
-// Carroceria onde a carga pode ser solta (TASK-101; ADR-046), sem Three.js: a superfície de apoio
-// é o maior entre o terreno e o topo da carroceria de um caminhão plataforma da biblioteca
-// (`loadBed`) sob o centro da pegada da carga. Outros objetos de topo plano não recebem carga (pendência).
+// Superfícies onde a carga pode ser solta (TASK-101; ADR-046; TASK-108; ADR-052), sem Three.js: a
+// superfície de apoio é o maior entre o terreno e o topo do `loadBed` de um objeto da biblioteca sob o
+// centro da pegada da carga. Quem declara `loadBed`: o caminhão plataforma (carroceria), a carreta
+// prancha (convés) e os contêineres (teto); qualquer objeto novo da biblioteca pode declarar o seu.
+// Uma caixa comum (mesmo chamada "carreta") não recebe carga.
 //
 // Eixos da cena (ADR-013): Y para cima; X e Z no chão; metros e graus (RN-006).
 
 import { mulVec, rotY } from '../collision/obb'
 import { type Obstacle, type TerrainSpec, terrainHeightAt } from '../environment/environment'
-import { findLibraryObject, scaledLoadBed } from '../environment/objectLibrary'
+import { findLibraryObject, NO_CAPACITY_SOURCE, scaledLoadBed } from '../environment/objectLibrary'
 
 const DEG = Math.PI / 180
 /** Tolerância (m²) do produto vetorial para um ponto na borda da carroceria contar como dentro. */
@@ -17,14 +19,22 @@ interface Point {
   readonly z: number
 }
 
-/** A carroceria de um caminhão no mundo: a planta (cantos) e a altura do topo (m). */
+/** A superfície de apoio de um objeto no mundo: a planta (cantos), a altura do topo (m) e o que se sabe da capacidade. */
 export interface LoadBed {
   readonly obstacleId: string
+  /** `id` do objeto da biblioteca (`modelId` do obstáculo). */
+  readonly modelId: string
+  /** Nome do objeto da biblioteca, para os textos ("Contêiner 40' (ISO)"). */
+  readonly objectLabel: string
   readonly corners: readonly Point[]
   readonly topY: number
+  /** Capacidade (kg) de carga apoiada, SE houver dado; `undefined` = sem dado (FICTÍCIO). */
+  readonly capacityKg?: number
+  /** De onde vem a capacidade, ou o rótulo FICTÍCIO (`NO_CAPACITY_SOURCE`). */
+  readonly capacitySource: string
 }
 
-/** As carrocerias dos caminhões plataforma entre os obstáculos, com o topo na altura do terreno. */
+/** As superfícies de apoio dos objetos que as declaram entre os obstáculos, com o topo na altura do terreno. */
 export function loadBedsOf(
   obstacles: readonly Obstacle[],
   terrain: TerrainSpec,
@@ -50,7 +60,16 @@ export function loadBedsOf(
       return { x: obstacle.centerX + world.x, z: obstacle.centerZ + world.z }
     })
     const ground = terrainHeightAt(terrain, obstacle.centerX, obstacle.centerZ)
-    beds.push({ obstacleId: obstacle.id, corners, topY: ground + bed.y + bed.h })
+    const info = object?.loadBedInfo
+    beds.push({
+      obstacleId: obstacle.id,
+      modelId: obstacle.modelId ?? '',
+      objectLabel: object?.label ?? '',
+      corners,
+      topY: ground + bed.y + bed.h,
+      ...(info?.capacityKg !== undefined ? { capacityKg: info.capacityKg } : {}),
+      capacitySource: info?.source ?? NO_CAPACITY_SOURCE,
+    })
   }
   return beds
 }
@@ -83,7 +102,18 @@ export function loadBedUnder(center: Point, beds: readonly LoadBed[]): LoadBed |
   return found
 }
 
-/** Topo da carroceria sob o centro da pegada da carga, ou `null` se não há nenhuma. */
+/**
+ * A carga pesa mais do que o apoio aguenta? Só com capacidade CONHECIDA; sem dado (ausente ou `null`), não
+ * limita (apoio FICTÍCIO). Serve ao `LoadBed` e ao `BedStatus`.
+ */
+export function exceedsCapacity(
+  bed: { readonly capacityKg?: number | null },
+  weightKg: number,
+): boolean {
+  return bed.capacityKg !== undefined && bed.capacityKg !== null && weightKg > bed.capacityKg
+}
+
+/** Topo da superfície de apoio sob o centro da pegada da carga, ou `null` se não há nenhuma. */
 export function loadBedTopUnder(center: Point, beds: readonly LoadBed[]): number | null {
   return loadBedUnder(center, beds)?.topY ?? null
 }

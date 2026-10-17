@@ -1,0 +1,177 @@
+{
+  "_comment": "Dourado das superfícies de apoio (TASK-108; ADR-052), conferido pelos DOIS lados: backend/tests/domain/services/planning/test_support_surfaces.py (LOAD_SUPPORTS) e frontend/tests/domain/environment/supportSurfaces.parity.test.ts (OBJECT_LIBRARY). Caixas no referencial do objeto: [x, z, y, largura, profundidade, altura]. capacityKg null = sem dado (FICTÍCIO). Para mudar um número, mude os dois lados e este arquivo no mesmo PR.",
+  "supports": {
+    "caminhao-plataforma": {
+      "baseSize": [
+        4.05,
+        7.41,
+        3.51
+      ],
+      "loadBed": [
+        0.0,
+        -1.85,
+        0.0,
+        4.05,
+        3.71,
+        1.86
+      ],
+      "collision": [
+        [
+          0.0,
+          -1.85,
+          0.0,
+          4.05,
+          3.71,
+          1.86
+        ],
+        [
+          0.0,
+          1.11,
+          0.0,
+          3.65,
+          2.22,
+          3.51
+        ],
+        [
+          0.0,
+          2.96,
+          0.0,
+          4.05,
+          1.48,
+          2.18
+        ]
+      ],
+      "capacityKg": null
+    },
+    "carreta-prancha": {
+      "baseSize": [
+        2.6,
+        13.0,
+        1.5
+      ],
+      "loadBed": [
+        0.0,
+        0.0,
+        0.0,
+        2.6,
+        13.0,
+        1.5
+      ],
+      "collision": [
+        [
+          0.0,
+          0.0,
+          0.0,
+          2.6,
+          13.0,
+          1.5
+        ]
+      ],
+      "capacityKg": null
+    },
+    "conteiner": {
+      "baseSize": [
+        2.72,
+        6.0,
+        2.54
+      ],
+      "loadBed": [
+        0.0,
+        0.0,
+        0.0,
+        2.72,
+        6.0,
+        2.54
+      ],
+      "collision": [
+        [
+          0.0,
+          0.0,
+          0.0,
+          2.72,
+          6.0,
+          2.54
+        ]
+      ],
+      "capacityKg": null
+    },
+    "conteiner-20": {
+      "baseSize": [
+        2.72,
+        6.0,
+        2.54
+      ],
+      "loadBed": [
+        0.0,
+        0.0,
+        0.0,
+        2.72,
+        6.0,
+        2.54
+      ],
+      "collision": [
+        [
+          0.0,
+          0.0,
+          0.0,
+          2.72,
+          6.0,
+          2.54
+        ]
+      ],
+      "capacityKg": null
+    },
+    "conteiner-40": {
+      "baseSize": [
+        2.72,
+        6.0,
+        2.54
+      ],
+      "loadBed": [
+        0.0,
+        0.0,
+        0.0,
+        2.72,
+        6.0,
+        2.54
+      ],
+      "collision": [
+        [
+          0.0,
+          0.0,
+          0.0,
+          2.72,
+          6.0,
+          2.54
+        ]
+      ],
+      "capacityKg": null
+    },
+    "conteiner-40hc": {
+      "baseSize": [
+        2.72,
+        6.0,
+        2.54
+      ],
+      "loadBed": [
+        0.0,
+        0.0,
+        0.0,
+        2.72,
+        6.0,
+        2.54
+      ],
+      "collision": [
+        [
+          0.0,
+          0.0,
+          0.0,
+          2.72,
+          6.0,
+          2.54
+        ]
+      ],
+      "capacityKg": null
+    }
+  }
+}

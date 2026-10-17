@@ -528,6 +528,7 @@ export function SimulatorRoute() {
           status,
           cargoPlaced: scenario.spec.cargo !== undefined,
           deliveryPlaced: scenario.spec.delivery !== undefined,
+          ...(validLoad ? { loadWeightKg: validLoad.weightKg } : {}),
         }).message
       : ''
     return `Não deu para engatar a carga. ${reason}`.trim()
@@ -550,12 +551,13 @@ export function SimulatorRoute() {
     }
     return handle.releaseCargo()
       ? null
-      : 'Não deu para soltar a carga: baixe-a até perto do chão ou da carroceria.'
+      : 'Não deu para soltar a carga: baixe-a até perto do chão, da carroceria, do convés ou do teto do contêiner.'
   }
   const cargoGuide = cargoGuidance({
     status: cargoStatus,
     cargoPlaced: scenario.spec.cargo !== undefined,
     deliveryPlaced: scenario.spec.delivery !== undefined,
+    ...(validLoad ? { loadWeightKg: validLoad.weightKg } : {}),
   })
   // Tandem (TASK-074): carga no chão entre os dois guindastes, com a divisão pelos pontos de içamento.
   const tandemLoad: TandemLoad | null = validLoad

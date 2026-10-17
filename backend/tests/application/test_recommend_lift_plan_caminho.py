@@ -443,7 +443,7 @@ def test_caixa_carreta_na_entrega_e_recusada_com_o_motivo() -> None:
 
     assert result.recommendations == ()
     assert "«Carreta»" in result.notes[0]
-    assert "só o caminhão plataforma da biblioteca" in result.notes[0]
+    assert "só os objetos da biblioteca com superfície de apoio" in result.notes[0]  # ADR-052
 
 
 def test_descarte_pela_aproximacao_do_gancho_tem_texto_proprio() -> None:
