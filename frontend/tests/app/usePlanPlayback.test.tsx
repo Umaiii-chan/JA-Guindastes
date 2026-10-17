@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   keyframesCrossed,
+  MAX_FRAME_DT_S,
   startsPhase,
   usePlanPlayback,
 } from '../../src/app/planning/usePlanPlayback'
@@ -98,7 +99,8 @@ describe('execução da trajetória', () => {
       }),
     )
     act(() => result.current.start())
-    for (let step = 0; step < 8; step += 1) advance(800)
+    // Quadros de 100 ms (o máximo que um quadro anda; TASK-092) até passar do fim (5 s).
+    for (let step = 0; step < 60; step += 1) advance(100)
 
     expect(seen.map((item) => item.phase)).toEqual([
       'aproximar',
@@ -129,11 +131,49 @@ describe('execução da trajetória', () => {
       }),
     )
     act(() => result.current.start())
-    for (let step = 0; step < 8; step += 1) advance(800)
+    for (let step = 0; step < 60; step += 1) advance(100)
 
     expect(phases).toEqual(['aproximar', 'engatar'])
     expect(result.current.playing).toBe(false)
     expect(result.current.phase).toBe('engatar')
+  })
+
+  it('um quadro longo (aba em segundo plano) anda no máximo 0,1 s, sem pular quadros-chave', () => {
+    const commands = fakeCommands()
+    const applied: number[] = []
+    const setState = commands.setState.bind(commands)
+    commands.setState = (partial) => {
+      applied.push(partial.turretRotationDeg ?? Number.NaN)
+      return setState(partial)
+    }
+    const phases: PlanPhase[] = []
+    const { result } = renderHook(() =>
+      usePlanPlayback({
+        points: TRAJECTORY,
+        getCommands: () => commands,
+        onMoved: () => undefined,
+        onPlayingChange: () => undefined,
+        onKeyframe: (keyframe) => {
+          phases.push(keyframe.phase)
+          return false
+        },
+      }),
+    )
+    act(() => result.current.start())
+
+    // 5 s parados (a aba voltou): antes, a execução saltava até o fim de uma vez.
+    advance(5000)
+
+    expect(MAX_FRAME_DT_S).toBe(0.1)
+    expect(phases).toEqual(['aproximar'])
+    // Giro FICTÍCIO da trajetória: 10°/s, então 0,1 s = 1°.
+    expect(applied.at(-1)).toBeCloseTo(1, 9)
+    expect(result.current.playing).toBe(true)
+
+    // Na 4×, um quadro longo anda 0,4 s.
+    act(() => result.current.setSpeed(4))
+    advance(5000)
+    expect(applied.at(-1)).toBeCloseTo(5, 9)
   })
 })
 
