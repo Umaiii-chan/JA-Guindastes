@@ -13,6 +13,7 @@ import pytest
 
 from app.domain.services.stability import (
     GRAVITY_MS2,
+    _tipping_ratio,
     assess_stability,
     boom_deflection_m,
     pad_half_span_m,
@@ -231,3 +232,23 @@ def test_wind_limit_follows_en_13000(
 ) -> None:
     params = StabilityParams(wind_table_speed_ms=table_ms)
     assert wind_limit_ms(load_kg, area_m2, params) == pytest.approx(expected_ms, abs=1e-3)
+
+
+def test_the_factored_load_only_counts_on_the_side_it_overturns() -> None:
+    # Carga de 1 000 kg (fatorada: 1 000 / 0,85 = 1 176,5 kg) DENTRO do polígono, em z = 2 m, com um
+    # momento de tombamento externo de 20 000 kgf·m e o guindaste de 10 000 kg sobre o eixo.
+    # Aresta dianteira (z = 3): S = 10 000 · 3 = 30 000 e a carga estabiliza a 1 m dela, com o peso
+    # SEM fator: ρ = (20 000 − 1 000 · 1) / 30 000 = 0,6333 (com o fator seria 0,6274: estabilidade
+    # a mais). As outras arestas dão 0,4263 (lados, 3,8 m) e 0,5 (traseira, 5 m da carga).
+    pads = {"fl": (3.8, 3.0), "fr": (-3.8, 3.0), "rl": (3.8, -3.0), "rr": (-3.8, -3.0)}
+
+    ratio, edge = _tipping_ratio(
+        pads=pads,
+        crane_parts=((10_000.0, 0.0, 0.0, 1.0),),
+        load=(1_000.0, 0.0, 2.0, 5.0),
+        factored_load=1_000.0 / 0.85,
+        extra_overturning=20_000.0,
+    )
+
+    assert edge == "dianteira"
+    assert ratio == pytest.approx((20_000 - 1_000 * 1) / 30_000)
