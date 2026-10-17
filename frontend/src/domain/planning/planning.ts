@@ -83,6 +83,8 @@ export interface PlanRecommendation {
 export interface PlanningResult {
   readonly recommendations: readonly PlanRecommendation[]
   readonly notes: readonly string[]
+  /** A busca parou no orçamento de tempo do servidor: pode haver opção que não foi avaliada. */
+  readonly timedOut: boolean
 }
 
 export interface PlanningRequest {
@@ -91,6 +93,8 @@ export interface PlanningRequest {
     readonly lengthM: number
     readonly widthM: number
     readonly heightM: number
+    /** Centro de gravidade ao longo do comprimento, a partir do centro (m); ausente = no centro. */
+    readonly cgOffsetM?: number
   }
   readonly pick: { readonly x: number; readonly z: number; readonly rotationYDeg: number }
   readonly delivery: { readonly x: number; readonly z: number; readonly rotationYDeg: number }

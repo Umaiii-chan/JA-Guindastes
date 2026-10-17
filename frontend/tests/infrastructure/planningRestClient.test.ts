@@ -87,6 +87,27 @@ describe('cliente do planejamento', () => {
     })
   })
 
+  it('lê o aviso de busca cortada pelo tempo (TASK-089)', () => {
+    expect(mapPlanningResponse(RESPONSE).timedOut).toBe(false)
+    expect(mapPlanningResponse({ ...RESPONSE, timed_out: true }).timedOut).toBe(true)
+    expect(mapPlanningResponse({ ...RESPONSE, timed_out: false }).timedOut).toBe(false)
+    expect(() => mapPlanningResponse({ ...RESPONSE, timed_out: 'sim' })).toThrow(/timed_out/)
+  })
+
+  it('manda o centro de gravidade da carga quando a tela tem um (TASK-089)', () => {
+    const withCg = toPlanningDto({ ...REQUEST, load: { ...REQUEST.load, cgOffsetM: -0.8 } }) as {
+      load: unknown
+    }
+
+    expect(withCg.load).toEqual({
+      weight_kg: 2000,
+      length_m: 3,
+      width_m: 1.5,
+      height_m: 1.2,
+      cg_offset_m: -0.8,
+    })
+  })
+
   it('resposta fora do contrato vira erro com o caminho do campo', () => {
     const broken = structuredClone(RESPONSE) as { recommendations: { kind: string }[] }
     broken.recommendations[0]!.kind = 'triple'
