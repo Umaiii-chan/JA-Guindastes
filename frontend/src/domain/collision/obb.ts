@@ -174,10 +174,45 @@ export function segmentIntersectsObb(from: Vec3, to: Vec3, obb: Obb): boolean {
   return true
 }
 
-/** Pontos da superfície da caixa (grade em cada face, no máximo `maxPerAxis` por aresta), para amostrar o terreno. */
-export function obbSurfacePoints(obb: Obb, stepM = 0.5, maxPerAxis = 12): Vec3[] {
+/** Teto de pontos de uma amostragem (`obbSurfacePoints`, face de baixo em `terrainSampling.ts`). */
+export const MAX_SAMPLE_POINTS = 1024
+
+/**
+ * Pontos por eixo de uma grade com passo `stepM` sobre as medidas `sizes` (≥ 2 por eixo, para incluir
+ * as duas pontas). Se o produto passa de `maxPoints`, o passo cresce por igual em todos os eixos: o
+ * teto vale para o TOTAL, não por aresta (TASK-091; com 12 por aresta, uma viga de 20 m ficava com
+ * passo de 1,8 m).
+ */
+export function gridCounts(
+  sizes: readonly number[],
+  stepM: number,
+  maxPoints: number,
+  pointsOf: (counts: readonly number[]) => number = (counts) =>
+    counts.reduce((total, count) => total * count, 1),
+): number[] {
+  const ceiling = Math.max(pointsOf(sizes.map(() => 2)), maxPoints)
+  let step = stepM > 0 ? stepM : 0.5
+  for (;;) {
+    const counts = sizes.map((size) => Math.max(2, Math.ceil(size / step) + 1))
+    const total = pointsOf(counts)
+    if (total <= ceiling) return counts
+    step *= Math.max(1.01, Math.sqrt(total / ceiling))
+  }
+}
+
+/**
+ * Pontos da superfície da caixa (grade em cada face, passo `stepM`, no máximo `maxPoints` no total),
+ * para amostrar o terreno quando a caixa está inclinada; a caixa em pé usa só a face de baixo
+ * (`terrainSampling.ts`).
+ */
+export function obbSurfacePoints(obb: Obb, stepM = 0.5, maxPoints = MAX_SAMPLE_POINTS): Vec3[] {
   const half = halfOf(obb)
-  const counts = half.map((h) => Math.min(maxPerAxis, Math.max(2, Math.ceil((2 * h) / stepM) + 1)))
+  const counts = gridCounts(
+    half.map((h) => 2 * h),
+    stepM,
+    maxPoints,
+    ([a = 2, b = 2, c = 2]) => 2 * (a * b + b * c + a * c),
+  )
   const points: Vec3[] = []
   for (let face = 0; face < 3; face++) {
     const u = (face + 1) % 3

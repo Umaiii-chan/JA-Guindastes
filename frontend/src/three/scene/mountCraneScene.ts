@@ -565,7 +565,8 @@ export function mountCraneScene(
         accessoryChain.totalDropM,
         accessoryChain.replacesHook,
       )
-      // Um moitão troca o ponto de amarração e a caixa do gancho: reavalia colisões e o engate.
+      // A cadeia entra na colisão (TASK-091), e um moitão troca o ponto de amarração e a caixa do
+      // gancho (TASK-093): reavalia colisões e o engate com o estado atual.
       crane.revalidate()
       invalidate()
     },
