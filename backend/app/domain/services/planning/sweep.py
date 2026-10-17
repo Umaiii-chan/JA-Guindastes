@@ -472,9 +472,10 @@ def _boom_or_line_hit(
     pose: tuple[float, float, float, float, float, float],
     line_bottom_y: float,
     margin_m: float,
+    check_cable: bool = True,
 ) -> str | None:
     px, py, pz, tx, ty, tz = pose
-    if segment_hits_solid(
+    if check_cable and segment_hits_solid(
         solid, (tx, ty, tz), (tx, line_bottom_y, tz), HOOK_HALF_WIDTH_M + margin_m
     ):
         return COLLISION_CABLE
@@ -584,12 +585,20 @@ def _approach_collision(
 
 
 def _static_collision(
-    rig: Rig, solids: Sequence[Solid], state: CraneStateValues, line_bottom_y: float
+    rig: Rig,
+    solids: Sequence[Solid],
+    state: CraneStateValues,
+    line_bottom_y: float,
+    cable_exempt_ids: frozenset[str] = frozenset(),
 ) -> str | None:
-    """Uma pose parada: a lança e a linha do cabo da ponta até `line_bottom_y`."""
+    """Uma pose parada: a lança e a linha do cabo da ponta até `line_bottom_y`. O cabo não é
+    conferido contra os obstáculos de `cable_exempt_ids` (o apoio da entrega: a carga repousa
+    nele, e a meia-largura do gancho não pode recusar o próprio apoio)."""
     pose = _pose(rig, state.boom_length_m, state.boom_angle_deg, state.turret_rotation_deg)
     for solid in solids:
-        hit = _boom_or_line_hit(solid, pose, line_bottom_y, 0.0)
+        hit = _boom_or_line_hit(
+            solid, pose, line_bottom_y, 0.0, check_cable=solid.spec.id not in cable_exempt_ids
+        )
         if hit is not None:
             return hit
     return None
@@ -606,6 +615,7 @@ def first_path_collision(
     pick_load_top_y: float,
     delivery_state: CraneStateValues,
     delivery_load_top_y: float,
+    delivery_supports: Sequence[ObstacleSpec] = (),
 ) -> str | None:
     """Primeiro motivo de colisão (`COLLISION_*`) no caminho inteiro da opção, ou `None`.
 
@@ -621,7 +631,13 @@ def first_path_collision(
         _approach_collision(rig, solids, *approach)
         or _static_collision(rig, solids, pick_state, pick_load_top_y)
         or _swing_collision(rig, solids, arc, path)
-        or _static_collision(rig, solids, delivery_state, delivery_load_top_y)
+        or _static_collision(
+            rig,
+            solids,
+            delivery_state,
+            delivery_load_top_y,
+            frozenset(support.id for support in delivery_supports),
+        )
     )
 
 

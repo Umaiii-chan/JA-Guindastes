@@ -181,6 +181,8 @@ class _Swing:
     """O caminho passa sobre o corpo do próprio guindaste."""
     delivery_rest_y: float = 0.0
     """Altura da base da carga apoiada na entrega (o chão ou o topo da carreta)."""
+    delivery_supports: tuple[ObstacleSpec, ...] = ()
+    """Veículos-plataforma em que a carga repousa na entrega."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -443,6 +445,7 @@ def _swings(ctx: _Context, site: _Site, sweeps: Sequence[_Sweep]) -> list[_Swing
                 max(tops) + CLEARANCE_M,
                 crosses_body,
                 sweep.delivery.rest_y,
+                sweep.delivery.supports,
             )
         )
 
@@ -623,6 +626,7 @@ def _collision(crane: PlannerCrane, ctx: _Context, option: _Option) -> str | Non
         pick_load_top_y=ctx.pick_base_y + load.height_m,
         delivery_state=option.delivery_state,
         delivery_load_top_y=option.swing.delivery_rest_y + REST_CLEARANCE_M + load.height_m,
+        delivery_supports=option.swing.delivery_supports,
     )
 
 

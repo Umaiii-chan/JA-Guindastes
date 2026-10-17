@@ -205,6 +205,24 @@ def test_entrega_sobre_a_carreta_pousa_a_carga_no_topo_dela() -> None:
     assert load_inside(rec, truck, load) == 0
 
 
+@pytest.mark.parametrize("height_m", [1.2, 0.5, 0.3, 0.2, 0.1])
+def test_carga_baixa_sobre_a_carreta_nao_e_recusada_pelo_cabo(height_m: float) -> None:
+    # IMPORTANTE-3 da revisão do PR #48: com h <= 0,2 m a linha do cabo terminava abaixo do topo da
+    # carreta + meia-largura do gancho, e a própria carreta recusava a entrega ("colisao_cabo").
+    truck = ObstacleSpec(
+        "CARRETA", "Caminhão plataforma", ObstacleKind.BOX, 7.5, 0.0, 2.5, 9.0, 1.3, 0.0
+    )
+
+    result = plan(
+        ScenarioSpec(obstacles=(truck,)),
+        load=PlanLoad(1500.0, 3.0, 1.5, height_m),
+        pick=PlanPoint(-7.5, 0.0),
+        delivery=PlanPoint(7.5, 0.0),
+    )
+
+    assert result.recommendations, result.notes
+
+
 def test_monte_estreito_no_caminho_sobe_a_altura_de_transporte() -> None:
     # Terreno no caminho: monte de 2 m e 1 m de raio entre duas amostras dos quadros-chave.
     base = plan(ScenarioSpec()).recommendations[0]
