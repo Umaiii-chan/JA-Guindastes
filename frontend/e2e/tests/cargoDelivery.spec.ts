@@ -100,9 +100,11 @@ test.describe('coleta e entrega da carga', () => {
     await page.routeWebSocket(/\/api\/v1\/ws\/evaluation/, (socket) => {
       socket.onMessage((raw) => {
         const message = JSON.parse(String(raw)) as {
+          type: string
           sequence: number
           payload: { boom_length_m: number; load_weight_kg: number }
         }
+        expect(message.type).toBe('simulation.state.changed')
         weights.push(message.payload.load_weight_kg)
         socket.send(
           JSON.stringify({
@@ -229,6 +231,7 @@ test.describe('coleta e entrega da carga', () => {
     const engage = strip(page).getByRole('button', { name: 'Engatar' })
     const cableMin = Number(await cable.getAttribute('min'))
     const cableMax = Number(await cable.getAttribute('max'))
+    expect(Number.isFinite(cableMin) && Number.isFinite(cableMax)).toBe(true)
     for (
       let value = cableMin;
       value <= cableMax + 1e-9 && !(await engage.isEnabled());
@@ -245,6 +248,9 @@ test.describe('coleta e entrega da carga', () => {
     await engage.click()
     // Engatada com as lingas esticadas, a base da carga fica um pouco acima do chão (a folga do
     // engate), ainda fora dos 0,20 m da soltura: a dica manda levar e baixar, e o Soltar espera.
+    // Acoplamento: isto vale porque a janela de engate chega a +0,5 m (`ENGAGE_MAX_GAP_M`, em
+    // `cargoOperation.ts`) e o passo da descida acima é de 0,2 m, que para na primeira posição que
+    // libera o Engatar; se a janela for apertada, este trecho precisa acompanhar.
     await expect(strip(page)).toContainText('Carga engatada: leve a carga até o ponto de entrega')
     await expect(strip(page).getByRole('button', { name: 'Soltar' })).toBeDisabled()
     await expect(engage).toBeDisabled()
