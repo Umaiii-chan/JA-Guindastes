@@ -10,3 +10,8 @@ tarefas em `tasks/in-progress/` (máximo 15), todas já mergeadas, e a TASK-080 
   dispensada pela pessoa responsável, autorização permanente de `handoffs/current.md` § 3, item 1),
   como na TASK-070.
 - [x] **CA-2** — `bash scripts/check-structure.sh` passa sem erros.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-16 (PR #46). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).
