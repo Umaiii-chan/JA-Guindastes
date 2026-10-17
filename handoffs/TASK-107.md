@@ -34,7 +34,7 @@
 | `lint-imports` | `Contracts: 3 kept, 0 broken` |
 | `cd frontend && npx vitest run` | `144 files, 1319 passed, 1 skipped` |
 | `tsc -b`, `eslint .`, `prettier --check .` | passaram |
-| `bash scripts/check-structure.sh` | NÃO EXECUTADO nesta máquina (ver PR) |
+| `bash scripts/check-structure.sh` | `OK: 0 erros, 1 aviso(s)` |
 
 ## 3. Decisões e achados
 
