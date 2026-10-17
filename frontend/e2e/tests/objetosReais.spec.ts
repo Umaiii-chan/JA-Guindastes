@@ -8,6 +8,7 @@
 import type { Locator, Page } from '@playwright/test'
 
 import { expect, test } from './auth.js'
+import { watchBlockedNotice } from './blockedNotice.js'
 import { chooseConfiguration, fillValidLoad, mockCatalog } from './catalogMock.js'
 
 const SCREENSHOT_DIR = process.env.E2E_SCREENSHOT_DIR?.trim() ?? ''
@@ -152,10 +153,10 @@ test('TASK-072: barracão, árvores, caminhão e carro; a carga entra pela porta
   // Com a carga dentro do barracão, levantar a lança a ergue de encontro ao telhado: o comando é
   // barrado e o aviso de bloqueio cita o barracão. (Só o último comando fica no aviso: um comando
   // seguinte que bata em outra coisa, como o terreno, trocaria o alvo citado.)
+  // O aviso dura 2 s: observa a aparição em vez de amostrar (ver `blockedNotice.ts`).
+  const blockedNoticeShown = await watchBlockedNotice(page)
   await setSlider(page.getByLabel('Inclinação da lança'), 40)
-  const blocked = page.getByRole('alert').filter({ hasText: /bloqueado/ })
-  await expect(blocked).toBeVisible()
-  await expect(blocked).toContainText(/atingiria o obstáculo «Galpão com frente aberta»/)
+  expect(await blockedNoticeShown()).toMatch(/atingiria o obstáculo «Galpão com frente aberta»/)
   if (SCREENSHOT_DIR) {
     await page.screenshot({ path: `${SCREENSHOT_DIR}/carga-barrada-pelo-telhado.png` })
   }

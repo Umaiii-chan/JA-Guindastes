@@ -207,15 +207,35 @@ describe('página Tabelas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Importar como rascunho' }))
     await screen.findByText('Versão v1 importada')
 
-    loadChartFetch.mockImplementationOnce(async () =>
-      jsonResponse({ detail: 'mudou ao mesmo tempo' }, 409),
-    )
+    // O 409 vale SÓ para a ativação. Um `mockImplementationOnce` pegaria o PRÓXIMO fetch qualquer: a
+    // releitura da lista depois da importação sai num effect do React, depois do toast, e sob carga
+    // ainda não tinha saído quando o 409 era registrado; ele ia para ela, a página caía no estado de
+    // erro e a linha do tempo nunca aparecia (TASK-114).
+    const normal = loadChartFetch.getMockImplementation()
+    if (!normal) throw new Error('o fetch falso de tabelas deveria ter implementação')
+    loadChartFetch.mockImplementation(async (input, init) => {
+      const path = new URL(String(input), 'http://localhost').pathname
+      if (init?.method === 'POST' && path.endsWith('/activate')) {
+        return jsonResponse({ detail: 'mudou ao mesmo tempo' }, 409)
+      }
+      return normal(input, init)
+    })
     const timeline = await screen.findByRole('list', { name: 'Linha do tempo das versões' })
-    fireEvent.click(await within(timeline).findByRole('button', { name: 'Ativar v1' }))
+    const activateButton = await within(timeline).findByRole('button', { name: 'Ativar v1' })
+    // A linha do tempo só existe com a versão lida: a releitura pós-importação já foi feita.
+    const listings = () =>
+      loadChartFetch.mock.calls.filter(
+        ([url, init]) => String(url).endsWith('/load-charts') && (init?.method ?? 'GET') === 'GET',
+      ).length
+    const beforeActivation = listings()
+    fireEvent.click(activateButton)
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Ativar v1' }))
 
     const alert = await screen.findByText('Não foi possível ativar a v1')
     expect(alert.closest('[role="alert"]')?.textContent).toContain('mudou ao mesmo tempo')
+    // "A lista é relida": a falha de ativação dispara uma nova listagem (pode haver mais de uma, se outra
+    // releitura estiver em curso).
+    await waitFor(() => expect(listings()).toBeGreaterThan(beforeActivation))
   })
 
   it('linha do tempo pela rota nova: tabelas gravadas em outro lugar, da maior versão para a menor (v10 antes de v7) e a ativa na matriz', async () => {
