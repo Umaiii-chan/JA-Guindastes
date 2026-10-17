@@ -87,3 +87,4 @@ Crie um ADR quando a decisão:
 | [ADR-048](ADR-048-faixa-de-execucao-e-enquadramento-na-area-livre.md) | Faixa de execução do planejamento sobre a cena e enquadramento da câmera na área livre | Proposto | 2026-10-17 |
 | [ADR-049](ADR-049-apoio-so-na-carroceria-do-caminhao-plataforma.md) | Apoio da carga só na carroceria do caminhão plataforma da biblioteca (substitui a Decisão 5 do ADR-042) | Proposto | 2026-10-17 |
 | [ADR-050](ADR-050-estabilidade-por-fisica.md) | Estabilidade por física: momentos no polígono das patolas, vento EN 13000 e inclinação como momento (substitui RN-013 e RN-015) | Aceito | 2026-10-17 |
+| [ADR-051](ADR-051-rede-eletrica-icamento-critico-e-altura-das-lingas.md) | Distância mínima de rede elétrica, içamento crítico e altura única das lingas (D4, F-19) | Aceito | 2026-10-17 |
