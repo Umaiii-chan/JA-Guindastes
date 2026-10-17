@@ -40,12 +40,11 @@ from app.domain.entities.load_chart import LoadChart
 from app.domain.services.compared_load_weight import weight_compared_with_capacity
 from app.domain.services.environment_factors import (
     slope_blocks,
-    slope_factor,
     wind_blocks,
-    wind_factor,
 )
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
 from app.domain.services.safety_assessment import LimitLevel, limit_level
+from app.domain.services.stability import wind_limit_ms
 from app.domain.value_objects.capacity_query import CapacityQuery
 from app.domain.value_objects.capacity_result import CapacityFound
 from app.domain.value_objects.length import Length
@@ -154,8 +153,12 @@ class ComputeOperatingArea:
         profile = self._profile(configuration_id)
         hook = rules.hook_block_weight or Mass(0.0)
         compared = weight_compared_with_capacity(load_weight, hook, accessories)
-        factor = slope_factor(ground_slope_deg, profile) * wind_factor(wind_speed_ms)
-        blocked = slope_blocks(ground_slope_deg, profile) or wind_blocks(wind_speed_ms)
+        factor = (
+            1.0  # a inclinação e o vento deixaram de ser fatores da capacidade (RN-017; ADR-050)
+        )
+        blocked = slope_blocks(ground_slope_deg, profile) or wind_blocks(
+            wind_speed_ms, wind_limit_ms(compared.kilograms, None, profile.stability)
+        )
 
         # A tabela ativa de cada zona é buscada uma vez (a consulta ao banco é o custo).
         charts: dict[str | None, LoadChart | None] = {}

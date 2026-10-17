@@ -1,17 +1,19 @@
-"""Risco de tombamento e alertas por regras (RN-013; ADR-025). Serviço puro, sem E/S.
+"""Risco de tombamento e alertas (RN-013 e RN-015, substituídas pela RN-017; ADR-050). Serviço puro.
 
-Não há cálculo físico de estabilidade. O risco é **alto** com qualquer um destes:
+O risco é **alto** com qualquer um destes:
 - utilização acima do limite do modelo (RN-011);
-- patolas não totalmente estendidas e apoiadas com carga suspensa;
-- inclinação residual do terreno acima do máximo do modelo;
-- operação fora da tabela com carga.
+- estabilidade esgotada: o momento de tombamento chega ao estabilizante com a margem da norma
+  (`stability.assess_stability`, RN-017), ou as sapatas perdem o apoio;
+- patolas não totalmente estendidas e apoiadas com carga suspensa (a tabela exige as patolas
+  estendidas: regra de validade da tabela, mantida);
+- inclinação residual do terreno acima do máximo do modelo (limite duro, mantido);
+- operação fora da tabela com carga;
+- rajada de vento acima da velocidade máxima da EN 13000 (`stability.wind_limit_ms`);
+- solo que não suporta a pressão da sapata (a reação de CADA sapata por estática do polígono).
 
-É **atenção** com a utilização na faixa de atenção. Entradas ausentes (patolas, inclinação) não
-entram no risco e geram um alerta INFO de "não informado".
-
-Fatores do ambiente (RN-015; TASK-067): inclinação acima do máximo, vento acima de 13,8 m/s e solo
-que não suporta a pressão da sapata dão risco alto; vento entre 9,8 e 13,8 m/s, solo a mais de 80 %
-do suporte e obstáculos no raio de giro dão atenção. Entradas ausentes não geram alerta.
+É **atenção** com a utilização na faixa de atenção, a estabilidade a 90 % do limite, a rajada a 90 %
+da velocidade máxima, o solo a mais de 80 % do suporte e obstáculos no raio de giro. Entradas
+ausentes (patolas, inclinação) não entram no risco e geram um alerta INFO de "não informado".
 
 Valores padrão FICTÍCIOS (ADR-012). As mensagens são em pt-BR.
 """
@@ -24,11 +26,12 @@ from app.domain.services.environment_factors import (
     PAD_LABELS,
     SOIL_ATTENTION_RATIO,
     SOIL_BEARING_CAPACITY_KPA,
-    WIND_FREE_LIMIT_MS,
     SoilKind,
-    pad_pressure_kpa,
+    pad_pressures_kpa,
     wind_blocks,
+    wind_near_limit,
 )
+from app.domain.services.stability import StabilityResult
 from app.domain.value_objects.safety_profile import SafetyProfile
 
 
@@ -104,16 +107,20 @@ def assess_safety(
     outside_chart: bool,
     outriggers: OutriggerSetting | None,
     ground_slope_deg: float | None,
-    compared_weight_kg: float = 0.0,
     soil_kinds: Sequence[SoilKind] = (),
     wind_speed_ms: float | None = None,
     obstacle_conflicts: Sequence[str] = (),
+    stability: StabilityResult | None = None,
+    wind_limit_ms: float | None = None,
 ) -> SafetyAssessmentResult:
     """Risco e alertas.
 
     - `level`: faixa do peso comparado (`None` quando não há capacidade para comparar);
     - `outside_chart`: a consulta caiu fora do domínio da tabela;
-    - `load_weight_kg > 0` é "carga suspensa".
+    - `load_weight_kg > 0` é "carga suspensa";
+    - `stability`: a estática da operação (RN-017; `None` sem geometria: sem tombamento por física
+      nem solo por reação);
+    - `wind_limit_ms`: a velocidade máxima de rajada (EN 13000); `None` = a da tabela do perfil.
     """
     high: list[SafetyAlert] = []
     attention: list[SafetyAlert] = []
@@ -184,11 +191,15 @@ def assess_safety(
             )
         )
 
+    _assess_stability(profile=profile, stability=stability, high=high, attention=attention)
     _assess_environment(
         profile=profile,
-        compared_weight_kg=compared_weight_kg,
+        stability=stability,
         soil_kinds=soil_kinds,
         wind_speed_ms=wind_speed_ms,
+        wind_limit_ms=(
+            profile.stability.wind_table_speed_ms if wind_limit_ms is None else wind_limit_ms
+        ),
         obstacle_conflicts=obstacle_conflicts,
         high=high,
         attention=attention,
@@ -206,38 +217,80 @@ def assess_safety(
     return SafetyAssessmentResult(tipping_risk=risk, alerts=alerts)
 
 
+def _assess_stability(
+    *,
+    profile: SafetyProfile,
+    stability: StabilityResult | None,
+    high: list[SafetyAlert],
+    attention: list[SafetyAlert],
+) -> None:
+    """Estabilidade por momentos (RN-017): `ρ = O / S` do lado crítico do polígono de apoio."""
+    if stability is None:
+        return
+    percent = stability.tipping_ratio * 100
+    if stability.tipped:
+        high.append(
+            SafetyAlert(
+                "OUTRIGGERS_LIFT_OFF",
+                AlertSeverity.CRITICAL,
+                "Sapatas sem apoio: o guindaste tomba nesta operação.",
+            )
+        )
+    elif stability.tipping_ratio >= 1.0:
+        high.append(
+            SafetyAlert(
+                "TIPPING_MARGIN_EXCEEDED",
+                AlertSeverity.CRITICAL,
+                f"Margem de estabilidade esgotada no lado {stability.critical_edge} "
+                f"({percent:.0f} % do limite; a carga passa de "
+                f"{profile.stability.tipping_load_limit_ratio * 100:g} % da carga de tombamento).",
+            )
+        )
+    elif stability.tipping_ratio >= profile.stability.attention_ratio:
+        attention.append(
+            SafetyAlert(
+                "STABILITY_NEAR_LIMIT",
+                AlertSeverity.ATTENTION,
+                f"Estabilidade em {percent:.0f} % do limite no lado {stability.critical_edge}.",
+            )
+        )
+
+
 def _assess_environment(
     *,
     profile: SafetyProfile,
-    compared_weight_kg: float,
+    stability: StabilityResult | None,
     soil_kinds: Sequence[SoilKind],
     wind_speed_ms: float | None,
+    wind_limit_ms: float,
     obstacle_conflicts: Sequence[str],
     high: list[SafetyAlert],
     attention: list[SafetyAlert],
 ) -> None:
-    """Vento, solo sob as sapatas e obstáculos (RN-015). Entrada ausente não gera alerta."""
+    """Vento, solo sob as sapatas e obstáculos (RN-017). Entrada ausente não gera alerta."""
     if wind_speed_ms is not None:
-        if wind_blocks(wind_speed_ms):
+        if wind_blocks(wind_speed_ms, wind_limit_ms):
             high.append(
                 SafetyAlert(
                     "WIND_ABOVE_LIMIT",
                     AlertSeverity.CRITICAL,
-                    "Vento acima do limite de operação.",
+                    f"Rajada de {wind_speed_ms:.1f} m/s acima do limite de {wind_limit_ms:.1f} m/s "
+                    "para esta carga (EN 13000).",
                 )
             )
-        elif wind_speed_ms > WIND_FREE_LIMIT_MS:
+        elif wind_near_limit(wind_speed_ms, wind_limit_ms):
             attention.append(
                 SafetyAlert(
-                    "WIND_REDUCES_CAPACITY",
+                    "WIND_NEAR_LIMIT",
                     AlertSeverity.ATTENTION,
-                    f"Vento de {wind_speed_ms:.1f} m/s reduz a capacidade de içamento.",
+                    f"Rajada de {wind_speed_ms:.1f} m/s perto do limite de {wind_limit_ms:.1f} m/s "
+                    "para esta carga (EN 13000).",
                 )
             )
 
-    if soil_kinds:
-        pressure = pad_pressure_kpa(compared_weight_kg, profile)
-        for label, kind in zip(PAD_LABELS, soil_kinds, strict=False):
+    if soil_kinds and stability is not None:
+        pressures = pad_pressures_kpa(stability.reactions_kg, profile)
+        for label, kind, pressure in zip(PAD_LABELS, soil_kinds, pressures, strict=False):
             ratio = pressure / SOIL_BEARING_CAPACITY_KPA[kind]
             if ratio > 1:
                 high.append(
