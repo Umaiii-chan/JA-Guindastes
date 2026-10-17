@@ -7,7 +7,7 @@
 | **Etapa concluída** | implementação |
 | **Papel exercido** | Planejador, Engenheiro de testes e Implementador (a mesma sessão; a revisão fica para outra) |
 | **Ferramenta/agente** | Claude Code (Opus 5.5), agente em worktree `C:\dev\JA-Guindastes-wt\fisica` |
-| **Branch** | `task/TASK-088-planejador-caminho` (de `development` @ `784a9e1`, com `anderson/development` @ `a1c7754` mesclada) |
+| **Branch** | `task/TASK-088-planejador-caminho` (de `development` @ `784a9e1`, com `anderson/development` mesclada duas vezes: `a1c7754` e `d493879`) |
 
 ## 1. Objetivo desta etapa
 
@@ -75,17 +75,17 @@ conferência densa caber no orçamento.
 
 ## 4. Comandos executados e resultados
 
-Em `backend/`, depois do merge de `anderson/development`:
+Em `backend/`, depois do segundo merge de `anderson/development` (`d493879`, com a TASK-096/ADR-043, que mudou a `LinearInterpolationLookup`; nenhum teste do planejador dependia da interpolação entre colunas):
 
 | Comando | Resultado | Saída (resumo) |
 |---------|-----------|----------------|
 | `uv run ruff check .` | ✅ | `All checks passed!` |
-| `uv run ruff format --check .` | ✅ | `323 files already formatted` |
-| `uv run mypy app` | ✅ | `Success: no issues found in 175 source files` |
+| `uv run ruff format --check .` | ✅ | `328 files already formatted` |
+| `uv run mypy app` | ✅ | `Success: no issues found in 176 source files` |
 | `uv run lint-imports` | ✅ | `Contracts: 3 kept, 0 broken.` |
-| `uv run pytest` | ✅ | `1788 passed, 88 skipped in 36.00s` (antes: `1753 passed, 88 skipped`) |
+| `uv run pytest` | ✅ | `1847 passed, 88 skipped in 38.50s` (no primeiro merge: `1788 passed`; na base `784a9e1`: `1753 passed, 88 skipped`; os 35 testes novos desta tarefa entram nas duas contas) |
 | `uv run pytest` (planejamento: `tests/domain/services/planning`, `test_recommend_lift_plan*.py`, `tests/presentation/test_planning.py`) | ✅ | `113 passed in 1.90s` |
-| `bash scripts/check-structure.sh` (na raiz) | ✅ | `OK: 0 erros, 1 aviso(s)` — o aviso: "há 2 tarefas em tasks/in-progress/" (TASK-088 e TASK-097, sem arquivos em comum) |
+| `bash scripts/check-structure.sh` (na raiz) | ✅ | `OK: 0 erros, 1 aviso(s)` — o aviso: "há 9 tarefas em tasks/in-progress/" (frentes paralelas; nenhuma mexe no planejador) |
 | Frontend (`npm run lint`, `format:check`, `typecheck`, `test`, `build`) | ⚠️ NÃO EXECUTADO | a tarefa não muda o frontend |
 | E2E (`npm run e2e`) | ⚠️ NÃO EXECUTADO | idem |
 
