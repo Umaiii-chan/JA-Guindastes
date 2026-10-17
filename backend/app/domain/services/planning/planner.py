@@ -77,6 +77,7 @@ from app.domain.services.planning.trajectory import (
     SLEW_DEG_PER_S,
     approach_states,
 )
+from app.domain.services.power_line import power_line_zones
 from app.domain.services.safety_assessment import TippingRisk
 
 POSITION_STEP_M = 2.0
@@ -89,6 +90,8 @@ CLEARANCE_M = 1.0
 HOOK_ATTACH_M = 1.05
 """Do gancho ao ponto de amarração das lingas, sem medida da cena (`HOOK_ATTACH_OFFSET_M` do
 frontend); a tela manda o valor medido no gancho do modelo 3D em uso."""
+REPLACED_HOOK_ATTACH_M = 0.01
+"""Amarração das lingas quando um moitão substitui o gancho (`REPLACED_HOOK_ATTACH_M` da cena)."""
 _VAO_MIN_M = 0.05
 """Altura mínima (m) da base de uma parte elevada para a carga poder passar por baixo dela."""
 REST_CLEARANCE_M = 0.03
@@ -774,7 +777,11 @@ def plan_crane(
     """
     weight_kg = load.weight_kg if share_kg is None else share_kg
     # Objetos ocos da biblioteca (o barracão aberto) viram as caixas que a cena usa (ADR-042).
-    scenario = replace(scenario, obstacles=expand_obstacles(scenario))
+    # A rede elétrica vira zona de distância mínima: obstáculo elevado (ADR-051).
+    scenario = replace(
+        scenario,
+        obstacles=(*expand_obstacles(scenario), *power_line_zones(scenario.power_lines)),
+    )
     rejections: Counter[str] = Counter()
     cargo_at_pick = pick if cargo_pick is None else cargo_pick
     pick_surf = pick_surface(scenario, load, cargo_at_pick)

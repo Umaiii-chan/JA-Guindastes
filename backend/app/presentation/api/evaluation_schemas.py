@@ -42,6 +42,11 @@ from app.domain.value_objects.conservative_capacity_result import (
 from app.domain.value_objects.interpolated_capacity_result import InterpolatedCapacityFound
 from app.domain.value_objects.operational_geometry import OperationalGeometry, Point3D
 from app.presentation.api.load_chart_schemas import LoadChartPointResponse
+from app.presentation.api.site_schemas import (
+    CriticalLiftResponse,
+    PowerLineClearanceResponse,
+    SitePayload,
+)
 
 MAX_ACCESSORY_IDS = 20
 AccessoryId = Annotated[str, StringConstraints(min_length=1, max_length=64)]
@@ -156,6 +161,13 @@ class EvaluationRequest(BaseModel):
             description="Ids dos obstáculos no raio de giro (opcional; RN-015). Não vazia, o "
             "risco vira atenção.",
         )
+    )
+    site: SitePayload | None = Field(
+        default=None,
+        description="Local da operação (TASK-107; ADR-051): rede elétrica do cenário, posição do "
+        "guindaste, dimensões da carga e contexto do içamento. Com ele, a resposta traz a "
+        "distância às redes (`power_lines`) e a classificação de içamento crítico "
+        "(`critical_lift`), e os alertas correspondentes; sem ele, nada disso é calculado.",
     )
 
 
@@ -411,6 +423,15 @@ class EvaluationResponse(BaseModel):
     alerts: list[SafetyAlertResponse] = Field(
         default_factory=list, description="Alertas de segurança, em pt-BR (RN-013)."
     )
+    power_lines: list[PowerLineClearanceResponse] = Field(
+        default_factory=list,
+        description="Distância de cada trecho de rede ao guindaste (ADR-051); vazio sem `site`.",
+    )
+    critical_lift: CriticalLiftResponse | None = Field(
+        default=None,
+        description="Classificação do içamento (crítico ou não, gatilhos e plano exigido); "
+        "`null` sem `site`.",
+    )
 
     @classmethod
     def from_evaluation(
@@ -446,6 +467,8 @@ class EvaluationResponse(BaseModel):
                     capacity_limit=CapacityLimitResponse.from_limit(evaluation.capacity_limit),
                     tipping_risk=evaluation.tipping_risk,
                     alerts=[SafetyAlertResponse.from_alert(a) for a in evaluation.alerts],
+                    power_lines=_clearances(evaluation),
+                    critical_lift=_critical(evaluation),
                 )
             case NotEvaluableOperation():
                 return cls(
@@ -457,6 +480,8 @@ class EvaluationResponse(BaseModel):
                     compared_weight_kg=compared_kg,
                     tipping_risk=evaluation.tipping_risk,
                     alerts=[SafetyAlertResponse.from_alert(a) for a in evaluation.alerts],
+                    power_lines=_clearances(evaluation),
+                    critical_lift=_critical(evaluation),
                     status="NOT_EVALUABLE",
                     configuration_id=configuration_id,
                     geometry=(
@@ -479,3 +504,12 @@ def _found_capacity_or_none(capacity: CapacityResult | None) -> CapacityResponse
     if isinstance(capacity, CapacityFound):
         return CapacityResponse.from_capacity(capacity)
     return None
+
+
+def _clearances(evaluation: OperationEvaluation) -> list[PowerLineClearanceResponse]:
+    return [PowerLineClearanceResponse.from_clearance(c) for c in evaluation.power_line_clearances]
+
+
+def _critical(evaluation: OperationEvaluation) -> CriticalLiftResponse | None:
+    item = evaluation.critical_lift
+    return None if item is None else CriticalLiftResponse.from_assessment(item)

@@ -52,6 +52,7 @@ from app.domain.services.planning.planner import (
     DELIVERY_BLOCKED,
     HOOK_ATTACH_M,
     PICK_COVERED,
+    REPLACED_HOOK_ATTACH_M,
     PlanSearch,
     plan_crane,
     plan_sort_key,
@@ -78,6 +79,7 @@ from app.domain.services.planning.trajectory import (
     start_state,
     to_keyframes,
 )
+from app.domain.services.power_line import required_clearance_m
 from app.domain.services.safety_assessment import AlertSeverity, OutriggerSetting, TippingRisk
 from app.domain.value_objects.angle import Angle
 from app.domain.value_objects.crane_geometry import CraneGeometry
@@ -93,8 +95,6 @@ MAX_SINGLE_RESULTS = 5
 MAX_TANDEM_RESULTS = 3
 MAX_FALLBACK_RESULTS = 3
 MAX_BOOM_LENGTH_CANDIDATES = 8
-REPLACED_HOOK_ATTACH_M = 0.01
-"""Amarração das lingas quando um moitão substitui o gancho (`REPLACED_HOOK_ATTACH_M` da cena)."""
 MIN_TANDEM_SEPARATION_M = 8.0
 """Distância mínima entre os eixos dos dois guindastes do tandem."""
 TANDEM_PLANS_PER_SIDE = 6
@@ -305,6 +305,7 @@ class RecommendLiftPlan:
         entries, notes = self._read_catalog()
         if not entries:
             return PlanningResult((), (*notes, "Nenhum guindaste com tabela de carga ativa."))
+        notes.extend(_power_line_notes(request.scenario))
 
         snapshot = _SnapshotProviders(entries)
         use_case = EvaluateOperation(
@@ -861,3 +862,17 @@ def _tandem_recommendation(
         summary=f"2 guindastes · {_fmt(utilization, 0)} % do limite (75 % cada)",
         details=(_detail(first), _detail(second)),
     )
+
+
+def _power_line_notes(scenario: ScenarioSpec) -> list[str]:
+    """Rede elétrica tratada como zona de distância mínima no planejamento (ADR-051)."""
+    if not scenario.power_lines:
+        return []
+    zones = "; ".join(
+        f"{line.label} ({line.voltage_kv:g} kV: {required_clearance_m(line.voltage_kv):.2f} m)"
+        for line in scenario.power_lines
+    )
+    return [
+        "Rede elétrica: a distância mínima vale para a lança, o cabo e a carga em todo o "
+        f"caminho; planos que invadem a zona foram descartados. {zones}."
+    ]

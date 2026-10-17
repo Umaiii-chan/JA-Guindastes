@@ -526,3 +526,80 @@ def test_ficticio_outside_the_chart_with_load_is_high(client: TestClient) -> Non
 )
 def test_ficticio_invalid_new_inputs_are_422(client: TestClient, extra: dict[str, Any]) -> None:
     assert client.post(EVALUATIONS_PATH, json=body_ficticio(**extra)).status_code == 422
+
+
+# Rede elétrica e içamento crítico (D4; TASK-107; ADR-051) -------------------------------------
+
+
+def rede_ficticia(**overrides: Any) -> dict[str, Any]:
+    # L = 20 m, θ = 30° para +Z: a ponta fica a z ≈ 18,82 m, y = 12,5 m.
+    line: dict[str, Any] = {
+        "id": "R1",
+        "label": "Rede FICTÍCIA",
+        "x1_m": -30.0,
+        "z1_m": 18.82,
+        "x2_m": 30.0,
+        "z2_m": 18.82,
+        "height_m": 13.5,
+        "voltage_kv": 13.8,
+    }
+    line.update(overrides)
+    return line
+
+
+def test_sem_site_a_avaliacao_nao_calcula_rede(client: TestClient) -> None:
+    body = client.post(EVALUATIONS_PATH, json=body_ficticio()).json()
+
+    assert body["power_lines"] == [] and body["critical_lift"] is None
+
+
+def test_site_com_rede_devolve_distancia_alerta_e_icamento_critico(client: TestClient) -> None:
+    payload = body_ficticio(site={"power_lines": [rede_ficticia()]})
+
+    body = client.post(EVALUATIONS_PATH, json=payload).json()
+
+    (line,) = body["power_lines"]
+    assert line["line_id"] == "R1" and line["status"] == "VIOLATION"
+    assert line["required_m"] == pytest.approx(3.048)
+    assert abs(line["distance_m"] - 1.0) < 0.05
+    alert = next(a for a in body["alerts"] if a["code"] == "POWER_LINE_CLEARANCE_VIOLATION")
+    assert alert["severity"] == "CRITICAL"
+    assert body["critical_lift"]["is_critical"] is True
+    assert any("NR-10" in item for item in body["critical_lift"]["plan_items"])
+
+
+def test_a_rede_nao_muda_o_risco_de_tombamento_nem_a_utilizacao(client: TestClient) -> None:
+    sem = client.post(EVALUATIONS_PATH, json=body_ficticio()).json()
+    com = client.post(
+        EVALUATIONS_PATH, json=body_ficticio(site={"power_lines": [rede_ficticia()]})
+    ).json()
+
+    assert com["tipping_risk"] == sem["tipping_risk"]
+    assert com["utilization_percent"] == sem["utilization_percent"]
+
+
+def test_icamento_critico_por_tandem_e_carga_sobre_ocupados(client: TestClient) -> None:
+    payload = body_ficticio(site={"tandem": True, "load_over_occupied": True})
+
+    body = client.post(EVALUATIONS_PATH, json=payload).json()
+
+    codes = [t["code"] for t in body["critical_lift"]["triggers"]]
+    assert "TANDEM" in codes and "LOAD_OVER_OCCUPIED" in codes
+
+
+@pytest.mark.parametrize(
+    "site",
+    [
+        {"power_lines": [rede_ficticia(voltage_kv=1000.1)]},
+        {"power_lines": [rede_ficticia(voltage_kv=0.0)]},
+        {"power_lines": [rede_ficticia(height_m=0.1)]},
+        {"power_lines": [rede_ficticia(x2_m=-30.0, z2_m=18.82)]},
+        {"power_lines": [rede_ficticia(), rede_ficticia()] * 11},
+        {"sling_angle_deg": 20.0},
+        {"unknown": 1},
+    ],
+)
+def test_site_invalido_e_422(client: TestClient, site: dict[str, Any]) -> None:
+    response = client.post(EVALUATIONS_PATH, json=body_ficticio(site=site))
+
+    assert response.status_code == 422

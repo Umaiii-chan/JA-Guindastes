@@ -10,9 +10,16 @@ from dataclasses import replace
 
 import pytest
 
-from app.domain.entities.scenario import ObstacleKind, ObstacleSpec, ScenarioSpec, TerrainSpec
+from app.domain.entities.scenario import (
+    ObstacleKind,
+    ObstacleSpec,
+    PowerLineSpec,
+    ScenarioSpec,
+    TerrainSpec,
+)
 from app.domain.services import rigging
 from app.domain.services.environment_factors import SoilKind
+from app.domain.services.geometry_service import calculate_operational_geometry
 from app.domain.services.planning.crane_body import (
     crane_body_overlaps_obstacle,
     distance_to_crane_body_m,
@@ -24,11 +31,14 @@ from app.domain.services.planning.models import (
     PlanPoint,
     StateAssessment,
 )
-from app.domain.services.planning.planner import plan_crane
+from app.domain.services.planning.planner import HOOK_ATTACH_M, plan_crane
+from app.domain.services.power_line import CraneParts, line_clearance, required_clearance_m
 from app.domain.services.safety_assessment import TippingRisk
 from app.domain.value_objects.angle import Angle
 from app.domain.value_objects.crane_geometry import CraneGeometry
 from app.domain.value_objects.length import Length
+from app.domain.value_objects.operational_geometry import Point3D
+from app.domain.value_objects.operational_state import OperationalState
 from app.domain.value_objects.safety_profile import SafetyProfile
 
 GEOMETRY = CraneGeometry(
@@ -450,3 +460,80 @@ def test_pior_ponto_na_fronteira_de_zona_entre_dois_quadros_chave() -> None:
             crossing += 1
         assert item.max_utilization_percent >= replay_max(FakeZoneEvaluator(), item, weight) - 1e-6
     assert crossing > 0
+
+
+# --- rede elétrica como zona de distância mínima (D4; TASK-107; ADR-051) -------------------------
+
+
+def power_scenario(*lines: PowerLineSpec) -> ScenarioSpec:
+    return ScenarioSpec(power_lines=lines)
+
+
+def test_rede_distante_nao_muda_o_plano() -> None:
+    longe = PowerLineSpec("R1", "Rede longe", -400.0, 500.0, 400.0, 500.0, 15.0, 13.8)
+
+    sem = plan().plans[0]
+    com = plan(power_scenario(longe)).plans[0]
+
+    assert (com.configuration_id, com.boom_length_m, com.placement) == (
+        sem.configuration_id,
+        sem.boom_length_m,
+        sem.placement,
+    )
+    assert com.max_utilization_percent == sem.max_utilization_percent
+
+
+def test_rede_baixa_sobre_a_carga_na_coleta_a_cobre_e_nao_ha_plano() -> None:
+    # A rede 2 m acima do ponto de coleta: a zona (±3,05 m) engole a carga apoiada.
+    sobre = PowerLineSpec("R1", "Rede na coleta", PICK.x, -20.0, PICK.x, 20.0, 2.0, 13.8)
+
+    search = plan(power_scenario(sobre))
+
+    assert search.plans == ()
+    assert sum(search.rejections.values()) > 0
+
+
+def test_com_a_rede_no_meio_do_caminho_o_plano_mantem_a_distancia_minima() -> None:
+    """Rede de 15 m de altura cruzando entre a coleta e a entrega: lança, cabo e carga ficam a mais
+    de 3,05 m dela em todo o caminho, conferido de forma independente (distância 3D)."""
+    rede = PowerLineSpec("R1", "Rede no meio", 0.0, -30.0, 0.0, 30.0, 15.0, 13.8)
+    exigida = required_clearance_m(13.8)
+
+    best = plan(power_scenario(rede)).plans[0]
+
+    assert best.valid
+    heading = math.radians(best.placement.heading_deg)
+    cos, sin = math.cos(heading), math.sin(heading)
+    carga_raio = math.hypot(LOAD.length_m, LOAD.width_m) / 2
+    queda = HOOK_ATTACH_M + best.sling_drop_m
+    menor = math.inf
+    for state in best.path:
+        geometry = calculate_operational_geometry(
+            OperationalState(
+                boom_length=Length(state.boom_length_m),
+                boom_angle=Angle(state.boom_angle_deg),
+                turret_rotation=Angle(state.turret_rotation_deg),
+                cable_length=Length(state.cable_length_m),
+            ),
+            GEOMETRY,
+        )
+
+        def mundo(p: Point3D) -> tuple[float, float, float]:
+            return (
+                best.placement.x + p.x_m * cos + p.z_m * sin,
+                p.y_m,  # terreno plano: o apoio fica em y = 0
+                best.placement.z - p.x_m * sin + p.z_m * cos,
+            )
+
+        partes = CraneParts(
+            pivot=mundo(geometry.boom_pivot),
+            tip=mundo(geometry.boom_tip),
+            hook=mundo(geometry.hook),
+            load_radius_m=carga_raio,
+            load_drop_m=queda,
+            load_height_m=LOAD.height_m,
+        )
+        eixo = (best.placement.x, best.placement.z)
+        menor = min(menor, line_clearance(rede, partes, eixo).distance_m)
+
+    assert menor >= exigida - 1e-6

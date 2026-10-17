@@ -165,3 +165,43 @@ def test_angulo_da_linga_fora_de_30_a_90_e_422() -> None:
     for angle in (29.9, 90.1, 0, -10):
         response = make_client().post(PLANNING_PATH, json=body(sling_angle_deg=angle))
         assert response.status_code == 422, angle
+
+
+def test_rede_eletrica_do_cenario_vira_zona_e_a_nota_diz_a_distancia_exigida() -> None:
+    payload = body()
+    payload["scenario"]["power_lines"] = [
+        {
+            "id": "R1",
+            "label": "Rede FICTÍCIA",
+            "x1_m": -40.0,
+            "z1_m": 60.0,
+            "x2_m": 40.0,
+            "z2_m": 60.0,
+            "height_m": 12.0,
+            "voltage_kv": 138.0,
+        }
+    ]
+
+    response = make_client().post(PLANNING_PATH, json=payload)
+
+    assert response.status_code == 200
+    # 138 kV: 10 pés + 0,4 pol × 88 kV = 3,05 + 0,89 = 3,94 m.
+    assert any("Rede elétrica" in n and "138 kV: 3.94 m" in n for n in response.json()["notes"])
+
+
+def test_tensao_invalida_na_rede_do_cenario_e_422() -> None:
+    payload = body()
+    payload["scenario"]["power_lines"] = [
+        {
+            "id": "R1",
+            "label": "Rede",
+            "x1_m": 0.0,
+            "z1_m": 5.0,
+            "x2_m": 9.0,
+            "z2_m": 5.0,
+            "height_m": 12.0,
+            "voltage_kv": 5000.0,
+        }
+    ]
+
+    assert make_client().post(PLANNING_PATH, json=payload).status_code == 422

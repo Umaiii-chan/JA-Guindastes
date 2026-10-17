@@ -180,6 +180,7 @@ def create_evaluations_router(
             soil_kinds=to_soil_kinds(request.soil_kinds),
             wind_speed_ms=request.wind_speed_ms,
             obstacle_conflicts=request.obstacle_conflicts,
+            site=None if request.site is None else request.site.to_context(),
         )
         return EvaluationResponse.from_evaluation(request.configuration_id, evaluation)
 

@@ -39,6 +39,11 @@ from app.domain.value_objects.conservative_capacity_result import (
 )
 from app.domain.value_objects.interpolated_capacity_result import InterpolatedCapacityFound
 from app.domain.value_objects.operational_geometry import OperationalGeometry, Point3D
+from app.presentation.api.site_schemas import (
+    CriticalLiftResponse,
+    PowerLineClearanceResponse,
+    SitePayload,
+)
 
 STATE_CHANGED_TYPE = "simulation.state.changed"
 EVALUATED_TYPE = "simulation.evaluated"
@@ -118,6 +123,13 @@ class OperationalStatePayload(BaseModel):
             description="Ids dos obstáculos no raio de giro (opcional; RN-015). Não vazia, o "
             "risco vira atenção.",
         )
+    )
+    site: SitePayload | None = Field(
+        default=None,
+        description="Local da operação (TASK-107; ADR-051): rede elétrica do cenário, posição do "
+        "guindaste, dimensões da carga e contexto do içamento. Com ele, a resposta traz a "
+        "distância às redes (`power_lines`) e a classificação de içamento crítico "
+        "(`critical_lift`), e os alertas correspondentes; sem ele, nada disso é calculado.",
     )
 
 
@@ -325,6 +337,15 @@ class EvaluatedPayload(BaseModel):
         default=None, description="Risco de tombamento por regras (RN-013): LOW, ATTENTION, HIGH."
     )
     alerts: list[SafetyAlertMessage] = Field(default_factory=list)
+    power_lines: list[PowerLineClearanceResponse] = Field(
+        default_factory=list,
+        description="Distância de cada trecho de rede ao guindaste (ADR-051); vazio sem `site`.",
+    )
+    critical_lift: CriticalLiftResponse | None = Field(
+        default=None,
+        description="Classificação do içamento (crítico ou não, gatilhos e plano exigido); "
+        "`null` sem `site`.",
+    )
 
 
 class NotEvaluablePayload(BaseModel):
@@ -354,6 +375,15 @@ class NotEvaluablePayload(BaseModel):
         default=None, description="Risco de tombamento por regras (RN-013); `null` sem regra."
     )
     alerts: list[SafetyAlertMessage] = Field(default_factory=list)
+    power_lines: list[PowerLineClearanceResponse] = Field(
+        default_factory=list,
+        description="Distância de cada trecho de rede ao guindaste (ADR-051); vazio sem `site`.",
+    )
+    critical_lift: CriticalLiftResponse | None = Field(
+        default=None,
+        description="Classificação do içamento (crítico ou não, gatilhos e plano exigido); "
+        "`null` sem `site`.",
+    )
 
 
 type EvaluationPayload = Annotated[
@@ -401,6 +431,8 @@ class SimulationEvaluatedMessage(BaseModel):
                     reasons=[],
                     tipping_risk=evaluation.tipping_risk,
                     alerts=[SafetyAlertMessage.from_alert(a) for a in evaluation.alerts],
+                    power_lines=_clearances(evaluation),
+                    critical_lift=_critical(evaluation),
                 )
             case NotEvaluableOperation():
                 capacity = evaluation.capacity
@@ -426,8 +458,19 @@ class SimulationEvaluatedMessage(BaseModel):
                     reasons=[reason.value for reason in evaluation.reasons],
                     tipping_risk=evaluation.tipping_risk,
                     alerts=[SafetyAlertMessage.from_alert(a) for a in evaluation.alerts],
+                    power_lines=_clearances(evaluation),
+                    critical_lift=_critical(evaluation),
                 )
         return cls(sequence=sequence, payload=payload)
+
+
+def _clearances(evaluation: OperationEvaluation) -> list[PowerLineClearanceResponse]:
+    return [PowerLineClearanceResponse.from_clearance(c) for c in evaluation.power_line_clearances]
+
+
+def _critical(evaluation: OperationEvaluation) -> CriticalLiftResponse | None:
+    item = evaluation.critical_lift
+    return None if item is None else CriticalLiftResponse.from_assessment(item)
 
 
 # --- Saída: erro ---------------------------------------------------------------------------------
