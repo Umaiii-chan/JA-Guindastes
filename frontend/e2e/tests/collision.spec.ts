@@ -19,6 +19,49 @@ function metersOf(text: string | null): number {
   return Number.parseFloat((text ?? '').replace(/\./g, '').replace(',', '.'))
 }
 
+/**
+ * Passa a observar o DOM e devolve a espera pelo aviso «comando bloqueado».
+ *
+ * Esse aviso dura 2 s e some sozinho (TASK-069), e `toBeVisible` AMOSTRA o DOM. No CI, sem GPU, a cena
+ * 3D trava a thread da página por quadros de vários segundos: a primeira amostragem só rodava depois
+ * dos 2 s e o aviso, que existiu (o trace da falha mostra o DOM com ele quando o `expect` começou), já
+ * tinha ido embora (TASK-114). Um `MutationObserver` roda no instante em que o aviso entra no DOM,
+ * esteja a thread ocupada ou não; por isso a observação começa ANTES do comando que o provoca.
+ */
+async function watchBlockedNotice(page: Page): Promise<() => Promise<void>> {
+  await page.evaluate(() => {
+    const target = window as unknown as { __blockedNotice?: Promise<void> }
+    const noticeShown = () =>
+      [...document.querySelectorAll('[role="alert"]')].some((element) =>
+        /bloqueado/.test(element.textContent ?? ''),
+      )
+    target.__blockedNotice = new Promise<void>((resolve, reject) => {
+      if (noticeShown()) return resolve()
+      const timer = setTimeout(() => {
+        observer.disconnect()
+        reject(new Error('o aviso «comando bloqueado» não entrou no DOM em 15 s'))
+      }, 15_000)
+      const observer = new MutationObserver(() => {
+        if (!noticeShown()) return
+        clearTimeout(timer)
+        observer.disconnect()
+        resolve()
+      })
+      observer.observe(document.body, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+        attributes: true,
+      })
+    })
+  })
+  return async () => {
+    await page.evaluate(
+      () => (window as unknown as { __blockedNotice: Promise<void> }).__blockedNotice,
+    )
+  }
+}
+
 async function openPositionStep(page: Page): Promise<void> {
   await mockCatalog(page)
   // O GLB do guindaste (4 MB, TASK-064) pode chegar depois dos comandos; ao trocar o modelo a cena
@@ -60,10 +103,11 @@ test('baixar o cabo até a carga tocar o chão para o cabo e mostra o alerta de 
   await expect(collisionItems).toHaveCount(0)
 
   // Vai ao máximo (40 m): o gancho iria bem abaixo do chão, então o cabo para no contato.
+  const blockedNoticeShown = await watchBlockedNotice(page)
   await cable.press('End')
-  // O cabo parou antes do máximo, e o aviso «comando bloqueado» fica visível (TASK-069: ele dura 2 s
-  // mesmo quando o controle de deslizar reenvia o valor arredondado, já seguro).
-  await expect(page.getByRole('alert').filter({ hasText: /bloqueado/ })).toBeVisible()
+  // O cabo parou antes do máximo, e o aviso «comando bloqueado» aparece (TASK-069: ele dura 2 s mesmo
+  // quando o controle de deslizar reenvia o valor arredondado, já seguro).
+  await blockedNoticeShown()
   expect(Number.parseFloat(await cable.inputValue())).toBeLessThan(10)
   const height = metersOf(await hookHeight.textContent())
   // Carga de 2 m de altura pendurada por lingas: o gancho para acima do chão, nunca abaixo dele.
