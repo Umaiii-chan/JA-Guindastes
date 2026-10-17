@@ -11,3 +11,8 @@ deles, não por defeito do produto (achado na rodada de correções de 2026-10-1
 - [x] **CA-2** — `auth.spec.ts` (modo sem autenticação): o teste também simula `GET /ai/status`.
   Contra a stack com banco, a chamada real respondia 401 e a tela ia para o login com "A sessão
   acabou".
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-17 (PR #50). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

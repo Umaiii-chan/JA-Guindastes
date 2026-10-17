@@ -22,3 +22,8 @@ Achados F-12, F-14, F-15 e F-29 da auditoria de 2026-10-16 (física, simulação
 
 - Teste de componente do `SimulatorRoute` conferindo o `ground_slope_deg` enviado depois de
   "Apoiar e nivelar" (hoje o teste é da função pura `residualGroundSlopeDeg`).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-17 (PR #42). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1). O nivelamento passou a usar o que a animação alcançou na TASK-099.

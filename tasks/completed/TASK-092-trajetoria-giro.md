@@ -24,3 +24,8 @@ para a leva de correções. RN-012: o comando que causaria colisão para no últ
 
 - E2E: girar pela seta além de 180° no simulador e conferir que o valor passa a −179°.
 - E2E: executar uma trajetória com obstáculo fino no caminho do giro.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-17 (PR #44). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

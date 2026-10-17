@@ -247,8 +247,9 @@ export function SimulatorRoute() {
   const cargoHooked = cargoStatus.state?.phase === 'hooked'
   const loadWeightText = cargoMode && !cargoHooked ? '0' : loadWeightTextForEvaluation(load)
   // RN-013: a avaliação recebe a inclinação residual (terreno − nivelamento dos macacos apoiados),
-  // não a bruta do terreno (TASK-094).
-  const evaluationSlopeDeg = residualGroundSlopeDeg(scenario.groundSlopeDeg, outriggers)
+  // não a bruta do terreno (TASK-094). O nivelamento é o que a animação já alcançou, como a extensão
+  // e os macacos (F-27; TASK-099).
+  const evaluationSlopeDeg = residualGroundSlopeDeg(scenario.groundSlopeDeg, reachedOutriggers)
   const evaluationInput = buildEvaluationInput(
     crane?.state ?? null,
     selectedConfiguration?.id ?? '',
@@ -363,8 +364,8 @@ export function SimulatorRoute() {
     accessoryKey,
     input?.outriggers?.extensionPercent,
     input?.outriggers?.jacksSet,
-    // O nivelamento dos macacos muda a inclinação residual enviada (RN-013; TASK-094).
-    outriggers.levelingDeg,
+    // O nivelamento desenhado muda a inclinação residual enviada (RN-013; TASK-094, TASK-099).
+    reachedOutriggers.levelingDeg,
     input?.groundSlopeDeg,
     scenarioExtrasKey,
   ])
