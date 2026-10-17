@@ -9,7 +9,12 @@
 // Convenções (ADR-013): Y para cima; o rumo do chassi gira em torno de Y como `rotation.y` (a
 // frente +Z vai para +X); o gancho G fica a R·(sin ψ, cos ψ) do eixo de giro, no referencial do
 // guindaste. Carga: x = largura, z = comprimento, centro em (x, z) e giro em torno de Y.
+//
+// Alturas (TASK-090): o cabo termina em G, mas as lingas saem do fim do gancho em uso (moitão do
+// modelo 3D) e, com acessórios, do fim da cadeia deles. Cada guindaste tem a sua distância de G até
+// esse ponto (`TandemLoad.hookDropsM`), e a carga fica `TANDEM_SLING_DROP_M` abaixo dele.
 
+import { HOOK_ATTACH_OFFSET_M } from '../collision/loadBox'
 import {
   calculateOperationalGeometry,
   type CraneGeometryParameters,
@@ -21,7 +26,7 @@ const DEG = Math.PI / 180
 /** Cada guindaste usa no máximo esta fração da capacidade dele (RN-016); o cálculo é do backend. */
 export const TANDEM_CAPACITY_FACTOR = 0.75
 
-/** Altura das lingas entre o gancho e o topo da carga (m). */
+/** Altura das lingas entre o fim do gancho (ou da cadeia de acessórios) e o topo da carga (m). */
 export const TANDEM_SLING_DROP_M = 1.5
 
 /** Os pontos de içamento ficam a esta fração do comprimento, a partir do centro (1/4 e 3/4). */
@@ -75,6 +80,13 @@ export interface TandemLoad {
   /** CG a partir do centro da caixa (m); ausente = no centro. */
   readonly cgAlongLengthM?: number
   readonly cgAlongWidthM?: number
+  /**
+   * Distância vertical (m) de G até onde as lingas se prendem, em cada guindaste (1 conduz, 2
+   * acompanha): o engate do gancho em uso (`HookLoad.currentAttachOffsetM`) mais a cadeia de
+   * acessórios dele. Ausente ou inválida: o engate do gancho provisório (`HOOK_ATTACH_OFFSET_M`),
+   * sem acessórios.
+   */
+  readonly hookDropsM?: readonly [number, number]
 }
 
 /** Configuração do tandem: quem conduz, quem acompanha, a carga e onde ela está no chão. */
@@ -145,9 +157,37 @@ export function cargoCgWorld(cargo: CargoPlacement, load: TandemLoad): PlanPoint
   return cargoToWorld(cargo, { x: load.cgAlongWidthM ?? 0, z: load.cgAlongLengthM ?? 0 })
 }
 
-/** Altura do gancho com a carga recém apoiada no chão (lingas esticadas, sem içar). */
-export function engageHookHeightM(setup: TandemSetup): number {
-  return setup.cargoGroundY + setup.load.heightM + TANDEM_SLING_DROP_M
+/** Índice do guindaste no tandem: 0 conduz (Guindaste 1), 1 acompanha (Guindaste 2). */
+export type TandemCraneIndex = 0 | 1
+
+/** Distância (m) de G até onde as lingas do guindaste `crane` se prendem (`hookDropsM`). */
+export function tandemHookDropM(load: TandemLoad, crane: TandemCraneIndex): number {
+  const value = load.hookDropsM?.[crane]
+  return value !== undefined && Number.isFinite(value) && value > 0 ? value : HOOK_ATTACH_OFFSET_M
+}
+
+/**
+ * Altura de G do guindaste `crane` com a carga recém apoiada no chão (lingas esticadas, sem içar):
+ * chão + altura da carga + lingas + engate do gancho + cadeia de acessórios.
+ */
+export function engageHookHeightM(setup: TandemSetup, crane: TandemCraneIndex = 0): number {
+  return (
+    setup.cargoGroundY +
+    setup.load.heightM +
+    TANDEM_SLING_DROP_M +
+    tandemHookDropM(setup.load, crane)
+  )
+}
+
+/** De onde saem as lingas de cada gancho no mundo: G menos a distância até o engate dele. */
+export function slingTopsWorld(
+  hooks: readonly [WorldPoint, WorldPoint],
+  load: TandemLoad,
+): readonly [WorldPoint, WorldPoint] {
+  return [
+    { ...hooks[0], y: hooks[0].y - tandemHookDropM(load, 0) },
+    { ...hooks[1], y: hooks[1].y - tandemHookDropM(load, 1) },
+  ]
 }
 
 const clamp = (value: number, range: Range): number =>
@@ -259,8 +299,9 @@ export interface TandemFrame {
 
 /**
  * Quadro do tandem para o estado do guindaste que conduz: a carga acompanha o gancho dele (mesmo
- * giro, translada com ele) e o guindaste que acompanha leva o gancho ao outro ponto de içamento, na
- * mesma altura. `followerPreferred` é o estado atual dele (para a solução ser contínua).
+ * giro, translada com ele) e o guindaste que acompanha leva o gancho ao outro ponto de içamento,
+ * com o fim do gancho (de onde saem as lingas) na mesma altura do fim do gancho do primeiro.
+ * `followerPreferred` é o estado atual dele (para a solução ser contínua).
  */
 export function tandemFrame(
   setup: TandemSetup,
@@ -271,7 +312,13 @@ export function tandemFrame(
   const leaderHook = craneHookWorld(setup.leader, leaderState)
   const dx = leaderHook.x - point1.x
   const dz = leaderHook.z - point1.z
-  const target: WorldPoint = { x: point2.x + dx, z: point2.z + dz, y: leaderHook.y }
+  // As lingas dos dois saem da mesma altura: o fim do gancho (e da cadeia) de cada um.
+  const slingTopY = leaderHook.y - tandemHookDropM(setup.load, 0)
+  const target: WorldPoint = {
+    x: point2.x + dx,
+    z: point2.z + dz,
+    y: slingTopY + tandemHookDropM(setup.load, 1),
+  }
   const solution = solveCraneForHook(setup.follower, target, followerPreferred)
   const followerHook = craneHookWorld(setup.follower, solution.state)
   return {
@@ -284,7 +331,7 @@ export function tandemFrame(
       x: setup.cargo.x + dx,
       z: setup.cargo.z + dz,
       rotationYDeg: setup.cargo.rotationYDeg,
-      bottomY: leaderHook.y - TANDEM_SLING_DROP_M - setup.load.heightM,
+      bottomY: slingTopY - TANDEM_SLING_DROP_M - setup.load.heightM,
     },
   }
 }
@@ -298,16 +345,23 @@ export interface EngageResult {
   readonly unreachable: readonly (1 | 2)[]
 }
 
-/** Leva os dois ganchos aos pontos de içamento, na altura de engate (carga no chão). */
+/** Leva os dois ganchos aos pontos de içamento, cada um na altura de engate dele (carga no chão). */
 export function engageTandem(
   setup: TandemSetup,
   leaderPreferred: TandemCraneState,
   followerPreferred: TandemCraneState,
 ): EngageResult {
   const [point1, point2] = liftPointsWorld(setup.cargo, setup.load, setup.liftOffsets)
-  const y = engageHookHeightM(setup)
-  const leader = solveCraneForHook(setup.leader, { ...point1, y }, leaderPreferred)
-  const follower = solveCraneForHook(setup.follower, { ...point2, y }, followerPreferred)
+  const leader = solveCraneForHook(
+    setup.leader,
+    { ...point1, y: engageHookHeightM(setup, 0) },
+    leaderPreferred,
+  )
+  const follower = solveCraneForHook(
+    setup.follower,
+    { ...point2, y: engageHookHeightM(setup, 1) },
+    followerPreferred,
+  )
   const unreachable: (1 | 2)[] = []
   if (!leader.reachable) unreachable.push(1)
   if (!follower.reachable) unreachable.push(2)

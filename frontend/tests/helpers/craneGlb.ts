@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { NodeIO } from '@gltf-transform/core'
@@ -9,8 +10,10 @@ import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
 // `Image` nem `createImageBitmap`). Os testes de nós e de cinemática leem o arquivo versionado sem as
 // texturas: a geometria e a hierarquia são as mesmas.
 
-export const CRANE_GLB_PATH = fileURLToPath(
-  new URL('../../public/models/guindaste-80t.glb', import.meta.url),
+// Sem o `URL` global: no ambiente jsdom ele é o do jsdom, que o `fileURLToPath` do Node recusa.
+export const CRANE_GLB_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../public/models/guindaste-80t.glb',
 )
 
 /** Bytes do GLB versionado, tal como estão no disco. */

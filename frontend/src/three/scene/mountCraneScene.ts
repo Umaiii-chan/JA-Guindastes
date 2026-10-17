@@ -48,6 +48,7 @@ import { type EvaluationStatus, normalizeEvaluationStatus, statusCssColor } from
 import { type SceneEditorCallbacks, type SceneEditorConfig, SceneEditor } from './SceneEditor'
 import { createScaleBar, pixelsPerMeter } from './scaleBar'
 import { createRadiusLabel, createZoneLabelElement, paintZoneLabel } from './sceneLabels'
+import { withLiveHookDrops } from './tandemRigging'
 import {
   type CraneModelLoader,
   type CraneModelUpgradeResult,
@@ -596,7 +597,15 @@ export function mountCraneScene(
       if (disposed) return
       // A carga de um guindaste só (TASK-073) cede o lugar à do tandem enquanto ele estiver ligado.
       cargo.setSuspended(config !== null)
-      contents.multi.setTandemCargo(config)
+      // As lingas saem do fim do gancho (e da cadeia de acessórios) de cada guindaste (TASK-090).
+      contents.multi.setTandemCargo(
+        config &&
+          withLiveHookDrops(
+            config,
+            () => contents.hookLoad,
+            () => contents.multi.getExtra(config.followerId)?.hookLoad,
+          ),
+      )
     },
     engageTandem() {
       if (disposed) return null
