@@ -9,7 +9,7 @@
 
 import type { Locator, Page, Route } from '@playwright/test'
 
-import { expect, hasBackend, test } from './auth.js'
+import { expect, test } from './auth.js'
 import { chooseConfiguration, fillValidLoad, mockCatalog } from './catalogMock.js'
 import { topGround } from './topView.js'
 
@@ -17,7 +17,6 @@ const SCREENSHOT_DIR = process.env.E2E_SCREENSHOT_DIR?.trim() ?? ''
 const WEIGHT_KG = 3000
 
 test.describe('coleta e entrega da carga', () => {
-  test.skip(hasBackend, 'usa catálogo e avaliação respondidos pelo navegador')
   test.setTimeout(180_000)
 
   async function shot(page: Page, name: string): Promise<void> {
@@ -93,6 +92,40 @@ test.describe('coleta e entrega da carga', () => {
           load_chart_version: 'v1',
           reasons: [],
         },
+      })
+    })
+    // O mesmo no WebSocket: com a stack no ar (CI), o navegador avalia por ele e não pelo REST. Sem
+    // este desvio o teste só funcionava sem backend, e por isso era pulado no CI e ninguém via quando
+    // ficava defasado (TASK-112).
+    await page.routeWebSocket(/\/api\/v1\/ws\/evaluation/, (socket) => {
+      socket.onMessage((raw) => {
+        const message = JSON.parse(String(raw)) as {
+          type: string
+          sequence: number
+          payload: { boom_length_m: number; load_weight_kg: number }
+        }
+        expect(message.type).toBe('simulation.state.changed')
+        weights.push(message.payload.load_weight_kg)
+        socket.send(
+          JSON.stringify({
+            type: 'simulation.evaluated',
+            sequence: message.sequence,
+            payload: {
+              result: 'EVALUATED',
+              geometry: null,
+              capacity: {
+                maximum_capacity_kg: 8000,
+                strategy: 'CONSERVATIVE_PROVISIONAL',
+                queried_radius_m: null,
+                used_point: { boom_length_m: 22, working_radius_m: 40, max_capacity_kg: 8000 },
+              },
+              utilization_percent: (message.payload.load_weight_kg / 8000) * 100,
+              load_chart_id: 'LC-E2E-FICTICIA',
+              load_chart_version: 'v1',
+              reasons: [],
+            },
+          }),
+        )
       })
     })
     // Gravações FALSAS: guarda o que o navegador envia e devolve na reprodução.
@@ -176,32 +209,62 @@ test.describe('coleta e entrega da carga', () => {
     // Começa a gravar: engatar, soltar e a posição da carga vão nos quadros.
     const recordingPanel = page.getByRole('region', { name: 'Gravação de simulações' })
     await recordingPanel.getByRole('button', { name: 'Gravar' }).click()
+    // Cada passo é um comando na cena e uma avaliação, e no CI (sem GPU, WebSocket real) custa mais que
+    // aqui: por isso a busca é curta. Primeira vez, varre o giro e a lança e refina; na segunda, a entrega
+    // é a imagem espelhada da carga (x → −x, mesmo raio), então o giro é o oposto e a lança é a mesma, e
+    // basta um refino. As asserções da dica ("faltam X m") continuam as mesmas.
+    const refine = async (rounds: number): Promise<void> => {
+      for (let round = 0; round < rounds; round += 1) {
+        const angle = Number(await turret.inputValue())
+        await minimise(page, turret, angle - 3, angle + 3, 1)
+        const length = Number(await boomLength.inputValue())
+        await minimise(page, boomLength, length - 0.6, length + 0.6, 0.1)
+      }
+    }
     const approach = async (): Promise<void> => {
       await minimise(page, turret, -90, 90, 10)
       const lengthMin = Number(await boomLength.getAttribute('min'))
       const lengthMax = Number(await boomLength.getAttribute('max'))
       await minimise(page, boomLength, lengthMin, lengthMax, 1)
-      for (let round = 0; round < 3; round += 1) {
-        const angle = Number(await turret.inputValue())
-        await minimise(page, turret, angle - 6, angle + 6, 1)
-        const length = Number(await boomLength.inputValue())
-        await minimise(page, boomLength, length - 1, length + 1, 0.1)
-      }
+      await refine(2)
+    }
+    const approachMirrored = async (): Promise<void> => {
+      await turret.fill(String(-Number(await turret.inputValue())))
+      await settle(page)
+      await refine(1)
     }
     await cable.press('Home')
     await approach()
     expect(await missingMeters(page)).toBeLessThan(0.5)
 
-    // Baixa o cabo: o gancho para ao tocar o topo da carga e o botão Engatar é liberado.
-    await cable.press('End')
-    await settle(page)
+    // Baixa o cabo até as lingas esticarem: o Engatar só é liberado com o gancho a `queda` do topo da
+    // carga (geometria única das lingas, TASK-107; ADR-051; 60° → 2,45 m para esta carga de 2 × 2 m), e
+    // não mais encostado nele. Como uma pessoa faria: desce aos poucos até o botão liberar.
     const engage = strip(page).getByRole('button', { name: 'Engatar' })
+    const cableMin = Number(await cable.getAttribute('min'))
+    const cableMax = Number(await cable.getAttribute('max'))
+    expect(Number.isFinite(cableMin) && Number.isFinite(cableMax)).toBe(true)
+    for (
+      let value = cableMin;
+      value <= cableMax + 1e-9 && !(await engage.isEnabled());
+      value += 0.2
+    ) {
+      await cable.fill(String(Math.round(value * 10) / 10))
+      await settle(page)
+    }
     await expect(engage).toBeEnabled()
+    // O gancho está acima do topo da carga, na distância das lingas: a dica não pede mais descer.
+    await expect(strip(page)).toContainText('Toque em Engatar')
     await shot(page, 'task-073-pronto-para-engatar')
 
     await engage.click()
-    // Engatada ainda no chão: a dica já manda levar e soltar.
-    await expect(strip(page)).toContainText('Toque em Soltar')
+    // Engatada com as lingas esticadas, a base da carga fica um pouco acima do chão (a folga do
+    // engate), ainda fora dos 0,20 m da soltura: a dica manda levar e baixar, e o Soltar espera.
+    // Acoplamento: isto vale porque a janela de engate chega a +0,5 m (`ENGAGE_MAX_GAP_M`, em
+    // `cargoOperation.ts`) e o passo da descida acima é de 0,2 m, que para na primeira posição que
+    // libera o Engatar; se a janela for apertada, este trecho precisa acompanhar.
+    await expect(strip(page)).toContainText('Carga engatada: leve a carga até o ponto de entrega')
+    await expect(strip(page).getByRole('button', { name: 'Soltar' })).toBeDisabled()
     await expect(engage).toBeDisabled()
     // Engatada, o peso entra na avaliação.
     await expect.poll(() => weights.at(-1)).toBe(WEIGHT_KG)
@@ -210,7 +273,7 @@ test.describe('coleta e entrega da carga', () => {
     await shot(page, 'task-073-carga-no-gancho')
 
     // Leva até o alvo, do outro lado: gira e ajusta a lança até a dica dizer que chegou.
-    await approach()
+    await approachMirrored()
     expect(await missingMeters(page)).toBeLessThan(1.5)
 
     // Baixa até o chão e solta.
