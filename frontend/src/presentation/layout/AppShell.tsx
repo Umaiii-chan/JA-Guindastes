@@ -8,19 +8,35 @@ import { MAIN_SHEET_COUNT, NAV_ITEMS, type NavItem, navItemFor } from './navigat
 import { Wordmark } from './Wordmark'
 
 const RAIL_STORAGE_KEY = 'ja-guindastes.rail-collapsed'
+/**
+ * Preferência à parte para as páginas de palco inteiro (o simulador, TASK-095): lá o trilho começa
+ * recolhido, para a cena ter o máximo de espaço; quem o abrir lá continua com ele aberto lá.
+ */
+const STAGE_RAIL_STORAGE_KEY = 'ja-guindastes.rail-collapsed.stage'
 /** Abaixo desta largura o trilho começa recolhido (mais espaço para a cena). */
 const AUTO_COLLAPSE_BELOW_PX = 1360
 /** Revisão mostrada no carimbo: a versão da aplicação (package.json). */
 const REVISION = '0.1'
 
-function initialCollapsed(): boolean {
+function storedCollapsed(key: string): boolean | null {
   try {
-    const stored = window.localStorage.getItem(RAIL_STORAGE_KEY)
+    const stored = window.localStorage.getItem(key)
     if (stored !== null) return stored === '1'
   } catch {
-    // Sem armazenamento (modo privado, bloqueado): decide pela largura.
+    // Sem armazenamento (modo privado, bloqueado): decide pelo padrão.
   }
-  return typeof window !== 'undefined' && window.innerWidth < AUTO_COLLAPSE_BELOW_PX
+  return null
+}
+
+function initialCollapsed(): boolean {
+  return (
+    storedCollapsed(RAIL_STORAGE_KEY) ??
+    (typeof window !== 'undefined' && window.innerWidth < AUTO_COLLAPSE_BELOW_PX)
+  )
+}
+
+function initialStageCollapsed(): boolean {
+  return storedCollapsed(STAGE_RAIL_STORAGE_KEY) ?? true
 }
 
 /** "02/04" para as folhas do índice; só "A1" para as da administração. */
@@ -54,17 +70,29 @@ export function AppShell({
   children,
   isNavItemVisible = SHOW_ALL,
 }: AppShellProps) {
-  const [collapsed, setCollapsed] = useState(initialCollapsed)
+  const [pageCollapsed, setPageCollapsed] = useState(initialCollapsed)
+  const [stageCollapsed, setStageCollapsed] = useState(initialStageCollapsed)
   const location = useLocation()
   const current = navItemFor(location.pathname)
+  const onStage = current?.fullBleed === true
+  const collapsed = onStage ? stageCollapsed : pageCollapsed
+  const setCollapsed = onStage ? setStageCollapsed : setPageCollapsed
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(RAIL_STORAGE_KEY, collapsed ? '1' : '0')
+      window.localStorage.setItem(RAIL_STORAGE_KEY, pageCollapsed ? '1' : '0')
     } catch {
       // Preferência só da sessão quando não há armazenamento.
     }
-  }, [collapsed])
+  }, [pageCollapsed])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STAGE_RAIL_STORAGE_KEY, stageCollapsed ? '1' : '0')
+    } catch {
+      // Preferência só da sessão quando não há armazenamento.
+    }
+  }, [stageCollapsed])
 
   const visibleItems = NAV_ITEMS.filter((item) => isNavItemVisible(item))
   const mainItems = visibleItems.filter((item) => item.section === 'main')

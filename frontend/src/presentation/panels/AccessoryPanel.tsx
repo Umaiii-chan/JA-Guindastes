@@ -12,6 +12,7 @@ import {
   type Accessory,
   MAX_SELECTED_ACCESSORIES,
 } from '../../domain/accessory/accessory'
+import { useInSheet } from '../simulator/layout/sheetContext'
 import { Badge, Button, Field, IconButton, Notice, Panel, Select, Spinner } from '../ui'
 import styles from './accessoryPanel.module.css'
 
@@ -54,6 +55,8 @@ export function AccessoryPanel({
 }: AccessoryPanelProps) {
   const [choice, setChoice] = useState('')
   const selectId = useId()
+  // Na folha "Acessórios de içamento" do simulador (TASK-095), o título fica com a folha.
+  const inSheet = useInSheet()
   const resolved = resolveAccessories(selectedIds, catalog)
   const full = selectedIds.length >= MAX_SELECTED_ACCESSORIES
 
@@ -63,120 +66,120 @@ export function AccessoryPanel({
     setChoice('')
   }
 
+  const body = (
+    <div className={styles.body}>
+      {status === 'loading' && (
+        <p className={styles.hint}>
+          <Spinner size={12} /> Carregando acessórios…
+        </p>
+      )}
+      {status === 'error' && (
+        <Notice tone="warning" compact role="alert" title="Não foi possível carregar os acessórios">
+          {errorMessage ?? 'Falha ao falar com o servidor.'}{' '}
+          {onRetry && (
+            <Button size="sm" variant="ghost" onClick={onRetry}>
+              Tentar de novo
+            </Button>
+          )}
+        </Notice>
+      )}
+      {status === 'loaded' && catalog.length === 0 && (
+        <p className={styles.hint}>Nenhum acessório cadastrado.</p>
+      )}
+
+      {catalog.length > 0 && (
+        <div className={styles.addRow}>
+          <Field label="Adicionar acessório" id={selectId}>
+            <Select
+              value={choice}
+              disabled={full}
+              onChange={(event) => setChoice(event.target.value)}
+            >
+              <option value="">Escolha…</option>
+              {catalog.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} — {ACCESSORY_TYPE_LABELS[item.type]} · {formatNumber(item.weightKg)}{' '}
+                  kg
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Button
+            size="md"
+            variant="secondary"
+            icon={<Plus size={14} />}
+            disabled={choice === '' || full}
+            onClick={add}
+          >
+            Adicionar
+          </Button>
+        </div>
+      )}
+      {full && <p className={styles.hint}>Limite de {MAX_SELECTED_ACCESSORIES} acessórios.</p>}
+
+      {selectedIds.length === 0 ? (
+        <p className={styles.hint}>Sem acessórios: a carga fica presa direto ao gancho.</p>
+      ) : (
+        <ol className={styles.chain} aria-label="Cadeia do gancho para a carga">
+          {selectedIds.map((id, index) => {
+            const accessory = catalog.find((item) => item.id === id)
+            return (
+              <li key={`${id}-${index}`} className={styles.item}>
+                <div className={styles.itemText}>
+                  <span className={styles.itemName}>{accessory?.name ?? id}</span>
+                  {accessory ? (
+                    <span className={styles.itemMeta}>
+                      {ACCESSORY_TYPE_LABELS[accessory.type]} · {formatNumber(accessory.weightKg)}{' '}
+                      kg · {formatNumber(accessory.riggingHeightM)} m
+                    </span>
+                  ) : (
+                    <span className={styles.itemMeta}>não está mais no catálogo</span>
+                  )}
+                  {accessory?.credit && (
+                    <span className={styles.itemMeta}>
+                      Modelo 3D: {accessory.credit}
+                      {accessory.license ? ` · ${accessory.license}` : ''}
+                    </span>
+                  )}
+                  {accessory &&
+                    (accessory.modelFile === null || failedModelIds?.has(accessory.id)) && (
+                      <Badge tone="warning" variant="outline">
+                        modelo 3D pendente
+                      </Badge>
+                    )}
+                </div>
+                <IconButton
+                  label={`Remover ${accessory?.name ?? id}`}
+                  icon={<X size={14} />}
+                  size="sm"
+                  onClick={() => onChange(removeAccessoryAt(selectedIds, index))}
+                />
+              </li>
+            )
+          })}
+        </ol>
+      )}
+
+      {resolved.unknownIds.length > 0 && (
+        <Notice tone="warning" compact title="Acessório fora do catálogo">
+          O servidor não avalia a operação enquanto houver acessório que ele não conhece. Remova-o
+          da cadeia.
+        </Notice>
+      )}
+
+      {resolved.accessories.length > 0 && (
+        <p className={styles.summary}>
+          Prévia: {formatNumber(resolved.weightKg)} kg · a carga desce{' '}
+          {formatNumber(resolved.riggingHeightM)} m. O peso comparado oficial vem do servidor.
+        </p>
+      )}
+    </div>
+  )
+
+  if (inSheet) return body
   return (
     <Panel title={TITLE} stamp="ACESS.">
-      <div className={styles.body}>
-        {status === 'loading' && (
-          <p className={styles.hint}>
-            <Spinner size={12} /> Carregando acessórios…
-          </p>
-        )}
-        {status === 'error' && (
-          <Notice
-            tone="warning"
-            compact
-            role="alert"
-            title="Não foi possível carregar os acessórios"
-          >
-            {errorMessage ?? 'Falha ao falar com o servidor.'}{' '}
-            {onRetry && (
-              <Button size="sm" variant="ghost" onClick={onRetry}>
-                Tentar de novo
-              </Button>
-            )}
-          </Notice>
-        )}
-        {status === 'loaded' && catalog.length === 0 && (
-          <p className={styles.hint}>Nenhum acessório cadastrado.</p>
-        )}
-
-        {catalog.length > 0 && (
-          <div className={styles.addRow}>
-            <Field label="Adicionar acessório" id={selectId}>
-              <Select
-                value={choice}
-                disabled={full}
-                onChange={(event) => setChoice(event.target.value)}
-              >
-                <option value="">Escolha…</option>
-                {catalog.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} — {ACCESSORY_TYPE_LABELS[item.type]} · {formatNumber(item.weightKg)}{' '}
-                    kg
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Button
-              size="md"
-              variant="secondary"
-              icon={<Plus size={14} />}
-              disabled={choice === '' || full}
-              onClick={add}
-            >
-              Adicionar
-            </Button>
-          </div>
-        )}
-        {full && <p className={styles.hint}>Limite de {MAX_SELECTED_ACCESSORIES} acessórios.</p>}
-
-        {selectedIds.length === 0 ? (
-          <p className={styles.hint}>Sem acessórios: a carga fica presa direto ao gancho.</p>
-        ) : (
-          <ol className={styles.chain} aria-label="Cadeia do gancho para a carga">
-            {selectedIds.map((id, index) => {
-              const accessory = catalog.find((item) => item.id === id)
-              return (
-                <li key={`${id}-${index}`} className={styles.item}>
-                  <div className={styles.itemText}>
-                    <span className={styles.itemName}>{accessory?.name ?? id}</span>
-                    {accessory ? (
-                      <span className={styles.itemMeta}>
-                        {ACCESSORY_TYPE_LABELS[accessory.type]} · {formatNumber(accessory.weightKg)}{' '}
-                        kg · {formatNumber(accessory.riggingHeightM)} m
-                      </span>
-                    ) : (
-                      <span className={styles.itemMeta}>não está mais no catálogo</span>
-                    )}
-                    {accessory?.credit && (
-                      <span className={styles.itemMeta}>
-                        Modelo 3D: {accessory.credit}
-                        {accessory.license ? ` · ${accessory.license}` : ''}
-                      </span>
-                    )}
-                    {accessory &&
-                      (accessory.modelFile === null || failedModelIds?.has(accessory.id)) && (
-                        <Badge tone="warning" variant="outline">
-                          modelo 3D pendente
-                        </Badge>
-                      )}
-                  </div>
-                  <IconButton
-                    label={`Remover ${accessory?.name ?? id}`}
-                    icon={<X size={14} />}
-                    size="sm"
-                    onClick={() => onChange(removeAccessoryAt(selectedIds, index))}
-                  />
-                </li>
-              )
-            })}
-          </ol>
-        )}
-
-        {resolved.unknownIds.length > 0 && (
-          <Notice tone="warning" compact title="Acessório fora do catálogo">
-            O servidor não avalia a operação enquanto houver acessório que ele não conhece. Remova-o
-            da cadeia.
-          </Notice>
-        )}
-
-        {resolved.accessories.length > 0 && (
-          <p className={styles.summary}>
-            Prévia: {formatNumber(resolved.weightKg)} kg · a carga desce{' '}
-            {formatNumber(resolved.riggingHeightM)} m. O peso comparado oficial vem do servidor.
-          </p>
-        )}
-      </div>
+      {body}
     </Panel>
   )
 }

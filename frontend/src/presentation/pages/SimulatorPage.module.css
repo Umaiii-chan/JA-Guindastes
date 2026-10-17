@@ -1,132 +1,56 @@
 /*
- * Simulador em colunas (ADR-019 § 2): procedimento à esquerda (largura fixa), prancha à direita. A
- * prancha tem moldura de tinta; dentro dela, a faixa de título, o quadro da cena (papel, com marcas
- * de canto) e a ficha do resultado no pé.
+ * Simulador com a cena como prioridade (TASK-095; ADR-042, com o visual do ADR-019): a cena ocupa o
+ * palco inteiro e os painéis flutuam sobre ela, na camada `--z-overlay-panel`, em papel com moldura
+ * de tinta e cantos retos (sem degradê nem vidro). A grade do `.hud` só posiciona; ela mesma não
+ * pega o mouse (`pointer-events: none`), então a cena continua respondendo entre os painéis.
+ *
+ *   colunas:  ferramentas | folha aberta | meio (editor, colisões) | cartão
+ *   linhas:   chip e barra de vistas | painéis | player, coleta e entrega, barra de comando
  */
 .stage {
-  display: grid;
-  grid-template-columns: minmax(300px, 344px) minmax(0, 1fr);
-  gap: var(--space-3);
+  --sheet-width: 344px;
+  --card-width: 344px;
+  --card-width-wide: 440px;
+
+  position: relative;
   width: 100%;
   height: 100%;
-  padding: var(--space-3);
   overflow: hidden;
-}
-
-.procedure {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
-}
-
-.procedure[hidden] {
-  display: none;
-}
-
-/* Painel recolhido ou tela cheia: a cena ocupa a largura (TASK-062). */
-.panelHidden {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.full {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  background: var(--color-bg, var(--paper));
-}
-
-.header {
-  min-width: 0;
-}
-
-.headerBar {
-  display: flex;
-  min-width: 0;
-}
-
-.headerBar > :first-child {
-  flex: 1;
-  min-width: 0;
-}
-
-.viewActions {
-  display: flex;
-  flex: 0 0 auto;
-  border-bottom: 1px solid var(--color-border-ink);
-  border-left: 1px solid var(--color-border-ink);
-}
-
-.viewAction {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 var(--space-3);
-  border: 0;
-  border-right: 1px solid var(--color-border);
-  background: var(--color-surface-1);
-  color: var(--color-text-1);
-  font-size: var(--font-size-xs);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.viewAction:last-child {
-  border-right: 0;
-}
-
-.viewAction:hover,
-.viewAction[aria-pressed='true'] {
-  background: var(--color-surface-2, var(--color-surface-1));
-}
-
-/* Em espaço estreito, só os ícones. */
-@media (width < 1500px) {
-  .viewAction span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-}
-
-/* Seções recolhíveis da coluna (acessórios). */
-.section {
-  flex: 0 0 auto;
-  border: 1px solid var(--color-border-ink);
-  background: var(--color-surface-1);
-}
-
-.sectionTitle {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--font-size-3xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--letter-spacing-wide);
-  text-transform: uppercase;
-  color: var(--color-text-1);
-  cursor: pointer;
-}
-
-.drawing {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  min-width: 0;
-  min-height: 0;
-  border: 1px solid var(--color-border-ink);
-  background: var(--color-surface-1);
-}
-
-/* Quadro da cena: papel, com um filete interno a 6 px da moldura, como a margem de uma prancha. */
-.scene {
-  position: relative;
-  min-height: 0;
   background: var(--paper);
 }
 
+@media (width >= 1600px) {
+  .stage {
+    --sheet-width: 372px;
+    --card-width: 372px;
+  }
+}
+
+@media (width < 1100px) {
+  .stage {
+    --sheet-width: 320px;
+    --card-width: 288px;
+    --card-width-wide: 360px;
+  }
+}
+
+/* Tela cheia sem a API do navegador (ou dentro dela): o palco cobre a janela. As janelas abertas
+   são montadas dentro do palco (F-21), então ficam por cima dele. */
+.full {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+}
+
+/* ── Cena: o palco inteiro ─────────────────────────────────────────────────────────────────── */
+
+.scene {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-scene);
+}
+
+/* Filete interno a 6 px da borda, com esquadros de tinta nos cantos: a margem de uma prancha. */
 .corners {
   position: absolute;
   inset: 6px;
@@ -135,7 +59,6 @@
   border: 1px solid var(--color-border);
 }
 
-/* Marcas de canto: pequenos esquadros de tinta nos quatro cantos do filete interno. */
 .corners::before,
 .corners::after {
   content: '';
@@ -158,54 +81,225 @@
   border-width: 0 1px 1px 0;
 }
 
-/* Ficha no pé da prancha: o resultado (largo) e a geometria (estreita), separados por um filete. */
-.result {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 250px);
-  min-width: 0;
-  /* Altura FIXA e compacta (TASK-078/082): a ficha nunca muda de altura com o conteúdo; o que
-     passar rola por dentro. Os avisos de colisão ficam sobre a cena, fora desta ficha. */
-  height: 222px;
-  overflow-y: auto;
-  border-top: 1px solid var(--color-border-ink);
+/* A escala gráfica da cena (canto de baixo) sobe para acima da barra de comando. */
+.stage :global(.crane-viewport__scale-bar) {
+  bottom: calc(var(--hud-bottom, 0px) + 28px) !important;
 }
 
-/* Telas baixas (ex.: 1280 × 720): a ficha fica menor e rola por dentro. */
-@media (height < 800px) {
-  .result {
-    height: 196px;
-  }
-}
+/* ── Painéis sobre a cena ──────────────────────────────────────────────────────────────────── */
 
-/* Avisos sobrepostos à parte de baixo da cena: fora do fluxo, não mudam a altura dela. */
-.overlay {
+.hud {
   position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  z-index: 2;
+  inset: 0;
+  z-index: var(--z-overlay-panel);
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  padding: var(--space-3);
   pointer-events: none;
 }
 
-.overlay > * {
+/* Cada painel pega o mouse; o espaço entre eles é da cena. */
+.panelSlot,
+.toolbar,
+.sheets > *,
+.cardSlot > *,
+.viewBar,
+.alerts > * {
   pointer-events: auto;
 }
 
-.evaluation {
+/* Linha do topo: o chip à esquerda e a barra de vistas à direita. */
+.top {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
   min-width: 0;
 }
 
-.geometry {
+.top > .panelSlot {
   min-width: 0;
+  flex: 0 1 auto;
+}
+
+.viewBar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: stretch;
+  margin-left: auto;
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid var(--color-border-ink);
+  background: var(--color-surface-1);
+}
+
+.viewBar > :first-child {
+  min-width: 0;
+}
+
+.viewActions {
+  display: flex;
+  flex: 0 0 auto;
   border-left: 1px solid var(--color-border-ink);
 }
 
-/* Campos estáveis (TASK-078): a ficha nunca invade a coluna da geometria. */
-.evaluation {
-  overflow-x: clip;
+.viewAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border-right: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-1);
+  white-space: nowrap;
 }
 
-.geometry {
-  position: relative;
+.viewAction:last-child {
+  border-right: 0;
+}
+
+.viewAction:hover,
+.viewAction[aria-pressed='true'] {
+  background: var(--color-surface-2);
+}
+
+.viewAction:focus-visible {
+  outline-offset: -3px;
+}
+
+/* Em espaço estreito, as duas ações ficam só com o ícone (o nome continua para leitores de tela). */
+@media (width < 1500px) {
+  .viewActionText {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+.toolbar {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: start;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.sheets {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  min-height: 0;
+  max-height: 100%;
+}
+
+.center {
+  grid-column: 3;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.center > * {
+  max-width: 100%;
+}
+
+/* Editor do ambiente (no topo) e coleta e entrega (embaixo): faixas de papel com moldura. */
+.editor {
+  width: min(100%, 1040px);
+  max-height: 60%;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-ink);
+}
+
+.operation {
+  width: min(100%, 1000px);
+  border: 1px solid var(--color-border-ink);
+}
+
+/* As faixas internas trazem o próprio filete de baixo; dentro da moldura ele sobra. */
+.editor > section,
+.operation > section {
+  border-bottom: 0;
+}
+
+/* Colisões: só ocupam lugar quando há aviso (o grupo vazio não desenha nada). */
+.alerts {
+  width: min(100%, 560px);
+  min-height: 0;
+}
+
+.cardSlot {
+  grid-column: 4;
+  grid-row: 2;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  min-height: 0;
+  max-height: 100%;
+}
+
+.bottom {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.playback {
+  width: min(100%, 920px);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-ink);
   background: var(--color-surface-1);
+}
+
+/* Barra de comando: o que se usa o tempo todo, numa linha (ou duas, em tela estreita). */
+.commandBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2) var(--space-5);
+  max-width: 100%;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border-ink);
+  background: var(--color-surface-1);
+}
+
+/* Os `fieldset` de trava (gravação, tandem) viram parte da linha. */
+.commandBar fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2) var(--space-5);
+  min-width: 0;
+}
+
+.commandBar :global(.recording-lock-note) {
+  max-width: 22ch;
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-2);
+}
+
+/* "Ocultar painéis": fica a barra de vistas, os avisos de colisão e o player. Nada é desmontado. */
+.stage[data-panels-hidden] .hideable {
+  display: none;
 }

@@ -112,3 +112,22 @@
 .scroll[hidden] {
   display: none;
 }
+
+/* Dentro da folha "Configurar" (TASK-095): sem moldura nem altura máxima; a folha rola. */
+.inSheet {
+  max-height: none;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.inSheet .header {
+  min-height: 0;
+  padding: 0 0 var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.inSheet .scroll {
+  overflow: visible;
+  padding: var(--space-1) 0 0;
+}
