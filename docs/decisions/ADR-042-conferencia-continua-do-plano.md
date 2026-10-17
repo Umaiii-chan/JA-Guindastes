@@ -2,10 +2,10 @@
 
 | Campo                  | Valor                                                                    |
 | ---------------------- | ------------------------------------------------------------------------ |
-| **Status**             | Proposto                                                                 |
+| **Status**             | Aceito                                                                   |
 | **Data**               | 2026-10-16                                                               |
 | **Autor**              | agente Claude Code (Opus 5.5), sessão de 2026-10-16                      |
-| **Decisores**          | Anderson Sehnem (pendente de confirmação)                                |
+| **Decisores**          | Anderson Sehnem, em chat em 2026-10-17                                   |
 | **Tarefa relacionada** | TASK-088                                                                 |
 | **Complementa**        | ADR-038 (planejamento da operação); substitui só a frase "O giro é amostrado da coleta à entrega (12 trechos)" do ADR-038 § Decisão, "Caminho", quanto à conferência de colisão |
 
@@ -62,8 +62,11 @@ um galpão, carga solta dentro de uma carreta).
   mais rápida no fixture (handoff da TASK-088 § 4).
 
 **Negativas / custos:**
-- Cenários da IA com a carga dentro do "barracão aberto" (o prompt pede isso) passam a ser
-  recusados, com o motivo. A carga precisa ficar fora do barracão.
+- Decisão do barracão aberto (revisão do PR #48): o "barracao-aberto" da biblioteca é **oco** para
+  o planejador, como já é na cena: na coleta, na entrega e no caminho valem as mesmas caixas de
+  `hangarBoxes` (`objectLibrary.ts`), então a carga dentro do barracão deixa de ser recusada por
+  estar "sob ou dentro" dele (o cenário que a IA monta). Se o plano fecha depende do guindaste: o
+  cabo não atravessa o teto.
 - Entregar sobre um container ou outra caixa que não é a carreta é recusado.
 - As contagens de descarte das notas mudam (só as posições avaliadas contam).
 
