@@ -291,3 +291,40 @@ def test_passar_sobre_o_corpo_do_guindaste_sobe_a_carga_acima_dele() -> None:
     for item in search.plans:
         if item.crosses_body:
             assert item.transport_height_m >= body_top + 1.0 - 1e-6
+
+
+def test_lanca_que_bate_em_poste_alto_descarta_a_opcao_com_o_motivo() -> None:
+    # TASK-088 (F-02): na única posição avaliada (a origem, rumo de 90°), os dois sentidos do giro
+    # passam a lança sobre um poste de 30 m a 8 m do eixo, a menos de 17 m de altura.
+    poles = tuple(
+        ObstacleSpec(f"P{i}", "Poste", ObstacleKind.CYLINDER, 0.0, z, 0.4, 0.4, 30.0, 0.0)
+        for i, z in enumerate((8.0, -8.0))
+    )
+    pick, delivery = PlanPoint(-12.0, 0.0), PlanPoint(12.0, 0.0)
+
+    def search(scenario: ScenarioSpec):  # type: ignore[no-untyped-def]
+        return plan_crane(
+            crane=CRANE,
+            scenario=scenario,
+            load=LOAD,
+            pick=pick,
+            delivery=delivery,
+            evaluator=FakeEvaluator(),
+            max_positions=1,
+        )
+
+    free = search(ScenarioSpec())
+    blocked = search(ScenarioSpec(obstacles=poles))
+
+    assert free.plans and free.plans[0].placement.x == 0.0 and free.plans[0].placement.z == 0.0
+    assert blocked.plans == ()
+    assert blocked.rejections["colisao_lanca"] > 0
+
+
+def test_coleta_coberta_nao_gera_plano() -> None:
+    shed = box("GALPAO", PICK.x, PICK.z, 4.0)
+
+    search = plan(ScenarioSpec(obstacles=(shed,)))
+
+    assert search.plans == ()
+    assert search.rejections == {"coleta": 1}

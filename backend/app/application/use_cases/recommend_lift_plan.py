@@ -32,7 +32,7 @@ from app.application.use_cases.evaluate_operation import (
 )
 from app.domain.entities.accessory import Accessory, AccessoryType
 from app.domain.entities.load_chart import LoadChart
-from app.domain.entities.scenario import ScenarioSpec
+from app.domain.entities.scenario import ObstacleSpec, ScenarioSpec
 from app.domain.services.environment_factors import SoilKind
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
 from app.domain.services.planning.models import (
@@ -46,13 +46,22 @@ from app.domain.services.planning.models import (
     TrajectoryPoint,
 )
 from app.domain.services.planning.planner import (
+    DELIVERY_BLOCKED,
     HOOK_ATTACH_M,
+    PICK_COVERED,
     PlanSearch,
     plan_crane,
     plan_sort_key,
     risk_rank,
 )
 from app.domain.services.planning.scene import direction
+from app.domain.services.planning.sweep import (
+    COLLISION_BOOM,
+    COLLISION_CABLE,
+    COLLISION_LOAD,
+    delivery_cover,
+    pick_cover,
+)
 from app.domain.services.planning.tandem import (
     HOIST_POINT_FRACTION,
     TANDEM_CAPACITY_SHARE,
@@ -93,6 +102,11 @@ _REJECTION_TEXT = {
     "lanca": "fora da faixa de inclinação da lança",
     "cabo": "sem cabo suficiente para a altura de transporte",
     "OUTSIDE_GEOMETRIC_DOMAIN": "fora do alcance geométrico",
+    COLLISION_BOOM: "com a lança batendo em obstáculo",
+    COLLISION_CABLE: "com o cabo ou o gancho batendo em obstáculo",
+    COLLISION_LOAD: "com a carga batendo em obstáculo no caminho",
+    PICK_COVERED: "com a carga na coleta sob obstáculo",
+    DELIVERY_BLOCKED: "com a carga na entrega sobre ou sob obstáculo que não é a carreta",
 }
 
 
@@ -106,6 +120,8 @@ class _Search(Protocol):
         keep: int,
         share_kg: float | None = None,
         capacity_share: float = 1.0,
+        cargo_pick: PlanPoint | None = None,
+        cargo_delivery: PlanPoint | None = None,
     ) -> PlanSearch: ...
 
 
@@ -252,6 +268,9 @@ class RecommendLiftPlan:
         # Um moitão da cadeia substitui o gancho do modelo: a carga pende dele (como na cena).
         replaces_hook = any(item.type is AccessoryType.HOOK_BLOCK for item in accessories)
         hook_attach_m = REPLACED_HOOK_ATTACH_M if replaces_hook else request.hook_attach_m
+        blocked = _blocked_ends_note(request)
+        if blocked is not None:
+            return PlanningResult((), (blocked,))
         deadline = self._clock() + self._time_budget_s
 
         entries, notes = self._read_catalog()
@@ -281,6 +300,8 @@ class RecommendLiftPlan:
             keep: int,
             share_kg: float | None = None,
             capacity_share: float = 1.0,
+            cargo_pick: PlanPoint | None = None,
+            cargo_delivery: PlanPoint | None = None,
         ) -> PlanSearch:
             return plan_crane(
                 crane=crane,
@@ -300,6 +321,8 @@ class RecommendLiftPlan:
                 clock=self._clock,
                 hoist_pick=(pick.x, pick.z) if share_kg is not None else None,
                 hoist_delivery=(delivery.x, delivery.z) if share_kg is not None else None,
+                cargo_pick=cargo_pick,
+                cargo_delivery=cargo_delivery,
             )
 
         rejections: dict[str, int] = {}
@@ -422,6 +445,9 @@ class RecommendLiftPlan:
                     keep=3,
                     share_kg=share,
                     capacity_share=TANDEM_CAPACITY_SHARE,
+                    # A carga inteira fica no centro dela, com o giro dado pelos dois ganchos.
+                    cargo_pick=request.pick,
+                    cargo_delivery=request.delivery,
                 )
                 _merge(rejections, found)
                 plans.extend(found.plans)
@@ -542,6 +568,27 @@ def _planner_crane(entry: _Entry) -> PlannerCrane:
         manufacturer_id=entry.crane.manufacturer_id,
         crane_id=entry.crane.id,
     )
+
+
+def _names(obstacles: Sequence[ObstacleSpec]) -> str:
+    return ", ".join(f"«{obstacle.label}»" for obstacle in obstacles)
+
+
+def _blocked_ends_note(request: PlanningRequest) -> str | None:
+    """Motivo claro quando a coleta ou a entrega não dão para nenhum guindaste (TASK-088)."""
+    covered = pick_cover(request.scenario, request.load, request.pick)
+    if covered:
+        return (
+            f"A carga na coleta fica sob ou dentro de {_names(covered)}: o gancho não chega a ela "
+            "por cima. Tire a carga de baixo do obstáculo ou mude o ponto de coleta."
+        )
+    blocked = delivery_cover(request.scenario, request.load, request.delivery)
+    if blocked:
+        return (
+            f"O ponto de entrega fica sob ou dentro de {_names(blocked)}: só a carreta ou o "
+            "caminhão plataforma recebe a carga por cima. Mude o ponto de entrega."
+        )
+    return None
 
 
 def _merge(rejections: dict[str, int], search: PlanSearch) -> None:
