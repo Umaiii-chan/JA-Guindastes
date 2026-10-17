@@ -3,7 +3,7 @@
 Achado da revisão do PR #48: o planejador entrega a carga sobre a carroceria do caminhão plataforma
 da biblioteca (topo a 53 % da altura do objeto), mas a cena só deixava soltar perto do terreno
 (`RELEASE_MAX_HEIGHT_M`, `checkRelease`). Um plano "Atende" com entrega sobre a carreta não terminava
-na tela. ADR-035 (carga, engatar e soltar), ADR-036 (biblioteca) e ADR-045 (esta decisão).
+na tela. ADR-035 (carga, engatar e soltar), ADR-036 (biblioteca) e ADR-046 (esta decisão).
 
 ## Critérios de aceite
 

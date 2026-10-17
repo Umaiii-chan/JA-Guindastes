@@ -13,7 +13,7 @@
   entre terreno e topo da carroceria sob a pegada. `RELEASE_MAX_HEIGHT_M` segue 0,2 m.
 - `three/scene/CargoOperation.ts`: passa `spec.obstacles`; a carga solta assenta na carroceria e a
   caixa de colisão da carga no chão usa essa altura.
-- ADR-045 (Proposto), TASK-101, testes `tests/domain/cargo/loadBeds.test.ts` (12 casos).
+- ADR-046 (Proposto), TASK-101, testes `tests/domain/cargo/loadBeds.test.ts` (12 casos).
 
 ## Fatos / decisões
 - A caixa da biblioteca é arredondada ao centímetro: topo 1,86 m e carroceria até z = +0,005 m.

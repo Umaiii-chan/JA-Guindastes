@@ -1,4 +1,4 @@
-// Carroceria onde a carga pode ser solta (TASK-101; ADR-045), sem Three.js: a superfície de apoio
+// Carroceria onde a carga pode ser solta (TASK-101; ADR-046), sem Three.js: a superfície de apoio
 // é o maior entre o terreno e o topo da carroceria de um caminhão plataforma da biblioteca
 // (`loadBed`) sob a pegada da carga. Outros objetos de topo plano não recebem carga (pendência).
 //
