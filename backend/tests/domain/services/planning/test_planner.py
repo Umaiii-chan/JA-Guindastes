@@ -328,3 +328,76 @@ def test_coleta_coberta_nao_gera_plano() -> None:
 
     assert search.plans == ()
     assert search.rejections == {"coleta": 1}
+
+
+class FakeZoneEvaluator(FakeEvaluator):
+    """Como `FakeEvaluator`, com a frente (ψ de 300° a 60°) a 40 % da capacidade; na fronteira, a
+    menor das duas (como a avaliação real)."""
+
+    def __call__(self, **kwargs: object) -> StateAssessment:  # type: ignore[override]
+        base = super().__call__(**kwargs)  # type: ignore[arg-type]
+        state = kwargs["state"]
+        assert isinstance(state, CraneStateValues)
+        psi = state.turret_rotation_deg % 360.0
+        front = psi >= 300.0 - 1e-6 or psi <= 60.0 + 1e-6
+        factor = 0.4 if front else 1.0
+        return replace(base, utilization_percent=base.utilization_percent / factor)
+
+
+def replay_max(evaluator: FakeEvaluator, plan_item, weight_kg: float) -> float:  # type: ignore[no-untyped-def]
+    """Maior utilização no giro como a cena o executa (quadros-chave interpolados)."""
+    worst = 0.0
+    for a, b in zip(plan_item.path, plan_item.path[1:], strict=False):
+        for i in range(201):
+            f = i / 200
+            state = CraneStateValues(
+                a.boom_length_m,
+                a.boom_angle_deg + (b.boom_angle_deg - a.boom_angle_deg) * f,
+                a.turret_rotation_deg + (b.turret_rotation_deg - a.turret_rotation_deg) * f,
+                a.cable_length_m + (b.cable_length_m - a.cable_length_m) * f,
+            )
+            result = evaluator(
+                configuration_id="CFG-FICTICIA",
+                state=state,
+                load_weight_kg=weight_kg,
+                ground_slope_deg=None,
+                soil_kinds=(),
+                wind_speed_ms=None,
+                obstacle_conflicts=(),
+            )
+            worst = max(worst, result.utilization_percent)
+    return worst
+
+
+def test_pior_ponto_na_fronteira_de_zona_entre_dois_quadros_chave() -> None:
+    # TASK-089 (F-06): giro da torre limitado (rumo fixo, giro centrado em ψ = 0) e raio crescendo
+    # da coleta à entrega: a frente fraca termina em ψ = 60°, entre dois quadros-chave.
+    limited = replace(
+        CRANE,
+        geometry=replace(
+            GEOMETRY, turret_rotation_min=Angle(-170.0), turret_rotation_max=Angle(170.0)
+        ),
+        zone_boundaries_deg=(60.0, 300.0),
+    )
+    weight = 700.0
+    pick = PlanPoint(-10.5 * math.sin(math.radians(75.0)), 10.5 * math.cos(math.radians(75.0)))
+    delivery = PlanPoint(16.0 * math.sin(math.radians(75.0)), 16.0 * math.cos(math.radians(75.0)))
+
+    search = plan_crane(
+        crane=limited,
+        scenario=ScenarioSpec(),
+        load=replace(LOAD, weight_kg=weight),
+        pick=pick,
+        delivery=delivery,
+        evaluator=FakeZoneEvaluator(),
+        keep=10,
+    )
+
+    assert search.plans
+    crossing = 0
+    for item in search.plans:
+        psis = [state.turret_rotation_deg for state in item.path]
+        if min(psis) < 60.0 < max(psis) and 60.0 not in psis:
+            crossing += 1
+        assert item.max_utilization_percent >= replay_max(FakeZoneEvaluator(), item, weight) - 1e-6
+    assert crossing > 0
