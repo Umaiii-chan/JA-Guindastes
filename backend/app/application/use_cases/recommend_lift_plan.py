@@ -35,6 +35,7 @@ from app.domain.entities.load_chart import LoadChart
 from app.domain.entities.scenario import ObstacleSpec, ScenarioSpec
 from app.domain.services.environment_factors import SoilKind
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
+from app.domain.services.planning.library_boxes import is_platform_truck, owner_id
 from app.domain.services.planning.models import (
     CranePlan,
     CraneStateValues,
@@ -56,6 +57,7 @@ from app.domain.services.planning.planner import (
 )
 from app.domain.services.planning.scene import direction
 from app.domain.services.planning.sweep import (
+    COLLISION_APPROACH,
     COLLISION_BOOM,
     COLLISION_CABLE,
     COLLISION_LOAD,
@@ -103,10 +105,11 @@ _REJECTION_TEXT = {
     "cabo": "sem cabo suficiente para a altura de transporte",
     "OUTSIDE_GEOMETRIC_DOMAIN": "fora do alcance geométrico",
     COLLISION_BOOM: "com a lança batendo em obstáculo",
+    COLLISION_APPROACH: "com a aproximação do gancho (da partida até a carga) batendo em obstáculo",
     COLLISION_CABLE: "com o cabo ou o gancho batendo em obstáculo",
     COLLISION_LOAD: "com a carga batendo em obstáculo no caminho",
     PICK_COVERED: "com a carga na coleta sob obstáculo",
-    DELIVERY_BLOCKED: "com a carga na entrega sobre ou sob obstáculo que não é a carreta",
+    DELIVERY_BLOCKED: "com a carga na entrega sobre ou sob obstáculo que não é a carroceria",
 }
 
 
@@ -574,19 +577,38 @@ def _names(obstacles: Sequence[ObstacleSpec]) -> str:
     return ", ".join(f"«{label}»" for label in dict.fromkeys(item.label for item in obstacles))
 
 
+_BED_HINT = (
+    "O centro da carga precisa ficar sobre a carroceria (traseira) do caminhão plataforma, "
+    "e a carga não pode passar sobre a cabine. "
+)
+
+
+def _has_truck(obstacles: Sequence[ObstacleSpec], scenario: ScenarioSpec) -> bool:
+    """Algum dos obstáculos (ou das partes deles) é um caminhão plataforma do cenário?"""
+    trucks = {item.id for item in scenario.obstacles if is_platform_truck(item)}
+    return any(owner_id(obstacle) in trucks for obstacle in obstacles)
+
+
 def _blocked_ends_note(request: PlanningRequest) -> str | None:
     """Motivo claro quando a coleta ou a entrega não dão para nenhum guindaste (TASK-088)."""
     covered = pick_cover(request.scenario, request.load, request.pick)
     if covered:
         return (
             f"A carga na coleta fica sob ou dentro de {_names(covered)}: o gancho não chega a ela "
-            "por cima. Tire a carga de baixo do obstáculo ou mude o ponto de coleta."
+            f"por cima. {_BED_HINT if _has_truck(covered, request.scenario) else ''}"
+            "Tire a carga de baixo do obstáculo ou mude o ponto de coleta."
         )
     blocked = delivery_cover(request.scenario, request.load, request.delivery)
     if blocked:
         return (
-            f"O ponto de entrega fica sob ou dentro de {_names(blocked)}: só a carreta ou o "
-            "caminhão plataforma recebe a carga por cima. Mude o ponto de entrega."
+            f"O ponto de entrega fica sob ou dentro de {_names(blocked)}: "
+            + (
+                _BED_HINT
+                if _has_truck(blocked, request.scenario)
+                else "só o caminhão plataforma da biblioteca recebe a carga por cima, na "
+                "carroceria (traseira)."
+            )
+            + " Mude o ponto de entrega."
         )
     return None
 

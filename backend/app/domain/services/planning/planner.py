@@ -61,13 +61,12 @@ from app.domain.services.planning.sweep import (
     delivery_surface,
     first_path_collision,
     load_crossings,
-    pick_cover,
+    pick_surface,
     solids_of,
     swing_arc,
     terrain_peak_along,
 )
 from app.domain.services.planning.terrain import (
-    cargo_base_y,
     ground_slope_under_crane_deg,
     soil_kinds_under_shoes,
     terrain_height_at,
@@ -153,6 +152,8 @@ class _Context:
     fixed_delivery: DeliverySurface | None
     """Superfície da entrega quando o giro da carga já é dado (tandem); senão, depende do giro."""
     radius_load_m: float
+    pick_supports: tuple[ObstacleSpec, ...]
+    """Caminhões em cuja carroceria a carga está apoiada na coleta."""
     pick_base_y: float
     """Altura da base da carga apoiada na coleta."""
     solids: tuple[Solid, ...]
@@ -650,6 +651,7 @@ def _collision(crane: PlannerCrane, ctx: _Context, option: _Option) -> str | Non
         delivery_state=option.delivery_state,
         delivery_load_top_y=option.swing.delivery_rest_y + REST_CLEARANCE_M + load.height_m,
         delivery_supports=option.swing.delivery_supports,
+        pick_supports=ctx.pick_supports,
     )
 
 
@@ -694,7 +696,8 @@ def plan_crane(
     scenario = replace(scenario, obstacles=expand_obstacles(scenario))
     rejections: Counter[str] = Counter()
     cargo_at_pick = pick if cargo_pick is None else cargo_pick
-    if pick_cover(scenario, load, cargo_at_pick):
+    pick_surf = pick_surface(scenario, load, cargo_at_pick)
+    if pick_surf.blockers:
         rejections[PICK_COVERED] += 1
         return PlanSearch((), dict(rejections))
     fixed_delivery: DeliverySurface | None = None
@@ -716,14 +719,8 @@ def plan_crane(
         delivery_center=delivery_center,
         fixed_delivery=fixed_delivery,
         radius_load_m=math.hypot(load.length_m, load.width_m) / 2,
-        pick_base_y=cargo_base_y(
-            scenario.terrain,
-            load.length_m,
-            load.width_m,
-            cargo_at_pick.x,
-            cargo_at_pick.z,
-            cargo_at_pick.rotation_y_deg,
-        ),
+        pick_supports=pick_surf.supports,
+        pick_base_y=pick_surf.rest_y,
         solids=solids_of(scenario),
         accessory_drop_m=accessory_drop_m,
         hook_attach_m=hook_attach_m,

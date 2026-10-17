@@ -9,6 +9,7 @@ fixa o resultado. Um `model_id` sem caixas aqui continua sendo o prisma cheio.
 """
 
 import math
+from collections.abc import Sequence
 from dataclasses import replace
 from functools import lru_cache
 
@@ -109,18 +110,36 @@ _TRUCK_FLAT_SIZE = (4.05, 7.41, _TRUCK_FLAT_HEIGHT)
 """`TRUCK_FLAT` do frontend: largura (x), profundidade (z) e altura (y) do modelo, em metros."""
 
 
+_TRUCK_FLAT_SECTIONS = (
+    (0.0, 0.5, 0.53, 1.0),
+    (0.5, 0.8, 1.0, 0.9),
+    (0.8, 1.0, 0.62, 1.0),
+)
+"""Trechos do caminhão plataforma, de trás (-Z) para a frente: de, até (fração do comprimento),
+altura e largura (fração do tamanho); `TRUCK_FLAT_COLLISION` do frontend. O 1º é a carroceria."""
+
+
+def platform_truck_boxes() -> tuple[Box, ...]:
+    """Espelho de `vehicle(TRUCK_FLAT, ...)` do frontend: as caixas por trecho do caminhão
+    plataforma (x, z, y, largura, profundidade, altura), a carroceria primeiro."""
+    width, depth, height = _TRUCK_FLAT_SIZE
+    return tuple(
+        (
+            0.0,
+            _round2(depth * ((start + end) / 2 - 0.5)),
+            0.0,
+            _round2(width * width_share),
+            _round2(depth * (end - start)),
+            _round2(height * height_share),
+        )
+        for start, end, height_share, width_share in _TRUCK_FLAT_SECTIONS
+    )
+
+
 def platform_truck_bed() -> Box:
     """Espelho de `loadBed` do caminhão plataforma (`TRUCK_FLAT_COLLISION[0]` do frontend): a
     carroceria, o trecho traseiro de 0 a 0,5 do comprimento, na largura toda e a 0,53 da altura."""
-    width, depth, height = _TRUCK_FLAT_SIZE
-    return (
-        0.0,
-        _round2(depth * ((0.0 + 0.5) / 2 - 0.5)),
-        0.0,
-        _round2(width * 1.0),
-        _round2(depth * (0.5 - 0.0)),
-        _round2(height * _TRUCK_FLAT_BED),
-    )
+    return platform_truck_boxes()[0]
 
 
 def bed_contains(obstacle: ObstacleSpec, x: float, z: float) -> bool:
@@ -147,8 +166,15 @@ def is_platform_truck(obstacle: ObstacleSpec) -> bool:
     return obstacle.kind is ObstacleKind.MODEL and obstacle.model_id == PLATFORM_TRUCK_MODEL_ID
 
 
-def _parts(obstacle: ObstacleSpec, terrain: TerrainSpec) -> tuple[ObstacleSpec, ...]:
-    base_w, base_d, base_h = HANGAR_BASE_SIZE
+def _box_parts(
+    obstacle: ObstacleSpec,
+    terrain: TerrainSpec,
+    boxes: Sequence[Box],
+    base_size: tuple[float, float, float],
+) -> tuple[ObstacleSpec, ...]:
+    """Cada caixa do objeto como uma parte: na escala por eixo (tamanho do obstáculo ÷ `base_size`),
+    girada com o objeto em torno do centro da planta, com a base na altura do terreno no centro."""
+    base_w, base_d, base_h = base_size
     sx = obstacle.width_m / base_w
     sz = obstacle.depth_m / base_d
     sy = obstacle.height_m / base_h
@@ -156,7 +182,7 @@ def _parts(obstacle: ObstacleSpec, terrain: TerrainSpec) -> tuple[ObstacleSpec, 
     cos, sin = math.cos(angle), math.sin(angle)
     ground = terrain_height_at(terrain, obstacle.center_x, obstacle.center_z)
     parts: list[ObstacleSpec] = []
-    for index, (x, z, y, w, d, h) in enumerate(_HANGAR_BOXES):
+    for index, (x, z, y, w, d, h) in enumerate(boxes):
         lx, lz = x * sx, z * sz
         # rotY(ângulo): do referencial do objeto ao mundo (inverso de `distance_to_obstacle_m`).
         center_x = obstacle.center_x + lx * cos + lz * sin
@@ -178,7 +204,18 @@ def _parts(obstacle: ObstacleSpec, terrain: TerrainSpec) -> tuple[ObstacleSpec, 
     return tuple(parts)
 
 
+def _parts(obstacle: ObstacleSpec, terrain: TerrainSpec) -> tuple[ObstacleSpec, ...]:
+    return _box_parts(obstacle, terrain, _HANGAR_BOXES, HANGAR_BASE_SIZE)
+
+
+def _cab_parts(obstacle: ObstacleSpec, terrain: TerrainSpec) -> tuple[ObstacleSpec, ...]:
+    """Os trechos do caminhão plataforma mais altos que a carroceria (a cabine e a frente), como
+    caixas no mundo: a carga apoiada na carroceria não pode invadi-los."""
+    return _box_parts(obstacle, terrain, platform_truck_boxes()[1:], _TRUCK_FLAT_SIZE)
+
+
 _cached_parts = lru_cache(maxsize=256)(_parts)
+platform_truck_cab_parts = lru_cache(maxsize=256)(_cab_parts)
 
 
 def is_hollow(obstacle: ObstacleSpec) -> bool:
