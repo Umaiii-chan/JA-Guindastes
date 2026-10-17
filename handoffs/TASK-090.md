@@ -75,12 +75,14 @@ Mudanças fora do caminho óbvio, com o motivo:
 | backend `uv run pytest` | `1785 passed, 88 skipped in 51.60s` (os 88 pulados são de integração, sem PostgreSQL local) |
 | frontend `npm ci` | exit 0 |
 | frontend `npm run lint` | sem erros |
-| frontend `npm run format:check` | ❌ `Code style issues found in 6 files`. Os 6 são `.module.css` que não toquei e que estão sem quebra de linha no fim já na base `784a9e1` (conferido com `git show 784a9e1:...`). Os arquivos desta tarefa passam: `npx prettier --check <arquivos alterados>` → `All matched files use Prettier code style!` |
+| frontend `npm run format:check` | antes do merge da `development`: ❌ 6 `.module.css` sem quebra de linha no fim, que já vinham assim de `784a9e1`. Depois do merge de `anderson/development` @ `a1c7754` (TASK-097 corrigiu os 6): ✅ `All matched files use Prettier code style!` |
 | frontend `npm run typecheck` | sem erros |
 | frontend `npm test` | `Test Files 123 passed (123)`, `Tests 1082 passed \| 1 skipped (1083)` |
 | frontend `npm run build` | `✓ built in 1.18s` (o aviso de chunk acima de 500 kB já existia) |
 | frontend `npm run e2e` (sem backend) | `16 passed`, `11 skipped`, ❌ `3 failed`: `collision.spec.ts:34`, `objetosReais.spec.ts:65` e `rotationZones.spec.ts:98`. As mesmas 3 falham na base `784a9e1`, rodadas numa worktree temporária (lá falhou também `rotationZones.spec.ts:135`). Nenhuma toca o tandem |
-| `bash scripts/check-structure.sh` | ❌ antes deste handoff: 3 erros. Dois já existiam: 18 tarefas em `tasks/in-progress/` (máximo 15; já havia 17) e TASK-080 sem handoff. O terceiro era a falta deste handoff |
+| `bash scripts/check-structure.sh` | antes do merge: ❌ 2 erros que já existiam (18 tarefas em `tasks/in-progress/`, TASK-080 sem handoff). Depois do merge de `a1c7754`: ✅ `OK: 0 erros, 1 aviso(s)` (aviso: 2 tarefas em andamento) |
+| depois do merge, de novo: backend `ruff`, `format`, `mypy`, `lint-imports`, `pytest` | todos ok; `1785 passed, 88 skipped in 54.77s` |
+| depois do merge, de novo: frontend `lint`, `typecheck`, `npm test`, `build` | sem erros; `123 passed (123)`, `1082 passed \| 1 skipped`; `✓ built in 1.17s` |
 | `git merge-tree` contra TASK-088, 091, 092, 093, 094, 095 e 096 | sem conflito, depois de mudar o import de `buildTandemInput` de lugar (ele colava na linha que a TASK-094 muda) |
 | árvore 090 + 093 numa worktree temporária: `npx vitest run` dos testes do tandem, `MultiCrane` e `HookLoad`, e `tsc -b` | `5 passed (5)`, `51 passed (51)`; tsc sem erros |
 | mutação manual | rumo com o sinal trocado em `crane_point_to_world` → falham os testes de domínio e de rota. Sem a distância do gancho em `tandemFrame` → 6 testes do frontend falham, inclusive o do GLB |
