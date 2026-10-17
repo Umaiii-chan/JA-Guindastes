@@ -97,7 +97,7 @@ import type { SceneAccessory } from '../../three/accessories/AccessoryChain'
 import { useAuth } from '../auth/authContext'
 import { useCatalog } from '../catalog/catalogContext'
 import { chooseCraneSetup } from '../craneSetup'
-import { buildEvaluationInput } from '../evaluationInput'
+import { buildEvaluationInput, residualGroundSlopeDeg } from '../evaluationInput'
 import { useScenario } from '../scenario/scenarioContext'
 import { sceneRotationZoneCode } from '../sceneRotationZone'
 import { useSimulationRecording } from '../simulator/useSimulationRecording'
@@ -229,13 +229,16 @@ export function SimulatorRoute() {
   const cargoMode = scenario.spec.cargo !== undefined && validLoad !== null
   const cargoHooked = cargoStatus.state?.phase === 'hooked'
   const loadWeightText = cargoMode && !cargoHooked ? '0' : loadWeightTextForEvaluation(load)
+  // RN-013: a avaliação recebe a inclinação residual (terreno − nivelamento dos macacos apoiados),
+  // não a bruta do terreno (TASK-094).
+  const evaluationSlopeDeg = residualGroundSlopeDeg(scenario.groundSlopeDeg, outriggers)
   const evaluationInput = buildEvaluationInput(
     crane?.state ?? null,
     selectedConfiguration?.id ?? '',
     loadWeightText,
     { extensionPercent: outriggers.extensionPercent, jacksSet: outriggers.jacksSet },
     accessoryIds,
-    scenario.groundSlopeDeg,
+    evaluationSlopeDeg,
     scenarioExtras,
   )
   const accessoryKey = accessoryIds.join('|')
@@ -343,6 +346,8 @@ export function SimulatorRoute() {
     accessoryKey,
     input?.outriggers?.extensionPercent,
     input?.outriggers?.jacksSet,
+    // O nivelamento dos macacos muda a inclinação residual enviada (RN-013; TASK-094).
+    outriggers.levelingDeg,
     input?.groundSlopeDeg,
     scenarioExtrasKey,
   ])
