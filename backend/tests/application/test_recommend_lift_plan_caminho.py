@@ -28,7 +28,12 @@ from app.domain.entities.scenario import (
 from app.domain.services.planning.models import CraneStateValues, PlanLoad, PlanPhase, PlanPoint
 from app.domain.services.planning.planner import HOOK_ATTACH_M, sling_drop_m
 from app.domain.services.planning.scene import direction, distance_to_obstacle_m
-from app.domain.services.planning.sweep import COLLISION_BOOM, segment_hits_solid, solids_of
+from app.domain.services.planning.sweep import (
+    COLLISION_BOOM,
+    footprint_overlaps_obstacle,
+    segment_hits_solid,
+    solids_of,
+)
 from tests.fixtures.planejamento_ficticio import caso_de_uso_planejamento, container_ficticio
 
 PIVOT_OFFSET_M = 0.46  # ficha FICTÍCIA da fixture (`geometria_planejamento`)
@@ -101,6 +106,11 @@ def boom_inside(rec: Recommendation, obstacle: ObstacleSpec) -> int:
     """Quadros (de todas as fases) com o eixo da lança dentro do obstáculo."""
     (solid,) = solids_of(ScenarioSpec(obstacles=(obstacle,)))
     return sum(1 for _, state in frames(rec) if segment_hits_solid(solid, *boom(rec, state), 0.0))
+
+
+def _footprint_axes(rotation_y_deg: float):  # type: ignore[no-untyped-def]
+    angle = math.radians(rotation_y_deg)
+    return (math.cos(angle), -math.sin(angle)), (math.sin(angle), math.cos(angle))
 
 
 def pole(identifier: str, x: float, z: float) -> ObstacleSpec:
@@ -221,6 +231,48 @@ def test_carga_baixa_sobre_a_carreta_nao_e_recusada_pelo_cabo(height_m: float) -
     )
 
     assert result.recommendations, result.notes
+
+
+@pytest.mark.parametrize("side", [1, -1])
+def test_giro_da_carga_na_entrega_respeita_o_sentido_do_giro(side: int) -> None:
+    # MENOR-4 da revisão do PR #48: na entrega a carga está girada do quanto a torre girou
+    # (`planner.py`, `rotation = cargo_pick.rotation + sign * arc`). Coleta em (-6, 0) e entrega em
+    # (0, ±6): o guindaste fica de um lado ou do outro (giro de -73,7° ou +73,7°). Um muro pequeno
+    # no canto da carga girada pelo giro da melhor posição só bloqueia a entrega com esse giro: com
+    # o sinal invertido, o planejador aceitaria a posição, e o plano voltaria com a carga no muro.
+    load = PlanLoad(1500.0, 3.0, 1.5, 1.2)
+    pick = PlanPoint(-6.0, 0.0)
+    delivery = PlanPoint(0.0, 6.0 * side)
+    free = plan(ScenarioSpec(), load=load, pick=pick, delivery=delivery)
+    swing = free.recommendations[0].details[0].swing_deg
+    assert abs(swing) % 90 > 10  # com giro de 90° o sinal não mudaria a pegada
+
+    ax, az = _footprint_axes(swing)
+    wall = ObstacleSpec(
+        "MURO",
+        "Muro FICTÍCIO",
+        ObstacleKind.BOX,
+        delivery.x + ax[0] * (load.width_m / 2 - 0.03) + az[0] * (load.length_m / 2 - 0.03),
+        delivery.z + ax[1] * (load.width_m / 2 - 0.03) + az[1] * (load.length_m / 2 - 0.03),
+        0.04,
+        0.04,
+        3.0,
+        0.0,
+    )
+
+    def blocks(rotation_deg: float) -> bool:
+        return footprint_overlaps_obstacle(
+            wall, delivery.x, delivery.z, load.width_m / 2, load.length_m / 2, rotation_deg
+        )
+
+    assert blocks(swing) and not blocks(-swing)
+
+    result = plan(ScenarioSpec(obstacles=(wall,)), load=load, pick=pick, delivery=delivery)
+
+    assert result.recommendations
+    for rec in result.recommendations:
+        for detail in rec.details:
+            assert not blocks(detail.swing_deg)
 
 
 def test_monte_estreito_no_caminho_sobe_a_altura_de_transporte() -> None:
