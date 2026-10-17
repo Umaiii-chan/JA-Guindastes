@@ -171,9 +171,10 @@ def make_scenario_layout_safe(
         obstacle = obstacles[index]
         zones = list(crane_zones)
         if not _is_anchored(obstacle):
-            zones += cargo_zones
+            # Um apoio (caminhão plataforma, carreta prancha, contêiner; ADR-052) pode ficar sob a
+            # carga na coleta e sob o ponto de entrega: é onde ela repousa. Os outros objetos saem.
             if not is_platform_vehicle(obstacle):
-                zones += delivery_zones
+                zones += cargo_zones + delivery_zones
             zones += placed
         rect = _footprint(obstacle)
         reason = _blocking_reason(rect, zones)

@@ -102,9 +102,15 @@ export function loadBedUnder(center: Point, beds: readonly LoadBed[]): LoadBed |
   return found
 }
 
-/** A carga pesa mais do que o apoio aguenta? Só com capacidade CONHECIDA; sem dado, não limita (apoio FICTÍCIO). */
-export function exceedsCapacity(bed: LoadBed, weightKg: number): boolean {
-  return bed.capacityKg !== undefined && weightKg > bed.capacityKg
+/**
+ * A carga pesa mais do que o apoio aguenta? Só com capacidade CONHECIDA; sem dado (ausente ou `null`), não
+ * limita (apoio FICTÍCIO). Serve ao `LoadBed` e ao `BedStatus`.
+ */
+export function exceedsCapacity(
+  bed: { readonly capacityKg?: number | null },
+  weightKg: number,
+): boolean {
+  return bed.capacityKg !== undefined && bed.capacityKg !== null && weightKg > bed.capacityKg
 }
 
 /** Topo da superfície de apoio sob o centro da pegada da carga, ou `null` se não há nenhuma. */

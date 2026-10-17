@@ -9,6 +9,7 @@ import {
   ENGAGE_MIN_GAP_M,
   RELEASE_MAX_HEIGHT_M,
 } from '../../domain/cargo/cargoOperation'
+import { exceedsCapacity } from '../../domain/cargo/loadBeds'
 import { formatClock } from '../recording/playback'
 
 export type CargoStepId = 'position' | 'engage' | 'deliver'
@@ -47,7 +48,8 @@ export function bedNote(
   loadWeightKg?: number,
 ): { text: string; warning: boolean } | null {
   const bed = status.bed
-  if (!bed) return null
+  // Sobre o mesmo apoio de onde foi coletada, a carga já estava ali: a capacidade não se confere (ADR-052).
+  if (!bed || bed.atPickup) return null
   if (bed.capacityKg === null) {
     return {
       text: ` Apoio: ${bed.label}. Apoio FICTÍCIO: a capacidade de carga não é conhecida e o peso não foi conferido.`,
@@ -55,7 +57,7 @@ export function bedNote(
     }
   }
   const kg = (value: number) => `${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`
-  if (loadWeightKg !== undefined && loadWeightKg > bed.capacityKg) {
+  if (loadWeightKg !== undefined && exceedsCapacity(bed, loadWeightKg)) {
     return {
       text: ` Atenção: ${bed.label} suporta no máximo ${kg(bed.capacityKg)} e a carga pesa ${kg(loadWeightKg)}.`,
       warning: true,

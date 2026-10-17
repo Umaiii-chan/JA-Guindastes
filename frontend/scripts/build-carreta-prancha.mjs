@@ -127,7 +127,8 @@ function wheel(material, [x0, x1], cy, cz, radius, segments = 16) {
       const cap = target.positions.length / 3
       target.positions.push(x, cy, cz, x, ya, za, x, yb, zb)
       for (let corner = 0; corner < 3; corner += 1) target.normals.push(side, 0, 0)
-      target.indices.push(...(side === 1 ? [cap, cap + 1, cap + 2] : [cap, cap + 2, cap + 1]))
+      // anti-horário visto de fora: a tampa de +X é vista de +X, onde o anel (y = sen, z = cos) gira no sentido horário
+      target.indices.push(...(side === 1 ? [cap, cap + 2, cap + 1] : [cap, cap + 1, cap + 2]))
     }
   }
 }

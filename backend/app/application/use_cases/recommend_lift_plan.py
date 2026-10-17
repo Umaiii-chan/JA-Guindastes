@@ -71,6 +71,7 @@ from app.domain.services.planning.sweep import (
     COLLISION_CABLE,
     COLLISION_LOAD,
     delivery_cover,
+    over_capacity,
     overloaded_supports,
     pick_cover,
 )
@@ -726,7 +727,7 @@ def _support_notes(request: PlanningRequest) -> list[str]:
                     f"{label} sobre «{obstacle.label}» ({spec.label}): apoio FICTÍCIO, sem "
                     "capacidade de carga conhecida; o peso apoiado não foi conferido."
                 )
-            elif label == "Entrega":
+            elif label == "Entrega" and not over_capacity(obstacle, request.load):
                 notes.append(
                     f"{label} sobre «{obstacle.label}» ({spec.label}): carga de "
                     f"{_fmt(request.load.weight_kg, 0)} kg dentro da capacidade de "

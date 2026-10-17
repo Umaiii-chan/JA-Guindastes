@@ -93,6 +93,14 @@ def test_a_box_called_trailer_is_moved_off_the_delivery_point() -> None:
     assert "o ponto de entrega" in layout.moves[0].describe()
 
 
+def test_a_support_may_sit_under_the_cargo_pickup_but_a_car_may_not() -> None:
+    # ADR-052: a carga repousa no apoio, então ele não é afastado da coleta; o carro é.
+    for model_id in ("caminhao-plataforma", "carreta-prancha", "conteiner-20"):
+        support = replace(car(0, -20, "Apoio"), model_id=model_id, width_m=2.6, depth_m=6.0)
+        assert run(scenario(support)).moves == (), model_id
+    assert len(run(scenario(car(0, -20, "Carro"))).moves) == 1
+
+
 def test_a_flatbed_trailer_cannot_sit_on_the_crane() -> None:
     trailer = replace(car(0, 0, "Carreta"), model_id="caminhao-plataforma", width_m=12, depth_m=2.6)
 

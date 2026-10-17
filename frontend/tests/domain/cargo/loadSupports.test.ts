@@ -175,7 +175,8 @@ describe('capacidade do apoio: confere se há dado, rotula FICTÍCIO se não há
     accessoriesDropM: 0,
   }
   const hooked = {
-    ...initialCargoState({ x: 30, z: 0, rotationYDeg: 0 }),
+    // coletada longe dos apoios (x = -50): soltar sobre o contêiner a 30 m é outro apoio
+    ...initialCargoState({ x: -50, z: 0, rotationYDeg: 0 }),
     phase: 'hooked' as const,
     hooked: { offsetX: 0, offsetZ: 0, yawDeg: 0, slingDropM: 0.4 },
   }
@@ -188,6 +189,7 @@ describe('capacidade do apoio: confere se há dado, rotula FICTÍCIO se não há
     expect(exceedsCapacity(bed, 1e9)).toBe(false)
     const status = cargoStatusOf(hooked, hook, SIZE, FLAT, null, [container])
     expect(status.bed).toEqual({
+      obstacleId: container.id,
       label: "Contêiner 20' (ISO)",
       capacityKg: null,
       source: NO_CAPACITY_SOURCE,
@@ -198,7 +200,12 @@ describe('capacidade do apoio: confere se há dado, rotula FICTÍCIO se não há
   })
 
   it('com capacidade conhecida, peso acima dela vira aviso e dentro dela é só informação', () => {
-    const bed = { label: 'Apoio de teste', capacityKg: 5_000, source: 'FICTÍCIO (teste)' }
+    const bed = {
+      obstacleId: 'obs-x',
+      label: 'Apoio de teste',
+      capacityKg: 5_000,
+      source: 'FICTÍCIO (teste)',
+    }
     const base = cargoStatusOf(hooked, hook, SIZE, FLAT, null, [])
     const status = { ...base, bed }
     expect(bedNote(status, 6_000)).toEqual({
@@ -221,13 +228,42 @@ describe('capacidade do apoio: confere se há dado, rotula FICTÍCIO se não há
     expect(guidance.message).toContain('Toque em Soltar')
     expect(guidance.message).toContain('Apoio FICTÍCIO')
     const heavy = cargoGuidance({
-      status: { ...status, bed: { label: 'Apoio de teste', capacityKg: 100, source: 'x' } },
+      status: {
+        ...status,
+        bed: { obstacleId: 'obs-x', label: 'Apoio de teste', capacityKg: 100, source: 'x' },
+      },
       cargoPlaced: true,
       deliveryPlaced: true,
       loadWeightKg: 500,
     })
     expect(heavy.tone).toBe('warning')
     expect(heavy.message).toContain('suporta no máximo 100 kg')
+  })
+
+  it('exceedsCapacity serve ao apoio do mundo e ao da interface, e sem dado nunca limita', () => {
+    const heavy = { capacityKg: 100 }
+    expect(exceedsCapacity(heavy, 101)).toBe(true)
+    expect(exceedsCapacity(heavy, 100)).toBe(false)
+    expect(exceedsCapacity({ capacityKg: null }, 1e9)).toBe(false)
+    expect(exceedsCapacity({}, 1e9)).toBe(false)
+  })
+
+  it('soltar sobre o MESMO apoio de onde coletou não confere a capacidade (a carga já estava lá)', () => {
+    const container = placed('conteiner-20', { centerX: 30 })
+    const other = placed('conteiner-40', { id: 'outro', centerX: 60 })
+    const base = initialCargoState({ x: 30, z: 0, rotationYDeg: 0 }) // coletada do teto do contêiner a 30 m
+    const pickedUp = { ...base, phase: 'hooked' as const, hooked: hooked.hooked }
+    const sameBed = cargoStatusOf(pickedUp, hook, SIZE, FLAT, null, [container, other])
+    expect(sameBed.bed).toMatchObject({ obstacleId: container.id, atPickup: true })
+    expect(bedNote({ ...sameBed, bed: { ...sameBed.bed!, capacityKg: 100 } }, 500)).toBeNull()
+    // levada para outro apoio, vale a capacidade dele
+    const farHook: HookReference = { ...hook, frame: { ...hook.frame, pos: { x: 60, y: 4, z: 0 } } }
+    const elsewhere = cargoStatusOf(pickedUp, farHook, SIZE, FLAT, null, [container, other])
+    expect(elsewhere.bed).toMatchObject({ obstacleId: 'outro' })
+    expect(elsewhere.bed?.atPickup).toBeUndefined()
+    expect(
+      bedNote({ ...elsewhere, bed: { ...elsewhere.bed!, capacityKg: 100 } }, 500)?.warning,
+    ).toBe(true)
   })
 
   it('bedStatusAt é nulo sobre o terreno e descreve o apoio sob o ponto', () => {

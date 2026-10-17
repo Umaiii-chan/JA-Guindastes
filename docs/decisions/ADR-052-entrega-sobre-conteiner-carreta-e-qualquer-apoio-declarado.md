@@ -35,8 +35,8 @@ no layout da IA, com paridade entre os dois lados.
    12,192 × 2,438 × 2,591 m; 40 pés *high cube*: 12,192 × 2,438 × 2,896 m (altura de 8,5 pé, 9,5 pé no *high
    cube*). Entram na paleta (`defaultSize`) com essa medida; o modelo 3D é o mesmo GLB do contêiner genérico
    (Kenney, 2,72 × 6 × 2,54 m), esticado por eixo até ela: o teto é plano, só o visual das ondulações e das
-   portas é aproximado. O contêiner genérico (`conteiner`) continua com a medida do modelo, para os
-   cenários já salvos não mudarem; a IA recebe os contêineres ISO com a medida fixa (`keepLibraryProportions`).
+   portas é aproximado. O contêiner genérico (`conteiner`) continua com a MEDIDA do modelo, para o tamanho dos
+   cenários já salvos não mudar (mas ele passa a receber carga, ver Consequências); a IA recebe os contêineres ISO com a medida fixa (`keepLibraryProportions`).
 4. **Carreta prancha.** Objeto novo, `carreta-prancha`: semirreboque plano de 3 eixos, convés de 2,6 × 13 m a
    1,5 m do chão, com o pino-rei em +Z. As medidas são típicas e **FICTÍCIAS** (não são de um fabricante). O GLB é
    desenhado por código (`scripts/build-carreta-prancha.mjs`), sem kit de terceiros e sem textura.
