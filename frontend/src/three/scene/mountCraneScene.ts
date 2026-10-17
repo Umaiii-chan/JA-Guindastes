@@ -16,7 +16,7 @@ import {
   keepCameraAboveGround,
 } from '../controls/createOrbitControls'
 import type { OutriggerState } from '../../domain/crane/outriggers'
-import { OutriggerController } from '../crane/OutriggerController'
+import { OutriggerController, terrainHeightInFrame } from '../crane/OutriggerController'
 import { TRUCK_CRANE_OUTRIGGER_TRAVEL_M } from '../loaders/loadTruckCraneModel'
 import type { CraneCommands, CraneSetup, CraneState } from '../crane/types'
 import type { CargoState, CargoStatus } from '../../domain/cargo/cargoOperation'
@@ -394,11 +394,16 @@ export function mountCraneScene(
     return true
   }
 
-  // Patolas (TASK-054): a animação avança a cada quadro e invalida só enquanto algo se move.
+  // Patolas (TASK-054): a animação avança a cada quadro e invalida só enquanto algo se move. As
+  // sapatas descem até o terreno sob cada uma, no referencial da base (TASK-093, F-25).
   const outriggers = new OutriggerController({
     getRoot: () => contents.rig.base,
     invalidate,
     beamTravelM: TRUCK_CRANE_OUTRIGGER_TRAVEL_M,
+    groundHeightAt: terrainHeightInFrame(
+      () => contents.rig.base,
+      (x, z) => environment.heightAt(x, z),
+    ),
     reducedMotion: prefersReducedMotion(),
   })
 
@@ -529,6 +534,8 @@ export function mountCraneScene(
     setScenario(scenario) {
       if (disposed) return
       contents.setScenario(scenario)
+      // As sapatas acompanham o terreno e a posição novos (TASK-093, F-25).
+      outriggers.reapply()
       contents.multi.setScenario(scenario ?? EMPTY_SCENARIO)
       editor?.refresh()
       if (followedPreset && !transition) jumpTo(presetView(followedPreset))
