@@ -73,6 +73,40 @@ describe('dicas da coleta e entrega', () => {
     expect(guidance.message).toContain('ponto de entrega')
   })
 
+  it('os textos de soltura servem para o chão e para a carroceria (TASK-103)', () => {
+    const hooked: CargoStatus = {
+      ...GROUND,
+      state: {
+        phase: 'hooked',
+        x: 10,
+        z: 0,
+        rotationYDeg: 0,
+        result: 'none',
+        hooked: { offsetX: 0, offsetZ: 0, yawDeg: 0, slingDropM: 0.4 },
+      },
+      gapM: null,
+      offsetM: null,
+      heightAboveGroundM: 1.5,
+      distanceToDeliveryM: 6,
+    }
+    const input = { cargoPlaced: true, deliveryPlaced: true }
+    const far = cargoGuidance({ ...input, status: hooked }).message
+    expect(far).toContain('do apoio, no chão ou na carroceria')
+    expect(far).not.toMatch(/do chão \(/)
+    const ready = cargoGuidance({
+      ...input,
+      status: { ...hooked, canRelease: true, heightAboveGroundM: 0.1 },
+    }).message
+    expect(ready).toContain('rente ao apoio (chão ou carroceria)')
+    expect(ready).toContain('Toque em Soltar')
+    expect(ready).not.toContain('perto do chão')
+    const noDelivery = cargoGuidance({
+      ...input,
+      status: { ...hooked, canRelease: true, distanceToDeliveryM: null },
+    }).message
+    expect(noDelivery).toBe('A carga está rente ao apoio (chão ou carroceria). Toque em Soltar.')
+  })
+
   it('mostra o sucesso com o tempo, e o aviso quando caiu fora', () => {
     const delivered = cargoGuidance({
       status: {

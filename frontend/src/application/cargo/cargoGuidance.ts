@@ -135,8 +135,8 @@ export function cargoGuidance({
       tone: 'info',
       message:
         status.distanceToDeliveryM === null
-          ? 'A carga está perto do chão. Toque em Soltar.'
-          : `A carga está perto do chão, a ${meters(status.distanceToDeliveryM)} do centro da entrega. Toque em Soltar.`,
+          ? 'A carga está rente ao apoio (chão ou carroceria). Toque em Soltar.'
+          : `A carga está rente ao apoio (chão ou carroceria), a ${meters(status.distanceToDeliveryM)} do centro da entrega. Toque em Soltar.`,
     }
   }
   const parts: string[] = []
@@ -145,7 +145,7 @@ export function cargoGuidance({
   }
   if (status.heightAboveGroundM !== null) {
     parts.push(
-      `baixe-a até ${meters(RELEASE_MAX_HEIGHT_M)} do chão (está a ${meters(status.heightAboveGroundM)})`,
+      `baixe-a até ${meters(RELEASE_MAX_HEIGHT_M)} do apoio, no chão ou na carroceria (está a ${meters(status.heightAboveGroundM)})`,
     )
   }
   return {

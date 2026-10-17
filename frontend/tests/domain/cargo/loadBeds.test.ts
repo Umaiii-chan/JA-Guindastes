@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   cargoBaseY,
+  cargoSupport,
   cargoStatusOf,
   checkEngage,
   checkRelease,
@@ -10,7 +11,8 @@ import {
   initialCargoState,
   releaseCargo,
 } from '../../../src/domain/cargo/cargoOperation'
-import { loadBedsOf, rectsOverlap } from '../../../src/domain/cargo/loadBeds'
+import { followLoadBed } from '../../../src/domain/cargo/cargoFollow'
+import { loadBedsOf, pointInRect } from '../../../src/domain/cargo/loadBeds'
 import { rotY } from '../../../src/domain/collision/obb'
 import {
   type DeliveryPoint,
@@ -67,14 +69,33 @@ describe('carroceria do caminhão plataforma como superfície de apoio', () => {
     expect(cargoBaseY(FLAT, SIZE, pose(0, -1.85), [])).toBe(0)
   })
 
-  it('só encostando na borda da carroceria, a base fica no chão', () => {
-    // Carga de z = 0,01 a 2,01: fora da carroceria, que termina em z = 0,005 (caixa arredondada).
+  it('só o centro da pegada decide: fora da carroceria, a base fica no chão (TASK-103)', () => {
+    // Carga de z = 0,01 a 2,01 (centro em 1,01): a carroceria termina em z = 0,005.
     expect(cargoBaseY(FLAT, SIZE, pose(0, 1.01), [PLATFORM])).toBe(0)
+    // Centro 1 cm além da borda, com a ponta da carga (1 m de meia-pegada) sobre a carroceria.
+    expect(cargoBaseY(FLAT, SIZE, pose(0, 0.015), [PLATFORM])).toBe(0)
+    expect(cargoBaseY(FLAT, SIZE, pose(2.1, -1.85), [PLATFORM])).toBe(0)
   })
 
-  it('parcialmente fora da carroceria, a carga se apoia nela', () => {
-    // Carga de z = −0,5 a 1,5: metade sobre a carroceria, metade para fora.
-    expect(cargoBaseY(FLAT, SIZE, pose(0, 0.5), [PLATFORM])).toBeCloseTo(BED_TOP, 6)
+  it('centro dentro da carroceria, com a ponta para fora, a carga se apoia nela', () => {
+    // Carga de z = −1,5 a 0,5: o centro (−0,5) está sobre a carroceria, a ponta passa da borda.
+    expect(cargoBaseY(FLAT, SIZE, pose(0, -0.5), [PLATFORM])).toBeCloseTo(BED_TOP, 6)
+    // Centro 5 mm dentro da borda de trás: ainda apoia.
+    expect(cargoBaseY(FLAT, SIZE, pose(0, -0.005), [PLATFORM])).toBeCloseTo(BED_TOP, 6)
+    expect(cargoBaseY(FLAT, SIZE, pose(2, -1.85), [PLATFORM])).toBeCloseTo(BED_TOP, 6)
+  })
+
+  it('o giro da carga não muda o centro: o critério é o mesmo', () => {
+    expect(cargoBaseY(FLAT, SIZE, pose(0, -0.5, 45), [PLATFORM])).toBeCloseTo(BED_TOP, 6)
+    expect(cargoBaseY(FLAT, SIZE, pose(0, 0.5, 45), [PLATFORM])).toBe(0)
+  })
+
+  it('cargoSupport diz se a carga está na carroceria', () => {
+    expect(cargoSupport(FLAT, SIZE, pose(0, -1.85), [PLATFORM])).toEqual({
+      baseY: expect.closeTo(BED_TOP, 6),
+      onBed: true,
+    })
+    expect(cargoSupport(FLAT, SIZE, pose(0, 0.5), [PLATFORM])).toEqual({ baseY: 0, onBed: false })
   })
 
   it('acompanha o giro do caminhão e a altura do terreno sob ele', () => {
@@ -91,16 +112,17 @@ describe('carroceria do caminhão plataforma como superfície de apoio', () => {
     expect(loadBedsOf([PLATFORM], slope)[0]?.topY).toBeCloseTo(BED_TOP, 6)
   })
 
-  it('rectsOverlap: separados e encostados não se sobrepõem', () => {
-    const square = (x: number) => [
-      { x, z: 0 },
-      { x: x + 1, z: 0 },
-      { x: x + 1, z: 1 },
-      { x, z: 1 },
+  it('pointInRect: dentro, na borda e fora', () => {
+    const square = [
+      { x: 0, z: 0 },
+      { x: 2, z: 0 },
+      { x: 2, z: 2 },
+      { x: 0, z: 2 },
     ]
-    expect(rectsOverlap(square(0), square(0.5))).toBe(true)
-    expect(rectsOverlap(square(0), square(1))).toBe(false)
-    expect(rectsOverlap(square(0), square(3))).toBe(false)
+    expect(pointInRect({ x: 1, z: 1 }, square)).toBe(true)
+    expect(pointInRect({ x: 2, z: 1 }, square)).toBe(true)
+    expect(pointInRect({ x: 2.01, z: 1 }, square)).toBe(false)
+    expect(pointInRect({ x: 1, z: -0.01 }, square)).toBe(false)
   })
 })
 
@@ -154,5 +176,60 @@ describe('soltar sobre a carroceria', () => {
     expect(check.gapM).toBeCloseTo(0.3, 6)
     expect(check.canEngage).toBe(true)
     expect(checkEngage(hookAt(0, top + 1.3, -1.85), onBed, SIZE, FLAT).canEngage).toBe(false)
+  })
+})
+
+describe('carga sobre a carroceria acompanha o caminhão (TASK-103)', () => {
+  const placed = initialCargoState({ x: 0, z: -1.85, rotationYDeg: 10 })
+  const moved = (patch: Partial<Obstacle>): Obstacle[] => [{ ...PLATFORM, ...patch }]
+
+  it('mover o caminhão leva a carga junto, com o mesmo giro', () => {
+    const next = followLoadBed(placed, [PLATFORM], moved({ centerX: 5, centerZ: 3 }), FLAT)
+    expect(next.x).toBeCloseTo(5, 6)
+    expect(next.z).toBeCloseTo(1.15, 6)
+    expect(next.rotationYDeg).toBe(10)
+    expect(cargoBaseY(FLAT, SIZE, next, moved({ centerX: 5, centerZ: 3 }))).toBeCloseTo(BED_TOP, 6)
+  })
+
+  it('girar o caminhão gira a carga em torno do centro dele', () => {
+    const turned = moved({ rotationYDeg: 90 })
+    const next = followLoadBed(placed, [PLATFORM], turned, FLAT)
+    // Carga a 1,85 m atrás do centro (−Z): com 90°, o atrás passa a −X.
+    expect(next.x).toBeCloseTo(-1.85, 6)
+    expect(next.z).toBeCloseTo(0, 6)
+    expect(next.rotationYDeg).toBe(100)
+    expect(cargoBaseY(FLAT, SIZE, next, turned)).toBeCloseTo(BED_TOP, 6)
+  })
+
+  it('o giro dá a volta em ±180°', () => {
+    const next = followLoadBed(placed, [PLATFORM], moved({ rotationYDeg: 175 }), FLAT)
+    expect(next.rotationYDeg).toBe(-175)
+  })
+
+  it('carga ao lado do caminhão, no gancho, ou caminhão sem mudança: o estado não muda', () => {
+    const beside = initialCargoState({ x: 6, z: 0, rotationYDeg: 0 })
+    expect(followLoadBed(beside, [PLATFORM], moved({ centerX: 5 }), FLAT)).toBe(beside)
+    expect(followLoadBed(placed, [PLATFORM], [{ ...PLATFORM }], FLAT)).toBe(placed)
+    const hooked = engageCargo(beside, hookAt(6, 2.4, 0), SIZE, FLAT, [PLATFORM])
+    expect(followLoadBed(hooked, [PLATFORM], moved({ centerX: 5 }), FLAT)).toBe(hooked)
+  })
+
+  it('caminhão removido: a carga fica onde está e assenta no terreno', () => {
+    const next = followLoadBed(placed, [PLATFORM], [], FLAT)
+    expect(next).toBe(placed)
+    expect(cargoBaseY(FLAT, SIZE, next, [])).toBe(0)
+  })
+
+  it('caminhão trocado por outro modelo sem carroceria: a carga fica e assenta no terreno', () => {
+    const baú = { ...truck('caminhao-bau'), id: PLATFORM.id }
+    const next = followLoadBed(placed, [PLATFORM], [baú], FLAT)
+    expect(next).toBe(placed)
+    expect(cargoBaseY(FLAT, SIZE, next, [baú])).toBe(0)
+  })
+
+  it('só o caminhão sob a carga a leva; outro caminhão movido não interfere', () => {
+    const other = { ...truck('caminhao-plataforma'), id: 'outro', centerX: 30 }
+    const after = [PLATFORM, { ...other, centerX: 40 }]
+    expect(followLoadBed(placed, [PLATFORM, other], after, FLAT)).toBe(placed)
   })
 })
