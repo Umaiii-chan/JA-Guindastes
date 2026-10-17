@@ -115,6 +115,20 @@ describe('conexão compacta', () => {
     expect(shapes.size).toBe(3)
   })
 
+  it('a célula "atualizando…" fica montada sem avaliação em curso, só escondida (sem empurrar a barra)', () => {
+    const { rerender } = render(
+      <ConnectionStatusBar connectionStatus="rest" transport="rest" pending={false} compact />,
+    )
+    const idle = screen.getByText('atualizando…', { ignore: undefined, selector: 'span' })
+    const cell = idle.closest('[aria-hidden]') as HTMLElement
+    expect(cell.style.visibility).toBe('hidden')
+    expect(cell.getAttribute('aria-hidden')).toBe('true')
+
+    rerender(<ConnectionStatusBar connectionStatus="rest" transport="rest" pending compact />)
+    expect(screen.getByText('atualizando…').closest('[aria-hidden]')).toBe(cell)
+    expect(cell.style.visibility).toBe('visible')
+  })
+
   it('"atualizando…" fica visível', () => {
     render(<ConnectionStatusBar connectionStatus="rest" transport="rest" pending compact />)
     expect(screen.getByText('atualizando…').className).not.toContain('visually-hidden')

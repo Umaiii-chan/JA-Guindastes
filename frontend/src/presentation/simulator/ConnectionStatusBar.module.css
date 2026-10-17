@@ -33,10 +33,10 @@
   color: var(--color-text-1);
 }
 
-/* Largura do texto mais comprido ("aguardando o servidor…"): trocar o texto não mexe na barra. */
+/* Largura do texto mais comprido ("aguardando o servidor…", 22 caracteres, com folga para letras largas): trocar o texto não mexe na barra. */
 .pendingText {
   display: inline-block;
-  min-width: 21ch;
+  min-width: 24ch;
 }
 
 .spacer {
