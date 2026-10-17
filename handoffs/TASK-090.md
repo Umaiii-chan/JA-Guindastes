@@ -81,6 +81,8 @@ Mudanças fora do caminho óbvio, com o motivo:
 | frontend `npm run build` | `✓ built in 1.18s` (o aviso de chunk acima de 500 kB já existia) |
 | frontend `npm run e2e` (sem backend) | `16 passed`, `11 skipped`, ❌ `3 failed`: `collision.spec.ts:34`, `objetosReais.spec.ts:65` e `rotationZones.spec.ts:98`. As mesmas 3 falham na base `784a9e1`, rodadas numa worktree temporária (lá falhou também `rotationZones.spec.ts:135`). Nenhuma toca o tandem |
 | `bash scripts/check-structure.sh` | ❌ antes deste handoff: 3 erros. Dois já existiam: 18 tarefas em `tasks/in-progress/` (máximo 15; já havia 17) e TASK-080 sem handoff. O terceiro era a falta deste handoff |
+| `git merge-tree` contra TASK-088, 091, 092, 093, 094, 095 e 096 | sem conflito, depois de mudar o import de `buildTandemInput` de lugar (ele colava na linha que a TASK-094 muda) |
+| árvore 090 + 093 numa worktree temporária: `npx vitest run` dos testes do tandem, `MultiCrane` e `HookLoad`, e `tsc -b` | `5 passed (5)`, `51 passed (51)`; tsc sem erros |
 | mutação manual | rumo com o sinal trocado em `crane_point_to_world` → falham os testes de domínio e de rota. Sem a distância do gancho em `tandemFrame` → 6 testes do frontend falham, inclusive o do GLB |
 
 Testes novos:
