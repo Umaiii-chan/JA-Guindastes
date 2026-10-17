@@ -12,6 +12,13 @@ import {
   terrainSlopeUnderFootprintDeg,
 } from '../../domain/environment/environment'
 import { isFlatTerrain } from '../../domain/environment/flatTerrain'
+import {
+  DEFAULT_POWER_LINE_HEIGHT_M,
+  DEFAULT_POWER_LINE_VOLTAGE_KV,
+  formatVoltageKv,
+  MAX_POWER_LINES,
+  type PowerLine,
+} from '../../domain/environment/powerLine'
 
 export { isFlatTerrain }
 
@@ -24,6 +31,7 @@ export const FICTITIOUS_FOOTPRINT_HALF_LENGTH_M = 3
 export const FICTITIOUS_FOOTPRINT_HALF_WIDTH_M = 2.5
 
 /** Limites de quantidade do backend (`app.domain.entities.scenario`). */
+export { MAX_POWER_LINES }
 export const MAX_TERRAIN_FEATURES = 50
 export const MAX_OBSTACLES = 100
 /** Limite da inclinação do plano, em % (backend). */
@@ -182,6 +190,55 @@ export function updateObstacle(
   }
 }
 
+/**
+ * Novo trecho de rede elétrica (TASK-107; ADR-051): paralelo ao eixo X, 20 m à frente do guindaste e a
+ * 12 m de altura, em 13,8 kV (distribuição); a tensão e as medidas são editadas no painel.
+ */
+export function newPowerLine(existing: readonly PowerLine[]): PowerLine {
+  const id = nextId(
+    'rede',
+    existing.map((line) => line.id),
+  )
+  return {
+    id,
+    label: `Rede ${existing.length + 1}`,
+    x1M: -15,
+    z1M: 20,
+    x2M: 15,
+    z2M: 20,
+    heightM: DEFAULT_POWER_LINE_HEIGHT_M,
+    voltageKv: DEFAULT_POWER_LINE_VOLTAGE_KV,
+  }
+}
+
+export function addPowerLine(spec: ScenarioSpec): ScenarioSpec {
+  const lines = spec.powerLines ?? []
+  if (lines.length >= MAX_POWER_LINES) return spec
+  return { ...spec, powerLines: [...lines, newPowerLine(lines)] }
+}
+
+export function updatePowerLine(
+  spec: ScenarioSpec,
+  id: string,
+  changes: Partial<Omit<PowerLine, 'id'>>,
+): ScenarioSpec {
+  return {
+    ...spec,
+    powerLines: (spec.powerLines ?? []).map((line) =>
+      line.id === id ? { ...line, ...changes } : line,
+    ),
+  }
+}
+
+/** Remove o trecho; sem mais nenhum, a chave sai do cenário (cenários antigos não mudam). */
+export function removePowerLine(spec: ScenarioSpec, id: string): ScenarioSpec {
+  const lines = (spec.powerLines ?? []).filter((line) => line.id !== id)
+  if (lines.length > 0) return { ...spec, powerLines: lines }
+  const { powerLines: _removed, ...rest } = spec
+  void _removed
+  return rest
+}
+
 export function removeObstacle(spec: ScenarioSpec, id: string): ScenarioSpec {
   return { ...spec, obstacles: spec.obstacles.filter((obstacle) => obstacle.id !== id) }
 }
@@ -212,7 +269,8 @@ export function environmentSummary(spec: ScenarioSpec): string {
     !spec.soilZones?.length &&
     !(spec.wind && spec.wind.speedMs > 0) &&
     !spec.cargo &&
-    !spec.delivery
+    !spec.delivery &&
+    !spec.powerLines?.length
   )
     return 'Terreno plano, sem obstáculos'
   const soil = spec.soilZones?.length ?? 0
@@ -228,6 +286,7 @@ export function environmentSummary(spec: ScenarioSpec): string {
       : null,
     spec.cargo ? 'carga posicionada' : null,
     spec.delivery ? 'ponto de entrega' : null,
+    ...(spec.powerLines ?? []).map((line) => `rede ${formatVoltageKv(line.voltageKv)}`),
   ]
   return parts.filter(Boolean).join(' · ')
 }

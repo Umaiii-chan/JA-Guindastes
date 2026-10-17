@@ -18,6 +18,7 @@ from app.domain.entities.scenario import (
     FeatureKind,
     ObstacleKind,
     ObstacleSpec,
+    PowerLineSpec,
     Scenario,
     ScenarioSpec,
     SoilKind,
@@ -195,6 +196,48 @@ class SoilZonePayload(BaseModel):
         )
 
 
+class PowerLinePayload(BaseModel):
+    """Trecho de rede elétrica aérea (TASK-107; ADR-051)."""
+
+    model_config = _STRICT_INPUT
+
+    id: str
+    label: str
+    x1_m: float = Field(description="Ponto inicial, X (m).")
+    z1_m: float = Field(description="Ponto inicial, Z (m).")
+    x2_m: float = Field(description="Ponto final, X (m).")
+    z2_m: float = Field(description="Ponto final, Z (m).")
+    height_m: float = Field(description="Altura do cabo mais baixo sobre o chão (m); de 0,5 a 200.")
+    voltage_kv: float = Field(
+        description="Tensão nominal (kV), de 0 (exclusive) a 1000: define a distância mínima."
+    )
+
+    def to_domain(self) -> PowerLineSpec:
+        return PowerLineSpec(
+            id=self.id,
+            label=self.label,
+            x1_m=self.x1_m,
+            z1_m=self.z1_m,
+            x2_m=self.x2_m,
+            z2_m=self.z2_m,
+            height_m=self.height_m,
+            voltage_kv=self.voltage_kv,
+        )
+
+    @classmethod
+    def from_domain(cls, line: PowerLineSpec) -> PowerLinePayload:
+        return cls(
+            id=line.id,
+            label=line.label,
+            x1_m=line.x1_m,
+            z1_m=line.z1_m,
+            x2_m=line.x2_m,
+            z2_m=line.z2_m,
+            height_m=line.height_m,
+            voltage_kv=line.voltage_kv,
+        )
+
+
 class WindPayload(BaseModel):
     model_config = _STRICT_INPUT
 
@@ -234,6 +277,9 @@ class ScenarioSpecPayload(BaseModel):
     cranes: list[ExtraCranePayload] | None = Field(
         default=None, description="Guindastes adicionais (até 3); opcional (TASK-074)."
     )
+    power_lines: list[PowerLinePayload] | None = Field(
+        default=None, description="Trechos de rede elétrica (até 20); opcional (TASK-107)."
+    )
     cargo: CargoPlacementPayload | None = Field(
         default=None, description="Posição inicial da carga no chão; opcional (TASK-073)."
     )
@@ -260,6 +306,7 @@ class ScenarioSpecPayload(BaseModel):
                 else WindSpec(speed_ms=self.wind.speed_ms, direction_deg=self.wind.direction_deg)
             ),
             cranes=tuple(extra.to_domain() for extra in self.cranes or []),
+            power_lines=tuple(line.to_domain() for line in self.power_lines or []),
             cargo=(
                 None
                 if self.cargo is None
@@ -298,6 +345,7 @@ class ScenarioSpecPayload(BaseModel):
                 else WindPayload(speed_ms=spec.wind.speed_ms, direction_deg=spec.wind.direction_deg)
             ),
             cranes=[ExtraCranePayload.from_domain(c) for c in spec.cranes] or None,
+            power_lines=[PowerLinePayload.from_domain(p) for p in spec.power_lines] or None,
             cargo=(
                 None
                 if spec.cargo is None

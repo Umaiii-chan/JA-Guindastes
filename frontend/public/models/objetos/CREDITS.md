@@ -30,7 +30,7 @@ Semirreboque plano de 3 eixos, convés de 2,6 m x 13 m a 1,5 m do chão. As medi
 
 `conteiner-20`, `conteiner-40` e `conteiner-40hc` usam o mesmo arquivo do contêiner da Kenney
 (`conteiner.glb`, CC0), esticado por eixo até a medida ISO 668 (20 pés: 6,058 x 2,438 x 2,591 m; 40 pés:
-12,192 x 2,438 x 2,591 m; *high cube*: 2,896 m de altura). O teto é plano; o visual das ondulações e das
+12,192 x 2,438 x 2,591 m; _high cube_: 2,896 m de altura). O teto é plano; o visual das ondulações e das
 portas é aproximado.
 
 ## Galpão com frente aberta (Sketchfab, CC BY 4.0)

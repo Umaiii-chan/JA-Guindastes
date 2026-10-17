@@ -32,6 +32,7 @@ from app.application.use_cases.evaluate_operation import (
 )
 from app.domain.services.capacity_limit import CapacityLimit, CapacityLimitLevel
 from app.domain.services.safety_assessment import SafetyAlert, TippingRisk
+from app.domain.services.stability import StabilityResult
 from app.domain.value_objects.capacity_result import CapacityFound
 from app.domain.value_objects.conservative_capacity_result import (
     CapacityLookupStrategy,
@@ -39,6 +40,11 @@ from app.domain.value_objects.conservative_capacity_result import (
 )
 from app.domain.value_objects.interpolated_capacity_result import InterpolatedCapacityFound
 from app.domain.value_objects.operational_geometry import OperationalGeometry, Point3D
+from app.presentation.api.site_schemas import (
+    CriticalLiftResponse,
+    PowerLineClearanceResponse,
+    SitePayload,
+)
 
 STATE_CHANGED_TYPE = "simulation.state.changed"
 EVALUATED_TYPE = "simulation.evaluated"
@@ -108,8 +114,14 @@ class OperationalStatePayload(BaseModel):
     wind_speed_ms: float | None = Field(
         default=None,
         ge=0,
-        description="Velocidade do vento, em m/s (opcional; RN-015). Ausente, não entra na "
-        "avaliação.",
+        description="Rajada de 3 s no ponto mais alto do guindaste, em m/s (EN 13000; opcional; "
+        "RN-017). Ausente, não entra na avaliação.",
+    )
+    load_wind_area_m2: float | None = Field(
+        default=None,
+        ge=0,
+        description="Área de vento da carga `A_W` (área projetada × coeficiente de arrasto), em "
+        "m² (opcional; RN-017). Ausente, vale a velocidade da tabela e a carga não recebe vento.",
     )
     obstacle_conflicts: list[Annotated[str, StringConstraints(min_length=1, max_length=64)]] = (
         Field(
@@ -118,6 +130,13 @@ class OperationalStatePayload(BaseModel):
             description="Ids dos obstáculos no raio de giro (opcional; RN-015). Não vazia, o "
             "risco vira atenção.",
         )
+    )
+    site: SitePayload | None = Field(
+        default=None,
+        description="Local da operação (TASK-107; ADR-051): rede elétrica do cenário, posição do "
+        "guindaste, dimensões da carga e contexto do içamento. Com ele, a resposta traz a "
+        "distância às redes (`power_lines`) e a classificação de içamento crítico "
+        "(`critical_lift`), e os alertas correspondentes; sem ele, nada disso é calculado.",
     )
 
 
@@ -288,6 +307,40 @@ class CapacityLimitMessage(BaseModel):
         )
 
 
+class StabilityMessage(BaseModel):
+    """Estática da operação: margem de tombamento e reação nas sapatas (RN-017; ADR-050)."""
+
+    tipping_ratio_percent: float = Field(
+        description="Momento de tombamento ÷ estabilizante do lado crítico, em %; 100 % é o limite."
+    )
+    critical_edge: str
+    tipped: bool
+    pad_reactions_kg: list[float] = Field(
+        description="Reação em cada sapata (fl, fr, rl, rr), em kgf."
+    )
+    worst_pad_share: float
+    deflection_m: float
+    pad_half_span_m: float
+    wind_limit_ms: float = Field(description="Velocidade máxima de rajada desta carga (EN 13000).")
+    wind_force_n: float
+
+    @classmethod
+    def from_stability(cls, stability: StabilityResult | None) -> StabilityMessage | None:
+        if stability is None:
+            return None
+        return cls(
+            tipping_ratio_percent=stability.tipping_ratio * 100,
+            critical_edge=stability.critical_edge,
+            tipped=stability.tipped,
+            pad_reactions_kg=list(stability.reactions_kg),
+            worst_pad_share=stability.worst_pad_share,
+            deflection_m=stability.deflection_m,
+            pad_half_span_m=stability.pad_half_span_m,
+            wind_limit_ms=stability.wind_limit_ms,
+            wind_force_n=stability.wind_force_n,
+        )
+
+
 class SafetyAlertMessage(BaseModel):
     """Alerta de segurança (RN-013), com mensagem em pt-BR."""
 
@@ -325,6 +378,16 @@ class EvaluatedPayload(BaseModel):
         default=None, description="Risco de tombamento por regras (RN-013): LOW, ATTENTION, HIGH."
     )
     alerts: list[SafetyAlertMessage] = Field(default_factory=list)
+    stability: StabilityMessage | None = None
+    power_lines: list[PowerLineClearanceResponse] = Field(
+        default_factory=list,
+        description="Distância de cada trecho de rede ao guindaste (ADR-051); vazio sem `site`.",
+    )
+    critical_lift: CriticalLiftResponse | None = Field(
+        default=None,
+        description="Classificação do içamento (crítico ou não, gatilhos e plano exigido); "
+        "`null` sem `site`.",
+    )
 
 
 class NotEvaluablePayload(BaseModel):
@@ -354,6 +417,16 @@ class NotEvaluablePayload(BaseModel):
         default=None, description="Risco de tombamento por regras (RN-013); `null` sem regra."
     )
     alerts: list[SafetyAlertMessage] = Field(default_factory=list)
+    stability: StabilityMessage | None = None
+    power_lines: list[PowerLineClearanceResponse] = Field(
+        default_factory=list,
+        description="Distância de cada trecho de rede ao guindaste (ADR-051); vazio sem `site`.",
+    )
+    critical_lift: CriticalLiftResponse | None = Field(
+        default=None,
+        description="Classificação do içamento (crítico ou não, gatilhos e plano exigido); "
+        "`null` sem `site`.",
+    )
 
 
 type EvaluationPayload = Annotated[
@@ -401,6 +474,9 @@ class SimulationEvaluatedMessage(BaseModel):
                     reasons=[],
                     tipping_risk=evaluation.tipping_risk,
                     alerts=[SafetyAlertMessage.from_alert(a) for a in evaluation.alerts],
+                    stability=StabilityMessage.from_stability(evaluation.stability),
+                    power_lines=_clearances(evaluation),
+                    critical_lift=_critical(evaluation),
                 )
             case NotEvaluableOperation():
                 capacity = evaluation.capacity
@@ -426,8 +502,20 @@ class SimulationEvaluatedMessage(BaseModel):
                     reasons=[reason.value for reason in evaluation.reasons],
                     tipping_risk=evaluation.tipping_risk,
                     alerts=[SafetyAlertMessage.from_alert(a) for a in evaluation.alerts],
+                    stability=StabilityMessage.from_stability(evaluation.stability),
+                    power_lines=_clearances(evaluation),
+                    critical_lift=_critical(evaluation),
                 )
         return cls(sequence=sequence, payload=payload)
+
+
+def _clearances(evaluation: OperationEvaluation) -> list[PowerLineClearanceResponse]:
+    return [PowerLineClearanceResponse.from_clearance(c) for c in evaluation.power_line_clearances]
+
+
+def _critical(evaluation: OperationEvaluation) -> CriticalLiftResponse | None:
+    item = evaluation.critical_lift
+    return None if item is None else CriticalLiftResponse.from_assessment(item)
 
 
 # --- Saída: erro ---------------------------------------------------------------------------------

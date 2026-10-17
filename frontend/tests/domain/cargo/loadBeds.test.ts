@@ -21,6 +21,7 @@ import {
   type TerrainSpec,
 } from '../../../src/domain/environment/environment'
 import { findLibraryObject, newModelObstacle } from '../../../src/domain/environment/objectLibrary'
+import { slingDropOf } from '../../../src/domain/rigging/slingGeometry'
 
 // Dados FICTÍCIOS. Caminhão plataforma no centro (0, 0), tamanho real da biblioteca: carroceria na
 // metade de trás (z de −3,705 a 0), 4,05 m de largura e topo a 53 % de 3,51 m.
@@ -28,6 +29,10 @@ const FLAT: TerrainSpec = EMPTY_SCENARIO.terrain
 // A caixa da biblioteca é arredondada ao centímetro: 3,51 × 0,53 = 1,86 m.
 const BED_TOP = 1.86
 const SIZE = { lengthM: 2, widthM: 2, heightM: 1 }
+// F-19: altura das lingas da geometria única (60° com a horizontal).
+const DROP = slingDropOf(SIZE.lengthM, SIZE.widthM)
+/** G com as lingas esticadas sobre a carga: altura (1) + engate (1) + lingas. */
+const G0 = SIZE.heightM + 1 + DROP
 
 function truck(modelId: string, rotationYDeg = 0): Obstacle {
   const object = findLibraryObject(modelId)
@@ -129,19 +134,19 @@ describe('carroceria do caminhão plataforma como superfície de apoio', () => {
 describe('soltar sobre a carroceria', () => {
   const OBSTACLES = [PLATFORM]
   const DELIVERY: DeliveryPoint = { x: 0, z: -1.85, rotationYDeg: 0, radiusM: 2 }
-  // Carga engatada no chão em (10, 0), com o gancho 0,4 m acima do topo (1 m): lingas de 0,4 m.
+  // Carga engatada no chão em (10, 0), com as lingas esticadas (gancho a `DROP` acima do topo).
   const start = initialCargoState({ x: 10, z: 0, rotationYDeg: 0 })
-  const hooked = engageCargo(start, hookAt(10, 2.4, 0), SIZE, FLAT, OBSTACLES)
+  const hooked = engageCargo(start, hookAt(10, G0, 0), SIZE)
 
-  // Base da carga = G − 1 (gancho) − 0,4 (lingas) − 1 (altura) = G − 2,4; o gancho segue a carga.
-  const hookOver = (baseY: number, x: number, z: number) => hookAt(x + 10, baseY + 2.4, z)
+  // Base da carga = G − 1 (gancho) − DROP (lingas) − 1 (altura) = G − G0; o gancho segue a carga.
+  const hookOver = (baseY: number, x: number, z: number) => hookAt(x + 10, baseY + G0, z)
 
   it('solta a até 0,2 m do topo da carroceria, não do chão', () => {
     const over = hookOver(BED_TOP + 0.1, -10, -1.85)
     const check = checkRelease(over, hooked.hooked!, SIZE, FLAT, OBSTACLES)
-    expect(check.heightAboveGroundM).toBeCloseTo(0.1, 6)
+    expect(check.heightAboveGroundM).toBeCloseTo(0.1, 3) // lingas guardadas em milímetros
     expect(check.canRelease).toBe(true)
-    // Sem a carroceria no cenário, a mesma posição está a 1,96 m do chão: não solta.
+    // Sem a carroceria no cenário, a mesma posição está acima do chão: não solta.
     expect(checkRelease(over, hooked.hooked!, SIZE, FLAT).canRelease).toBe(false)
   })
 
@@ -171,11 +176,13 @@ describe('soltar sobre a carroceria', () => {
   it('engatar de novo a carga que está na carroceria conta o topo dela', () => {
     const onBed = initialCargoState({ x: 0, z: -1.85, rotationYDeg: 0 })
     const top = BED_TOP + SIZE.heightM
-    // Fim do gancho (G − 1) 0,3 m acima do topo.
-    const check = checkEngage(hookAt(0, top + 1.3, -1.85), onBed, SIZE, FLAT, OBSTACLES)
-    expect(check.gapM).toBeCloseTo(0.3, 6)
+    // Fim do gancho (G − 1) 0,3 m acima do ponto em que as lingas esticam sobre o topo.
+    const check = checkEngage(hookAt(0, top + 1 + DROP + 0.3, -1.85), onBed, SIZE, FLAT, OBSTACLES)
+    expect(check.gapM).toBeCloseTo(DROP + 0.3, 6)
     expect(check.canEngage).toBe(true)
-    expect(checkEngage(hookAt(0, top + 1.3, -1.85), onBed, SIZE, FLAT).canEngage).toBe(false)
+    expect(checkEngage(hookAt(0, top + 1 + DROP + 0.3, -1.85), onBed, SIZE, FLAT).canEngage).toBe(
+      false,
+    )
   })
 })
 
@@ -210,7 +217,7 @@ describe('carga sobre a carroceria acompanha o caminhão (TASK-103)', () => {
     const beside = initialCargoState({ x: 6, z: 0, rotationYDeg: 0 })
     expect(followLoadBed(beside, [PLATFORM], moved({ centerX: 5 }), FLAT)).toBe(beside)
     expect(followLoadBed(placed, [PLATFORM], [{ ...PLATFORM }], FLAT)).toBe(placed)
-    const hooked = engageCargo(beside, hookAt(6, 2.4, 0), SIZE, FLAT, [PLATFORM])
+    const hooked = engageCargo(beside, hookAt(6, 2.4, 0), SIZE)
     expect(followLoadBed(hooked, [PLATFORM], moved({ centerX: 5 }), FLAT)).toBe(hooked)
   })
 

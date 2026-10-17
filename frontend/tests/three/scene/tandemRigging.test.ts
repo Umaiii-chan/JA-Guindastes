@@ -4,7 +4,7 @@ import { BufferGeometry, Group, LineSegments } from 'three'
 import { describe, expect, it, vi } from 'vitest'
 
 import { EMPTY_SCENARIO } from '../../../src/domain/environment/environment'
-import { TANDEM_SLING_DROP_M } from '../../../src/domain/tandem/tandem'
+import { tandemSlingDropM } from '../../../src/domain/tandem/tandem'
 import { parseTruckCraneModel } from '../../../src/three/loaders/loadTruckCraneModel'
 import { buildCraneScene } from '../../../src/three/scene/buildCraneScene'
 import {
@@ -89,7 +89,7 @@ describe('tandem com o moitão do GLB 80 t', () => {
     frame.hooks.forEach((hook, index) => {
       const hookBottom = hook.y - (attach[index] ?? 0)
       // Antes: G a 1,5 m do topo, e o moitão entrava ~0,465 m na carga. Agora sobram as lingas.
-      expect(hookBottom - top).toBeCloseTo(TANDEM_SLING_DROP_M, 2)
+      expect(hookBottom - top).toBeCloseTo(tandemSlingDropM(TANDEM.load), 2)
     })
   }, 60_000)
 

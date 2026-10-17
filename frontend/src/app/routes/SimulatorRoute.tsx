@@ -24,6 +24,7 @@ import {
   loadWeightTextForEvaluation,
   validateLoadForm,
 } from '../../application/load/loadForm'
+import { loadWindAreaM2 } from '../../application/load/loadWindArea'
 import {
   completedStepCount,
   GUIDED_STEPS,
@@ -111,7 +112,11 @@ import type { SceneAccessory } from '../../three/accessories/AccessoryChain'
 import { useAuth } from '../auth/authContext'
 import { useCatalog } from '../catalog/catalogContext'
 import { chooseCraneSetup } from '../craneSetup'
-import { buildEvaluationInput, residualGroundSlopeDeg } from '../evaluationInput'
+import {
+  buildEvaluationInput,
+  buildEvaluationSite,
+  residualGroundSlopeDeg,
+} from '../evaluationInput'
 import { useScenario } from '../scenario/scenarioContext'
 import { sceneRotationZoneCode } from '../sceneRotationZone'
 import { useSimulationRecording } from '../simulator/useSimulationRecording'
@@ -161,6 +166,8 @@ export function SimulatorRoute() {
   const [, setExtraVersion] = useState(0)
   const [addingCrane, setAddingCrane] = useState(false)
   const [tandemActive, setTandemActive] = useState(false)
+  // Carga sobre pessoas ou estruturas ocupadas (TASK-107; ADR-051): gatilho de içamento crítico.
+  const [loadOverOccupied, setLoadOverOccupied] = useState(false)
   const [tandemFrame, setTandemFrame] = useState<TandemSceneFrame | null>(null)
   const [tandemMessage, setTandemMessage] = useState<TandemMessage | null>(null)
   const [outriggers, setOutriggers] = useState<OutriggerState>(RETRACTED_OUTRIGGERS)
@@ -235,19 +242,30 @@ export function SimulatorRoute() {
     scenario.spec,
     obstacleConflictIds(scenario.spec, crane?.geometry.workingRadiusM ?? null, collision),
   )
-  const scenarioExtras = {
-    soilKinds: soilKindsUnderShoes(scenario.spec),
-    windSpeedMs: windSpeedForEvaluation(scenario.spec),
-    obstacleConflicts: conflicts,
-  }
-  const scenarioExtrasKey = JSON.stringify(scenarioExtras)
-
   const validLoad = validateLoadForm(load).load
   // Com a carga posicionada no chão, o peso só entra na avaliação depois de engatar (TASK-073): antes
   // disso, vale só o gancho e os acessórios, com carga 0.
   const cargoMode = scenario.spec.cargo !== undefined && validLoad !== null
   const cargoHooked = cargoStatus.state?.phase === 'hooked'
   const loadWeightText = cargoMode && !cargoHooked ? '0' : loadWeightTextForEvaluation(load)
+  // A carga só recebe vento (e entra no limite de rajada da EN 13000) quando está pendurada: no chão,
+  // a avaliação vê só o gancho (TASK-106; RN-017).
+  const loadHanging = validLoad !== null && !(cargoMode && !cargoHooked)
+  const scenarioExtras = {
+    soilKinds: soilKindsUnderShoes(scenario.spec),
+    windSpeedMs: windSpeedForEvaluation(scenario.spec),
+    loadWindAreaM2: loadHanging ? loadWindAreaM2(validLoad) : undefined,
+    obstacleConflicts: conflicts,
+    // Rede elétrica, posição do guindaste, carga e contexto do içamento (TASK-107; ADR-051).
+    site: buildEvaluationSite({
+      spec: scenario.spec,
+      // Só a carga pendurada entra na distância à rede: no chão, a avaliação vê só o gancho.
+      load: loadHanging && validLoad ? loadDimensionsOf(validLoad) : null,
+      tandem: tandemActive,
+      loadOverOccupied,
+    }),
+  }
+  const scenarioExtrasKey = JSON.stringify(scenarioExtras)
   // RN-013: a avaliação recebe a inclinação residual (terreno − nivelamento dos macacos apoiados),
   // não a bruta do terreno (TASK-094). O nivelamento é o que a animação já alcançou, como a extensão
   // e os macacos (F-27; TASK-099).
@@ -783,7 +801,12 @@ export function SimulatorRoute() {
               ),
               load: (
                 <fieldset disabled={controlsLocked} className="recording-lock">
-                  <LoadPanel values={load} onChange={setLoad} />
+                  <LoadPanel
+                    values={load}
+                    onChange={setLoad}
+                    overOccupied={loadOverOccupied}
+                    onOverOccupiedChange={setLoadOverOccupied}
+                  />
                 </fieldset>
               ),
               position: (

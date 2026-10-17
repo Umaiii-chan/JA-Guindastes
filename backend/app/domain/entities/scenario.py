@@ -17,6 +17,9 @@ Regras (valores FICTÍCIOS e configuráveis até haver dado oficial):
   entrega tem `radius_m` entre 0,5 e 30 m;
 - guindastes adicionais (TASK-074): no máximo 3, ids únicos, `configuration_id` de 1 a 64 caracteres
   e posição finita;
+- rede elétrica (TASK-107; ADR-051): trecho reto horizontal entre dois pontos distintos, a uma
+  altura de 0,5 a 200 m, com tensão de 0 a 1000 kV (o alcance da tabela de distância
+  mínima; L-018); no máximo 20 trechos, ids únicos;
 - no máximo 50 feições e 100 obstáculos; ids únicos dentro de cada lista;
 - nome do cenário: 1 a 120 caracteres, sem espaços nas pontas.
 """
@@ -36,6 +39,10 @@ MAX_TERRAIN_FEATURES = 50
 MAX_OBSTACLES = 100
 MAX_SOIL_ZONES = 200
 MAX_EXTRA_CRANES = 3
+MAX_POWER_LINES = 20
+POWER_LINE_MAX_KV = 1000.0
+POWER_LINE_MIN_HEIGHT_M = 0.5
+POWER_LINE_MAX_HEIGHT_M = 200.0
 MAX_WIND_SPEED_MS = 100.0
 DELIVERY_RADIUS_MIN_M = 0.5
 DELIVERY_RADIUS_MAX_M = 30.0
@@ -280,6 +287,44 @@ class DeliveryPointSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class PowerLineSpec:
+    """Trecho de rede elétrica aérea: reta horizontal de (x1, z1) a (x2, z2), a `height_m` do chão.
+
+    `voltage_kv` é a tensão nominal fase-fase; dela sai a distância mínima exigida
+    (`domain/services/power_line.py`; ADR-051). É escolhida no editor (entrada do ambiente).
+    """
+
+    id: str
+    label: str
+    x1_m: float
+    z1_m: float
+    x2_m: float
+    z2_m: float
+    height_m: float
+    voltage_kv: float
+
+    def validate(self, path: str) -> None:
+        _text(f"{path}.id", self.id, ID_MAX_LENGTH)
+        _text(f"{path}.label", self.label, LABEL_MAX_LENGTH)
+        for name in ("x1_m", "z1_m", "x2_m", "z2_m", "height_m", "voltage_kv"):
+            _finite(f"{path}.{name}", getattr(self, name))
+        if math.hypot(self.x2_m - self.x1_m, self.z2_m - self.z1_m) <= 0:
+            raise InvalidScenarioError(path, "os dois pontos do trecho devem ser distintos")
+        if not POWER_LINE_MIN_HEIGHT_M <= self.height_m <= POWER_LINE_MAX_HEIGHT_M:
+            raise InvalidScenarioError(
+                f"{path}.height_m",
+                f"a altura deve ficar entre {POWER_LINE_MIN_HEIGHT_M:g} e "
+                f"{POWER_LINE_MAX_HEIGHT_M:g} m",
+            )
+        if not 0 < self.voltage_kv <= POWER_LINE_MAX_KV:
+            raise InvalidScenarioError(
+                f"{path}.voltage_kv",
+                f"a tensão deve ficar entre 0 (exclusive) e {POWER_LINE_MAX_KV:g} kV: é o "
+                "alcance da tabela de distância mínima",
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class ScenarioSpec:
     terrain: TerrainSpec = field(default_factory=TerrainSpec)
     obstacles: tuple[ObstacleSpec, ...] = ()
@@ -289,6 +334,7 @@ class ScenarioSpec:
     cargo: CargoPlacementSpec | None = None
     delivery: DeliveryPointSpec | None = None
     cranes: tuple[ExtraCraneSpec, ...] = ()
+    power_lines: tuple[PowerLineSpec, ...] = ()
 
     def __post_init__(self) -> None:
         self.terrain.validate("spec.terrain")
@@ -318,6 +364,13 @@ class ScenarioSpec:
         _unique_ids("spec.cranes", [crane.id for crane in self.cranes])
         for index, extra in enumerate(self.cranes):
             extra.validate(f"spec.cranes[{index}]")
+        if len(self.power_lines) > MAX_POWER_LINES:
+            raise InvalidScenarioError(
+                "spec.power_lines", f"no máximo {MAX_POWER_LINES} trechos de rede elétrica"
+            )
+        _unique_ids("spec.power_lines", [line.id for line in self.power_lines])
+        for index, line in enumerate(self.power_lines):
+            line.validate(f"spec.power_lines[{index}]")
 
 
 @dataclass(frozen=True, slots=True)
@@ -407,6 +460,21 @@ def scenario_spec_to_dict(spec: ScenarioSpec) -> dict[str, object]:
                 },
             }
             for c in spec.cranes
+        ]
+    # Campo opcional da TASK-107: só entra no JSON quando existe (cenários antigos não mudam).
+    if spec.power_lines:
+        data["power_lines"] = [
+            {
+                "id": line.id,
+                "label": line.label,
+                "x1_m": line.x1_m,
+                "z1_m": line.z1_m,
+                "x2_m": line.x2_m,
+                "z2_m": line.z2_m,
+                "height_m": line.height_m,
+                "voltage_kv": line.voltage_kv,
+            }
+            for line in spec.power_lines
         ]
     # Campos opcionais da TASK-073: só entram no JSON quando existem.
     if spec.cargo is not None:
@@ -498,6 +566,19 @@ def scenario_spec_from_dict(data: Mapping[str, Any]) -> ScenarioSpec:
                 ),
             )
             for c in data.get("cranes") or []
+        ),
+        power_lines=tuple(
+            PowerLineSpec(
+                id=str(line["id"]),
+                label=str(line["label"]),
+                x1_m=float(line["x1_m"]),
+                z1_m=float(line["z1_m"]),
+                x2_m=float(line["x2_m"]),
+                z2_m=float(line["z2_m"]),
+                height_m=float(line["height_m"]),
+                voltage_kv=float(line["voltage_kv"]),
+            )
+            for line in data.get("power_lines") or []
         ),
         cargo=(
             None

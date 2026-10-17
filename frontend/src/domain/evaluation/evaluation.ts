@@ -5,6 +5,7 @@
 // devolveu (RN-008). Não há nível de alerta (normal/atenção/crítico): está pendente (PEND-004).
 
 import type { SoilKind } from '../environment/environment'
+import type { PowerLine } from '../environment/powerLine'
 
 /** Estado operacional e carga enviados ao backend, em unidades internas (RN-006; ADR-013 C-2). */
 export interface EvaluationInput {
@@ -24,10 +25,60 @@ export interface EvaluationInput {
   readonly accessoryIds?: readonly string[]
   /** Solo sob as 4 sapatas (dianteira esquerda e direita, traseira esquerda e direita; TASK-067). */
   readonly soilKinds?: readonly SoilKind[]
-  /** Velocidade do vento, em m/s (TASK-067). */
+  /** Rajada de 3 s no ponto mais alto, em m/s (TASK-067; EN 13000, TASK-106). */
   readonly windSpeedMs?: number
+  /** Área de vento da carga `A_W`, em m² (TASK-106; RN-017): só com a carga pendurada. */
+  readonly loadWindAreaM2?: number
   /** Ids dos obstáculos no raio de giro (TASK-067). */
   readonly obstacleConflicts?: readonly string[]
+  /**
+   * Local da operação (TASK-107; ADR-051): rede elétrica, posição do guindaste e carga. Com ele o
+   * backend devolve a distância às redes e classifica o içamento (crítico ou não).
+   */
+  readonly site?: EvaluationSite
+}
+
+/** O que o backend precisa saber do local para a rede elétrica e o içamento crítico (ADR-051). */
+export interface EvaluationSite {
+  readonly powerLines: readonly PowerLine[]
+  readonly craneXM: number
+  readonly craneZM: number
+  readonly craneHeadingDeg: number
+  readonly loadLengthM?: number
+  readonly loadWidthM?: number
+  readonly loadHeightM?: number
+  readonly slingAngleDeg?: number
+  readonly hookAttachM?: number
+  /** Içamento com dois guindastes. */
+  readonly tandem?: boolean
+  /** Carga sobre pessoas ou estruturas ocupadas (informado pelo usuário). */
+  readonly loadOverOccupied?: boolean
+}
+
+export type PowerLineClearanceStatus = 'OK' | 'ATTENTION' | 'VIOLATION'
+
+/** Distância de um trecho de rede ao guindaste, como o backend calculou (TASK-107; ADR-051). */
+export interface PowerLineClearance {
+  readonly lineId: string
+  readonly label: string
+  readonly voltageKv: number
+  /** Distância mínima exigida pela tabela para a tensão. */
+  readonly requiredM: number
+  /** Menor distância 3D agora (lança, cabo ou carga). */
+  readonly distanceM: number
+  /** Menor distância 3D com o giro de 0° a 360°. */
+  readonly sweptDistanceM: number
+  readonly status: PowerLineClearanceStatus
+  readonly sweptStatus: PowerLineClearanceStatus
+  readonly nearestPart: 'boom' | 'cable' | 'load'
+}
+
+/** Classificação do içamento: crítico, com os gatilhos e o plano exigido (TASK-107; ADR-051). */
+export interface CriticalLift {
+  readonly isCritical: boolean
+  readonly triggers: readonly { readonly code: string; readonly message: string }[]
+  /** O que o plano de içamento exigido precisa conter; vazio se o içamento não é crítico. */
+  readonly planItems: readonly string[]
 }
 
 /** Tipos de solo sob as sapatas (RN-015). */
@@ -54,10 +105,29 @@ export interface CapacityLimitResult {
   /** Início da faixa de atenção, em % do limite. */
   readonly warningBandPercent: number
   readonly level: CapacityStatusLevel
-  /** Fator de inclinação aplicado à capacidade efetiva (1 = sem efeito; RN-015). */
+  /** Obsoleto: sempre 1 (a inclinação entra na estática, RN-017). */
   readonly slopeFactor?: number
-  /** Fator de vento aplicado à capacidade efetiva (1 = sem efeito; RN-015). */
+  /** Obsoleto: sempre 1 (o vento entra na estática e no limite de rajada, RN-017). */
   readonly windFactor?: number
+}
+
+/** Estática da operação devolvida pelo backend (TASK-106; RN-017; ADR-050). */
+export interface StabilityResult {
+  /** Momento de tombamento ÷ estabilizante do lado crítico, em %: 100 % é o limite da norma. */
+  readonly tippingRatioPercent: number
+  /** Lado do polígono de apoio mais crítico (dianteira, lado direito, traseira, lado esquerdo). */
+  readonly criticalEdge: string
+  /** As sapatas perderam o apoio. */
+  readonly tipped: boolean
+  /** Reação em cada sapata (dianteira esquerda e direita, traseira esquerda e direita), em kgf. */
+  readonly padReactionsKg: readonly number[]
+  /** Fração do peso total na sapata mais carregada. */
+  readonly worstPadShare: number
+  readonly deflectionM: number
+  readonly padHalfSpanM: number
+  /** Velocidade máxima de rajada para esta carga (EN 13000), em m/s. */
+  readonly windLimitMs: number
+  readonly windForceN: number
 }
 
 /** Risco de tombamento por regras (RN-013; TASK-055). */
@@ -139,9 +209,15 @@ interface EvaluationCommon {
   /** TASK-055 (RN-013). */
   readonly tippingRisk?: TippingRisk | null
   readonly alerts?: readonly SafetyAlert[]
+  /** TASK-106 (RN-017): margem de tombamento e reação nas sapatas. */
+  readonly stability?: StabilityResult
   /** TASK-056 (RN-014): soma dos acessórios incluída no peso comparado. */
   readonly accessoriesWeightKg?: number | null
   readonly accessories?: readonly EvaluatedAccessory[]
+  /** TASK-107 (ADR-051): distância às redes elétricas; vazio sem `site` ou sem rede. */
+  readonly powerLines?: readonly PowerLineClearance[]
+  /** TASK-107: classificação do içamento; `null` sem `site`. */
+  readonly criticalLift?: CriticalLift | null
 }
 
 /** A tabela suportou o estado e a carga foi comparada. "Avaliado" não quer dizer "seguro" (PEND-004). */

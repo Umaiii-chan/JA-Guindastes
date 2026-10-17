@@ -30,6 +30,7 @@ from app.domain.services.safety_assessment import (
     SafetyAlert,
     TippingRisk,
 )
+from app.domain.services.stability import StabilityResult
 from app.domain.value_objects.capacity_result import (
     CapacityFound,
     CapacityResult,
@@ -42,6 +43,11 @@ from app.domain.value_objects.conservative_capacity_result import (
 from app.domain.value_objects.interpolated_capacity_result import InterpolatedCapacityFound
 from app.domain.value_objects.operational_geometry import OperationalGeometry, Point3D
 from app.presentation.api.load_chart_schemas import LoadChartPointResponse
+from app.presentation.api.site_schemas import (
+    CriticalLiftResponse,
+    PowerLineClearanceResponse,
+    SitePayload,
+)
 
 MAX_ACCESSORY_IDS = 20
 AccessoryId = Annotated[str, StringConstraints(min_length=1, max_length=64)]
@@ -141,21 +147,37 @@ class EvaluationRequest(BaseModel):
         min_length=4,
         max_length=4,
         description="Solo sob as 4 sapatas, na ordem dianteira esquerda, dianteira direita, "
-        "traseira esquerda, traseira direita (opcional; RN-015). Ausente, não entra na avaliação.",
+        "traseira esquerda, traseira direita (opcional; RN-017). Ausente, não entra na avaliação. "
+        "A pressão de cada sapata vem da SUA reação por estática do polígono de apoio.",
     )
     wind_speed_ms: float | None = Field(
         default=None,
         ge=0,
-        description="Velocidade do vento, em m/s (opcional; RN-015). Ausente, não entra na "
-        "avaliação.",
+        description="Rajada de 3 s no ponto mais alto do guindaste, em m/s (EN 13000; opcional; "
+        "RN-017). Ausente, não entra na avaliação.",
+    )
+    load_wind_area_m2: float | None = Field(
+        default=None,
+        ge=0,
+        description="Área de vento da carga `A_W` (área projetada × coeficiente de arrasto), em "
+        "m² (opcional; RN-017). Define a velocidade máxima de rajada "
+        "`v_tab · √(1,2 / (A_W / m_H))` (EN 13000) e a força do vento sobre a carga. Ausente, "
+        "vale a velocidade da tabela e a carga não recebe vento.",
     )
     obstacle_conflicts: list[Annotated[str, StringConstraints(min_length=1, max_length=64)]] = (
         Field(
             default_factory=list,
             max_length=50,
-            description="Ids dos obstáculos no raio de giro (opcional; RN-015). Não vazia, o "
+            description="Ids dos obstáculos no raio de giro (opcional; RN-017). Não vazia, o "
             "risco vira atenção.",
         )
+    )
+    site: SitePayload | None = Field(
+        default=None,
+        description="Local da operação (TASK-107; ADR-051): rede elétrica do cenário, posição do "
+        "guindaste, dimensões da carga e contexto do içamento. Com ele, a resposta traz a "
+        "distância às redes (`power_lines`) e a classificação de içamento crítico "
+        "(`critical_lift`), e os alertas correspondentes; sem ele, nada disso é calculado.",
     )
 
 
@@ -280,10 +302,14 @@ class CapacityLimitResponse(BaseModel):
         description="A partir desta % do limite, o nível é `WARNING`."
     )
     slope_factor: float = Field(
-        default=1.0, description="Fator de inclinação aplicado à capacidade efetiva (RN-015)."
+        default=1.0,
+        description="Obsoleto: sempre 1. A inclinação entra como momento de tombamento "
+        "(`stability`; RN-017, que substitui a RN-015).",
     )
     wind_factor: float = Field(
-        default=1.0, description="Fator de vento aplicado à capacidade efetiva (RN-015)."
+        default=1.0,
+        description="Obsoleto: sempre 1. O vento entra como limite de rajada e momento de "
+        "tombamento (`stability`; RN-017, que substitui a RN-015).",
     )
     level: CapacityLimitLevel = Field(
         description="`OK`; `WARNING` na faixa de atenção; `OVER` acima da capacidade efetiva."
@@ -337,6 +363,58 @@ class NotEvaluableReasonResponse(BaseModel):
             case CapacityUnsupportedReason():
                 category = ReasonCategory.LOAD_CHART_DOMAIN
         return cls(code=reason, category=category)
+
+
+class StabilityResponse(BaseModel):
+    """Estática da operação: tombamento por momentos e reação em cada sapata (RN-017; ADR-050).
+
+    Valores de um modelo FICTÍCIO (ADR-012) até a ficha oficial de estabilidade do modelo.
+    """
+
+    tipping_ratio_percent: float = Field(
+        description="Momento de tombamento ÷ momento estabilizante do lado crítico do polígono de "
+        "apoio, em %. 100 % é o limite com a margem da norma (carga ≤ 85 % da carga de "
+        "tombamento); a partir de 90 %, atenção."
+    )
+    critical_edge: str = Field(
+        description="Lado do polígono onde o tombamento é mais provável (dianteira, lado direito, "
+        "traseira, lado esquerdo)."
+    )
+    tipped: bool = Field(description="As sapatas perderam o apoio: o guindaste tomba.")
+    pad_reactions_kg: list[float] = Field(
+        min_length=4,
+        max_length=4,
+        description="Força vertical em cada sapata, em kgf, na ordem dianteira esquerda, "
+        "dianteira direita, traseira esquerda, traseira direita.",
+    )
+    worst_pad_share: float = Field(
+        description="Fração do peso total (guindaste + carga) na sapata mais carregada."
+    )
+    deflection_m: float = Field(
+        description="Flecha da lança somada ao raio da carga, só na estática (RN-004 mantém o "
+        "raio geométrico na tabela)."
+    )
+    pad_half_span_m: float = Field(description="Meia largura entre as sapatas usada, em metros.")
+    wind_limit_ms: float = Field(
+        description="Velocidade máxima de rajada para esta carga (EN 13000), em m/s."
+    )
+    wind_force_n: float = Field(description="Força de vento total (carga + lança), em N.")
+
+    @classmethod
+    def from_stability(cls, stability: StabilityResult | None) -> StabilityResponse | None:
+        if stability is None:
+            return None
+        return cls(
+            tipping_ratio_percent=stability.tipping_ratio * 100,
+            critical_edge=stability.critical_edge,
+            tipped=stability.tipped,
+            pad_reactions_kg=list(stability.reactions_kg),
+            worst_pad_share=stability.worst_pad_share,
+            deflection_m=stability.deflection_m,
+            pad_half_span_m=stability.pad_half_span_m,
+            wind_limit_ms=stability.wind_limit_ms,
+            wind_force_n=stability.wind_force_n,
+        )
 
 
 class EvaluationResponse(BaseModel):
@@ -409,7 +487,21 @@ class EvaluationResponse(BaseModel):
         "`HIGH`; `null` quando não há capacidade para comparar e nenhuma regra dispara.",
     )
     alerts: list[SafetyAlertResponse] = Field(
-        default_factory=list, description="Alertas de segurança, em pt-BR (RN-013)."
+        default_factory=list, description="Alertas de segurança, em pt-BR (RN-013, RN-017)."
+    )
+    stability: StabilityResponse | None = Field(
+        default=None,
+        description="Estática da operação (RN-017; ADR-050): margem de tombamento, reação em "
+        "cada sapata, flecha e limite de vento. `null` sem geometria calculada.",
+    )
+    power_lines: list[PowerLineClearanceResponse] = Field(
+        default_factory=list,
+        description="Distância de cada trecho de rede ao guindaste (ADR-051); vazio sem `site`.",
+    )
+    critical_lift: CriticalLiftResponse | None = Field(
+        default=None,
+        description="Classificação do içamento (crítico ou não, gatilhos e plano exigido); "
+        "`null` sem `site`.",
     )
 
     @classmethod
@@ -446,6 +538,9 @@ class EvaluationResponse(BaseModel):
                     capacity_limit=CapacityLimitResponse.from_limit(evaluation.capacity_limit),
                     tipping_risk=evaluation.tipping_risk,
                     alerts=[SafetyAlertResponse.from_alert(a) for a in evaluation.alerts],
+                    stability=StabilityResponse.from_stability(evaluation.stability),
+                    power_lines=_clearances(evaluation),
+                    critical_lift=_critical(evaluation),
                 )
             case NotEvaluableOperation():
                 return cls(
@@ -457,6 +552,9 @@ class EvaluationResponse(BaseModel):
                     compared_weight_kg=compared_kg,
                     tipping_risk=evaluation.tipping_risk,
                     alerts=[SafetyAlertResponse.from_alert(a) for a in evaluation.alerts],
+                    stability=StabilityResponse.from_stability(evaluation.stability),
+                    power_lines=_clearances(evaluation),
+                    critical_lift=_critical(evaluation),
                     status="NOT_EVALUABLE",
                     configuration_id=configuration_id,
                     geometry=(
@@ -479,3 +577,12 @@ def _found_capacity_or_none(capacity: CapacityResult | None) -> CapacityResponse
     if isinstance(capacity, CapacityFound):
         return CapacityResponse.from_capacity(capacity)
     return None
+
+
+def _clearances(evaluation: OperationEvaluation) -> list[PowerLineClearanceResponse]:
+    return [PowerLineClearanceResponse.from_clearance(c) for c in evaluation.power_line_clearances]
+
+
+def _critical(evaluation: OperationEvaluation) -> CriticalLiftResponse | None:
+    item = evaluation.critical_lift
+    return None if item is None else CriticalLiftResponse.from_assessment(item)

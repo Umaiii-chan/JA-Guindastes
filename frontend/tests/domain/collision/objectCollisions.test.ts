@@ -48,6 +48,9 @@ function expectAxesLikeScene(obb: Obb, group: Group): void {
 
 const GEOMETRY = { boomPivotOffsetM: -1.56, boomPivotHeightM: 3.3 }
 const LOAD = computeLoadBox({ lengthM: 4, widthM: 2, heightM: 1.5 }, 1.05)
+// Lingas a 45° (F-19: a geometria única, com o ângulo informado): 2,24 m, perto dos 2 m de antes.
+// A pose dentro do barracão tem a lança quase deitada; com as lingas padrão (60°) a carga desceria ao chão.
+const LOAD_45 = computeLoadBox({ lengthM: 4, widthM: 2, heightM: 1.5 }, 1.05, 0, null, 45)
 const HOOK = { center: { x: 0, y: -0.55, z: 0 }, half: { x: 0.3, y: 0.5, z: 0.3 } }
 
 function shed(overrides: Partial<Obstacle> = {}): Obstacle {
@@ -175,7 +178,7 @@ describe('a carga e o barracão', () => {
   const inside = { turretRotationDeg: 0, boomAngleDeg: 8, boomLengthM: 20, cableLengthM: 0.5 }
 
   it('a carga entra pela porta e a lança passa por ela: nada colide nem alerta', () => {
-    const report = evaluateCollisions(input(inside, scenario))
+    const report = evaluateCollisions(input(inside, scenario, LOAD_45))
     expect(report.hits).toEqual([])
     expect(report.alerts).toEqual([])
     expect(report.penetrationM).toBe(0)

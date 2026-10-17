@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest'
 import { EMPTY_SCENARIO, type ScenarioSpec } from '../../../src/domain/environment/environment'
 import { AccessoryChain } from '../../../src/three/accessories/AccessoryChain'
 import { parseTruckCraneModel } from '../../../src/three/loaders/loadTruckCraneModel'
+import { slingDropOf } from '../../../src/domain/rigging/slingGeometry'
 import { buildCraneScene } from '../../../src/three/scene/buildCraneScene'
 import { HookLoad, REPLACED_HOOK_ATTACH_M } from '../../../src/three/scene/HookLoad'
 import { upgradeCraneModel } from '../../../src/three/scene/upgradeCraneModel'
@@ -97,9 +98,11 @@ describe('engate com o moitão de 4 polias (F-09)', () => {
     const contents = buildCraneScene()
     const hook = contents.crane.getOperationalGeometry().hook
     contents.hookLoad.setAccessories(new Group(), HOOK_BLOCK_M, true)
-    // Carga com o topo 0,3 m abaixo do fim desenhado da cadeia (o moitão do acessório).
+    // Carga com o topo `drop` + 0,1 m abaixo do fim desenhado da cadeia (o moitão do acessório):
+    // `drop` é a altura das lingas da geometria única (F-19; 2 × 2 m, 60°).
+    const drop = slingDropOf(2, 2)
     const drawnEnd = hook.yM - REPLACED_HOOK_ATTACH_M - HOOK_BLOCK_M
-    const heightM = drawnEnd - 0.3
+    const heightM = drawnEnd - drop - 0.1
     const spec: ScenarioSpec = {
       ...EMPTY_SCENARIO,
       cargo: { x: hook.xM, z: hook.zM, rotationYDeg: 0 },
@@ -107,14 +110,15 @@ describe('engate com o moitão de 4 polias (F-09)', () => {
     contents.cargo.setLoad({ lengthM: 2, widthM: 2, heightM })
     contents.cargo.setScenario(spec)
 
-    expect(contents.cargo.status.gapM).toBeCloseTo(0.3, 6)
+    expect(contents.cargo.status.gapM).toBeCloseTo(drop + 0.1, 6)
     expect(contents.cargo.status.canEngage).toBe(true)
     expect(contents.cargo.engage(0)).toBe(true)
 
-    // Antes da correção o topo desenhado subia 1,09 m e a carga ficava flutuando.
+    // Antes da correção o topo desenhado subia 1,09 m e a carga ficava flutuando. Agora ela pende
+    // das lingas da geometria única: a base fica 0,1 m (a folga do engate) acima do chão.
     const layout = contents.hookLoad.currentLayout!
-    expect(hook.yM + layout.center.y + layout.size.y / 2).toBeCloseTo(heightM, 6)
-    expect(contents.cargo.status.heightAboveGroundM).toBeCloseTo(0, 6)
+    expect(hook.yM + layout.center.y + layout.size.y / 2).toBeCloseTo(heightM + 0.1, 2)
+    expect(contents.cargo.status.heightAboveGroundM).toBeCloseTo(0.1, 2)
     expect(contents.cargo.status.canRelease).toBe(true)
   })
 
@@ -139,8 +143,10 @@ describe('engate com o moitão de 4 polias (F-09)', () => {
     contents.cargo.setLoad({ lengthM: 2, widthM: 2, heightM })
     contents.cargo.setScenario(spec)
 
-    // Pose do planejador (o backend usa 0,01 m com moitão): fim do moitão 0,2 m acima do topo.
-    const hookY = heightM + 0.2 + REPLACED_HOOK_ATTACH_M + HOOK_BLOCK_M
+    // Pose do planejador (o backend usa 0,01 m com moitão): fim do moitão 0,2 m acima do ponto em
+    // que as lingas esticam sobre o topo (F-19: altura da geometria única, 2 × 2 m a 60°).
+    const drop = slingDropOf(2, 2)
+    const hookY = heightM + drop + 0.2 + REPLACED_HOOK_ATTACH_M + HOOK_BLOCK_M
     const cable = start.yM + 2 - hookY
     const applied = contents.crane.setState({ cableLengthM: cable })
 
@@ -148,11 +154,11 @@ describe('engate com o moitão de 4 polias (F-09)', () => {
     expect(contents.collisions.state.blocked).toBe(false)
     expect(applied.cableLengthM).toBeCloseTo(cable, 6)
     contents.cargo.refresh()
-    expect(contents.cargo.status.gapM).toBeCloseTo(0.2, 3)
+    expect(contents.cargo.status.gapM).toBeCloseTo(drop + 0.2, 3)
     expect(contents.cargo.status.canEngage).toBe(true)
 
     // Descer mais: o moitão encosta no topo da carga e a guarda corta ali.
-    contents.crane.setState({ cableLengthM: cable + 0.5 })
+    contents.crane.setState({ cableLengthM: cable + drop + 0.5 })
     expect(contents.collisions.state.blocked).toBe(true)
     contents.cargo.refresh()
     expect(contents.cargo.status.gapM).toBeGreaterThanOrEqual(-0.01)

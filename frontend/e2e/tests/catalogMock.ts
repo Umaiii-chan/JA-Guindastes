@@ -89,13 +89,13 @@ export async function chooseConfiguration(
 }
 
 /** Preenche uma carga FICTÍCIA válida no passo 2. */
-export async function fillValidLoad(page: Page, weightKg = '3000'): Promise<void> {
+export async function fillValidLoad(page: Page, weightKg = '3000', heightM = '2'): Promise<void> {
   const load = page.getByRole('region', { name: 'Carga' })
   await load.getByLabel('Descrição').fill('Carga FICTÍCIA de teste E2E')
   await load.getByLabel('Peso (kg)').fill(weightKg)
   await load.getByLabel('Comprimento (m)', { exact: true }).fill('2')
   await load.getByLabel('Largura (m)', { exact: true }).fill('2')
-  await load.getByLabel('Altura (m)', { exact: true }).fill('2')
+  await load.getByLabel('Altura (m)', { exact: true }).fill(heightM)
 }
 
 /**

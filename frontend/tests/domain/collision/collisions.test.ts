@@ -24,7 +24,9 @@ import {
 import { calculateOperationalGeometry } from '../../../src/domain/geometry/operationalGeometry'
 
 const GEOMETRY = { boomPivotOffsetM: -1.56, boomPivotHeightM: 3.3 }
-const STATE = { turretRotationDeg: 0, boomAngleDeg: 35, boomLengthM: 12, cableLengthM: 5 }
+// Cabo de 3 m: com as lingas da geometria única (F-19: 60°, 3,87 m para esta carga) a base da carga
+// fica a 0,76 m do chão; com 5 m, como antes das lingas únicas, ela entraria no chão.
+const STATE = { turretRotationDeg: 0, boomAngleDeg: 35, boomLengthM: 12, cableLengthM: 3 }
 const LOAD = computeLoadBox({ lengthM: 4, widthM: 2, heightM: 1.5 }, 1.05)
 const HOOK = { center: { x: 0, y: -0.55, z: 0 }, half: { x: 0.3, y: 0.5, z: 0.3 } }
 

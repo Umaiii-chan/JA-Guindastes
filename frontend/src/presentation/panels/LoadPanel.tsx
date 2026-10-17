@@ -13,6 +13,9 @@ import styles from './panels.module.css'
 export interface LoadPanelProps {
   readonly values: LoadFormValues
   onChange(values: LoadFormValues): void
+  /** Carga sobre pessoas ou estruturas ocupadas (TASK-107; ADR-051): gatilho de içamento crítico. */
+  readonly overOccupied?: boolean
+  onOverOccupiedChange?(value: boolean): void
 }
 
 interface FieldSpec {
@@ -47,7 +50,12 @@ const CG_FIELDS: readonly FieldSpec[] = [
  * Carga da simulação (RF-011): descrição, peso, dimensões e centro de gravidade opcional, com as
  * validações PROVISÓRIAS do domínio (TASK-028). O peso de uma carga válida alimenta a avaliação.
  */
-export function LoadPanel({ values, onChange }: LoadPanelProps) {
+export function LoadPanel({
+  values,
+  onChange,
+  overOccupied = false,
+  onOverOccupiedChange,
+}: LoadPanelProps) {
   const { load, problems } = validateLoadForm(values)
   const cgFilled = CG_FIELDS.some(({ field }) => values[field].trim() !== '')
   // O erro de um campo só aparece depois que a pessoa mexe nele (ou num campo do CG), para o
@@ -94,6 +102,16 @@ export function LoadPanel({ values, onChange }: LoadPanelProps) {
       </Field>
       {renderField(WEIGHT)}
       <div className={styles.grid3}>{DIMENSION_FIELDS.map(renderField)}</div>
+      {onOverOccupiedChange && (
+        <label className={styles.check}>
+          <input
+            type="checkbox"
+            checked={overOccupied}
+            onChange={(event) => onOverOccupiedChange(event.currentTarget.checked)}
+          />
+          <span>Carga sobre pessoas ou estruturas ocupadas (içamento crítico)</span>
+        </label>
+      )}
       <details className={styles.disclosure} open={cgFilled || undefined}>
         <summary>
           <Crosshair size={14} aria-hidden="true" />

@@ -5,6 +5,8 @@
 // Eixos da cena (ADR-013): Y para cima; X e Z no chão; o eixo de giro do guindaste em (0, 0) quando
 // `crane` é o padrão. Unidades internas (RN-006): metros e graus.
 
+import type { PowerLine } from './powerLine'
+
 /** Feição do terreno somada ao plano inclinado. */
 export interface TerrainFeature {
   readonly id: string
@@ -142,6 +144,8 @@ export interface ScenarioSpec {
   readonly cargo?: CargoPlacement
   /** Ponto de entrega (TASK-073); ausente = sem alvo. */
   readonly delivery?: DeliveryPoint
+  /** Redes elétricas aéreas (TASK-107; ADR-051); ausente = sem rede. */
+  readonly powerLines?: readonly PowerLine[]
 }
 
 export const EMPTY_SCENARIO: ScenarioSpec = {

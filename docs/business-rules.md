@@ -155,7 +155,7 @@ parceira, o campo diz **PENDENTE** e aponta a pergunta em aberto correspondente.
 
 ### RN-013 — Risco de tombamento por regras
 
-**Status:** Ativa
+**Status:** Substituída pela RN-017 (TASK-106; ADR-050), no que toca ao tombamento e à inclinação residual; os limites duros (patolas totalmente estendidas, inclinação máxima, fora da tabela) continuam valendo
 **Contexto:** avaliação operacional (TASK-055).
 **Regra:** o risco de tombamento é **baixo**, **atenção** ou **alto**, com a lista de motivos. Não há cálculo físico de estabilidade. É alto com qualquer um destes:
 - utilização acima do limite (RN-011);
@@ -183,7 +183,7 @@ parceira, o campo diz **PENDENTE** e aponta a pergunta em aberto correspondente.
 
 ### RN-015 — O ambiente influencia a utilização e o risco de tombamento
 
-**Status:** Ativa
+**Status:** Substituída pela RN-017 (TASK-106; ADR-050): os fatores de inclinação e de vento, a rampa do vento e o 0,5 do peso por sapata saíram; os obstáculos no raio de giro continuam
 **Contexto:** avaliação operacional (TASK-067).
 **Regra:** todas as configurações de ambiente devem influenciar na carga de utilização e no risco de tombamento. A capacidade efetiva (RN-011) passa a ser capacidade da tabela × limite do modelo × fator de inclinação × fator de vento.
 - Inclinação: acima da máxima do modelo, risco alto e status "acima do limite". Abaixo dela, a capacidade cai uma % configurável por grau de inclinação residual (padrão 10 %).
@@ -202,8 +202,8 @@ Entradas de solo, vento e obstáculos são opcionais: ausentes, não têm efeito
 ### RN-016 — Içamento com dois guindastes (tandem)
 
 **Status:** Ativa
-**Contexto:** avaliação operacional (TASK-074; ADR-037); estende RN-011, RN-014 e RN-015.
-**Regra:** uma carga pode ser içada por dois guindastes, que se movem sincronizados. Cada guindaste usa no máximo 75 % da própria capacidade: a capacidade efetiva (RN-011, RN-015) × 0,75. A carga se divide pela posição dos pontos de içamento em relação ao centro de gravidade (alavanca): o peso de cada guindaste é o peso da carga × a distância do outro ponto ao centro de gravidade ÷ a distância entre os pontos. Cada guindaste é avaliado com a parte dele mais o gancho e os acessórios (RN-014). O içamento só é permitido quando os dois são avaliáveis, nenhum passa de 75 % e nenhum tem risco de tombamento alto.
+**Contexto:** avaliação operacional (TASK-074; ADR-037); estende RN-011, RN-014 e RN-017 (a RN-015 foi substituída por ela).
+**Regra:** uma carga pode ser içada por dois guindastes, que se movem sincronizados. Cada guindaste usa no máximo 75 % da própria capacidade: a capacidade efetiva (RN-011) × 0,75. A carga se divide pela posição dos pontos de içamento em relação ao centro de gravidade (alavanca): o peso de cada guindaste é o peso da carga × a distância do outro ponto ao centro de gravidade ÷ a distância entre os pontos. Cada guindaste é avaliado com a parte dele mais o gancho e os acessórios (RN-014). O içamento só é permitido quando os dois são avaliáveis, nenhum passa de 75 % e nenhum tem risco de tombamento alto.
 **Exemplos:**
 - carga de 10 000 kg com o centro de gravidade no meio entre os pontos → 5 000 kg para cada
 - centro de gravidade a 1 m de um ponto e a 3 m do outro → o ponto mais perto leva 7 500 kg e o outro 2 500 kg
@@ -211,6 +211,28 @@ Entradas de solo, vento e obstáculos são opcionais: ausentes, não têm efeito
 **Exceções:** com o centro de gravidade fora do trecho entre os dois pontos a alavanca não fecha (um guindaste teria de puxar para baixo): o içamento não é permitido, e o aviso diz isso. O fator 0,75 vem da pessoa responsável, que o citou como regra de norma; não há tabela oficial no repositório.
 **Testes relacionados:** `backend/tests/domain/test_tandem_load_split.py`, `backend/tests/presentation/test_evaluations_tandem.py`, `frontend/tests/domain/tandem/tandem.test.ts`
 **Origem:** Anderson Sehnem, em chat em 2026-10-14
+
+### RN-017 — Estabilidade por física (momentos no polígono das patolas), vento e inclinação residual
+
+**Status:** Ativa
+**Contexto:** avaliação operacional (TASK-106; ADR-050). Decisão D1 do Anderson Sehnem (2026-10-16): trocar as regras RN-013 e RN-015 por física, o mais próximo do real possível. **Substitui** o cálculo de tombamento da RN-013 e os fatores de inclinação, vento e solo da RN-015; as duas continuam documentadas acima, marcadas como substituídas.
+**Regra:** a estabilidade vem da estática do plano de apoio, não de percentuais fixos.
+- **Polígono de apoio:** o retângulo das quatro sapatas (fl, fr, rl, rr). A meia largura vai de 1,2 m (vigas recolhidas) a 3,8 m (100 %), interpolada pela extensão das vigas (ausente = 100 %); as sapatas dianteiras ficam a +3 m e as traseiras a −3 m do eixo de giro.
+- **Tombamento:** para cada lado do polígono, `ρ = momento de tombamento ÷ momento estabilizante`. Estabilizam o chassi com as patolas (55 % da massa, sobre o eixo), a torre com o contrapeso (30 %, 2 m atrás do eixo, gira com ψ) e a lança (15 %, no meio entre o pino e a ponta). Tomba a carga comparada (RN-014) **dividida por 0,85**, no gancho, deslocada para fora pela flecha da lança (`Δ = 8·10⁻⁷ · Q[t] · L³`; só na estática, a consulta à tabela segue com o raio geométrico, RN-004), mais o vento e a inclinação. Com a carga sem vento nem inclinação, `ρ = 1` é exatamente "a carga comparada é 85 % da carga de tombamento sobre patolas". O risco é **alto** com `ρ ≥ 1` ou com as sapatas sem apoio, e **atenção** de `ρ` ≥ 90 %.
+- **Reação em cada sapata:** plataforma rígida de quatro apoios sob os pesos verticais; se uma sapata descarrega, as três restantes resolvem o equilíbrio; se duas descarregam, o guindaste tombou. A pressão de cada sapata é a SUA reação ÷ a área da sapata, comparada com o solo sob ela: acima do suporte, risco alto; acima de 80 %, atenção.
+- **Vento (EN 13000):** a velocidade informada é a rajada de 3 s no ponto mais alto. A velocidade máxima é a da tabela (9 m/s, FICTÍCIA) até `A_W / m_H = 1,2 m²/t`; acima disso, `v_max = v_tab · √(1,2 ÷ (A_W / m_H))`, com `A_W` a área de vento da carga (área projetada × coeficiente de arrasto) e `m_H` o peso comparado em toneladas. Acima de `v_max`, a operação é bloqueada (risco alto); de 90 % a 100 % de `v_max`, atenção. O vento também soma ao momento de tombamento (carga e lança, no pior sentido para todo lado).
+- **Inclinação residual α:** desloca cada peso na altura `h` de `h · sen α` para fora da linha, e soma `sen α · (Σ peso × altura do CG + carga ÷ 0,85 × altura do gancho)` ao momento de tombamento, no pior sentido para todo lado. Acima da inclinação máxima do modelo a tabela não vale: risco alto e "acima do limite" (limite duro, mantido da RN-013).
+- **Mantidos da RN-013:** utilização acima do limite (RN-011), patolas não totalmente estendidas e apoiadas com carga suspensa e operação fora da tabela com carga continuam risco alto.
+- **Obstáculos no raio de giro** (RN-015): risco atenção, com o alerta dos ids.
+
+A capacidade efetiva (RN-011) deixa de ter fator de inclinação e de vento (os campos `slope_factor` e `wind_factor` continuam no contrato, sempre 1). Entradas de solo, vento e obstáculos continuam opcionais: ausentes, não têm efeito e não geram alerta.
+**Exemplos:**
+- lança de 20 m, pino a 1 m do eixo, gancho a 11 m à frente (ψ = 0), carga comparada de 4 000 kg, vigas a 100 %: momento estabilizante 19 800·3 + 10 800·5 + 5 400·(3 − 6) = 97 200 kgf·m; momento de tombamento (4 000 ÷ 0,85) · (11 + 0,0256 − 3) = 37 767 kgf·m; `ρ` = 38,9 % no lado dianteiro; as sapatas dianteiras recebem 14 575 kgf cada e as traseiras 5 425 kgf (36 % do peso total na pior sapata, e não 50 %)
+- a mesma carga com a lança sobre a diagonal (ψ = 45°): `ρ` cai para cerca de 22 %
+- carga de 65 t com 280 m² de área de vento e tabela de 11,2 m/s: `v_max = 11,2 · √(1,2 ÷ 4,31) = 5,9 m/s` (exemplo da auditoria de 2026-10-16)
+**Exceções:** TODOS os valores numéricos são FICTÍCIOS (polígono, massas, alturas dos CG, flecha, fator 0,85, velocidade da tabela, área de vento da lança) até a ficha oficial de estabilidade de cada modelo (pendência D5 da auditoria). O fator de carga de tombamento e as cláusulas citadas (ISO 4305, EN 13000, ASME B30.5) precisam ser conferidos nas normas vigentes, incluindo a numeração brasileira equivalente: não foram verificados no repositório.
+**Testes relacionados:** `backend/tests/domain/test_stability.py`, `backend/tests/domain/test_environment_factors.py`, `backend/tests/presentation/test_evaluations.py`, `frontend/tests/infrastructure/api/evaluationStability.test.ts`
+**Origem:** decisão D1 do Anderson Sehnem, em chat em 2026-10-16 (auditoria da física)
 
 ---
 
@@ -223,6 +245,7 @@ Entradas de solo, vento e obstáculos são opcionais: ausentes, não têm efeito
 | Unidades | RN-006 |
 | Validação frontend ↔ backend | RN-008 |
 | Içamento com dois guindastes | RN-016 |
+| Estabilidade, vento e inclinação (física) | RN-017 (substitui RN-013 e RN-015) |
 
 ---
 

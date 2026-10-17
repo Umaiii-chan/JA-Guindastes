@@ -25,6 +25,7 @@ import { RadiusIndicator } from './RadiusIndicator'
 import { RotationZoneSectors } from './RotationZoneSectors'
 import { SceneCollisions } from './SceneCollisions'
 import { SoilOverlay } from './SoilOverlay'
+import { PowerLineMeshes } from './PowerLineMeshes'
 import { WindArrow } from './WindArrow'
 
 /** Modelo 3D que substitui o guindaste provisório (o GLB da TASK-043), já mapeado para um rig. */
@@ -71,6 +72,8 @@ export class CraneSceneContents {
   readonly soil: SoilOverlay
   /** Seta do vento (TASK-066). */
   readonly wind: WindArrow
+  /** Redes elétricas e suas zonas de distância mínima (TASK-107). */
+  readonly powerLines: PowerLineMeshes
   /** Carga no chão, ponto de entrega, engatar e soltar (TASK-073). */
   readonly cargo: CargoOperation
   /** Guindastes adicionais, tandem e colisões entre guindastes (TASK-074). */
@@ -97,6 +100,7 @@ export class CraneSceneContents {
     obstacles: ObstacleMeshes
     soil: SoilOverlay
     wind: WindArrow
+    powerLines: PowerLineMeshes
     cargo: CargoOperation
   }) {
     this.scene = parts.scene
@@ -114,6 +118,7 @@ export class CraneSceneContents {
     this.obstacles = parts.obstacles
     this.soil = parts.soil
     this.wind = parts.wind
+    this.powerLines = parts.powerLines
     this.cargo = parts.cargo
     this.cargo.bindCrane(this.crane)
     this.eye = findOperatorEye(parts.rig)
@@ -178,6 +183,9 @@ export class CraneSceneContents {
     }
     if (terrainChanged || spec.soilZones !== previous?.soilZones) {
       this.soil.setZones(spec.soilZones ?? [], heightAt)
+    }
+    if (terrainChanged || spec.powerLines !== previous?.powerLines) {
+      this.powerLines.setLines(spec.powerLines ?? [], heightAt)
     }
     this.appliedScenario = spec
     this.applyCraneAttitude(spec)
@@ -264,6 +272,8 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
   scene.add(soil.root)
   const wind = new WindArrow()
   scene.add(wind.root)
+  const powerLines = new PowerLineMeshes()
+  scene.add(powerLines.root)
   const cargo = new CargoOperation({
     hookLoad,
     collisions,
@@ -291,6 +301,7 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
     obstacles,
     soil,
     wind,
+    powerLines,
     cargo,
   })
 }

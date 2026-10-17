@@ -17,6 +17,7 @@ from app.domain.entities.scenario import (
     FeatureKind,
     ObstacleKind,
     ObstacleSpec,
+    PowerLineSpec,
     Scenario,
     ScenarioSpec,
     SoilKind,
@@ -271,3 +272,57 @@ def test_invalid_extra_cranes_are_rejected(changes: dict[str, object], campo: st
         ScenarioSpec(**changes)  # type: ignore[arg-type]
 
     assert campo in raised.value.field
+
+
+def power_line(**overrides: float | str) -> PowerLineSpec:
+    values: dict[str, float | str] = {
+        "id": "r1",
+        "label": "Rede FICTÍCIA",
+        "x1_m": -10.0,
+        "z1_m": 5.0,
+        "x2_m": 10.0,
+        "z2_m": 5.0,
+        "height_m": 12.0,
+        "voltage_kv": 13.8,
+    }
+    values.update(overrides)
+    return PowerLineSpec(**values)  # type: ignore[arg-type]
+
+
+def test_power_lines_round_trip_and_stay_out_of_old_json() -> None:
+    old = spec_ficticio()
+    assert "power_lines" not in scenario_spec_to_dict(old)
+
+    spec = replace(old, power_lines=(power_line(), power_line(id="r2", voltage_kv=230.0)))
+
+    data = scenario_spec_to_dict(spec)
+    assert [line["voltage_kv"] for line in data["power_lines"]] == [13.8, 230.0]  # type: ignore[index]
+    assert scenario_spec_from_dict(data) == spec
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"voltage_kv": 0.0},
+        {"voltage_kv": -5.0},
+        {"voltage_kv": 1000.5},
+        {"voltage_kv": math.inf},
+        {"height_m": 0.4},
+        {"height_m": 200.5},
+        {"x2_m": -10.0, "z2_m": 5.0},  # dois pontos iguais
+        {"x1_m": math.nan},
+        {"id": ""},
+        {"label": "x" * 121},
+    ],
+)
+def test_invalid_power_line_is_rejected(overrides: dict[str, float | str]) -> None:
+    with pytest.raises(InvalidScenarioError):
+        ScenarioSpec(power_lines=(power_line(**overrides),))
+
+
+def test_power_line_ids_must_be_unique_and_the_list_is_capped() -> None:
+    with pytest.raises(InvalidScenarioError):
+        ScenarioSpec(power_lines=(power_line(), power_line()))
+    many = tuple(power_line(id=f"r{i}") for i in range(21))
+    with pytest.raises(InvalidScenarioError):
+        ScenarioSpec(power_lines=many)

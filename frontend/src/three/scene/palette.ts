@@ -87,6 +87,13 @@ export const EDITOR_COLORS = Object.freeze({
   wind: 0x2563a8,
 })
 
+/** Rede elétrica (TASK-107): cabo e postes em tinta, e o contorno da zona de distância mínima. */
+export const POWER_LINE_COLORS = Object.freeze({
+  cable: PAPER_INK.ink,
+  pole: PAPER_INK.inkSecondary,
+  zone: STATUS_COLORS.over,
+})
+
 /** Situação válida ou `unknown` para qualquer outro valor (inclusive `undefined`). */
 export function normalizeEvaluationStatus(value: unknown): EvaluationStatus {
   return EVALUATION_STATUSES.includes(value as EvaluationStatus)

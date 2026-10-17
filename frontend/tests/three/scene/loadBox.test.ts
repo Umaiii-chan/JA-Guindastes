@@ -29,7 +29,8 @@ describe('loadBox', () => {
     const drop = slingDropM(load)
     const topY = -(HOOK_ATTACH_OFFSET_M + drop)
 
-    expect(drop).toBe(2)
+    // F-19: lingas a 60° com a horizontal: queda = r·tan 60°, r = meia-diagonal da pegada.
+    expect(drop).toBeCloseTo(Math.hypot(2, 1) * Math.tan(Math.PI / 3), 9)
     expect(layout.slingTop).toEqual({ x: 0, y: -HOOK_ATTACH_OFFSET_M, z: 0 })
     expect(layout.center).toEqual({ x: 0, y: topY - 0.75, z: 0 })
     expect(layout.slingBottoms).toHaveLength(4)
@@ -51,9 +52,14 @@ describe('loadBox', () => {
     expect(computeLoadBox(load, Number.NaN)!.slingTop.y).toBe(-HOOK_ATTACH_OFFSET_M)
   })
 
-  it('limita a altura das lingas entre 0,6 e 3 m', () => {
-    expect(slingDropM({ lengthM: 0.4, widthM: 0.4, heightM: 1 })).toBe(0.6)
-    expect(slingDropM({ lengthM: 12, widthM: 2, heightM: 1 })).toBe(3)
+  it('a altura das lingas é a da geometria única: 60°, 45° se a linga passaria de 8 m (F-19)', () => {
+    const small = { lengthM: 0.4, widthM: 0.4, heightM: 1 }
+    const long = { lengthM: 12, widthM: 2, heightM: 1 }
+    expect(slingDropM(small)).toBeCloseTo(0.4899, 3) // r·tan 60°, acima do piso de 0,3 m
+    expect(slingDropM(long)).toBeCloseTo(Math.hypot(6, 1) * Math.tan(Math.PI / 4), 9) // 45°
+    expect(slingDropM({ lengthM: 0.1, widthM: 0.1, heightM: 1 })).toBe(0.3) // piso
+    // Com o ângulo informado, a altura muda (é o mesmo valor que o planejador recebe).
+    expect(slingDropM(small, 45)).toBeLessThan(slingDropM(small))
   })
 
   it('reconhece medidas iguais em objetos diferentes', () => {

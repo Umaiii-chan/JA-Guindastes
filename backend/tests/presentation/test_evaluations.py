@@ -476,11 +476,10 @@ def test_ficticio_outriggers_and_slope_drive_the_risk(client: TestClient) -> Non
     ).json()
 
     assert body["tipping_risk"] == "HIGH"
-    # A inclinação também reduz a capacidade efetiva (RN-015), levando à faixa de atenção.
+    # A inclinação deixou de reduzir a capacidade (RN-017): entra como momento de tombamento.
     assert [a["code"] for a in body["alerts"]] == [
         "OUTRIGGERS_NOT_READY",
         "GROUND_SLOPE_EXCEEDED",
-        "CAPACITY_LIMIT_WARNING",
     ]
 
 
@@ -526,3 +525,111 @@ def test_ficticio_outside_the_chart_with_load_is_high(client: TestClient) -> Non
 )
 def test_ficticio_invalid_new_inputs_are_422(client: TestClient, extra: dict[str, Any]) -> None:
     assert client.post(EVALUATIONS_PATH, json=body_ficticio(**extra)).status_code == 422
+
+
+def test_ficticio_stability_reports_pad_reactions_and_the_en13000_wind_limit(
+    client: TestClient,
+) -> None:
+    ready = {"extension_percent": 100, "jacks_set": True}
+    # Rajada de 5 m/s e carga de 40 m²: acima de 1,2 m²/t, a velocidade máxima cai de 9 m/s para
+    # 9 · √(1,2 / (A_W / m_H)) com `m_H` o peso comparado, em toneladas (RN-017; EN 13000).
+    body = client.post(
+        EVALUATIONS_PATH,
+        json=body_ficticio(
+            outriggers=ready,
+            ground_slope_deg=0.0,
+            wind_speed_ms=5.0,
+            load_wind_area_m2=40.0,
+        ),
+    ).json()
+
+    stability = body["stability"]
+    compared_t = body["compared_weight_kg"] / 1000
+    assert stability["wind_limit_ms"] == pytest.approx(9.0 * math.sqrt(1.2 / (40.0 / compared_t)))
+    assert len(stability["pad_reactions_kg"]) == 4
+    assert sum(stability["pad_reactions_kg"]) == pytest.approx(36_000 + body["compared_weight_kg"])
+    assert stability["tipped"] is False
+    assert 0 < stability["tipping_ratio_percent"] < 100
+    assert stability["wind_force_n"] > 0
+    # Sem o campo de área, a carga não recebe vento e o limite é o da tabela
+    plain = client.post(EVALUATIONS_PATH, json=body_ficticio(wind_speed_ms=5.0)).json()
+    assert plain["stability"]["wind_limit_ms"] == pytest.approx(9.0)
+    assert plain["capacity_limit"]["slope_factor"] == 1.0
+    assert plain["capacity_limit"]["wind_factor"] == 1.0
+
+
+# Rede elétrica e içamento crítico (D4; TASK-107; ADR-051) -------------------------------------
+
+
+def rede_ficticia(**overrides: Any) -> dict[str, Any]:
+    # L = 20 m, θ = 30° para +Z: a ponta fica a z ≈ 18,82 m, y = 12,5 m.
+    line: dict[str, Any] = {
+        "id": "R1",
+        "label": "Rede FICTÍCIA",
+        "x1_m": -30.0,
+        "z1_m": 18.82,
+        "x2_m": 30.0,
+        "z2_m": 18.82,
+        "height_m": 13.5,
+        "voltage_kv": 13.8,
+    }
+    line.update(overrides)
+    return line
+
+
+def test_sem_site_a_avaliacao_nao_calcula_rede(client: TestClient) -> None:
+    body = client.post(EVALUATIONS_PATH, json=body_ficticio()).json()
+
+    assert body["power_lines"] == [] and body["critical_lift"] is None
+
+
+def test_site_com_rede_devolve_distancia_alerta_e_icamento_critico(client: TestClient) -> None:
+    payload = body_ficticio(site={"power_lines": [rede_ficticia()]})
+
+    body = client.post(EVALUATIONS_PATH, json=payload).json()
+
+    (line,) = body["power_lines"]
+    assert line["line_id"] == "R1" and line["status"] == "VIOLATION"
+    assert line["required_m"] == pytest.approx(3.048)
+    assert abs(line["distance_m"] - 1.0) < 0.05
+    alert = next(a for a in body["alerts"] if a["code"] == "POWER_LINE_CLEARANCE_VIOLATION")
+    assert alert["severity"] == "CRITICAL"
+    assert body["critical_lift"]["is_critical"] is True
+    assert any("NR-10" in item for item in body["critical_lift"]["plan_items"])
+
+
+def test_a_rede_nao_muda_o_risco_de_tombamento_nem_a_utilizacao(client: TestClient) -> None:
+    sem = client.post(EVALUATIONS_PATH, json=body_ficticio()).json()
+    com = client.post(
+        EVALUATIONS_PATH, json=body_ficticio(site={"power_lines": [rede_ficticia()]})
+    ).json()
+
+    assert com["tipping_risk"] == sem["tipping_risk"]
+    assert com["utilization_percent"] == sem["utilization_percent"]
+
+
+def test_icamento_critico_por_tandem_e_carga_sobre_ocupados(client: TestClient) -> None:
+    payload = body_ficticio(site={"tandem": True, "load_over_occupied": True})
+
+    body = client.post(EVALUATIONS_PATH, json=payload).json()
+
+    codes = [t["code"] for t in body["critical_lift"]["triggers"]]
+    assert "TANDEM" in codes and "LOAD_OVER_OCCUPIED" in codes
+
+
+@pytest.mark.parametrize(
+    "site",
+    [
+        {"power_lines": [rede_ficticia(voltage_kv=1000.1)]},
+        {"power_lines": [rede_ficticia(voltage_kv=0.0)]},
+        {"power_lines": [rede_ficticia(height_m=0.1)]},
+        {"power_lines": [rede_ficticia(x2_m=-30.0, z2_m=18.82)]},
+        {"power_lines": [rede_ficticia(), rede_ficticia()] * 11},
+        {"sling_angle_deg": 20.0},
+        {"unknown": 1},
+    ],
+)
+def test_site_invalido_e_422(client: TestClient, site: dict[str, Any]) -> None:
+    response = client.post(EVALUATIONS_PATH, json=body_ficticio(site=site))
+
+    assert response.status_code == 422

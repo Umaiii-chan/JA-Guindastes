@@ -72,6 +72,9 @@ NOT_EVALUABLE_WITHOUT_DATA = {
         {"code": "CRANE_GEOMETRY_NOT_FOUND", "category": "EVALUATION"},
         {"code": "ACTIVE_LOAD_CHART_NOT_FOUND", "category": "EVALUATION"},
     ],
+    # TASK-107: sem `site` no pedido, não há rede nem classificação de içamento.
+    "power_lines": [],
+    "critical_lift": None,
     # Leva E (TASK-055): sem capacidade nem regra, não há risco; entradas ausentes viram INFO.
     "tipping_risk": None,
     "alerts": [
@@ -86,6 +89,7 @@ NOT_EVALUABLE_WITHOUT_DATA = {
             "message": "Inclinação do terreno não informada: não entrou na avaliação do risco.",
         },
     ],
+    "stability": None,
 }
 
 

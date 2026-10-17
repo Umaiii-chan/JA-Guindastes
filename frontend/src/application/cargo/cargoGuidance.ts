@@ -6,6 +6,7 @@ import {
   type CargoStatus,
   ENGAGE_HORIZONTAL_TOLERANCE_M,
   ENGAGE_MAX_GAP_M,
+  ENGAGE_MIN_GAP_M,
   RELEASE_MAX_HEIGHT_M,
 } from '../../domain/cargo/cargoOperation'
 import { formatClock } from '../recording/playback'
@@ -146,12 +147,20 @@ export function cargoGuidance({
     if (status.offsetM !== null && status.offsetM > ENGAGE_HORIZONTAL_TOLERANCE_M) {
       needs.push(`alinhe o gancho com a carga (faltam ${meters(status.offsetM)})`)
     }
-    if (status.gapM !== null && status.gapM > ENGAGE_MAX_GAP_M) {
-      needs.push(
-        `baixe o gancho até ${meters(ENGAGE_MAX_GAP_M)} do topo (está a ${meters(status.gapM)})`,
-      )
-    } else if (status.gapM !== null && status.gapM < 0) {
-      needs.push('suba um pouco o gancho')
+    if (status.gapM !== null && status.slingDropM !== null) {
+      // F-19 (ADR-051): engata com as lingas esticadas, a `slingDropM` do topo (geometria única).
+      const slack = status.gapM - status.slingDropM
+      if (slack > ENGAGE_MAX_GAP_M) {
+        needs.push(
+          `baixe o gancho até ${meters(status.slingDropM)} do topo, onde as lingas esticam ` +
+            `(está a ${meters(status.gapM)})`,
+        )
+      } else if (slack < ENGAGE_MIN_GAP_M) {
+        needs.push(
+          `suba o gancho até ${meters(status.slingDropM)} do topo: as lingas só esticam aí ` +
+            `(está a ${meters(status.gapM)})`,
+        )
+      }
     }
     return {
       steps,
