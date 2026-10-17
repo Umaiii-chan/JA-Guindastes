@@ -2,10 +2,19 @@ import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js'
 import { Group, type Object3D, Quaternion, type Scene, Vector3 } from 'three'
 
 import { craneAttitude } from '../../domain/environment/craneAttitude'
-import type { CranePlacement, TerrainSpec } from '../../domain/environment/environment'
+import {
+  type CranePlacement,
+  FLAT_TERRAIN,
+  type TerrainSpec,
+  terrainHeightAt,
+} from '../../domain/environment/environment'
 import { CraneController, type CraneRig } from '../crane/CraneController'
 import { createProvisionalCrane } from '../crane/createProvisionalCrane'
-import { FICTITIOUS_MAX_LEVELING_DEG, OutriggerController } from '../crane/OutriggerController'
+import {
+  FICTITIOUS_MAX_LEVELING_DEG,
+  OutriggerController,
+  terrainHeightInFrame,
+} from '../crane/OutriggerController'
 import { PROVISIONAL_CRANE_INITIAL_STATE } from '../crane/provisionalCraneSpec'
 import { findOperatorEye } from '../crane/rigLandmarks'
 import { SwitchableCrane } from '../crane/SwitchableCrane'
@@ -46,6 +55,8 @@ export class ExtraCrane implements CraneModelTarget {
   private modelInUse = false
   private readonly tag: CSS2DObject
   private currentPlacement: CranePlacement
+  /** Terreno em que o guindaste está assentado: as sapatas descem até ele (TASK-093, F-25). */
+  private terrain: TerrainSpec = FLAT_TERRAIN
 
   constructor(init: {
     readonly id: string
@@ -84,11 +95,15 @@ export class ExtraCrane implements CraneModelTarget {
     this.collisions = new SceneCollisions(this.rig, this.hookLoad, setup.geometryParameters)
     scene.add(this.collisions.highlight.root)
 
-    // O guindaste adicional trabalha com as patolas estendidas e apoiadas.
+    // O guindaste adicional trabalha com as patolas estendidas e apoiadas, com as sapatas no terreno.
     this.outriggers = new OutriggerController({
       getRoot: () => this.rig.base,
       invalidate: init.invalidate,
       beamTravelM: TRUCK_CRANE_OUTRIGGER_TRAVEL_M,
+      groundHeightAt: terrainHeightInFrame(
+        () => this.rig.base,
+        (x, z) => terrainHeightAt(this.terrain, x, z),
+      ),
       reducedMotion: init.reducedMotion,
     })
     this.outriggers.setState({ extensionPercent: 100, jacksSet: true, levelingDeg: 0 })
@@ -135,6 +150,7 @@ export class ExtraCrane implements CraneModelTarget {
   /** Assenta o guindaste no terreno e gira o chassi pelo rumo (como o principal). */
   setPlacement(terrain: TerrainSpec, placement: CranePlacement): void {
     this.currentPlacement = placement
+    this.terrain = terrain
     const attitude = craneAttitude(terrain, placement, FICTITIOUS_MAX_LEVELING_DEG)
     const yaw = new Quaternion().setFromAxisAngle(
       new Vector3(0, 1, 0),
@@ -144,6 +160,8 @@ export class ExtraCrane implements CraneModelTarget {
     const tilt = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), normal)
     this.anchor.position.set(placement.x, attitude.groundY, placement.z)
     this.anchor.quaternion.copy(yaw.multiply(tilt))
+    // As sapatas acompanham o terreno e a posição novos (TASK-093, F-25).
+    this.outriggers.reapply()
   }
 
   dispose(): void {

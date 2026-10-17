@@ -17,6 +17,12 @@ export const ACCESSORY_CHAIN_NAMES = {
   item: (index: number) => `hook-load-accessory-${index}`,
 } as const
 
+/**
+ * Chave do `userData` do espaço de um acessório que substitui o moitão do modelo (TASK-093): a cena
+ * usa a caixa desse espaço como a do gancho nas colisões (`HookLoad.currentHookBox`).
+ */
+export const REPLACES_HOOK_USER_DATA = 'replacesHook'
+
 /** Um acessório como a cena o desenha. */
 export interface SceneAccessory {
   readonly id: string
@@ -107,7 +113,11 @@ export class AccessoryChain {
       const height = sanitizedHeight(item.riggingHeightM)
       const slot = new Group()
       slot.name = ACCESSORY_CHAIN_NAMES.item(index)
-      slot.userData = { accessoryId: item.id, riggingHeightM: height }
+      slot.userData = {
+        accessoryId: item.id,
+        riggingHeightM: height,
+        [REPLACES_HOOK_USER_DATA]: item.replacesHook === true,
+      }
       slot.position.y = -cursor
       this.root.add(slot)
       cursor += height
