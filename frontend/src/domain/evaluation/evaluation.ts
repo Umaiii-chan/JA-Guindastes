@@ -5,6 +5,7 @@
 // devolveu (RN-008). Não há nível de alerta (normal/atenção/crítico): está pendente (PEND-004).
 
 import type { SoilKind } from '../environment/environment'
+import type { PowerLine } from '../environment/powerLine'
 
 /** Estado operacional e carga enviados ao backend, em unidades internas (RN-006; ADR-013 C-2). */
 export interface EvaluationInput {
@@ -30,6 +31,54 @@ export interface EvaluationInput {
   readonly loadWindAreaM2?: number
   /** Ids dos obstáculos no raio de giro (TASK-067). */
   readonly obstacleConflicts?: readonly string[]
+  /**
+   * Local da operação (TASK-107; ADR-051): rede elétrica, posição do guindaste e carga. Com ele o
+   * backend devolve a distância às redes e classifica o içamento (crítico ou não).
+   */
+  readonly site?: EvaluationSite
+}
+
+/** O que o backend precisa saber do local para a rede elétrica e o içamento crítico (ADR-051). */
+export interface EvaluationSite {
+  readonly powerLines: readonly PowerLine[]
+  readonly craneXM: number
+  readonly craneZM: number
+  readonly craneHeadingDeg: number
+  readonly loadLengthM?: number
+  readonly loadWidthM?: number
+  readonly loadHeightM?: number
+  readonly slingAngleDeg?: number
+  readonly hookAttachM?: number
+  /** Içamento com dois guindastes. */
+  readonly tandem?: boolean
+  /** Carga sobre pessoas ou estruturas ocupadas (informado pelo usuário). */
+  readonly loadOverOccupied?: boolean
+}
+
+export type PowerLineClearanceStatus = 'OK' | 'ATTENTION' | 'VIOLATION'
+
+/** Distância de um trecho de rede ao guindaste, como o backend calculou (TASK-107; ADR-051). */
+export interface PowerLineClearance {
+  readonly lineId: string
+  readonly label: string
+  readonly voltageKv: number
+  /** Distância mínima exigida pela tabela para a tensão. */
+  readonly requiredM: number
+  /** Menor distância 3D agora (lança, cabo ou carga). */
+  readonly distanceM: number
+  /** Menor distância 3D com o giro de 0° a 360°. */
+  readonly sweptDistanceM: number
+  readonly status: PowerLineClearanceStatus
+  readonly sweptStatus: PowerLineClearanceStatus
+  readonly nearestPart: 'boom' | 'cable' | 'load'
+}
+
+/** Classificação do içamento: crítico, com os gatilhos e o plano exigido (TASK-107; ADR-051). */
+export interface CriticalLift {
+  readonly isCritical: boolean
+  readonly triggers: readonly { readonly code: string; readonly message: string }[]
+  /** O que o plano de içamento exigido precisa conter; vazio se o içamento não é crítico. */
+  readonly planItems: readonly string[]
 }
 
 /** Tipos de solo sob as sapatas (RN-015). */
@@ -165,6 +214,10 @@ interface EvaluationCommon {
   /** TASK-056 (RN-014): soma dos acessórios incluída no peso comparado. */
   readonly accessoriesWeightKg?: number | null
   readonly accessories?: readonly EvaluatedAccessory[]
+  /** TASK-107 (ADR-051): distância às redes elétricas; vazio sem `site` ou sem rede. */
+  readonly powerLines?: readonly PowerLineClearance[]
+  /** TASK-107: classificação do içamento; `null` sem `site`. */
+  readonly criticalLift?: CriticalLift | null
 }
 
 /** A tabela suportou o estado e a carga foi comparada. "Avaliado" não quer dizer "seguro" (PEND-004). */

@@ -21,6 +21,7 @@ import {
 import { readCapacityLimit } from '../shared/evaluationCapacityLimit'
 import { readStability } from '../shared/evaluationStability'
 import { readSafety } from '../shared/evaluationSafety'
+import { readSite } from '../shared/evaluationSite'
 import { readAccessories } from '../shared/evaluationAccessories'
 import { readZoneAndWeights } from '../shared/evaluationZone'
 import { createApiFetch } from './apiFetch'
@@ -158,6 +159,7 @@ export function mapEvaluationResponse(json: unknown): EvaluationResult {
     ...readCapacityLimit(body, path),
     ...readStability(body, path),
     ...readSafety(body, path),
+    ...readSite(body, path),
     ...readAccessories(body, path),
   }
 

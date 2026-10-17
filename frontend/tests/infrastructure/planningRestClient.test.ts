@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { EMPTY_SCENARIO } from '../../src/domain/environment/environment'
 import type { PlanningRequest } from '../../src/domain/planning/planning'
+import { defaultGeometry } from '../../src/domain/rigging/slingGeometry'
 import {
   createPlanningRestClient,
   mapPlanningResponse,
@@ -50,6 +51,10 @@ const RESPONSE = {
           utilization_percent: 49.4,
           transport_height_m: 4,
           crossed_obstacle_ids: ['OBS-1'],
+          // Carga 3 × 1,5 m, lingas a 60° (geometria única: r = 1,677 m; queda = r·tan 60°).
+          sling_length_m: 3.354102,
+          sling_angle_deg: 60,
+          sling_drop_m: 2.904738,
         },
       ],
     },
@@ -84,6 +89,23 @@ describe('cliente do planejamento', () => {
       craneId: 'C-1',
       pickRadiusM: 9.6,
       crossedObstacleIds: ['OBS-1'],
+      slingAngleDeg: 60,
+    })
+  })
+
+  it('as lingas do plano são as da geometria única da cena (F-19): plano x cena sem divergência', () => {
+    const detail = mapPlanningResponse(RESPONSE).recommendations[0]!.details[0]!
+    const scene = defaultGeometry(REQUEST.load.lengthM, REQUEST.load.widthM)
+
+    expect(detail.slingDropM).toBeCloseTo(scene.dropM, 5)
+    expect(detail.slingLengthM).toBeCloseTo(scene.lengthM, 5)
+    expect(detail.slingAngleDeg).toBeCloseTo(scene.angleDeg, 5)
+  })
+
+  it('manda o ângulo das lingas ao backend só quando informado', () => {
+    expect(toPlanningDto(REQUEST)).not.toHaveProperty('sling_angle_deg')
+    expect(toPlanningDto({ ...REQUEST, slingAngleDeg: 45 })).toMatchObject({
+      sling_angle_deg: 45,
     })
   })
 

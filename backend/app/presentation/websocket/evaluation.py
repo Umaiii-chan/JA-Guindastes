@@ -264,4 +264,5 @@ def _evaluate(
         wind_speed_ms=payload.wind_speed_ms,
         load_wind_area_m2=payload.load_wind_area_m2,
         obstacle_conflicts=payload.obstacle_conflicts,
+        site=None if payload.site is None else payload.site.to_context(),
     )

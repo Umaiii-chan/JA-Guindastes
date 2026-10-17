@@ -176,6 +176,8 @@ const GEOMETRY = { boomPivotOffsetM: -1.56, boomPivotHeightM: 3.3 }
 const HOOK = { center: { x: 0, y: -0.55, z: 0 }, half: { x: 0.3, y: 0.5, z: 0.3 } }
 // Carga FICTÍCIA de 4 × 2 × 1,5 m pendurada pelas lingas.
 const LOAD = computeLoadBox({ lengthM: 4, widthM: 2, heightM: 1.5 }, 1.05)
+// Lingas a 45° (F-19, ângulo informado): com o padrão de 60° a carga desceria ao chão nas poses do galpão.
+const LOAD_45 = computeLoadBox({ lengthM: 4, widthM: 2, heightM: 1.5 }, 1.05, 0, null, 45)
 
 describe('o que pende de um guindaste contra os outros (TASK-091; F-07)', () => {
   // Cenário da auditoria: guindaste 1 em (0; 0), θ 35°, L 12 m, c 3,1 m, com a carga; guindaste 2 em
@@ -183,7 +185,8 @@ describe('o que pende de um guindaste contra os outros (TASK-091; F-07)', () => 
   const first = (payload: CranePayload | null): MultiCrane => ({
     label: 'Guindaste 1',
     placement: { x: 0, z: 0, headingDeg: 0 },
-    state: { turretRotationDeg: 0, boomAngleDeg: 35, boomLengthM: 12, cableLengthM: 3.1 },
+    // Cabo de 1,23 m (antes 3,1): as lingas da geometria única (F-19) têm 3,87 m, não 2 m.
+    state: { turretRotationDeg: 0, boomAngleDeg: 35, boomLengthM: 12, cableLengthM: 1.23 },
     body: FULL_BODY,
     payload,
   })
@@ -341,7 +344,7 @@ describe('tandem e objetos da biblioteca (TASK-091; F-23)', () => {
       geometryParameters: GEOMETRY,
       scenario,
       body: null,
-      load: LOAD,
+      load: LOAD_45,
       hook: null,
     }).find((part) => part.subject === 'load')!.obb
     return {

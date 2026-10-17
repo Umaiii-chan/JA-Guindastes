@@ -112,7 +112,11 @@ import type { SceneAccessory } from '../../three/accessories/AccessoryChain'
 import { useAuth } from '../auth/authContext'
 import { useCatalog } from '../catalog/catalogContext'
 import { chooseCraneSetup } from '../craneSetup'
-import { buildEvaluationInput, residualGroundSlopeDeg } from '../evaluationInput'
+import {
+  buildEvaluationInput,
+  buildEvaluationSite,
+  residualGroundSlopeDeg,
+} from '../evaluationInput'
 import { useScenario } from '../scenario/scenarioContext'
 import { sceneRotationZoneCode } from '../sceneRotationZone'
 import { useSimulationRecording } from '../simulator/useSimulationRecording'
@@ -162,6 +166,8 @@ export function SimulatorRoute() {
   const [, setExtraVersion] = useState(0)
   const [addingCrane, setAddingCrane] = useState(false)
   const [tandemActive, setTandemActive] = useState(false)
+  // Carga sobre pessoas ou estruturas ocupadas (TASK-107; ADR-051): gatilho de içamento crítico.
+  const [loadOverOccupied, setLoadOverOccupied] = useState(false)
   const [tandemFrame, setTandemFrame] = useState<TandemSceneFrame | null>(null)
   const [tandemMessage, setTandemMessage] = useState<TandemMessage | null>(null)
   const [outriggers, setOutriggers] = useState<OutriggerState>(RETRACTED_OUTRIGGERS)
@@ -250,6 +256,14 @@ export function SimulatorRoute() {
     windSpeedMs: windSpeedForEvaluation(scenario.spec),
     loadWindAreaM2: loadHanging ? loadWindAreaM2(validLoad) : undefined,
     obstacleConflicts: conflicts,
+    // Rede elétrica, posição do guindaste, carga e contexto do içamento (TASK-107; ADR-051).
+    site: buildEvaluationSite({
+      spec: scenario.spec,
+      // Só a carga pendurada entra na distância à rede: no chão, a avaliação vê só o gancho.
+      load: loadHanging && validLoad ? loadDimensionsOf(validLoad) : null,
+      tandem: tandemActive,
+      loadOverOccupied,
+    }),
   }
   const scenarioExtrasKey = JSON.stringify(scenarioExtras)
   // RN-013: a avaliação recebe a inclinação residual (terreno − nivelamento dos macacos apoiados),
@@ -785,7 +799,12 @@ export function SimulatorRoute() {
               ),
               load: (
                 <fieldset disabled={controlsLocked} className="recording-lock">
-                  <LoadPanel values={load} onChange={setLoad} />
+                  <LoadPanel
+                    values={load}
+                    onChange={setLoad}
+                    overOccupied={loadOverOccupied}
+                    onOverOccupiedChange={setLoadOverOccupied}
+                  />
                 </fieldset>
               ),
               position: (

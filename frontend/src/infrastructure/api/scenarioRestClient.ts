@@ -20,6 +20,7 @@ import {
   type TerrainFeature,
   type WindSpec,
 } from '../../domain/environment/environment'
+import type { PowerLine } from '../../domain/environment/powerLine'
 import type {
   SavedScenario,
   ScenarioGateway,
@@ -91,6 +92,20 @@ export function toScenarioSpecDto(spec: ScenarioSpec): Record<string, unknown> {
       : {}),
     ...(spec.wind
       ? { wind: { speed_ms: spec.wind.speedMs, direction_deg: spec.wind.directionDeg } }
+      : {}),
+    ...(spec.powerLines && spec.powerLines.length > 0
+      ? {
+          power_lines: spec.powerLines.map((line) => ({
+            id: line.id,
+            label: line.label,
+            x1_m: line.x1M,
+            z1_m: line.z1M,
+            x2_m: line.x2M,
+            z2_m: line.z2M,
+            height_m: line.heightM,
+            voltage_kv: line.voltageKv,
+          })),
+        }
       : {}),
     ...(spec.cranes && spec.cranes.length > 0
       ? {
@@ -185,6 +200,20 @@ function mapSoilZone(json: unknown, path: string): SoilZone {
   }
 }
 
+function mapPowerLine(json: unknown, path: string): PowerLine {
+  const record = readRecord(json, path)
+  return {
+    id: readString(record, 'id', path),
+    label: readString(record, 'label', path),
+    x1M: readNumber(record, 'x1_m', path),
+    z1M: readNumber(record, 'z1_m', path),
+    x2M: readNumber(record, 'x2_m', path),
+    z2M: readNumber(record, 'z2_m', path),
+    heightM: readNumber(record, 'height_m', path),
+    voltageKv: readNumber(record, 'voltage_kv', path),
+  }
+}
+
 function mapWind(json: unknown, path: string): WindSpec {
   const record = readRecord(json, path)
   return {
@@ -242,6 +271,14 @@ export function mapScenarioSpec(json: unknown, path: string): ScenarioSpec {
         }
       : {}),
     ...(record.wind != null ? { wind: mapWind(record.wind, `${path}.wind`) } : {}),
+    // Campo da TASK-107: cenários salvos antes dele não o têm (ausente ou `null`).
+    ...(Array.isArray(record.power_lines) && record.power_lines.length > 0
+      ? {
+          powerLines: record.power_lines.map((item, index) =>
+            mapPowerLine(item, `${path}.power_lines[${index}]`),
+          ),
+        }
+      : {}),
     // Campos opcionais: cenários salvos antes deles não os têm (ausente ou `null`).
     ...(Array.isArray(record.cranes) && record.cranes.length > 0
       ? {

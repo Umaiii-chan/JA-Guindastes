@@ -1,0 +1,232 @@
+{
+  "_nota": "Tabela ÚNICA da geometria das lingas (F-19; ADR-051). Lida pelos testes do backend (tests/domain/services/test_rigging.py) e do frontend (tests/domain/rigging/slingGeometry.test.ts): se as duas implementações divergirem, um dos dois falha. Valores calculados por app.domain.services.rigging e conferidos à mão (r = hipot(L/2, W/2); queda = r·tan α; L = r/cos α).",
+  "tolerancia": 1e-05,
+  "padrao": [
+    {
+      "nome": "carga 3 x 2 m, padrão",
+      "entrada": {
+        "length_m": 3.0,
+        "width_m": 2.0
+      },
+      "esperado": {
+        "reach_m": 1.802776,
+        "length_m": 3.605551,
+        "angle_deg": 60.0,
+        "drop_m": 3.122499,
+        "below_recommended_angle": false,
+        "needs_spreader": false
+      }
+    },
+    {
+      "nome": "carga 3 x 2 m, 45 graus",
+      "entrada": {
+        "length_m": 3.0,
+        "width_m": 2.0,
+        "angle_deg": 45.0
+      },
+      "esperado": {
+        "reach_m": 1.802776,
+        "length_m": 2.54951,
+        "angle_deg": 45.0,
+        "drop_m": 1.802776,
+        "below_recommended_angle": false,
+        "needs_spreader": false
+      }
+    },
+    {
+      "nome": "carga 3 x 2 m, 75 graus",
+      "entrada": {
+        "length_m": 3.0,
+        "width_m": 2.0,
+        "angle_deg": 75.0
+      },
+      "esperado": {
+        "reach_m": 1.802776,
+        "length_m": 6.96539,
+        "angle_deg": 75.0,
+        "drop_m": 6.72805,
+        "below_recommended_angle": false,
+        "needs_spreader": false
+      }
+    },
+    {
+      "nome": "carga quadrada 1 x 1 m, padrão",
+      "entrada": {
+        "length_m": 1.0,
+        "width_m": 1.0
+      },
+      "esperado": {
+        "reach_m": 0.707107,
+        "length_m": 1.414214,
+        "angle_deg": 60.0,
+        "drop_m": 1.224745,
+        "below_recommended_angle": false,
+        "needs_spreader": false
+      }
+    },
+    {
+      "nome": "carga minúscula, piso da altura",
+      "entrada": {
+        "length_m": 0.2,
+        "width_m": 0.2
+      },
+      "esperado": {
+        "reach_m": 0.141421,
+        "length_m": 0.331662,
+        "angle_deg": 64.760598,
+        "drop_m": 0.3,
+        "below_recommended_angle": false,
+        "needs_spreader": false
+      }
+    },
+    {
+      "nome": "contêiner 12 x 2,4 m, padrão (60° ficaria longa: cai a 45°)",
+      "entrada": {
+        "length_m": 12.0,
+        "width_m": 2.4
+      },
+      "esperado": {
+        "reach_m": 6.118823,
+        "length_m": 8.653323,
+        "angle_deg": 45.0,
+        "drop_m": 6.118823,
+        "below_recommended_angle": false,
+        "needs_spreader": true
+      }
+    },
+    {
+      "nome": "contêiner 12 x 2,4 m, 30 graus",
+      "entrada": {
+        "length_m": 12.0,
+        "width_m": 2.4,
+        "angle_deg": 30.0
+      },
+      "esperado": {
+        "reach_m": 6.118823,
+        "length_m": 7.065409,
+        "angle_deg": 30.0,
+        "drop_m": 3.532704,
+        "below_recommended_angle": true,
+        "needs_spreader": false
+      }
+    },
+    {
+      "nome": "tandem 12 x 2,4 m, padrão (cada guindaste ergue a sua metade)",
+      "entrada": {
+        "length_m": 12.0,
+        "width_m": 2.4,
+        "tandem": true
+      },
+      "esperado": {
+        "reach_m": 3.231099,
+        "length_m": 6.462198,
+        "angle_deg": 60.0,
+        "drop_m": 5.596427,
+        "below_recommended_angle": false,
+        "needs_spreader": false
+      }
+    },
+    {
+      "nome": "tandem 6 x 2 m, 50 graus",
+      "entrada": {
+        "length_m": 6.0,
+        "width_m": 2.0,
+        "angle_deg": 50.0,
+        "tandem": true
+      },
+      "esperado": {
+        "reach_m": 1.802776,
+        "length_m": 2.804621,
+        "angle_deg": 50.0,
+        "drop_m": 2.148464,
+        "below_recommended_angle": false,
+        "needs_spreader": false
+      }
+    },
+    {
+      "nome": "carga 5,5 x 2,2 m, padrão (60°; linga de 5,9 m, dentro do preferido)",
+      "entrada": {
+        "length_m": 5.5,
+        "width_m": 2.2
+      },
+      "esperado": {
+        "reach_m": 2.961841,
+        "length_m": 5.923681,
+        "angle_deg": 60.0,
+        "drop_m": 5.130058,
+        "below_recommended_angle": false,
+        "needs_spreader": false
+      }
+    }
+  ],
+  "por_comprimento": [
+    {
+      "entrada": {
+        "reach_m": 1.8027756,
+        "length_m": 4.0
+      },
+      "esperado": {
+        "reach_m": 1.802776,
+        "length_m": 4.0,
+        "angle_deg": 63.211787,
+        "drop_m": 3.570714
+      }
+    },
+    {
+      "entrada": {
+        "reach_m": 3.0,
+        "length_m": 3.5
+      },
+      "esperado": {
+        "reach_m": 3.0,
+        "length_m": 3.5,
+        "angle_deg": 31.002719,
+        "drop_m": 1.802776
+      }
+    },
+    {
+      "entrada": {
+        "reach_m": 2.0,
+        "length_m": 10.0
+      },
+      "esperado": {
+        "reach_m": 2.0,
+        "length_m": 10.0,
+        "angle_deg": 78.463041,
+        "drop_m": 9.797959
+      }
+    }
+  ],
+  "recusas": [
+    {
+      "nome": "ângulo abaixo de 30°",
+      "entrada": {
+        "length_m": 3.0,
+        "width_m": 2.0,
+        "angle_deg": 29.0
+      }
+    },
+    {
+      "nome": "ângulo acima de 85°",
+      "entrada": {
+        "length_m": 3.0,
+        "width_m": 2.0,
+        "angle_deg": 86.0
+      }
+    },
+    {
+      "nome": "comprimento zero",
+      "entrada": {
+        "length_m": 0.0,
+        "width_m": 2.0
+      }
+    },
+    {
+      "nome": "largura negativa",
+      "entrada": {
+        "length_m": 3.0,
+        "width_m": -1.0
+      }
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import type { CargoStatus } from '../../../src/domain/cargo/cargoOperation'
 import { GROUND_CARGO_ID } from '../../../src/domain/collision/collisions'
 import { EMPTY_SCENARIO, type ScenarioSpec } from '../../../src/domain/environment/environment'
+import { slingDropOf } from '../../../src/domain/rigging/slingGeometry'
 import { buildCraneScene } from '../../../src/three/scene/buildCraneScene'
 
 function setup() {
@@ -15,8 +16,10 @@ function setup() {
   // Gancho em G (mundo = coordenadas da geometria, com o guindaste na origem).
   const hook = contents.crane.getOperationalGeometry().hook
   const attach = contents.hookLoad.currentAttachOffsetM
-  // Carga logo abaixo do gancho: o topo fica 0,3 m abaixo do fim do gancho.
-  const heightM = hook.yM - attach - 0.3
+  // Carga logo abaixo do gancho: o topo fica `drop` + 0,1 m abaixo do fim do gancho, onde `drop` é a
+  // altura das lingas da geometria única (F-19; 3 × 2 m, 60°): o gancho está 0,1 m acima do ponto
+  // em que elas esticam, dentro da folga do engate.
+  const heightM = hook.yM - attach - slingDropOf(3, 2) - 0.1
   const load = { lengthM: 3, widthM: 2, heightM }
   const spec: ScenarioSpec = {
     ...EMPTY_SCENARIO,
@@ -107,8 +110,9 @@ describe('coleta e entrega na cena', () => {
     contents.hookLoad.setAccessories(new Group(), 0.75)
     const hook = contents.crane.getOperationalGeometry().hook
     const attach = contents.hookLoad.currentAttachOffsetM
-    // Carga no chão com o topo 0,3 m abaixo do fim da cadeia.
-    const load = { lengthM: 3, widthM: 2, heightM: hook.yM - attach - 0.75 - 0.3 }
+    // Carga no chão com o topo `drop` + 0,1 m abaixo do fim da cadeia (F-19: lingas da geometria única).
+    const drop = slingDropOf(3, 2)
+    const load = { lengthM: 3, widthM: 2, heightM: hook.yM - attach - 0.75 - drop - 0.1 }
     contents.cargo.setLoad(load)
     contents.cargo.setScenario({
       ...EMPTY_SCENARIO,
@@ -116,16 +120,21 @@ describe('coleta e entrega na cena', () => {
     })
     const cable = contents.crane.getState().cableLengthM
 
-    // Descer 1 m levaria a cadeia 0,7 m para dentro da carga: o cabo para no contato, 0,3 m abaixo.
-    const applied = contents.crane.setCableLength(cable + 1)
+    // Descer demais levaria a cadeia para dentro da carga: o cabo para no contato com o topo.
+    const applied = contents.crane.setCableLength(cable + 10)
 
-    expect(applied - cable).toBeCloseTo(0.3, 2)
+    expect(applied - cable).toBeCloseTo(drop + 0.1, 2)
     expect(contents.collisions.state.hits).toContainEqual(
       expect.objectContaining({
         subject: 'accessories',
         target: expect.objectContaining({ id: GROUND_CARGO_ID }),
       }),
     )
+    // Encostada no topo, a cadeia está abaixo do ponto em que as lingas esticam: ainda não engata.
+    contents.cargo.refresh()
+    expect(contents.cargo.status.canEngage).toBe(false)
+    // Subindo até as lingas esticarem (`drop` acima do topo), dá para engatar.
+    contents.crane.setCableLength(cable + 0.1)
     contents.cargo.refresh()
     expect(contents.cargo.status.canEngage).toBe(true)
     expect(contents.cargo.engage(0)).toBe(true)

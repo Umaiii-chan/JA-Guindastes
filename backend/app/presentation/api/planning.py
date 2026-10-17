@@ -32,6 +32,7 @@ from app.domain.entities.scenario import ScenarioSpec
 from app.domain.exceptions.scenario_errors import InvalidScenarioError
 from app.domain.services.planning.models import PlanLoad, PlanPoint, TrajectoryPoint
 from app.domain.services.planning.planner import HOOK_ATTACH_M
+from app.domain.services.rigging import MAX_ALLOWED_ANGLE_DEG, MIN_ALLOWED_ANGLE_DEG
 from app.domain.services.safety_assessment import TippingRisk
 from app.presentation.api.scenario_schemas import ScenarioSpecPayload
 
@@ -89,6 +90,16 @@ class PlanningRequestBody(BaseModel):
         le=10,
         description="Do gancho ao ponto de amarração das lingas, em metros (medido na cena).",
     )
+    sling_angle_deg: float | None = Field(
+        default=None,
+        ge=MIN_ALLOWED_ANGLE_DEG,
+        le=MAX_ALLOWED_ANGLE_DEG,
+        description=(
+            "Ângulo das lingas com a horizontal, de 30° a 85° (F-19; ADR-051). Sem ele, vale o "
+            "padrão da carga (60°; 45° se a linga ficaria longa). A altura das lingas do plano sai "
+            "daqui e volta em cada guindaste (`sling_*`): a cena toca o plano com as mesmas."
+        ),
+    )
 
 
 class CraneStateResponse(BaseModel):
@@ -142,6 +153,11 @@ class CraneDetailResponse(BaseModel):
     utilization_percent: float
     transport_height_m: float = Field(description="Altura da base da carga durante o giro.")
     crossed_obstacle_ids: list[str]
+    sling_length_m: float = Field(description="Comprimento da linga que o plano supôs, em metros.")
+    sling_angle_deg: float = Field(description="Ângulo da linga com a horizontal no plano.")
+    sling_drop_m: float = Field(
+        description="Altura das lingas (do ponto de suspensão ao topo da carga) que o plano supôs."
+    )
 
     @classmethod
     def from_detail(cls, detail: CraneDetail) -> CraneDetailResponse:
@@ -160,6 +176,9 @@ class CraneDetailResponse(BaseModel):
             utilization_percent=detail.utilization_percent,
             transport_height_m=detail.transport_height_m,
             crossed_obstacle_ids=list(detail.crossed_obstacle_ids),
+            sling_length_m=detail.sling_length_m,
+            sling_angle_deg=detail.sling_angle_deg,
+            sling_drop_m=detail.sling_drop_m,
         )
 
 
@@ -260,6 +279,7 @@ def create_planning_router(dependency: RecommendLiftPlanDependency) -> APIRouter
             scenario=scenario if scenario is not None else ScenarioSpec(),
             accessory_ids=tuple(body.accessory_ids),
             hook_attach_m=body.hook_attach_m,
+            sling_angle_deg=body.sling_angle_deg,
         )
         try:
             result = use_case.execute(request)

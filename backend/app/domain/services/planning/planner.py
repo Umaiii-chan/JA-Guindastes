@@ -26,6 +26,7 @@ from app.domain.entities.scenario import (
     ScenarioSpec,
 )
 from app.domain.entities.scenario import SoilKind as ScenarioSoilKind
+from app.domain.services import rigging
 from app.domain.services.environment_factors import SoilKind
 from app.domain.services.planning.crane_body import (
     BODY_HEIGHT_M,
@@ -72,6 +73,7 @@ from app.domain.services.planning.trajectory import (
     SLEW_DEG_PER_S,
     approach_states,
 )
+from app.domain.services.power_line import power_line_zones
 from app.domain.services.safety_assessment import TippingRisk
 
 POSITION_STEP_M = 2.0
@@ -84,13 +86,12 @@ CLEARANCE_M = 1.0
 HOOK_ATTACH_M = 1.05
 """Do gancho ao ponto de amarração das lingas, sem medida da cena (`HOOK_ATTACH_OFFSET_M` do
 frontend); a tela manda o valor medido no gancho do modelo 3D em uso."""
+REPLACED_HOOK_ATTACH_M = 0.01
+"""Amarração das lingas quando um moitão substitui o gancho (`REPLACED_HOOK_ATTACH_M` da cena)."""
 _VAO_MIN_M = 0.05
 """Altura mínima (m) da base de uma parte elevada para a carga poder passar por baixo dela."""
 REST_CLEARANCE_M = 0.03
 """Folga entre a base da carga e o chão quando ela é pousada ou pega, para não encostar."""
-ENGAGE_GAP_M = 0.25
-"""No quadro "Engatar", o fim do gancho fica esta altura acima do topo da carga no chão: dentro da
-faixa de engate da cena (até 0,5 m; TASK-073), sem encostar na caixa."""
 DEFAULT_MAX_POSITIONS = 30
 DEFAULT_KEEP = 3
 REFINE_TOP = 6
@@ -113,14 +114,20 @@ def risk_rank(risk: TippingRisk | None) -> int:
     return _RISK_RANK[risk]
 
 
-def sling_drop_m(load: PlanLoad) -> float:
-    """Altura das lingas entre o gancho e o topo da carga (`slingDropM` do frontend)."""
-    return min(3.0, max(0.6, max(load.length_m, load.width_m) / 2))
+def sling_drop_m(load: PlanLoad, *, angle_deg: float | None = None, tandem: bool = False) -> float:
+    """Altura das lingas entre o gancho e o topo da carga.
+
+    É a geometria das lingas (comprimento + ângulo) de `domain/services/rigging.py`, a MESMA conta
+    da cena (`slingGeometry.ts`; F-19, ADR-051): sem ângulo informado, o padrão da carga.
+    """
+    return rigging.sling_drop_m(load.length_m, load.width_m, angle_deg=angle_deg, tandem=tandem)
 
 
-def _load_below_hook_m(load: PlanLoad, accessory_drop_m: float, hook_attach_m: float) -> float:
+def _load_below_hook_m(
+    load: PlanLoad, accessory_drop_m: float, hook_attach_m: float, sling_drop: float
+) -> float:
     """Distância do gancho à base da carga pendurada."""
-    return hook_attach_m + accessory_drop_m + sling_drop_m(load) + load.height_m
+    return hook_attach_m + accessory_drop_m + sling_drop + load.height_m
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +162,9 @@ class _Context:
     solids: tuple[Solid, ...]
     accessory_drop_m: float
     hook_attach_m: float
+    sling: rigging.SlingGeometry
+    """Lingas (comprimento, ângulo e altura; fonte única, `rigging.py`): as mesmas na coleta, no
+    giro e na entrega, e as que a cena usa ao tocar o plano."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -627,16 +637,17 @@ def _try_length(
     rejections: Counter[str],
 ) -> _Option | None:
     load = ctx.load
-    below_hook = _load_below_hook_m(load, ctx.accessory_drop_m, ctx.hook_attach_m)
+    below_hook = _load_below_hook_m(load, ctx.accessory_drop_m, ctx.hook_attach_m, ctx.sling.drop_m)
     transport_hook_y = swing.bottom_y + below_hook - site.ground_y
-    # Na coleta, o gancho desce até o topo da carga apoiada (as lingas ainda não estão nela): é aí
-    # que a cena engata (TASK-073). Depois de engatada, a carga pende `below_hook` abaixo do gancho.
+    # Na coleta, o gancho para a `sling_drop_m` acima do topo da carga apoiada, com as lingas
+    # esticadas (a cena só engata aí; F-19): a carga pende, depois, exatamente `below_hook`
+    # abaixo do gancho, a mesma altura das lingas do plano.
     pick_hook_y = (
         ctx.pick_base_y
         + load.height_m
         + ctx.hook_attach_m
         + ctx.accessory_drop_m
-        + ENGAGE_GAP_M
+        + ctx.sling.drop_m
         - site.ground_y
     )
     # Na entrega, a carga pousa no chão ou no topo da carreta (`delivery_surface`).
@@ -699,7 +710,7 @@ def _collision(crane: PlannerCrane, ctx: _Context, option: _Option) -> str | Non
         ground_y=option.site.ground_y,
         load_radius_m=ctx.radius_load_m,
         load_height_m=load.height_m,
-        rigging_m=ctx.hook_attach_m + ctx.accessory_drop_m + sling_drop_m(load),
+        rigging_m=ctx.hook_attach_m + ctx.accessory_drop_m + ctx.sling.drop_m,
         hook_drop_m=ctx.hook_attach_m + ctx.accessory_drop_m,
     )
     return first_path_collision(
@@ -744,8 +755,13 @@ def plan_crane(
     hoist_delivery: tuple[float, float] | None = None,
     cargo_pick: PlanPoint | None = None,
     cargo_delivery: PlanPoint | None = None,
+    sling_angle_deg: float | None = None,
 ) -> PlanSearch:
     """Melhores planos de `crane` para levar a carga de `pick` a `delivery`.
+
+    `sling_angle_deg` é o ângulo das lingas com a horizontal (30° a 85°); omitido, vale o padrão
+    da carga (`rigging.default_geometry`). No tandem (`share_kg` dado) cada guindaste ergue a
+    sua metade.
 
     `share_kg` é o peso que este guindaste leva (a carga inteira, se omitido); `capacity_share` é a
     fração da capacidade que ele pode usar (0,75 no tandem). `pick` e `delivery` são os pontos onde
@@ -755,7 +771,11 @@ def plan_crane(
     """
     weight_kg = load.weight_kg if share_kg is None else share_kg
     # Objetos ocos da biblioteca (o barracão aberto) viram as caixas que a cena usa (ADR-042).
-    scenario = replace(scenario, obstacles=expand_obstacles(scenario))
+    # A rede elétrica vira zona de distância mínima: obstáculo elevado (ADR-051).
+    scenario = replace(
+        scenario,
+        obstacles=(*expand_obstacles(scenario), *power_line_zones(scenario.power_lines)),
+    )
     rejections: Counter[str] = Counter()
     cargo_at_pick = pick if cargo_pick is None else cargo_pick
     pick_surf = pick_surface(scenario, load, cargo_at_pick)
@@ -786,6 +806,9 @@ def plan_crane(
         solids=solids_of(scenario),
         accessory_drop_m=accessory_drop_m,
         hook_attach_m=hook_attach_m,
+        sling=rigging.default_geometry(
+            load.length_m, load.width_m, angle_deg=sling_angle_deg, tandem=share_kg is not None
+        ),
     )
     positions = _sites(crane, ctx, weight_kg + extra_weight_kg, rejections, max_positions)
     options: list[_Option] = []
@@ -915,6 +938,9 @@ def _refine(
         crane_id=crane.crane_id,
         hoist_pick=hoist_pick,
         hoist_delivery=hoist_delivery,
+        sling_length_m=ctx.sling.length_m,
+        sling_angle_deg=ctx.sling.angle_deg,
+        sling_drop_m=ctx.sling.drop_m,
     )
 
 

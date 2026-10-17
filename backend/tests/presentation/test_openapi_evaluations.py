@@ -88,6 +88,8 @@ def test_status_only_distinguishes_evaluated_from_not_evaluable(openapi: dict[st
         "tipping_risk",
         "alerts",
         "stability",
+        "power_lines",
+        "critical_lift",
     }
 
 

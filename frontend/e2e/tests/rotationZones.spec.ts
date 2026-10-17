@@ -48,7 +48,10 @@ async function openPositionStep(
 ): Promise<void> {
   await chooseConfiguration(page, ids)
   await page.getByRole('button', { name: 'Continuar para Carga' }).click()
-  await fillValidLoad(page)
+  // Altura de 0,5 m (e não 2 m): com as lingas da geometria única (TASK-107; ADR-051; 60° → 2,45 m para
+  // uma carga de 2 × 2 m) a carga de 2 m pendia 1,4 m mais baixo e a guarda de colisão parava o giro nos
+  // 12°, "a carga atingiria o guindaste". Estes testes são das zonas: o peso e o raio não mudam.
+  await fillValidLoad(page, '3000', '0.5')
   await page.getByRole('button', { name: 'Continuar para Posição' }).click()
   await expect(page.getByLabel('Giro da torre')).toBeEnabled()
 }

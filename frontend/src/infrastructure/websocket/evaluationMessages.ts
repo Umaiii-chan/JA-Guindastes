@@ -11,7 +11,14 @@ import type {
   EvaluationInput,
   EvaluationResult,
 } from '../../domain/evaluation/evaluation'
-import { type OutriggersDto, toEnvironmentDto, toOutriggersDto } from '../api/evaluationContract'
+import {
+  type CriticalLiftDto,
+  type OutriggersDto,
+  type PowerLineClearanceDto,
+  type SiteDto,
+  toEnvironmentDto,
+  toOutriggersDto,
+} from '../api/evaluationContract'
 import {
   ContractViolationError,
   type JsonRecord,
@@ -26,6 +33,7 @@ import {
 import { readCapacityLimit } from '../shared/evaluationCapacityLimit'
 import { readStability } from '../shared/evaluationStability'
 import { readSafety } from '../shared/evaluationSafety'
+import { readSite } from '../shared/evaluationSite'
 import { readAccessories } from '../shared/evaluationAccessories'
 import { readZoneAndWeights } from '../shared/evaluationZone'
 
@@ -53,6 +61,8 @@ export interface OperationalStatePayloadDto {
   readonly wind_speed_ms?: number
   readonly load_wind_area_m2?: number
   readonly obstacle_conflicts?: readonly string[]
+  /** TASK-107 (ADR-051): rede elétrica e contexto do içamento; ausente = não calcula. */
+  readonly site?: SiteDto
 }
 
 /** Cliente → servidor. O backend recusa campo desconhecido (`INVALID_MESSAGE`). */
@@ -94,6 +104,9 @@ export interface SimulationEvaluatedMessageDto {
       readonly severity: 'INFO' | 'ATTENTION' | 'CRITICAL'
       readonly message: string
     }[]
+    /** TASK-107 (ADR-051): distância às redes e classificação do içamento (só com `site`). */
+    readonly power_lines?: readonly PowerLineClearanceDto[]
+    readonly critical_lift?: CriticalLiftDto | null
   }
 }
 
@@ -207,6 +220,7 @@ function mapEvaluatedPayload(payload: JsonRecord): EvaluationResult {
     ...readCapacityLimit(payload, path),
     ...readStability(payload, path),
     ...readSafety(payload, path),
+    ...readSite(payload, path),
     ...readAccessories(payload, path),
   }
   if (result === 'EVALUATED') {

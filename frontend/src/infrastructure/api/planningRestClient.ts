@@ -112,6 +112,7 @@ export function toPlanningDto(request: PlanningRequest): Record<string, unknown>
     scenario: toScenarioSpecDto(request.scenario),
     ...(request.accessoryIds.length > 0 ? { accessory_ids: request.accessoryIds } : {}),
     ...(request.hookAttachM !== undefined ? { hook_attach_m: request.hookAttachM } : {}),
+    ...(request.slingAngleDeg !== undefined ? { sling_angle_deg: request.slingAngleDeg } : {}),
   }
 }
 
@@ -176,6 +177,9 @@ function mapDetail(json: unknown, path: string): PlanCraneDetail {
     utilizationPercent: readNumber(record, 'utilization_percent', path),
     transportHeightM: readNumber(record, 'transport_height_m', path),
     crossedObstacleIds: readStrings(record, 'crossed_obstacle_ids', path),
+    slingLengthM: readNumber(record, 'sling_length_m', path),
+    slingAngleDeg: readNumber(record, 'sling_angle_deg', path),
+    slingDropM: readNumber(record, 'sling_drop_m', path),
   }
 }
 

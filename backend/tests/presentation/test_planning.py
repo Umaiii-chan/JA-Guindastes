@@ -137,3 +137,71 @@ def test_o_openapi_publica_a_rota() -> None:
     schema = make_client().get("/openapi.json").json()
 
     assert PLANNING_PATH in schema["paths"]
+
+
+def test_o_plano_devolve_as_lingas_que_supos_a_geometria_unica() -> None:
+    """F-19 (ADR-051): carga 3 × 1,5 m, padrão de 60° → alcance 1,677 m e linga de 3,354 m."""
+    detail = (
+        make_client().post(PLANNING_PATH, json=body()).json()["recommendations"][0]["details"][0]
+    )
+
+    assert detail["sling_angle_deg"] == 60.0
+    assert abs(detail["sling_drop_m"] - 1.677051 * 3**0.5) < 1e-4
+    assert abs(detail["sling_length_m"] - 2 * 1.677051) < 1e-4
+
+
+def test_o_angulo_da_linga_informado_vale_no_plano() -> None:
+    detail = (
+        make_client()
+        .post(PLANNING_PATH, json=body(sling_angle_deg=45.0))
+        .json()["recommendations"][0]["details"][0]
+    )
+
+    assert detail["sling_angle_deg"] == 45.0
+    assert abs(detail["sling_drop_m"] - 1.677051) < 1e-4
+
+
+def test_angulo_da_linga_fora_de_30_a_85_e_422() -> None:
+    for angle in (29.9, 85.1, 89.0, 90.0, 0, -10):
+        response = make_client().post(PLANNING_PATH, json=body(sling_angle_deg=angle))
+        assert response.status_code == 422, angle
+
+
+def test_rede_eletrica_do_cenario_vira_zona_e_a_nota_diz_a_distancia_exigida() -> None:
+    payload = body()
+    payload["scenario"]["power_lines"] = [
+        {
+            "id": "R1",
+            "label": "Rede FICTÍCIA",
+            "x1_m": -40.0,
+            "z1_m": 60.0,
+            "x2_m": 40.0,
+            "z2_m": 60.0,
+            "height_m": 12.0,
+            "voltage_kv": 138.0,
+        }
+    ]
+
+    response = make_client().post(PLANNING_PATH, json=payload)
+
+    assert response.status_code == 200
+    # 138 kV: Tabela A do OSHA 1926.1408, 15 pés = 4,57 m.
+    assert any("Rede elétrica" in n and "138 kV: 4.57 m" in n for n in response.json()["notes"])
+
+
+def test_tensao_invalida_na_rede_do_cenario_e_422() -> None:
+    payload = body()
+    payload["scenario"]["power_lines"] = [
+        {
+            "id": "R1",
+            "label": "Rede",
+            "x1_m": 0.0,
+            "z1_m": 5.0,
+            "x2_m": 9.0,
+            "z2_m": 5.0,
+            "height_m": 12.0,
+            "voltage_kv": 5000.0,
+        }
+    ]
+
+    assert make_client().post(PLANNING_PATH, json=payload).status_code == 422

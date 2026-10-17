@@ -36,6 +36,7 @@ Não grava nada. Quem o chama: `POST /api/v1/evaluations` (TASK-024) e o WebSock
 (`app.main`, TASK-029).
 """
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from enum import StrEnum
@@ -49,21 +50,33 @@ from app.application.ports.configuration_load_rules_provider import (
 from app.application.ports.crane_geometry_provider import CraneGeometryProvider
 from app.application.ports.crane_limits_provider import CraneLimitsProvider
 from app.application.ports.safety_profile_provider import SafetyProfileProvider
-from app.domain.entities.accessory import Accessory
+from app.domain.entities.accessory import Accessory, AccessoryType
 from app.domain.entities.load import Load
 from app.domain.entities.load_chart import LoadChart, LoadChartStatus
+from app.domain.entities.scenario import PowerLineSpec
 from app.domain.exceptions.domain_errors import UndefinedUtilizationError
 from app.domain.exceptions.geometry_errors import (
     OperationalLimitViolation,
     OperationalStateOutOfLimitsError,
     OutsideGeometricDomainError,
 )
+from app.domain.services import rigging
 from app.domain.services.capacity_limit import CapacityLimit, evaluate_capacity_limit
 from app.domain.services.compared_load_weight import weight_compared_with_capacity
+from app.domain.services.critical_lift import CriticalLiftAssessment, assess_critical_lift
 from app.domain.services.environment_factors import SoilKind, slope_blocks, wind_blocks
 from app.domain.services.geometry_service import calculate_operational_geometry
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
+from app.domain.services.planning.planner import HOOK_ATTACH_M, REPLACED_HOOK_ATTACH_M
+from app.domain.services.power_line import (
+    ATTENTION_FACTOR,
+    ClearanceStatus,
+    CraneParts,
+    LineClearance,
+    assess_power_lines,
+)
 from app.domain.services.safety_assessment import (
+    AlertSeverity,
     OutriggerSetting,
     SafetyAlert,
     TippingRisk,
@@ -81,7 +94,7 @@ from app.domain.value_objects.capacity_result import (
 )
 from app.domain.value_objects.crane_limits import CraneLimits
 from app.domain.value_objects.mass import Mass
-from app.domain.value_objects.operational_geometry import OperationalGeometry
+from app.domain.value_objects.operational_geometry import OperationalGeometry, Point3D
 from app.domain.value_objects.operational_state import OperationalState
 from app.domain.value_objects.rotation_zone import RotationZone
 from app.domain.value_objects.safety_profile import SafetyProfile
@@ -148,6 +161,8 @@ class EvaluatedOperation:
     alerts: tuple[SafetyAlert, ...] = ()
     accessories: tuple[Accessory, ...] = ()
     stability: StabilityResult | None = None
+    power_line_clearances: tuple[LineClearance, ...] = ()
+    critical_lift: CriticalLiftAssessment | None = None
 
     @property
     def compared_weight(self) -> Mass:
@@ -202,6 +217,8 @@ class NotEvaluableOperation:
     alerts: tuple[SafetyAlert, ...] = ()
     accessories: tuple[Accessory, ...] = ()
     stability: StabilityResult | None = None
+    power_line_clearances: tuple[LineClearance, ...] = ()
+    critical_lift: CriticalLiftAssessment | None = None
 
     def __post_init__(self) -> None:
         reasons = tuple(self.reasons)
@@ -242,6 +259,30 @@ class InconsistentActiveLoadChartError(Exception):
 
 
 type _ZoneChart = tuple[RotationZone | None, LoadChart]
+
+
+@dataclass(frozen=True, slots=True)
+class SiteContext:
+    """O local da operação, para a rede elétrica e o içamento crítico (D4; TASK-107; ADR-051).
+
+    Sem ele, a avaliação não olha a rede nem classifica o içamento (o resultado é o de antes).
+    `crane_*` posicionam o guindaste no mundo (a geometria vem no referencial do chassi, com o
+    plano de apoio em y = 0, como a altura da rede); `load_*_m` são as dimensões da carga (sem elas
+    não há carga na conta da distância); `sling_angle_deg` é o ângulo das lingas (sem ele, o padrão
+    da carga: a mesma geometria do plano, F-19).
+    """
+
+    power_lines: tuple[PowerLineSpec, ...] = ()
+    crane_x_m: float = 0.0
+    crane_z_m: float = 0.0
+    crane_heading_deg: float = 0.0
+    load_length_m: float | None = None
+    load_width_m: float | None = None
+    load_height_m: float | None = None
+    sling_angle_deg: float | None = None
+    hook_attach_m: float = HOOK_ATTACH_M
+    tandem: bool = False
+    load_over_occupied: bool = False
 
 
 class EvaluateOperation:
@@ -303,6 +344,7 @@ class EvaluateOperation:
         obstacle_conflicts: Sequence[str] = (),
         capacity_factor: float = 1.0,
         load_wind_area_m2: float | None = None,
+        site: SiteContext | None = None,
     ) -> OperationEvaluation:
         """Avalia como `_evaluate_load_chart` e acrescenta o risco de tombamento e os alertas.
 
@@ -315,6 +357,10 @@ class EvaluateOperation:
 
         `capacity_factor` (RN-016; TASK-074) é um fator adicional sobre a capacidade efetiva, para
         o içamento com dois guindastes (0,75). O padrão (1) não muda nada.
+
+        `site` (TASK-107; ADR-051): a rede elétrica do cenário e o contexto do içamento. Com ele, o
+        resultado traz a distância às redes e a classificação de içamento crítico, e os alertas
+        correspondentes entram DEPOIS do `assess_safety`: não mudam o `tipping_risk`.
         """
         profile = self.safety_profile(configuration_id)
         evaluation = self._evaluate_load_chart(
@@ -374,11 +420,59 @@ class EvaluateOperation:
                 evaluation.compared_weight.kilograms, load_wind_area_m2, profile.stability
             ),
         )
-        return replace(
+        result = replace(
             evaluation,
             tipping_risk=assessment.tipping_risk,
             alerts=assessment.alerts,
             stability=stability,
+        )
+        if site is None:
+            return result
+        return self._with_site(
+            result,
+            site,
+            profile=profile,
+            ground_slope_deg=ground_slope_deg,
+            wind_speed_ms=wind_speed_ms,
+            wind_limit=wind_limit_ms(
+                evaluation.compared_weight.kilograms, load_wind_area_m2, profile.stability
+            ),
+        )
+
+    def _with_site(
+        self,
+        result: OperationEvaluation,
+        site: SiteContext,
+        *,
+        profile: SafetyProfile,
+        ground_slope_deg: float | None,
+        wind_speed_ms: float | None,
+        wind_limit: float,
+    ) -> OperationEvaluation:
+        """Distância às redes e içamento crítico; os alertas novos entram sem tocar no risco."""
+        clearances = _power_line_clearances(result, site)
+        capacity_limit = result.capacity_limit if isinstance(result, EvaluatedOperation) else None
+        usage_ratio = (
+            None if capacity_limit is None else capacity_limit.limit_utilization_percent / 100
+        )
+        min_ratio = (
+            min(c.swept_distance_m / c.required_m for c in clearances) if clearances else None
+        )
+        critical = assess_critical_lift(
+            capacity_usage_ratio=usage_ratio,
+            tandem=site.tandem,
+            load_over_occupied=site.load_over_occupied,
+            min_clearance_ratio=min_ratio,
+            wind_speed_ms=wind_speed_ms,
+            wind_limit_ms=wind_limit,
+            ground_slope_deg=ground_slope_deg,
+            max_ground_slope_deg=profile.max_ground_slope_deg,
+            soil_attention=any(alert.code in _SOIL_ATTENTION_CODES for alert in result.alerts),
+        )
+        new_alerts = [*_clearance_alerts(clearances), *_critical_alerts(critical)]
+        alerts = tuple(sorted((*result.alerts, *new_alerts), key=_alert_rank))
+        return replace(
+            result, alerts=alerts, power_line_clearances=clearances, critical_lift=critical
         )
 
     def safety_profile(self, configuration_id: str) -> SafetyProfile:
@@ -558,3 +652,110 @@ class EvaluateOperation:
 _NO_ACTIVE_CHART: tuple[EvaluationReason, ...] = (NotEvaluableReason.ACTIVE_LOAD_CHART_NOT_FOUND,)
 
 _ACCESSORY_NOT_FOUND: tuple[EvaluationReason, ...] = (NotEvaluableReason.ACCESSORY_NOT_FOUND,)
+
+
+_SOIL_ATTENTION_CODES = frozenset({"SOIL_BEARING_NEAR_LIMIT", "SOIL_BEARING_EXCEEDED"})
+
+_SEVERITY_ORDER = {AlertSeverity.CRITICAL: 0, AlertSeverity.ATTENTION: 1, AlertSeverity.INFO: 2}
+
+_PART_LABELS = {"boom": "lança", "cable": "cabo de aço", "load": "carga"}
+
+
+def _alert_rank(alert: SafetyAlert) -> int:
+    """Ordem do `assess_safety`: críticos, atenção e informativos (a ordenação é estável)."""
+    return _SEVERITY_ORDER[alert.severity]
+
+
+def _power_line_clearances(
+    result: OperationEvaluation, site: SiteContext
+) -> tuple[LineClearance, ...]:
+    """Distância 3D de lança, cabo e carga às redes, agora e com o giro varrido (ADR-051)."""
+    geometry = result.geometry
+    if geometry is None or not site.power_lines:
+        return ()
+    heading = math.radians(site.crane_heading_deg)
+    cos = math.cos(heading)
+    sin = math.sin(heading)
+
+    def world(point: Point3D) -> tuple[float, float, float]:
+        # `rotY(heading)`: o referencial do chassi (+Z para a frente) no mundo.
+        return (
+            site.crane_x_m + point.x_m * cos + point.z_m * sin,
+            point.y_m,
+            site.crane_z_m - point.x_m * sin + point.z_m * cos,
+        )
+
+    load_radius = 0.0
+    load_drop = 0.0
+    load_height = 0.0
+    if site.load_length_m and site.load_width_m and site.load_height_m:
+        sling = rigging.default_geometry(
+            site.load_length_m,
+            site.load_width_m,
+            angle_deg=site.sling_angle_deg,
+            tandem=site.tandem,
+        )
+        replaces_hook = any(a.type is AccessoryType.HOOK_BLOCK for a in result.accessories)
+        attach = REPLACED_HOOK_ATTACH_M if replaces_hook else site.hook_attach_m
+        # No tandem cada gancho fica a L/4 do centro: o canto mais afastado está a 3L/4 dele.
+        reach_along = 0.75 * site.load_length_m if site.tandem else site.load_length_m / 2
+        load_radius = math.hypot(reach_along, site.load_width_m / 2)
+        load_drop = attach + sum(a.rigging_height_m for a in result.accessories) + sling.drop_m
+        load_height = site.load_height_m
+    parts = CraneParts(
+        pivot=world(geometry.boom_pivot),
+        tip=world(geometry.boom_tip),
+        hook=world(geometry.hook),
+        load_radius_m=load_radius,
+        load_drop_m=load_drop,
+        load_height_m=load_height,
+    )
+    return assess_power_lines(site.power_lines, parts, (site.crane_x_m, site.crane_z_m))
+
+
+def _clearance_alerts(clearances: Sequence[LineClearance]) -> list[SafetyAlert]:
+    alerts: list[SafetyAlert] = []
+    for item in clearances:
+        required = f"{item.required_m:.2f} m a {item.voltage_kv:g} kV"
+        if item.status is ClearanceStatus.VIOLATION:
+            part = _PART_LABELS[item.nearest_part]
+            alerts.append(
+                SafetyAlert(
+                    "POWER_LINE_CLEARANCE_VIOLATION",
+                    AlertSeverity.CRITICAL,
+                    f"{item.label}: {part} a {item.distance_m:.2f} m da rede, abaixo da "
+                    f"distância mínima ({required}).",
+                )
+            )
+        elif item.swept_status is ClearanceStatus.VIOLATION:
+            alerts.append(
+                SafetyAlert(
+                    "POWER_LINE_SWEPT_VIOLATION",
+                    AlertSeverity.CRITICAL,
+                    f"{item.label}: girando, a distância à rede cai a {item.swept_distance_m:.2f} "
+                    f"m, abaixo da mínima ({required}).",
+                )
+            )
+        elif ClearanceStatus.ATTENTION in (item.status, item.swept_status):
+            alerts.append(
+                SafetyAlert(
+                    "POWER_LINE_CLEARANCE_NEAR",
+                    AlertSeverity.ATTENTION,
+                    f"{item.label}: distância à rede de {item.swept_distance_m:.2f} m (mínima "
+                    f"{required}), abaixo de {ATTENTION_FACTOR:g}× a mínima.",
+                )
+            )
+    return alerts
+
+
+def _critical_alerts(critical: CriticalLiftAssessment) -> list[SafetyAlert]:
+    if not critical.is_critical:
+        return []
+    return [
+        SafetyAlert(
+            "CRITICAL_LIFT",
+            AlertSeverity.ATTENTION,
+            f"Içamento CRÍTICO: {'; '.join(critical.reasons)}. Plano de içamento exigido: "
+            f"{'; '.join(critical.plan_items)}.",
+        )
+    ]

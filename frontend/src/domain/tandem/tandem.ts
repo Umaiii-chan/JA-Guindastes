@@ -12,9 +12,11 @@
 //
 // Alturas (TASK-090): o cabo termina em G, mas as lingas saem do fim do gancho em uso (moitão do
 // modelo 3D) e, com acessórios, do fim da cadeia deles. Cada guindaste tem a sua distância de G até
-// esse ponto (`TandemLoad.hookDropsM`), e a carga fica `TANDEM_SLING_DROP_M` abaixo dele.
+// esse ponto (`TandemLoad.hookDropsM`), e a carga fica `tandemSlingDropM` abaixo dele: a altura das
+// lingas da geometria única (`domain/rigging/slingGeometry`; F-19, ADR-051), a mesma do planejador.
 
 import { HOOK_ATTACH_OFFSET_M } from '../collision/loadBox'
+import { defaultGeometry } from '../rigging/slingGeometry'
 import {
   calculateOperationalGeometry,
   type CraneGeometryParameters,
@@ -25,9 +27,6 @@ const DEG = Math.PI / 180
 
 /** Cada guindaste usa no máximo esta fração da capacidade dele (RN-016); o cálculo é do backend. */
 export const TANDEM_CAPACITY_FACTOR = 0.75
-
-/** Altura das lingas entre o fim do gancho (ou da cadeia de acessórios) e o topo da carga (m). */
-export const TANDEM_SLING_DROP_M = 1.5
 
 /** Os pontos de içamento ficam a esta fração do comprimento, a partir do centro (1/4 e 3/4). */
 export const DEFAULT_LIFT_FRACTION = 0.25
@@ -87,6 +86,15 @@ export interface TandemLoad {
    * sem acessórios.
    */
   readonly hookDropsM?: readonly [number, number]
+}
+
+/**
+ * Altura das lingas entre o fim do gancho (ou da cadeia de acessórios) e o topo da carga (m): a
+ * geometria única (F-19; ADR-051) com a carga em tandem, em que cada guindaste ergue a sua metade
+ * (içamento a 1/4 e 3/4 do comprimento). Antes era 1,5 m fixos, e o planejador usava outra conta.
+ */
+export function tandemSlingDropM(load: TandemLoad, angleDeg?: number | null): number {
+  return defaultGeometry(load.lengthM, load.widthM, { angleDeg, tandem: true }).dropM
 }
 
 /** Configuração do tandem: quem conduz, quem acompanha, a carga e onde ela está no chão. */
@@ -174,7 +182,7 @@ export function engageHookHeightM(setup: TandemSetup, crane: TandemCraneIndex = 
   return (
     setup.cargoGroundY +
     setup.load.heightM +
-    TANDEM_SLING_DROP_M +
+    tandemSlingDropM(setup.load) +
     tandemHookDropM(setup.load, crane)
   )
 }
@@ -331,7 +339,7 @@ export function tandemFrame(
       x: setup.cargo.x + dx,
       z: setup.cargo.z + dz,
       rotationYDeg: setup.cargo.rotationYDeg,
-      bottomY: slingTopY - TANDEM_SLING_DROP_M - setup.load.heightM,
+      bottomY: slingTopY - tandemSlingDropM(setup.load) - setup.load.heightM,
     },
   }
 }

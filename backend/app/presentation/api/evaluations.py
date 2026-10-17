@@ -181,6 +181,7 @@ def create_evaluations_router(
             wind_speed_ms=request.wind_speed_ms,
             load_wind_area_m2=request.load_wind_area_m2,
             obstacle_conflicts=request.obstacle_conflicts,
+            site=None if request.site is None else request.site.to_context(),
         )
         return EvaluationResponse.from_evaluation(request.configuration_id, evaluation)
 

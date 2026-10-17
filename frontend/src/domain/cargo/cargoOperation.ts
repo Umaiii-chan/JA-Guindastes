@@ -13,20 +13,23 @@ import {
   type TerrainSpec,
   terrainHeightAt,
 } from '../environment/environment'
+import { defaultGeometry, type SlingGeometry } from '../rigging/slingGeometry'
 import { loadBedsOf, loadBedTopUnder } from './loadBeds'
 
 const DEG = Math.PI / 180
 
-/** Engate: o gancho (ou o fim da cadeia de acessórios) até 0,5 m acima do topo da carga. */
+/**
+ * Engate (F-19; ADR-051): as lingas esticam quando o fim do gancho (ou da cadeia de acessórios) está a
+ * `slingDrop` acima do topo da carga (a altura da geometria única, `domain/rigging`). Vale engatar com
+ * o gancho até 0,5 m ACIMA desse ponto (a carga já sai do chão, como ao içar).
+ */
 export const ENGAGE_MAX_GAP_M = 0.5
-/** Folga abaixo do topo (m) que ainda conta como encostado: ruído da caixa do gancho. */
+/** Folga (m) ABAIXO do ponto em que as lingas esticam que ainda conta: ruído da caixa do gancho. */
 export const ENGAGE_MIN_GAP_M = -0.1
 /** Engate: alinhamento horizontal entre o gancho e o centro da carga. */
 export const ENGAGE_HORIZONTAL_TOLERANCE_M = 0.5
 /** Solta: a base da carga até 0,2 m da superfície de apoio (o chão ou a carroceria de um caminhão). */
 export const RELEASE_MAX_HEIGHT_M = 0.2
-/** Menor altura das lingas desenhadas ao engatar (m). */
-export const MIN_SLING_DROP_M = 0.05
 
 export type CargoPhase = 'ground' | 'hooked'
 
@@ -57,6 +60,11 @@ export interface CargoStatus {
   readonly canRelease: boolean
   /** Com a carga no chão: quanto o fim do gancho está acima do topo dela (m). */
   readonly gapM: number | null
+  /**
+   * Altura das lingas da carga (m; geometria única, F-19): com a carga no chão, a distância do fim
+   * do gancho ao topo em que as lingas esticam e dá para engatar; com ela no gancho, a altura em uso.
+   */
+  readonly slingDropM: number | null
   /** Com a carga no chão: distância horizontal do gancho ao centro dela (m). */
   readonly offsetM: number | null
   /** Com a carga no gancho: altura da base dela acima do chão (m). */
@@ -72,6 +80,7 @@ export const INACTIVE_CARGO: CargoStatus = {
   canEngage: false,
   canRelease: false,
   gapM: null,
+  slingDropM: null,
   offsetM: null,
   heightAboveGroundM: null,
   distanceToDeliveryM: null,
@@ -87,6 +96,7 @@ export function cargoStatusKey(status: CargoStatus): string {
     status.canEngage,
     status.canRelease,
     tenth(status.gapM),
+    tenth(status.slingDropM),
     tenth(status.offsetM),
     tenth(status.heightAboveGroundM),
     tenth(status.distanceToDeliveryM),
@@ -192,6 +202,13 @@ export interface HookReference {
   readonly attachOffsetM: number
   /** Soma das alturas da cadeia de acessórios abaixo do gancho (m). */
   readonly accessoriesDropM: number
+  /** Ângulo das lingas com a horizontal (30° a 90°); ausente, o padrão da carga (F-19). */
+  readonly slingAngleDeg?: number | null
+}
+
+/** As lingas desta carga: a geometria única, a mesma que o planejador supõe (F-19; ADR-051). */
+export function slingGeometryOf(hook: HookReference, size: LoadDimensions): SlingGeometry {
+  return defaultGeometry(size.lengthM, size.widthM, { angleDeg: hook.slingAngleDeg })
 }
 
 function normalizeDeg(deg: number): number {
@@ -208,6 +225,8 @@ export function hookEndPoint(hook: HookReference): Vec3 {
 export interface EngageCheck {
   /** Altura do fim do gancho acima do topo da carga (m); negativa = abaixo do topo. */
   readonly gapM: number
+  /** Altura das lingas (m): onde o gancho precisa estar acima do topo para elas esticarem. */
+  readonly slingDropM: number
   /** Distância horizontal do fim do gancho ao centro da carga (m). */
   readonly offsetM: number
   readonly canEngage: boolean
@@ -224,30 +243,33 @@ export function checkEngage(
   const end = hookEndPoint(hook)
   const topY = cargoBaseY(terrain, size, pose, obstacles) + size.heightM
   const gapM = end.y - topY
+  const slingDropM = slingGeometryOf(hook, size).dropM
+  const slack = gapM - slingDropM
   const offsetM = Math.hypot(end.x - pose.x, end.z - pose.z)
   return {
     gapM,
+    slingDropM,
     offsetM,
     canEngage:
-      gapM <= ENGAGE_MAX_GAP_M &&
-      gapM >= ENGAGE_MIN_GAP_M &&
+      slack <= ENGAGE_MAX_GAP_M &&
+      slack >= ENGAGE_MIN_GAP_M &&
       offsetM <= ENGAGE_HORIZONTAL_TOLERANCE_M,
   }
 }
 
 /**
  * Engata: a carga fica onde está e passa a seguir o gancho. Guarda o deslocamento e o giro em relação
- * a ele e a distância que havia entre o fim do gancho e o topo, que vira a altura das lingas (assim a
- * carga não pula nem entra no chão ao ser levantada).
+ * a ele e as lingas da geometria única (comprimento, ângulo e altura; F-19, ADR-051): a altura é a
+ * mesma que o planejador supôs, e não a folga medida no instante do engate. Por isso o engate só vale
+ * com o gancho perto do ponto em que as lingas esticam (`checkEngage`): ao engatar, a carga pode subir até
+ * `ENGAGE_MAX_GAP_M` ou afundar até `ENGAGE_MIN_GAP_M` (o ajuste ao ponto das lingas esticadas).
  */
 export function engageCargo(
   state: CargoState,
   hook: HookReference,
   size: LoadDimensions,
-  terrain: TerrainSpec,
-  obstacles: readonly Obstacle[] = [],
 ): CargoState {
-  const check = checkEngage(hook, state, size, terrain, obstacles)
+  const sling = slingGeometryOf(hook, size)
   const { pos } = hook.frame
   // Do mundo para o plano do gancho: gira de volta o giro do referencial.
   const local = mulVec(rotY(-hook.yawDeg * DEG), { x: state.x - pos.x, y: 0, z: state.z - pos.z })
@@ -258,7 +280,9 @@ export function engageCargo(
       offsetX: Math.round(local.x * 1000) / 1000,
       offsetZ: Math.round(local.z * 1000) / 1000,
       yawDeg: normalizeDeg(state.rotationYDeg - hook.yawDeg),
-      slingDropM: Math.max(MIN_SLING_DROP_M, Math.round(check.gapM * 1000) / 1000),
+      slingDropM: Math.round(sling.dropM * 1000) / 1000,
+      slingLengthM: Math.round(sling.lengthM * 1000) / 1000,
+      slingAngleDeg: Math.round(sling.angleDeg * 1000) / 1000,
     },
   }
 }
@@ -354,6 +378,7 @@ export function cargoStatusOf(
       canEngage: check.canEngage,
       canRelease: false,
       gapM: check.gapM,
+      slingDropM: check.slingDropM,
       offsetM: check.offsetM,
       heightAboveGroundM: null,
       distanceToDeliveryM: null,
@@ -366,6 +391,7 @@ export function cargoStatusOf(
     canEngage: false,
     canRelease: check.canRelease,
     gapM: null,
+    slingDropM: state.hooked.slingDropM,
     offsetM: null,
     heightAboveGroundM: check.heightAboveGroundM,
     distanceToDeliveryM: delivery

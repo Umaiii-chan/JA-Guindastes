@@ -3,8 +3,12 @@
 // faixas do guindaste são validadas no backend, com a ficha técnica (RN-008; ADR-013 C-5).
 
 import { type OutriggerState, residualSlopeDeg } from '../domain/crane/outriggers'
-import type { SoilKind } from '../domain/environment/environment'
-import type { EvaluationInput, OutriggerInput } from '../domain/evaluation/evaluation'
+import type { ScenarioSpec, SoilKind } from '../domain/environment/environment'
+import type {
+  EvaluationInput,
+  EvaluationSite,
+  OutriggerInput,
+} from '../domain/evaluation/evaluation'
 import type { CraneState } from '../three/crane/types'
 
 /**
@@ -26,6 +30,45 @@ export interface ScenarioEvaluationExtras {
   /** Área de vento da carga `A_W` (TASK-106; RN-017), só com a carga pendurada. */
   readonly loadWindAreaM2?: number
   readonly obstacleConflicts?: readonly string[]
+  /** Rede elétrica e contexto do içamento (TASK-107; ADR-051). */
+  readonly site?: EvaluationSite
+}
+
+export interface SiteInputs {
+  readonly spec: ScenarioSpec
+  /** Medidas da carga válida (m); sem elas, a carga não entra na distância à rede. */
+  readonly load: {
+    readonly lengthM: number
+    readonly widthM: number
+    readonly heightM: number
+  } | null
+  readonly tandem: boolean
+  readonly loadOverOccupied: boolean
+  /** Do gancho ao ponto de amarração das lingas, medido na cena (m); ausente = padrão do servidor. */
+  readonly hookAttachM?: number | null
+}
+
+/**
+ * O local da operação que vai à avaliação (TASK-107; ADR-051): as redes do cenário, onde o guindaste
+ * está, as medidas da carga e o contexto do içamento. Vai SEMPRE: sem rede, o backend ainda classifica
+ * o içamento (75 % da capacidade, tandem, vento, solo e inclinação).
+ */
+export function buildEvaluationSite(inputs: SiteInputs): EvaluationSite {
+  const { spec, load } = inputs
+  return {
+    powerLines: spec.powerLines ?? [],
+    craneXM: spec.crane.x,
+    craneZM: spec.crane.z,
+    craneHeadingDeg: spec.crane.headingDeg,
+    ...(load
+      ? { loadLengthM: load.lengthM, loadWidthM: load.widthM, loadHeightM: load.heightM }
+      : {}),
+    ...(inputs.hookAttachM != null && inputs.hookAttachM > 0
+      ? { hookAttachM: inputs.hookAttachM }
+      : {}),
+    tandem: inputs.tandem,
+    loadOverOccupied: inputs.loadOverOccupied,
+  }
 }
 
 export type EvaluationInputResult =
@@ -81,6 +124,7 @@ export function buildEvaluationInput(
       ...(scenarioExtras.obstacleConflicts && scenarioExtras.obstacleConflicts.length > 0
         ? { obstacleConflicts: scenarioExtras.obstacleConflicts }
         : {}),
+      ...(scenarioExtras.site ? { site: scenarioExtras.site } : {}),
     },
     problem: null,
   }
