@@ -11,3 +11,8 @@ Relato da pessoa usuária em 2026-10-14: os carros gerados pelo assistente apare
 ## Testes a escrever depois
 
 - Teste de tela: aplicar uma proposta com carro e árvore e conferir a escala dos meshes.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PR #38). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

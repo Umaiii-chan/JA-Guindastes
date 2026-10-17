@@ -11,3 +11,8 @@ Relato: "a inserção dos acessórios não está correta, eles não estão alter
 
 Teste essencial: `frontend/tests/three/scene/HookLoad.test.ts` (moitão esconde e devolve o do modelo).
 Capturas: `docs/assets/screenshots/leva-e/acessorios-*.png`.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PR #24). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

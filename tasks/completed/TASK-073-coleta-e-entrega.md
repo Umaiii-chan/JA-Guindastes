@@ -23,3 +23,8 @@ entrega". ADR-035. Parte do editor 3D do ambiente (TASK-066, ADR-032).
 - Teste de integração do backend com Postgres: salvar e reabrir cenário com `cargo` e `delivery` (os testes de integração pulam sem o banco).
 - Engatar em terreno inclinado e com a cadeia de acessórios maior; soltar sobre uma elevação.
 - Reproduzir uma gravação antiga (sem `cargo`) com o cenário novo aberto.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PR #25). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).
