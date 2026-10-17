@@ -50,6 +50,9 @@ export function createOperatingAreaRestClient(
             body: JSON.stringify({
               boom_length_m: request.boomLengthM,
               load_weight_kg: request.loadWeightKg,
+              // Só vai com acessórios escolhidos, como na avaliação (RN-014).
+              ...(request.accessoryIds !== undefined &&
+                request.accessoryIds.length > 0 && { accessory_ids: request.accessoryIds }),
               ...(request.psiStepDeg !== undefined && { psi_step_deg: request.psiStepDeg }),
               ...(request.radiusStepM !== undefined && { radius_step_m: request.radiusStepM }),
             }),

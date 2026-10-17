@@ -54,6 +54,17 @@ async function openPositionStep(
 }
 
 /**
+ * Suspende a carga (cabo no mínimo) antes de girar. Com o gancho baixo, a carga de 2 m passa
+ * raspando no chassi, e a guarda de colisão (RN-012; TASK-063) para o giro no último estado seguro,
+ * antes da outra zona. Estes testes são das zonas, não da colisão.
+ */
+async function liftLoad(page: Page): Promise<void> {
+  const cable = page.getByLabel('Comprimento do cabo')
+  await cable.focus()
+  await cable.press('Home')
+}
+
+/**
  * Avaliação FALSA no navegador, no contrato da TASK-046: zona pelo ψ (frontal de 305° a 55°),
  * capacidade FICTÍCIA por zona e carga + gancho comparados.
  */
@@ -121,9 +132,11 @@ test.describe('zonas de giro, no navegador', () => {
     await capture(page, 'simulador-zona-frontal')
 
     // Giro até a ponta (90°, lado esquerdo): zona lateral e traseira.
+    await liftLoad(page)
     const turret = page.getByLabel('Giro da torre')
     await turret.focus()
     await turret.press('End')
+    await expect(turret).toHaveValue('90')
     await expect(activeZoneLabel(page)).toHaveText('Lateral e traseira FICTÍCIA')
     await expect(hudMetric(page, 'Zona de giro')).toHaveText('Lateral e traseira FICTÍCIA')
     await expect(hudMetric(page, 'Capacidade')).toHaveText('2.500 kg')
@@ -201,7 +214,8 @@ test.describe('zonas de giro, com backend', () => {
     await expect(hudMetric(page, 'Utilização')).toHaveText('78,35 %')
 
     // Cenário F: −180° é o mesmo giro que 180° (traseira) → lateral e traseira (v1 × 0,8), 3 267 kg →
-    // 97,94 %.
+    // 97,94 %. O raio não muda ao subir o gancho, então a capacidade também não.
+    await liftLoad(page)
     const turret = page.getByLabel('Giro da torre')
     await turret.focus()
     await turret.press('Home')
@@ -273,6 +287,7 @@ test.describe('zonas de giro, com backend', () => {
     await expect(hudMetric(page, 'Peso comparado')).toHaveText('3.150 kg')
     await expect(activeZoneLabel(page)).toHaveText(ZONAS_FICTICIAS[0].name)
 
+    await liftLoad(page)
     const turret = page.getByLabel('Giro da torre')
     await turret.focus()
     await turret.press('End')

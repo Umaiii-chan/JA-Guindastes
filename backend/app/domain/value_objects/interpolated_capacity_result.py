@@ -18,10 +18,11 @@ _TOLERANCE_KG = 1e-9
 
 @dataclass(frozen=True)
 class InterpolatedCapacityFound(CapacityFound):
-    """Capacidade interpolada entre pontos da tabela (ADR-030).
+    """Capacidade interpolada entre pontos da tabela (ADR-030; ADR-043).
 
     - `query`: comprimento de lança e raio consultados.
-    - `points`: os pontos tabelados usados (1, 2 ou 4), em ordem de comprimento e raio.
+    - `points`: os pontos tabelados usados (1 ou 2), todos da mesma coluna de lança (ADR-043), em
+      ordem de raio.
     - `strategy`: sempre `LINEAR_INTERPOLATION_PROVISIONAL`.
 
     Invariante: a capacidade fica entre a menor e a maior capacidade dos pontos usados.

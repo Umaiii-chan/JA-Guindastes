@@ -45,6 +45,9 @@ from app.presentation.api.load_chart_schemas import LoadChartPointResponse
 
 MAX_ACCESSORY_IDS = 20
 AccessoryId = Annotated[str, StringConstraints(min_length=1, max_length=64)]
+MAX_OBSTACLE_CONFLICTS = 50
+ObstacleConflictId = Annotated[str, StringConstraints(min_length=1, max_length=64)]
+"""Id (ou rótulo) de obstáculo em conflito (RN-015), como no `EvaluationRequest` (e no tandem)."""
 
 
 class AccessorySummaryResponse(BaseModel):

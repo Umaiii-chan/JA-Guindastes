@@ -94,6 +94,31 @@ describe('useOperatingArea', () => {
     expect(calls[0].loadWeightKg).toBe(1400)
   })
 
+  it('manda os acessórios e pede de novo quando a cadeia muda (RN-014)', async () => {
+    const { client, calls } = fakeClient()
+    const { rerender } = renderHook(
+      (props: { accessoryIds: readonly string[] }) =>
+        useOperatingArea({ ...BASE, ...props, enabled: true, client }),
+      { initialProps: { accessoryIds: [] as readonly string[] } },
+    )
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(150)
+    })
+    // Mesmo conteúdo num array novo (a tela recria a lista): não pede de novo.
+    rerender({ accessoryIds: [] })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(150)
+    })
+    rerender({ accessoryIds: ['ACC-FICTICIO-GANCHO', 'ACC-FICTICIO-MANILHA'] })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(150)
+    })
+
+    expect(calls).toHaveLength(2)
+    expect(calls[0].accessoryIds).toEqual([])
+    expect(calls[1].accessoryIds).toEqual(['ACC-FICTICIO-GANCHO', 'ACC-FICTICIO-MANILHA'])
+  })
+
   it('erro do servidor vira mensagem e apaga a grade', async () => {
     const client: OperatingAreaRestClient = {
       compute: async () => {

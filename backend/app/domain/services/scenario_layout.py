@@ -6,27 +6,39 @@ obstáculo que invade uma zona reservada para o ponto livre mais próximo, na di
 do centro da zona, em passos de 0,5 m (até 60 m), e devolve o que foi movido para a pessoa revisar.
 
 Zonas reservadas, todas no plano XZ:
-- guindaste principal e guindastes adicionais: retângulo de 14 m x 8 m (chassi mais o vão das
-  patolas, estimativa conservadora) girado pelo rumo (`heading_deg`);
-- carga na coleta: a caixa da carga (comprimento x largura) mais 1,5 m de folga em volta;
+- guindaste principal e guindastes adicionais: o corpo do guindaste em planta, o mesmo do
+  planejamento (`planning/crane_body.py`: X de -3,10 a 3,10 m e Z de -5,13 m, traseira, a 9,22 m,
+  cabine, em relação ao eixo de giro, com as patolas estendidas), mais `CRANE_MARGIN_M` de folga
+  em volta, girado pelo rumo (`heading_deg`). O retângulo não é centrado no eixo de giro: o chassi
+  avança mais para a frente (+Z) do que para trás;
+- carga na coleta: a caixa da carga (largura em X local, comprimento em Z local) mais 1,5 m de
+  folga em volta;
 - entrega: círculo com o raio da entrega mais 1 m.
 
 Exceções: um veículo-plataforma (carreta) pode ficar sobre a entrega, porque a carga é entregue em
 cima dele; e o barracão aberto, de onde a carga sai, pode cobrir a coleta e a entrega. Nenhum dos
 dois pode invadir o guindaste.
 
-Convenção dos giros (a mesma do editor 3D): rotação em torno de Y; no referencial do objeto, o
-comprimento fica em X local e a frente do guindaste em +Z, de modo que o ponto local `(lx, lz)`
-vai para `(x + lx*cos + lz*sin, z - lx*sin + lz*cos)`.
+Convenção dos giros (a mesma do editor 3D e da cena): rotação em torno de Y; no referencial do
+objeto, a largura fica em X local e o comprimento (a profundidade) em Z local, com a frente do
+guindaste em +Z, como a cena desenha a carga (`GroundCargo`: `BoxGeometry(largura, altura,
+comprimento)`; `CargoOperation`: `depthM = lengthM`). O ponto local `(lx, lz)` vai para
+`(x + lx*cos + lz*sin, z - lx*sin + lz*cos)`.
 """
 
 import math
 from dataclasses import dataclass, replace
 
 from app.domain.entities.scenario import ObstacleSpec, ScenarioSpec
+from app.domain.services.planning.crane_body import (
+    BODY_MAX_X_M,
+    BODY_MAX_Z_M,
+    BODY_MIN_X_M,
+    BODY_MIN_Z_M,
+)
 
-CRANE_ZONE_LENGTH_M = 14.0
-CRANE_ZONE_WIDTH_M = 8.0
+CRANE_MARGIN_M = 1.0
+"""FICTÍCIO (ADR-012): folga em volta do corpo do guindaste, para um objeto não encostar nele."""
 CARGO_MARGIN_M = 1.5
 DELIVERY_MARGIN_M = 1.0
 STEP_M = 0.5
@@ -129,11 +141,12 @@ def make_scenario_layout_safe(
     ]
     cargo_zones: list[_Zone] = []
     if spec.cargo is not None:
+        # Largura em X local e comprimento em Z local, como a cena desenha a carga no chão.
         cargo_box = _Rect(
             spec.cargo.x,
             spec.cargo.z,
-            load_length_m / 2 + CARGO_MARGIN_M,
             load_width_m / 2 + CARGO_MARGIN_M,
+            load_length_m / 2 + CARGO_MARGIN_M,
             spec.cargo.rotation_y_deg,
         )
         cargo_zones.append(_Zone(cargo_box, _CARGO))
@@ -178,7 +191,19 @@ def make_scenario_layout_safe(
 
 
 def _crane_zone(x: float, z: float, heading_deg: float, reason: str) -> _Zone:
-    return _Zone(_Rect(x, z, CRANE_ZONE_WIDTH_M / 2, CRANE_ZONE_LENGTH_M / 2, heading_deg), reason)
+    """O corpo do guindaste (`crane_body.py`) mais a folga, com o centro no meio do corpo."""
+    local_cx = (BODY_MIN_X_M + BODY_MAX_X_M) / 2
+    local_cz = (BODY_MIN_Z_M + BODY_MAX_Z_M) / 2
+    angle = math.radians(heading_deg)
+    cos, sin = math.cos(angle), math.sin(angle)
+    rect = _Rect(
+        x + local_cx * cos + local_cz * sin,
+        z - local_cx * sin + local_cz * cos,
+        (BODY_MAX_X_M - BODY_MIN_X_M) / 2 + CRANE_MARGIN_M,
+        (BODY_MAX_Z_M - BODY_MIN_Z_M) / 2 + CRANE_MARGIN_M,
+        heading_deg,
+    )
+    return _Zone(rect, reason)
 
 
 def _is_anchored(obstacle: ObstacleSpec) -> bool:

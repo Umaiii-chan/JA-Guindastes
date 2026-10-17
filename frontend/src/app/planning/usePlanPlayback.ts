@@ -21,6 +21,12 @@ export const PLAYBACK_SPEEDS: readonly number[] = [1, 2, 4]
  */
 export const UI_REFRESH_MS = 200
 export const RECORDING_UI_REFRESH_MS = 100
+/**
+ * Intervalo máximo (s, tempo real) que um quadro de animação faz a trajetória andar, como nas
+ * patolas (`OutriggerController`): um quadro longo (aba em segundo plano, GPU lenta) não vira um
+ * salto de vários quadros-chave; a execução só continua de onde estava (TASK-092).
+ */
+export const MAX_FRAME_DT_S = 0.1
 
 export interface PlanPlaybackParams {
   /** Quadros-chave do guindaste que a cena mostra, em ordem de tempo. */
@@ -52,8 +58,9 @@ export interface PlanPlayback {
 
 /**
  * Aplica um estado da trajetória nos comandos da cena, de uma vez só: a guarda de colisão confere o
- * estado final (não cada comando em sequência, que podia bloquear uma combinação intermediária e
- * fazer a pose pular). O giro é trazido para a faixa do guindaste.
+ * caminho desde o estado atual, com todos os campos andando juntos (não cada comando em sequência,
+ * que podia bloquear uma combinação intermediária e fazer a pose pular; TASK-077 e TASK-092). O giro
+ * é trazido para a faixa do guindaste.
  */
 export function applyPlanState(commands: CraneCommands, state: PlanCraneState): void {
   commands.setState({
@@ -130,7 +137,8 @@ export function usePlanPlayback({
     let lastRefresh = 0
     const tick = (now: number) => {
       const before = elapsed
-      elapsed += ((now - last) / 1000) * speedRef.current
+      const dtS = Math.min(Math.max(0, (now - last) / 1000), MAX_FRAME_DT_S)
+      elapsed += dtS * speedRef.current
       last = now
       const commands = callbacks.current.getCommands()
       // Quadros-chave cruzados neste passo: cada um é aplicado exatamente antes de seguir.

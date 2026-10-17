@@ -1,4 +1,5 @@
 import {
+  Box3,
   BoxGeometry,
   BufferGeometry,
   Color,
@@ -14,7 +15,8 @@ import {
   Vector3,
 } from 'three'
 
-import { measureHookExtent } from '../crane/rigLandmarks'
+import { REPLACES_HOOK_USER_DATA } from '../accessories/AccessoryChain'
+import { boxInFrameOf, measureHookExtent } from '../crane/rigLandmarks'
 import { cargoModelId, cargoModelInstance, cargoModels, loadCargoModel } from './CargoModels'
 import {
   computeLoadBox,
@@ -50,8 +52,11 @@ const HOOK_HALO_SCALE = 1.3
 const HOOK_HALO_MARGIN_M = 0.15
 /** Quanto o halo passa das bordas da carga, em proporção das meias-medidas. */
 const LOAD_HALO_SCALE = 1.25
-/** Com o moitão do modelo escondido, a cadeia parte do fim do cabo (G); 1 cm evita o valor padrão. */
-const REPLACED_HOOK_ATTACH_M = 0.01
+/**
+ * Com o moitão do modelo escondido, a cadeia parte do fim do cabo (G); 1 cm evita o valor padrão.
+ * É o mesmo valor do planejador no backend (`REPLACED_HOOK_ATTACH_M` em `recommend_lift_plan.py`).
+ */
+export const REPLACED_HOOK_ATTACH_M = 0.01
 /** Opacidade máxima do contorno na silhueta: sutil, sem neon. */
 export const HALO_INTENSITY = 0.35
 /** Sem situação (`unknown`), o halo cinza fica ainda mais discreto: não há nada a destacar. */
@@ -82,6 +87,19 @@ void main() {
   #include <colorspace_fragment>
 }
 `
+
+/** Caixa no referencial do gancho: centro e meias-medidas (m, locais de G). */
+interface HookExtent {
+  readonly center: Vector3
+  readonly half: Vector3
+}
+
+function extentOf(box: Box3): HookExtent {
+  return {
+    center: box.getCenter(new Vector3()),
+    half: box.getSize(new Vector3()).multiplyScalar(0.5),
+  }
+}
 
 export class HookLoad {
   readonly root = new Group()
@@ -120,8 +138,10 @@ export class HookLoad {
   private accessoriesDropM = 0
   /** `true` com um moitão na cadeia: o moitão do modelo some e o do acessório toma o lugar dele. */
   private hookReplaced = false
-  /** Caixa do gancho (centro e meias-medidas, locais de G), ou `null` sem malhas. */
-  private hookExtent: { readonly center: Vector3; readonly half: Vector3 } | null = null
+  /** Caixa do gancho do modelo (centro e meias-medidas, locais de G), ou `null` sem malhas. */
+  private hookExtent: HookExtent | null = null
+  /** Caixa do moitão da cadeia que substitui o do modelo (locais de G), ou `null` sem ele. */
+  private replacedHookExtent: HookExtent | null = null
 
   constructor(hook: Object3D) {
     this.hook = hook
@@ -152,9 +172,13 @@ export class HookLoad {
     return this.layout
   }
 
-  /** Distância (m) de G até onde as lingas se prendem, na base do gancho em uso. */
+  /**
+   * Distância (m) de G até onde as lingas (ou a cadeia de acessórios) se prendem, na base do gancho
+   * em uso. Com um moitão na cadeia, o do modelo fica escondido e vale o fim do cabo
+   * (`REPLACED_HOOK_ATTACH_M`), como no desenho (TASK-093, F-09).
+   */
   get currentAttachOffsetM(): number {
-    return this.attachOffsetM
+    return this.hookReplaced ? REPLACED_HOOK_ATTACH_M : this.attachOffsetM
   }
 
   get haloColor(): Color {
@@ -173,12 +197,15 @@ export class HookLoad {
     this.rebuild(load)
   }
 
-  /** Caixa do gancho em uso (centro e meias-medidas, locais de G), ou `null` sem malhas medidas. */
+  /**
+   * Caixa do gancho em uso (centro e meias-medidas, locais de G), ou `null` sem malhas medidas. Com
+   * um moitão na cadeia, é a caixa dele, e não a do moitão escondido do modelo (TASK-093, F-09).
+   */
   get currentHookBox(): {
     readonly center: { x: number; y: number; z: number }
     readonly half: { x: number; y: number; z: number }
   } | null {
-    const extent = this.hookExtent
+    const extent = this.hookReplaced ? this.replacedHookExtent : this.hookExtent
     if (!extent) return null
     return {
       center: { x: extent.center.x, y: extent.center.y, z: extent.center.z },
@@ -233,6 +260,14 @@ export class HookLoad {
     this.rebuild(this.load)
   }
 
+  /**
+   * Mede de novo o moitão da cadeia (TASK-093): o modelo 3D de um acessório chega depois de
+   * `setAccessories` (carregamento assíncrono), e a caixa do gancho passa a ser a dele.
+   */
+  remeasureAccessories(): void {
+    this.measureReplacedHook()
+  }
+
   /** Cor do halo pela situação. */
   setStatus(status: EvaluationStatus): void {
     this.haloColor.setHex(statusColor(status))
@@ -256,10 +291,7 @@ export class HookLoad {
     const box = measureHookExtent(this.hook, [this.root])
     if (box && box.min.y < 0) {
       this.attachOffsetM = -box.min.y
-      this.hookExtent = {
-        center: box.getCenter(new Vector3()),
-        half: box.getSize(new Vector3()).multiplyScalar(0.5),
-      }
+      this.hookExtent = extentOf(box)
     } else {
       this.attachOffsetM = HOOK_ATTACH_OFFSET_M
       this.hookExtent = null
@@ -281,7 +313,8 @@ export class HookLoad {
   private rebuild(load: LoadDimensions | null | undefined): void {
     this.clearLoad()
     this.showBuiltInHook(!this.hookReplaced)
-    const attach = this.hookReplaced ? REPLACED_HOOK_ATTACH_M : this.attachOffsetM
+    // O mesmo ponto que o engate, as colisões e o planejamento leem (`currentAttachOffsetM`).
+    const attach = this.currentAttachOffsetM
     this.layout = computeLoadBox(load, attach, this.accessoriesDropM, this.hookedPose)
     if (this.accessoriesRoot) {
       this.accessoriesRoot.position.set(0, -attach, 0)
@@ -289,7 +322,33 @@ export class HookLoad {
     }
     this.load = this.layout && load ? { ...load } : null
     if (this.layout) this.buildLoad(this.layout)
+    this.measureReplacedHook()
     this.fitHalo()
+  }
+
+  /**
+   * Caixa do moitão que substitui o do modelo (TASK-093, F-09), nos eixos locais de G: as malhas dos
+   * acessórios marcados com `REPLACES_HOOK_USER_DATA`, quando o modelo 3D deles já chegou; sem malha,
+   * a faixa vertical que o acessório ocupa na cadeia (só a altura é conhecida: sem largura). Uma
+   * cadeia sem marcação conta inteira como o moitão. Sem moitão, `null`.
+   */
+  private measureReplacedHook(): void {
+    this.replacedHookExtent = null
+    const chain = this.accessoriesRoot
+    if (!this.hookReplaced || !chain) return
+    const top = -REPLACED_HOOK_ATTACH_M
+    const span = (fromY: number, heightM: number): Box3 =>
+      new Box3(new Vector3(0, fromY - Math.max(0, heightM), 0), new Vector3(0, fromY, 0))
+    const slots = chain.children.filter((slot) => slot.userData[REPLACES_HOOK_USER_DATA] === true)
+    const box = new Box3()
+    if (slots.length === 0) box.union(span(top, this.accessoriesDropM))
+    for (const slot of slots) {
+      const measured = boxInFrameOf(this.hook, slot)
+      const heightM = Number(slot.userData.riggingHeightM)
+      box.union(measured ?? span(top + slot.position.y, Number.isFinite(heightM) ? heightM : 0))
+    }
+    if (box.isEmpty() || box.max.y - box.min.y <= 0) return
+    this.replacedHookExtent = extentOf(box)
   }
 
   /** Mostra ou esconde as malhas do moitão do modelo (tudo no nó do gancho, menos este grupo). */
@@ -321,10 +380,7 @@ export class HookLoad {
     // Com acessórios, um filete liga o ponto do gancho ao das lingas (o espaço da cadeia). Não é
     // modelo de acessório: só mostra a distância; os modelos vêm de arquivos de terceiros (ADR-026).
     if (this.accessoriesDropM > 0) {
-      slingPoints.push(
-        new Vector3(0, -(this.hookReplaced ? REPLACED_HOOK_ATTACH_M : this.attachOffsetM), 0),
-        top,
-      )
+      slingPoints.push(new Vector3(0, -this.currentAttachOffsetM, 0), top)
     }
     const slings = new LineSegments(
       new BufferGeometry().setFromPoints(slingPoints),

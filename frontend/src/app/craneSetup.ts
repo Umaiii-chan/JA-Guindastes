@@ -8,7 +8,7 @@ import {
   PROVISIONAL_CRANE_LIMITS,
   PROVISIONAL_CRANE_SETUP,
 } from '../three/crane/provisionalCraneSpec'
-import type { CraneLimits, CraneSetup } from '../three/crane/types'
+import type { CraneLimits, CraneSetup, TurretRange } from '../three/crane/types'
 
 export type CraneLimitKey = keyof CraneLimits
 
@@ -22,8 +22,11 @@ export interface CraneSetupChoice {
   readonly notes: Readonly<Partial<Record<CraneLimitKey, string>>>
 }
 
-/** Faixa do slider de giro quando a ficha não tem ψ_min/ψ_max (giro contínuo: uma volta). */
-export const CONTINUOUS_TURRET_RANGE = { min: -180, max: 180 } as const
+/**
+ * Faixa do slider de giro quando a ficha não tem ψ_min/ψ_max (giro contínuo: uma volta). Com
+ * `continuous`, o comando dá a volta em ±180° e vai pelo menor ângulo (TASK-092).
+ */
+export const CONTINUOUS_TURRET_RANGE = { min: -180, max: 180, continuous: true } as const
 
 const FICTITIOUS_NOTICE_SUFFIX =
   'limites padrão do guindaste de exemplo. Cadastre a ficha técnica para avaliar.'
@@ -51,7 +54,7 @@ export function chooseCraneSetup(configuration: CraneConfiguration | null): Cran
   }
 
   const notes: Partial<Record<CraneLimitKey, string>> = {}
-  let turretRotationDeg: { min: number; max: number }
+  let turretRotationDeg: TurretRange
   if (sheet.turretRotationMinDeg !== null && sheet.turretRotationMaxDeg !== null) {
     turretRotationDeg = { min: sheet.turretRotationMinDeg, max: sheet.turretRotationMaxDeg }
   } else {
