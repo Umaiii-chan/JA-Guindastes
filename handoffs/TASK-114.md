@@ -8,11 +8,11 @@
 |-------|-------|
 | **Data/hora** | 2026-10-17 (UTC-3, Brasília) |
 | **Tarefa** | TASK-114 (sem arquivo em `tasks/`; ver § 8) |
-| **Etapa concluída** | implementação (com testes) |
+| **Etapa concluída** | implementação (com testes) e correções da 1ª revisão (§ 12) |
 | **Papel exercido** | Planejador + Engenheiro de testes + Implementador (um único agente; AGENTS.md § 3). A revisão é feita por outra sessão (Coruja) |
 | **Ferramenta/agente** | Claude Code |
 | **Branch** | `task/TASK-114-estabilizar-testes-instaveis`, a partir de `anderson/development` @ `6659320` |
-| **Duração aproximada** | ~3 h (a maior parte, laços de repetição sob carga) |
+| **Duração aproximada** | ~3 h 30 min (a maior parte, laços de repetição sob carga) |
 
 ---
 
@@ -40,33 +40,39 @@ tocar o chão).
   `listagens=1` (esperado 2: inicial + pós-importação), ou seja, a releitura ainda não tinha saído.
 - **Correção:** o 409 passa a valer SÓ para `POST …/activate` (`mockImplementation` que delega ao
   fetch normal nos demais pedidos). Acrescentei a verificação que o título promete: depois da falha, a
-  lista é relida (`listings()` sobe de `beforeActivation` para `beforeActivation + 1`).
+  lista é relida (`listings()` fica maior que `beforeActivation`).
 
 **(b) `frontend/e2e/tests/collision.spec.ts`**
 
 - Li o log e o **trace do CI** do run `39041689294` (commit `e01410b`; artefato `playwright-report`):
   - o teste levou 24,7 s (localmente ~7 s);
   - no *snapshot* de DOM de 16 243 ms (início do `expect`), o alerta «comando bloqueado» **estava no
-    DOM**; a captura final mostra o modelo GLB carregado e o cabo parado em 4,5 m (o `End` foi
-    processado e bloqueado), mas sem alerta na tela;
+    DOM**; já na amostra de 18 588 ms ele não estava; a captura final mostra o modelo GLB carregado e o
+    cabo parado em 4,5 m (o `End` foi processado e bloqueado), mas sem alerta na tela;
   - o `expect(group «Colisões»).toHaveCount(1)`, que deveria ser instantâneo, levou 3 090 ms, e o
-    `press End` ~1 s: a thread da página estava travada por quadros de vários segundos (SwiftShader, sem
-    GPU; o console do trace traz «GPU stall due to ReadPixels»).
-- Causa: o aviso dura 2 s e some sozinho (`BLOCKED_NOTICE_HOLD_MS`, TASK-069), e `toBeVisible`
-  **amostra** o DOM; com a thread ocupada, a primeira amostragem só rodou depois dos 2 s de vida do
-  aviso. O comportamento do app está correto; o teste dependia de amostrar um elemento transitório.
-- **Correção:** `watchBlockedNotice(page)` instala, ANTES do comando `End`, um `MutationObserver` que
-  resolve uma Promise no instante em que um `[role="alert"]` com «bloqueado» entra no DOM (com falha
-  explícita em 15 s se nunca entrar); o spec espera por ela em vez de `toBeVisible`.
+    `press End` ~1 s: **indício** de página lenta (SwiftShader, sem GPU; o console do trace traz «GPU
+    stall due to ReadPixels»). É inferência: o trace não mostra a thread em si.
+- Causa (o que o trace sustenta): o aviso dura 2 s e some sozinho (`BLOCKED_NOTICE_HOLD_MS`, TASK-069), e
+  `toBeVisible` **amostra** o DOM. O aviso estava no DOM em 16 243 ms e já ausente em 18 588 ms: a
+  primeira amostragem útil só ocorreu depois de ele expirar. A página lenta é a explicação provável, não
+  medida. O comportamento do app está correto; o teste dependia de amostrar um elemento transitório.
+- **Correção:** helper compartilhado `frontend/e2e/tests/blockedNotice.ts` (`watchBlockedNotice`):
+  instala, ANTES do comando, um `MutationObserver` (só `childList` e `characterData`) que resolve com o
+  texto do aviso no instante em que um `[role="alert"]` com «bloqueado» entra no DOM; falha em 15 s se
+  nunca entrar, e falha também se o aviso já estiver no DOM ao começar (evita falso positivo com um
+  aviso antigo). `collision.spec.ts` e `objetosReais.spec.ts` (mesma amostragem de um aviso de 2 s) o
+  usam.
 - A espera fixa `waitForTimeout(1500)` (interpretar o GLB) **não** é a causa (no CI o modelo já estava
   carregado) e foi mantida; ver § 7.
 
 ## 3. Arquivos modificados
 
 ```text
- frontend/e2e/tests/collision.spec.ts               | 50 ++++++++++++++++++++--
- .../tests/presentation/pages/tablesPage.test.tsx   | 27 ++++++++++--
- handoffs/TASK-114.md (+ cópia em handoffs/history/)
+ frontend/e2e/tests/blockedNotice.ts        (novo: helper compartilhado)
+ frontend/e2e/tests/collision.spec.ts
+ frontend/e2e/tests/objetosReais.spec.ts
+ frontend/tests/presentation/pages/tablesPage.test.tsx
+ handoffs/TASK-114.md (+ cópia em handoffs/history/, da 1ª versão)
 ```
 
 Fora do escopo: nenhum. Nenhuma mudança em `src/`.
@@ -84,11 +90,13 @@ Todos em `frontend/` (Windows, 16 CPUs). Carga = 16 processos queimando CPU + ex
 | `catalogPage.test.tsx` inteiro ×30 (a tarefa cita o Catálogo) | ✅ | `ok=30 falhas=0` (não consegui reproduzir instabilidade ali; nada alterado) |
 | (b) ANTES: `collision.spec.ts:41` original, `--repeat-each=25`, carga 16 | ✅ não reproduziu | `25 passed (10.1m)` |
 | (b) ANTES: original ×8 com Chromium e queimadores presos a 2 núcleos | ✅ não reproduziu | `8 passed (12.4m)` |
-| (b) DEPOIS: `collision.spec.ts` (2 testes) `--repeat-each=20`, carga 16 | ✅ | `40 passed (9.8m)` |
+| (b) DEPOIS (1ª versão): `collision.spec.ts` (2 testes) `--repeat-each=20`, carga 16 | ✅ | `40 passed (9.8m)` |
+| (revisão) `collision.spec.ts` ×5 (2 testes) e `objetosReais.spec.ts` ×3, com o helper compartilhado | ✅ | `10 passed (56.3s)`; `3 passed (1.0m)` |
+| (revisão) controle negativo: sem comando que bloqueie, `watchBlockedNotice` tem de FALHAR | ✅ | `1 passed (19.5s)`: a espera rejeita com «não entrou no DOM» (spec temporário, apagado) |
 | `npm run format:check` | ✅ | `All matched files use Prettier code style!` |
 | `npm run lint` | ✅ | sem saída (0 erros) |
-| `npm run typecheck` (`tsc -b && tsc -p e2e`) | ✅ | sem saída (0 erros) |
-| `npm test` (vitest completo) | ✅ | `Test Files 148 passed (148)`, `Tests 1355 passed \| 1 skipped (1356)` |
+| `npm run typecheck` (`tsc -b && tsc -p e2e`) | ✅ | sem saída (0 erros); repetido depois das correções da revisão |
+| `npm test` (vitest completo) | ✅ | `Test Files 148 passed (148)`, `Tests 1355 passed \| 1 skipped (1356)` (antes da revisão; depois dela, só `tablesPage.test.tsx` foi reexecutado: `10 passed`) |
 | `npm run build` | ✅ | `✓ built in 950ms` |
 | `bash scripts/check-structure.sh` (Git Bash) | ✅ | `OK: 0 erros, 2 aviso(s)` |
 
@@ -113,8 +121,9 @@ Nenhuma regra de negócio nova. RN-012 (colisão da carga) segue coberta pelo me
   "antes" do (b) não mostra falha. Tentei também uma sonda que atrasa a primeira checagem em 2,6 s: o
   original passou, porque localmente o aviso dura mais de 2,6 s (a releitura do controle de deslizar o
   renova). Não investiguei esse comportamento além disso.
-- A prova de estabilidade do (b) "depois" (40/40) é compatível com a correção, mas **não distingue
-  estatisticamente** de "antes" (0 falhas nos dois), dada a baixa frequência natural da falha.
+- A prova de estabilidade do (b) "depois" (40/40 na 1ª versão) é compatível com a correção, mas **não
+  distingue estatisticamente** de "antes" (0 falhas nos dois), dada a baixa frequência natural da falha.
+  O helper compartilhado (2ª versão) foi reexecutado só em volume pequeno (§ 4).
 - `waitForTimeout(1500)` («interpretar o GLB») e outras esperas fixas em `cargoDelivery.spec.ts`,
   `objetosReais.spec.ts` e `tipoDeCarga.spec.ts` ficaram como estão: não há sinal observável do modelo
   principal trocado (`onModelResult` não chega à UI) e não foram a causa dos dois testes desta tarefa.
@@ -135,23 +144,38 @@ dado (não executados).
 
 ## 10. Próximo passo
 
-**Papel:** Revisor, depois a pessoa responsável (aprovar o PR).
+**Papel:** pessoa responsável (aprovar o PR).
 
 **O que fazer, concretamente:**
-1. Revisar `git diff development...task/TASK-114-estabilizar-testes-instaveis` (2 arquivos de teste).
-2. Conferir no CI do PR se o `collision.spec.ts` e o `tablesPage.test.tsx` passam; acompanhar as
-   próximas execuções do CI para confirmar que as duas falhas não voltam.
+1. Conferir no CI do PR se `collision.spec.ts`, `objetosReais.spec.ts` e `tablesPage.test.tsx` passam.
+2. Acompanhar as próximas execuções do CI para confirmar que as duas falhas não voltam.
 
 **Ler primeiro:** `AGENTS.md`; este handoff; `frontend/src/presentation/tables/useChartVersions.ts`;
-`frontend/src/app/simulator/useCollisionState.ts`.
+`frontend/src/app/simulator/useCollisionState.ts`; `frontend/e2e/tests/blockedNotice.ts`.
 
 **Cuidado com:** o "antes" do (b) não falha localmente; a evidência da causa é o trace do CI (run
 `39041689294`, artefato `playwright-report`, 2026-10-17).
 
 ## 11. Como revisar este trabalho
 
-- Comece pelo `tablesPage.test.tsx` (linhas ~210-235): é a correção mais direta e a única com prova
+- Comece pelo `tablesPage.test.tsx` (linhas ~210-240): é a correção mais direta e a única com prova
   numérica de antes/depois (2/100 → 0/60).
 - Tenho menos certeza do (b): a correção é por construção a partir do trace; não há reprodução local.
-- O observador do (b) detecta a *presença no DOM* do aviso, não a visibilidade CSS; o app só o
-  monta quando há bloqueio, então é equivalente aqui.
+- O observador detecta a *presença no DOM* do aviso, não a visibilidade CSS; o app só o monta quando há
+  bloqueio, então é equivalente aqui.
+
+## 12. Revisão independente (Coruja, PR #66) e o que mudou depois dela
+
+Sem item bloqueante; 5 sugestões, todas aplicadas:
+
+1. `tablesPage.test.tsx`: `toBe(beforeActivation + 1)` virou `toBeGreaterThan(beforeActivation)` (o
+   contador pode saltar de +0 para +2 se outra releitura estiver em curso).
+2. `blockedNotice.ts`: o observador não usa mais `attributes: true` (o HUD muda atributos o tempo todo; a
+   entrada do aviso é nó ou texto novo).
+3. O helper falha se o aviso já estiver no DOM ao começar a observar (um aviso antigo daria falso
+   positivo; hoje não ocorria porque o comando anterior é `Home`).
+4. `objetosReais.spec.ts` tinha a mesma amostragem de um aviso de 2 s (`toBeVisible` + `toContainText`):
+   o helper foi movido para `e2e/tests/blockedNotice.ts` e usado nos dois specs; o texto citando o
+   «Galpão com frente aberta» é checado no instante da aparição.
+5. Redação da causa do (b) ajustada em § 2 e § 7 e no PR § 5: o trace sustenta que o aviso estava no DOM
+   em 16 243 ms e ausente em 18 588 ms; a página lenta é a explicação provável, não medida.
