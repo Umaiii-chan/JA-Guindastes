@@ -125,9 +125,9 @@ class ScenarioLayout:
 
 
 def is_platform_vehicle(obstacle: ObstacleSpec) -> bool:
-    """Carreta ou caminhão plataforma: a carga pode ser entregue em cima dele."""
-    label = obstacle.label.lower()
-    return obstacle.model_id in PLATFORM_MODEL_IDS or "carreta" in label or "plataforma" in label
+    """Caminhão plataforma da biblioteca: a carga pode ser entregue na carroceria dele (ADR-049; o
+    planejador e a cena só apoiam a carga nele). Uma caixa chamada "carreta" é obstáculo comum."""
+    return obstacle.model_id in PLATFORM_MODEL_IDS
 
 
 def make_scenario_layout_safe(

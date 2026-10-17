@@ -330,6 +330,52 @@ def test_coleta_coberta_nao_gera_plano() -> None:
     assert search.rejections == {"coleta": 1}
 
 
+def test_carga_dentro_do_barracao_aberto_passa_por_baixo_do_arco() -> None:
+    # Lacuna da revisão do PR #48: o barracão aberto é oco (as caixas de `hangarBoxes`, `_parts` em
+    # `library_boxes.py`) e o plano com a carga DENTRO dele fecha quando a lança discreta cabe sob o
+    # arco. Guindaste FICTÍCIO de uma só lança de 14,0 m (a 14,7° a ponta fica a 6,9 m; 14,3 m já
+    # bate no teto do tamanho padrão) em z = 24, voltado para o barracão (porta em +Z, z = 13,72).
+    # O barracão tem 12 m de altura (o tamanho do objeto é do usuário; a 8,27 m a aproximação do
+    # gancho, que desce da pose de partida, ainda atravessa o teto). A altura de transporte por
+    # cima do arco (`_swings`) não teria cabo; vale a que passa por baixo dele.
+    geometry = replace(GEOMETRY, boom_pivot_offset_m=0.46, boom_pivot_height=Length(3.3))
+    crane = replace(
+        CRANE,
+        geometry=replace(geometry, cable_length_max=Length(15.0), boom_length_max=Length(22.0)),
+        max_radius_m=20.0,
+        boom_lengths_m=(14.0,),
+    )
+    barn = ObstacleSpec(
+        "BARRACAO",
+        "Galpão com frente aberta",
+        ObstacleKind.MODEL,
+        0.0,
+        0.0,
+        19.22,
+        27.44,
+        12.0,
+        0.0,
+        "barracao-aberto",
+    )
+
+    search = plan_crane(
+        crane=crane,
+        scenario=ScenarioSpec(obstacles=(barn,)),
+        load=PlanLoad(1500.0, 3.0, 0.6, 0.6),
+        pick=PlanPoint(0.0, 10.0),
+        delivery=PlanPoint(3.0, 10.5),
+        evaluator=FakeEvaluator(),
+        max_positions=3000,
+    )
+
+    best = search.plans[0]
+    assert best.valid
+    assert best.boom_length_m == 14.0
+    assert best.placement.z > 20.0  # fora do barracão, de frente para a porta
+    assert best.crossed_obstacle_ids == ("BARRACAO",)
+    assert best.transport_height_m < 2.0  # sob o arco, não por cima dele
+
+
 class FakeZoneEvaluator(FakeEvaluator):
     """Como `FakeEvaluator`, com a frente (ψ de 300° a 60°) a 40 % da capacidade; na fronteira, a
     menor das duas (como a avaliação real)."""

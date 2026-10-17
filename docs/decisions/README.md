@@ -82,4 +82,6 @@ Crie um ADR quando a decisão:
 | [ADR-043](ADR-043-lanca-entre-colunas-na-interpolacao.md) | Lança entre colunas na interpolação: próxima mais longa | Aceito | 2026-10-16 |
 | [ADR-044](ADR-044-colisoes-entre-guindastes-acessorios-e-terreno.md) | Colisões entre guindastes, da cadeia de acessórios e do terreno sob a carga | Aceito | 2026-10-16 |
 | [ADR-045](ADR-045-tela-do-simulador-com-a-cena-como-prioridade.md) | Tela do simulador com a cena como prioridade: painéis sobre a cena, folhas que escondem | Proposto | 2026-10-17 |
+| [ADR-046](ADR-046-soltar-carga-sobre-carroceria.md) | Soltar a carga sobre a carroceria do caminhão plataforma (apoio pelo centro da pegada) | Proposto | 2026-10-17 |
 | [ADR-047](ADR-047-carga-sobre-carroceria-acompanha-o-caminhao.md) | Carga solta sobre a carroceria acompanha o caminhão movido no editor | Proposto | 2026-10-17 |
+| [ADR-049](ADR-049-apoio-so-na-carroceria-do-caminhao-plataforma.md) | Apoio da carga só na carroceria do caminhão plataforma da biblioteca (substitui a Decisão 5 do ADR-042) | Proposto | 2026-10-17 |
