@@ -135,10 +135,11 @@ export class CargoOperation {
     const size = this.size
     if (!state || !size || this.override || state.phase !== 'ground') return false
     const hook = this.hookReference()
-    if (!cargoStatusOf(state, hook, size, this.spec.terrain, this.spec.delivery ?? null).canEngage)
+    const { terrain, obstacles } = this.spec
+    if (!cargoStatusOf(state, hook, size, terrain, this.spec.delivery ?? null, obstacles).canEngage)
       return false
     this.startedAtMs ??= nowMs
-    this.live = engageCargo(clearResult(state), hook, size, this.spec.terrain)
+    this.live = engageCargo(clearResult(state), hook, size, terrain, obstacles)
     this.sync()
     return true
   }
@@ -150,14 +151,16 @@ export class CargoOperation {
     if (!state || !size || this.override || state.phase !== 'hooked') return false
     const hook = this.hookReference()
     const delivery = this.spec.delivery ?? null
-    if (!cargoStatusOf(state, hook, size, this.spec.terrain, delivery).canRelease) return false
+    const { terrain, obstacles } = this.spec
+    if (!cargoStatusOf(state, hook, size, terrain, delivery, obstacles).canRelease) return false
     const next = releaseCargo(
       state,
       hook,
       size,
-      this.spec.terrain,
+      terrain,
       delivery,
       this.startedAtMs === null ? null : nowMs - this.startedAtMs,
+      obstacles,
     )
     this.live = next
     if (next.result === 'delivered') this.startedAtMs = null
@@ -223,7 +226,7 @@ export class CargoOperation {
         collisions.setGroundCargo(null)
       } else {
         hookLoad.setLoad(null)
-        const baseY = cargoBaseY(this.spec.terrain, size, state)
+        const baseY = cargoBaseY(this.spec.terrain, size, state, this.spec.obstacles)
         this.ground.show(size, state, baseY, delivered)
         collisions.setGroundCargo(groundObstacle(size, state, heightAt(state.x, state.z), baseY))
       }
@@ -233,7 +236,12 @@ export class CargoOperation {
       hookLoad.setLoad(size)
       collisions.setGroundCargo(null)
       if (this.placement && !this.suspended) {
-        const baseY = cargoBaseY(this.spec.terrain, PLACEHOLDER_CARGO_SIZE, this.placement)
+        const baseY = cargoBaseY(
+          this.spec.terrain,
+          PLACEHOLDER_CARGO_SIZE,
+          this.placement,
+          this.spec.obstacles,
+        )
         this.ground.show(null, this.placement, baseY)
       } else {
         this.ground.show(null, null, 0)
@@ -255,6 +263,7 @@ export class CargoOperation {
             size,
             this.spec.terrain,
             this.spec.delivery ?? null,
+            this.spec.obstacles,
           )
         : { ...INACTIVE_CARGO, hasDelivery: this.spec.delivery !== undefined }
     const key = cargoStatusKey(next)

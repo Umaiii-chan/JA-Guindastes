@@ -9,9 +9,11 @@ import { mulVec, rotY, type Transform, type Vec3 } from '../collision/obb'
 import {
   type CargoPlacement,
   type DeliveryPoint,
+  type Obstacle,
   type TerrainSpec,
   terrainHeightAt,
 } from '../environment/environment'
+import { loadBedsOf, loadBedTopUnder } from './loadBeds'
 
 const DEG = Math.PI / 180
 
@@ -21,7 +23,7 @@ export const ENGAGE_MAX_GAP_M = 0.5
 export const ENGAGE_MIN_GAP_M = -0.1
 /** Engate: alinhamento horizontal entre o gancho e o centro da carga. */
 export const ENGAGE_HORIZONTAL_TOLERANCE_M = 0.5
-/** Solta: a base da carga até 0,2 m do chão. */
+/** Solta: a base da carga até 0,2 m da superfície de apoio (o chão ou a carroceria de um caminhão). */
 export const RELEASE_MAX_HEIGHT_M = 0.2
 /** Menor altura das lingas desenhadas ao engatar (m). */
 export const MIN_SLING_DROP_M = 0.05
@@ -139,10 +141,16 @@ export function footprintCorners(
 }
 
 /**
- * Altura (m) em que a base da carga assenta: a do ponto mais alto do terreno sob a pegada (centro,
- * cantos e meios das arestas), para a caixa não entrar no chão em terreno irregular.
+ * Altura (m) em que a base da carga assenta: a maior entre a do ponto mais alto do terreno sob a
+ * pegada (centro, cantos e meios das arestas), para a caixa não entrar no chão em terreno irregular, e
+ * a do topo da carroceria de um caminhão plataforma (TASK-101) que a pegada cubra, mesmo em parte.
  */
-export function cargoBaseY(terrain: TerrainSpec, size: LoadDimensions, pose: GroundPose): number {
+export function cargoBaseY(
+  terrain: TerrainSpec,
+  size: LoadDimensions,
+  pose: GroundPose,
+  obstacles: readonly Obstacle[] = [],
+): number {
   const corners = footprintCorners(size, pose)
   const points = [{ x: pose.x, z: pose.z }, ...corners]
   for (let index = 0; index < corners.length; index += 1) {
@@ -150,7 +158,9 @@ export function cargoBaseY(terrain: TerrainSpec, size: LoadDimensions, pose: Gro
     const b = corners[(index + 1) % corners.length] as { x: number; z: number }
     points.push({ x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 })
   }
-  return Math.max(...points.map((point) => terrainHeightAt(terrain, point.x, point.z)))
+  const terrainY = Math.max(...points.map((point) => terrainHeightAt(terrain, point.x, point.z)))
+  const bedY = loadBedTopUnder(corners, loadBedsOf(obstacles, terrain))
+  return bedY === null ? terrainY : Math.max(terrainY, bedY)
 }
 
 /** O gancho no mundo: referencial (origem em G, eixos da torre) e o que pende abaixo dele. */
@@ -189,9 +199,10 @@ export function checkEngage(
   pose: GroundPose,
   size: LoadDimensions,
   terrain: TerrainSpec,
+  obstacles: readonly Obstacle[] = [],
 ): EngageCheck {
   const end = hookEndPoint(hook)
-  const topY = cargoBaseY(terrain, size, pose) + size.heightM
+  const topY = cargoBaseY(terrain, size, pose, obstacles) + size.heightM
   const gapM = end.y - topY
   const offsetM = Math.hypot(end.x - pose.x, end.z - pose.z)
   return {
@@ -214,8 +225,9 @@ export function engageCargo(
   hook: HookReference,
   size: LoadDimensions,
   terrain: TerrainSpec,
+  obstacles: readonly Obstacle[] = [],
 ): CargoState {
-  const check = checkEngage(hook, state, size, terrain)
+  const check = checkEngage(hook, state, size, terrain, obstacles)
   const { pos } = hook.frame
   // Do mundo para o plano do gancho: gira de volta o giro do referencial.
   const local = mulVec(rotY(-hook.yawDeg * DEG), { x: state.x - pos.x, y: 0, z: state.z - pos.z })
@@ -243,24 +255,25 @@ export function hookedCargoPose(hook: HookReference, hooked: HookedCargoPose): G
 }
 
 export interface ReleaseCheck {
-  /** Altura da base da carga acima do chão (m). */
+  /** Altura da base da carga acima da superfície de apoio sob ela: o chão ou a carroceria (m). */
   readonly heightAboveGroundM: number
   /** Onde ela cairia. */
   readonly pose: GroundPose
   readonly canRelease: boolean
 }
 
-/** A carga engatada está perto o bastante do chão para soltar? */
+/** A carga engatada está perto o bastante da superfície de apoio (chão ou carroceria) para soltar? */
 export function checkRelease(
   hook: HookReference,
   hooked: HookedCargoPose,
   size: LoadDimensions,
   terrain: TerrainSpec,
+  obstacles: readonly Obstacle[] = [],
 ): ReleaseCheck {
   const pose = hookedCargoPose(hook, hooked)
   const bottomY =
     hook.frame.pos.y - hook.attachOffsetM - hook.accessoriesDropM - hooked.slingDropM - size.heightM
-  const heightAboveGroundM = bottomY - cargoBaseY(terrain, size, pose)
+  const heightAboveGroundM = bottomY - cargoBaseY(terrain, size, pose, obstacles)
   return { heightAboveGroundM, pose, canRelease: heightAboveGroundM <= RELEASE_MAX_HEIGHT_M }
 }
 
@@ -270,7 +283,7 @@ export function isInsideDelivery(pose: GroundPose, delivery: DeliveryPoint): boo
 }
 
 /**
- * Solta: a carga fica no chão onde está (sem deslizar). Dentro do raio do ponto de entrega, marca
+ * Solta: a carga fica apoiada onde está, no chão ou na carroceria (sem deslizar). Dentro do raio do ponto de entrega, marca
  * "entregue" com o tempo da operação; fora dele, "fora do ponto de entrega". Sem ponto de entrega, só
  * apoia a carga.
  */
@@ -281,9 +294,10 @@ export function releaseCargo(
   terrain: TerrainSpec,
   delivery: DeliveryPoint | null,
   elapsedMs: number | null,
+  obstacles: readonly Obstacle[] = [],
 ): CargoState {
   if (state.phase !== 'hooked' || !state.hooked) return state
-  const { pose } = checkRelease(hook, state.hooked, size, terrain)
+  const { pose } = checkRelease(hook, state.hooked, size, terrain, obstacles)
   const inside = delivery !== null && isInsideDelivery(pose, delivery)
   const result: DeliveryResult = delivery === null ? 'none' : inside ? 'delivered' : 'outside'
   return {
@@ -310,10 +324,11 @@ export function cargoStatusOf(
   size: LoadDimensions,
   terrain: TerrainSpec,
   delivery: DeliveryPoint | null,
+  obstacles: readonly Obstacle[] = [],
 ): CargoStatus {
   const base = { active: true, hasDelivery: delivery !== null, state }
   if (state.phase === 'ground') {
-    const check = checkEngage(hook, state, size, terrain)
+    const check = checkEngage(hook, state, size, terrain, obstacles)
     return {
       ...base,
       canEngage: check.canEngage,
@@ -325,7 +340,7 @@ export function cargoStatusOf(
     }
   }
   if (!state.hooked) return { ...INACTIVE_CARGO, ...base }
-  const check = checkRelease(hook, state.hooked, size, terrain)
+  const check = checkRelease(hook, state.hooked, size, terrain, obstacles)
   return {
     ...base,
     canEngage: false,
