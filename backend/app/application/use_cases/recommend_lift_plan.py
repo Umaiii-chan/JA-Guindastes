@@ -33,6 +33,7 @@ from app.application.use_cases.evaluate_operation import (
 from app.domain.entities.accessory import Accessory, AccessoryType
 from app.domain.entities.load_chart import LoadChart
 from app.domain.entities.scenario import ObstacleSpec, ScenarioSpec
+from app.domain.services import rigging
 from app.domain.services.environment_factors import SoilKind
 from app.domain.services.load_chart_interpolator import LoadChartInterpolator
 from app.domain.services.planning.crane_body import crane_bodies_overlap
@@ -153,6 +154,8 @@ class PlanningRequest:
     accessory_ids: tuple[str, ...] = ()
     hook_attach_m: float = HOOK_ATTACH_M
     """Do gancho ao ponto de amarração das lingas, medido no modelo 3D em uso."""
+    sling_angle_deg: float | None = None
+    """Ângulo das lingas com a horizontal (30° a 90°); `None` = o padrão da carga (F-19)."""
 
 
 @dataclass(frozen=True)
@@ -173,6 +176,10 @@ class CraneDetail:
     utilization_percent: float
     transport_height_m: float
     crossed_obstacle_ids: tuple[str, ...]
+    sling_length_m: float = 0.0
+    sling_angle_deg: float = 0.0
+    sling_drop_m: float = 0.0
+    """As lingas que o plano supôs (geometria única; F-19): a cena toca o plano com as mesmas."""
 
 
 @dataclass(frozen=True)
@@ -279,6 +286,11 @@ class RecommendLiftPlan:
         load = request.load
         if not (math.isfinite(load.weight_kg) and load.weight_kg > 0):
             raise PlanningInvalidInputError("o peso da carga deve ser maior que zero")
+        if request.sling_angle_deg is not None:
+            try:
+                rigging.check_angle_deg(request.sling_angle_deg)
+            except rigging.InvalidSlingGeometryError as error:
+                raise PlanningInvalidInputError(str(error)) from None
         accessories = self._resolve_accessories(request.accessory_ids)
         accessory_drop_m = sum(item.rigging_height_m for item in accessories)
         accessory_weight_kg = sum(item.weight.kilograms for item in accessories)
@@ -340,6 +352,7 @@ class RecommendLiftPlan:
                 hoist_delivery=(delivery.x, delivery.z) if share_kg is not None else None,
                 cargo_pick=cargo_pick,
                 cargo_delivery=cargo_delivery,
+                sling_angle_deg=request.sling_angle_deg,
             )
 
         rejections: dict[str, int] = {}
@@ -746,6 +759,9 @@ def _detail(plan: CranePlan) -> CraneDetail:
         utilization_percent=plan.max_utilization_percent,
         transport_height_m=plan.transport_height_m,
         crossed_obstacle_ids=plan.crossed_obstacle_ids,
+        sling_length_m=plan.sling_length_m,
+        sling_angle_deg=plan.sling_angle_deg,
+        sling_drop_m=plan.sling_drop_m,
     )
 
 

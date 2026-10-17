@@ -151,3 +151,9 @@ class CranePlan:
     hoist_pick: tuple[float, float] | None = None
     hoist_delivery: tuple[float, float] | None = None
     """Pontos de içamento (tandem): onde este guindaste prende a carga na coleta e na entrega."""
+    sling_length_m: float = 0.0
+    sling_angle_deg: float = 0.0
+    sling_drop_m: float = 0.0
+    """As lingas que o plano supôs (geometria única de `rigging.py`; F-19): comprimento, ângulo
+    com a horizontal e altura do ponto de suspensão ao topo da carga. A cena toca o plano com
+    elas."""

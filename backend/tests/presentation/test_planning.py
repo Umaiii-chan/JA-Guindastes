@@ -137,3 +137,31 @@ def test_o_openapi_publica_a_rota() -> None:
     schema = make_client().get("/openapi.json").json()
 
     assert PLANNING_PATH in schema["paths"]
+
+
+def test_o_plano_devolve_as_lingas_que_supos_a_geometria_unica() -> None:
+    """F-19 (ADR-051): carga 3 × 1,5 m, padrão de 60° → alcance 1,677 m e linga de 3,354 m."""
+    detail = (
+        make_client().post(PLANNING_PATH, json=body()).json()["recommendations"][0]["details"][0]
+    )
+
+    assert detail["sling_angle_deg"] == 60.0
+    assert abs(detail["sling_drop_m"] - 1.677051 * 3**0.5) < 1e-4
+    assert abs(detail["sling_length_m"] - 2 * 1.677051) < 1e-4
+
+
+def test_o_angulo_da_linga_informado_vale_no_plano() -> None:
+    detail = (
+        make_client()
+        .post(PLANNING_PATH, json=body(sling_angle_deg=45.0))
+        .json()["recommendations"][0]["details"][0]
+    )
+
+    assert detail["sling_angle_deg"] == 45.0
+    assert abs(detail["sling_drop_m"] - 1.677051) < 1e-4
+
+
+def test_angulo_da_linga_fora_de_30_a_90_e_422() -> None:
+    for angle in (29.9, 90.1, 0, -10):
+        response = make_client().post(PLANNING_PATH, json=body(sling_angle_deg=angle))
+        assert response.status_code == 422, angle

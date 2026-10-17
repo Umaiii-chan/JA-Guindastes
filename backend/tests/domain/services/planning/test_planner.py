@@ -11,6 +11,7 @@ from dataclasses import replace
 import pytest
 
 from app.domain.entities.scenario import ObstacleKind, ObstacleSpec, ScenarioSpec, TerrainSpec
+from app.domain.services import rigging
 from app.domain.services.environment_factors import SoilKind
 from app.domain.services.planning.crane_body import (
     crane_body_overlaps_obstacle,
@@ -175,7 +176,8 @@ def test_o_gancho_acompanha_a_altura_de_transporte_no_giro() -> None:
 
     # A base da carga fica a `transport_height_m` do chão em todo o giro: o gancho está a
     # `altura da carga + lingas + amarração` acima dela. Altura da ponta − cabo = altura do gancho.
-    sling = min(3.0, max(0.6, max(LOAD.length_m, LOAD.width_m) / 2))
+    sling = best.sling_drop_m
+    assert sling == pytest.approx(rigging.sling_drop_m(LOAD.length_m, LOAD.width_m))
     expected_hook = best.transport_height_m + 1.05 + sling + LOAD.height_m
     for state in best.path:
         tip = 3.0 + state.boom_length_m * math.sin(math.radians(state.boom_angle_deg))
@@ -366,6 +368,7 @@ def test_carga_dentro_do_barracao_aberto_passa_por_baixo_do_arco() -> None:
         delivery=PlanPoint(3.0, 10.5),
         evaluator=FakeEvaluator(),
         max_positions=3000,
+        sling_angle_deg=45.0,  # lingas curtas: com o padrão de 60° o gancho não cabe sob o arco
     )
 
     best = search.plans[0]
