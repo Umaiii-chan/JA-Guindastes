@@ -36,6 +36,7 @@ from app.domain.services.planning.crane_body import (
     crane_body_overlaps_obstacle,
     distance_to_crane_body_m,
 )
+from app.domain.services.planning.library_boxes import expand_obstacles, owner_id
 from app.domain.services.planning.models import (
     CranePlan,
     CraneStateValues,
@@ -88,6 +89,8 @@ CLEARANCE_M = 1.0
 HOOK_ATTACH_M = 1.05
 """Do gancho ao ponto de amarração das lingas, sem medida da cena (`HOOK_ATTACH_OFFSET_M` do
 frontend); a tela manda o valor medido no gancho do modelo 3D em uso."""
+_VAO_MIN_M = 0.05
+"""Altura mínima (m) da base de uma parte elevada para a carga poder passar por baixo dela."""
 REST_CLEARANCE_M = 0.03
 """Folga entre a base da carga e o chão quando ela é pousada ou pega, para não encostar."""
 ENGAGE_GAP_M = 0.25
@@ -181,6 +184,8 @@ class _Swing:
     """O caminho passa sobre o corpo do próprio guindaste."""
     delivery_rest_y: float = 0.0
     """Altura da base da carga apoiada na entrega (o chão ou o topo da carreta)."""
+    delivery_supports: tuple[ObstacleSpec, ...] = ()
+    """Veículos-plataforma em que a carga repousa na entrega."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,7 +250,11 @@ def _site_at(
     """A posição com este rumo, ou a chave do motivo de descarte."""
     x, z = placement.x, placement.z
     radius_load = math.hypot(load.length_m, load.width_m) / 2
-    if any(crane_body_overlaps_obstacle(placement, obstacle) for obstacle in scenario.obstacles):
+    if any(
+        crane_body_overlaps_obstacle(placement, obstacle)
+        for obstacle in scenario.obstacles
+        if obstacle.elevation_m is None or obstacle.elevation_m < BODY_HEIGHT_M
+    ):
         return "obstaculo"
     if any(
         distance_to_crane_body_m(placement, point.x, point.z) < radius_load
@@ -265,11 +274,13 @@ def _site_at(
     reach = max(rp, rd)
     conflicts = tuple(
         sorted(
-            obstacle.id
-            for obstacle in scenario.obstacles
-            if math.hypot(obstacle.center_x - x, obstacle.center_z - z)
-            - obstacle_circumradius_m(obstacle)
-            <= reach
+            {
+                owner_id(obstacle)
+                for obstacle in scenario.obstacles
+                if math.hypot(obstacle.center_x - x, obstacle.center_z - z)
+                - obstacle_circumradius_m(obstacle)
+                <= reach
+            }
         )
     )
     return _Site(
@@ -430,20 +441,35 @@ def _swings(ctx: _Context, site: _Site, sweeps: Sequence[_Sweep]) -> list[_Swing
             continue
         crosses_body = body_crossed(sweep.arc, site.placement, ctx.radius_load_m)
         tops = [ends_ground, sweep.terrain_top_y]
-        tops += [obstacle_top_y(ctx.scenario.terrain, obstacle) for obstacle in sweep.crossed]
         if crosses_body:
             tops.append(site.ground_y + BODY_HEIGHT_M)
-        swings.append(
-            _Swing(
-                sweep.sign,
-                sweep.arc_deg,
-                sweep.arc,
-                sweep.crossed,
-                max(tops) + CLEARANCE_M,
-                crosses_body,
-                sweep.delivery.rest_y,
+        # Partes elevadas de um objeto oco (o teto do barracão) deixam um vão por baixo: a carga
+        # pode passar sob elas, baixa, antes de ser obrigada a subir acima delas. A conferência do
+        # caminho (`_collision`) decide se o vão serve; senão vale a altura acima de tudo.
+        beneath = [
+            obstacle
+            for obstacle in sweep.crossed
+            if obstacle.elevation_m is not None and obstacle.elevation_m > _VAO_MIN_M
+        ]
+        over = [obstacle for obstacle in sweep.crossed if obstacle not in beneath]
+        heights: list[float] = []
+        for group in ([over] if beneath else []) + [list(sweep.crossed)]:
+            tallest = max([*tops, *(obstacle_top_y(ctx.scenario.terrain, o) for o in group)])
+            if tallest + CLEARANCE_M not in heights:
+                heights.append(tallest + CLEARANCE_M)
+        for bottom_y in heights:
+            swings.append(
+                _Swing(
+                    sweep.sign,
+                    sweep.arc_deg,
+                    sweep.arc,
+                    sweep.crossed,
+                    bottom_y,
+                    crosses_body,
+                    sweep.delivery.rest_y,
+                    sweep.delivery.supports,
+                )
             )
-        )
 
     swings.sort(key=lambda swing: _swing_rank(swing, ctx))
     return swings
@@ -691,6 +717,7 @@ def _collision(crane: PlannerCrane, ctx: _Context, option: _Option) -> str | Non
         pick_load_top_y=ctx.pick_base_y + load.height_m,
         delivery_state=option.delivery_state,
         delivery_load_top_y=option.swing.delivery_rest_y + REST_CLEARANCE_M + load.height_m,
+        delivery_supports=option.swing.delivery_supports,
     )
 
 
@@ -731,6 +758,8 @@ def plan_crane(
     dados (tandem); se omitido, ela fica centrada em `delivery` e girada do quanto a torre girou.
     """
     weight_kg = load.weight_kg if share_kg is None else share_kg
+    # Objetos ocos da biblioteca (o barracão aberto) viram as caixas que a cena usa (ADR-042).
+    scenario = replace(scenario, obstacles=expand_obstacles(scenario))
     rejections: Counter[str] = Counter()
     cargo_at_pick = pick if cargo_pick is None else cargo_pick
     if pick_cover(scenario, load, cargo_at_pick):
@@ -881,7 +910,7 @@ def _refine(
         delivery_state=option.delivery_state,
         path=option.path,
         transport_height_m=swing.bottom_y - ctx.pick_base_y,
-        crossed_obstacle_ids=tuple(obstacle.id for obstacle in swing.crossed),
+        crossed_obstacle_ids=tuple(dict.fromkeys(owner_id(obstacle) for obstacle in swing.crossed)),
         crosses_body=swing.crosses_body,
         max_utilization_percent=util,
         tipping_risk=risk,

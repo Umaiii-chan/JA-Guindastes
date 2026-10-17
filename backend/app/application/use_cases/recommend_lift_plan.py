@@ -659,7 +659,7 @@ def _impossible_pair(first: CranePlan, second: CranePlan) -> str | None:
 
 
 def _names(obstacles: Sequence[ObstacleSpec]) -> str:
-    return ", ".join(f"«{obstacle.label}»" for obstacle in obstacles)
+    return ", ".join(f"«{label}»" for label in dict.fromkeys(item.label for item in obstacles))
 
 
 def _blocked_ends_note(request: PlanningRequest) -> str | None:

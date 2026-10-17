@@ -205,6 +205,24 @@ def test_entrega_sobre_a_carreta_pousa_a_carga_no_topo_dela() -> None:
     assert load_inside(rec, truck, load) == 0
 
 
+@pytest.mark.parametrize("height_m", [1.2, 0.5, 0.3, 0.2, 0.1])
+def test_carga_baixa_sobre_a_carreta_nao_e_recusada_pelo_cabo(height_m: float) -> None:
+    # IMPORTANTE-3 da revisão do PR #48: com h <= 0,2 m a linha do cabo terminava abaixo do topo da
+    # carreta + meia-largura do gancho, e a própria carreta recusava a entrega ("colisao_cabo").
+    truck = ObstacleSpec(
+        "CARRETA", "Caminhão plataforma", ObstacleKind.BOX, 7.5, 0.0, 2.5, 9.0, 1.3, 0.0
+    )
+
+    result = plan(
+        ScenarioSpec(obstacles=(truck,)),
+        load=PlanLoad(1500.0, 3.0, 1.5, height_m),
+        pick=PlanPoint(-7.5, 0.0),
+        delivery=PlanPoint(7.5, 0.0),
+    )
+
+    assert result.recommendations, result.notes
+
+
 def test_monte_estreito_no_caminho_sobe_a_altura_de_transporte() -> None:
     # Terreno no caminho: monte de 2 m e 1 m de raio entre duas amostras dos quadros-chave.
     base = plan(ScenarioSpec()).recommendations[0]
@@ -268,3 +286,34 @@ def test_cenario_cheio_responde_dentro_do_orcamento() -> None:
 
     assert time.perf_counter() - start < TIME_BUDGET_S
     assert result.recommendations
+
+
+def test_carga_dentro_do_barracao_aberto_nao_e_mais_recusada_na_coleta() -> None:
+    # IMPORTANTE-1 da revisão do PR #48: o "barracao-aberto" é oco para o planejador, como na cena
+    # (`hangarBoxes`), e é o cenário que a IA monta (a carga DENTRO, o guindaste fora, de frente
+    # para a porta; ai_fakes.py `scenario_ia_json`). Girado de -90°, a porta (+Z) olha para -X.
+    # Antes: nenhum guindaste era tentado ("fica sob ou dentro de «Galpão com frente aberta»").
+    # Com o guindaste da fixture (ficha FICTÍCIA) o plano completo não fecha: o cabo atravessa o
+    # teto nos posicionamentos que a busca tenta (ver handoff); aqui vale só a coleta liberada.
+    barn = ObstacleSpec(
+        "BARRACAO",
+        "Galpão com frente aberta",
+        ObstacleKind.MODEL,
+        22.0,
+        0.0,
+        19.22,
+        27.44,
+        8.27,
+        -90.0,
+        "barracao-aberto",
+    )
+
+    result = plan(
+        ScenarioSpec(obstacles=(barn,)),
+        load=PlanLoad(1500.0, 3.0, 0.6, 0.6),
+        pick=PlanPoint(11.0, 0.0),
+        delivery=PlanPoint(-13.0, 0.0),
+    )
+
+    assert not any("sob ou dentro de" in note for note in result.notes)
+    assert any("Combinações descartadas" in note for note in result.notes)
