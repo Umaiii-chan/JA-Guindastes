@@ -129,7 +129,10 @@ export interface CraneSceneHandle {
   setScenario(scenario: ScenarioSpec | null): void
   /** Leva a câmera a uma predefinição, enquadrando o estado atual do guindaste. */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
-  /** Distância (m) de G até onde as lingas se prendem, medida no gancho em uso (TASK-075). */
+  /**
+   * Distância (m) de G até onde as lingas se prendem, medida no gancho em uso (TASK-075); com um
+   * moitão na cadeia, o fim do cabo (TASK-093).
+   */
   hookAttachOffsetM(): number
   /**
    * Dados do cenário (terreno, obstáculos e posição do guindaste) usados só para colidir (TASK-053;
@@ -351,7 +354,12 @@ export function mountCraneScene(
   const accessoryChain = new AccessoryChain({
     loader: options.loadAccessoryModel,
     onModelResult: options.onAccessoryModelResult,
-    onChange: invalidate,
+    onChange: () => {
+      // O modelo de um acessório chegou: um moitão passa a colidir com a caixa medida (TASK-093).
+      hookLoad.remeasureAccessories()
+      crane.revalidate()
+      invalidate()
+    },
   })
 
   const resize = (): void => {
@@ -493,6 +501,8 @@ export function mountCraneScene(
         accessoryChain.totalDropM,
         accessoryChain.replacesHook,
       )
+      // Um moitão troca o ponto de amarração e a caixa do gancho: reavalia colisões e o engate.
+      crane.revalidate()
       invalidate()
     },
     setRotationZones(zones) {
