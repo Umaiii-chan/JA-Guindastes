@@ -148,6 +148,32 @@ describe('Slider', () => {
     expect(onChange).toHaveBeenCalledWith(45)
   })
 
+  it('com volta (giro contínuo), a seta na ponta continua além do limite; sem volta, não', () => {
+    const onChange = vi.fn()
+    const { rerender } = render(
+      <Slider label="Giro" value={180} min={-180} max={180} wraps onChange={onChange} />,
+    )
+    const slider = screen.getByLabelText('Giro')
+    fireEvent.keyDown(slider, { key: 'ArrowRight' })
+    fireEvent.keyDown(slider, { key: 'ArrowUp' })
+    expect(onChange).toHaveBeenNthCalledWith(1, 181)
+    expect(onChange).toHaveBeenNthCalledWith(2, 181)
+    // Fora da ponta, quem anda é o controle nativo (nada extra).
+    fireEvent.keyDown(slider, { key: 'ArrowLeft' })
+    expect(onChange).toHaveBeenCalledTimes(2)
+
+    rerender(<Slider label="Giro" value={-180} min={-180} max={180} wraps onChange={onChange} />)
+    fireEvent.keyDown(slider, { key: 'ArrowLeft' })
+    fireEvent.keyDown(slider, { key: 'ArrowDown' })
+    expect(onChange).toHaveBeenNthCalledWith(3, -181)
+    expect(onChange).toHaveBeenNthCalledWith(4, -181)
+
+    onChange.mockClear()
+    rerender(<Slider label="Giro" value={180} min={-180} max={180} onChange={onChange} />)
+    fireEvent.keyDown(slider, { key: 'ArrowRight' })
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
   it('sem valor ou limites, fica desabilitado e mostra "—"', () => {
     render(
       <Slider label="Giro" value={undefined} min={undefined} max={undefined} onChange={vi.fn()} />,
