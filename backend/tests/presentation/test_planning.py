@@ -70,10 +70,28 @@ def test_recomenda_com_o_contrato_da_tarefa() -> None:
         "soltar",
     }
     assert best["notes"]
+    assert data["timed_out"] is False
+
+
+def test_busca_cortada_pelo_tempo_vem_marcada() -> None:
+    ticks = iter(range(0, 10_000))
+    use_case = caso_de_uso_planejamento(time_budget_s=0.0, clock=lambda: float(next(ticks)))
+    client = TestClient(create_app(planning=shared_recommend_lift_plan(use_case)))
+
+    response = client.post(PLANNING_PATH, json=body())
+
+    assert response.status_code == 200
+    assert response.json()["timed_out"] is True
 
 
 def test_carga_pesada_devolve_tandem_com_duas_trajetorias() -> None:
-    data = make_client().post(PLANNING_PATH, json=body(6000.0)).json()
+    # Viga FICTÍCIA de 16 m: o par de guindastes gira no mesmo sentido (TASK-089, F-04).
+    payload = body(4000.0)
+    payload["load"] = {"weight_kg": 4000.0, "length_m": 16.0, "width_m": 1.0, "height_m": 1.0}
+    payload["pick"] = {"x": 0.0, "z": 0.0}
+    payload["delivery"] = {"x": 4.0, "z": 0.0}
+    del payload["scenario"]
+    data = make_client().post(PLANNING_PATH, json=payload).json()
 
     best = data["recommendations"][0]
     assert best["kind"] == "tandem"

@@ -4,7 +4,8 @@
 devolve as recomendações da melhor para a pior: qual guindaste (ou dois, em tandem), onde
 posicioná-lo e a trajetória (aproximar, engatar, levantar, girar, baixar e soltar). Nada é gravado.
 
-- **200** com as recomendações (pode vir vazia, com `notes` explicando o motivo);
+- **200** com as recomendações (pode vir vazia, com `notes` explicando o motivo) e `timed_out`
+  (a busca parou no orçamento de tempo; TASK-089);
 - **422** para requisição malformada, cenário inválido ou acessório inexistente.
 
 Capacidade e segurança vêm só do cálculo determinístico do backend (tabela de carga, limites e
@@ -196,6 +197,9 @@ class RecommendationResponse(BaseModel):
 class PlanningResponse(BaseModel):
     recommendations: list[RecommendationResponse]
     notes: list[str]
+    timed_out: bool = Field(
+        description="A busca parou no orçamento de tempo: pode haver opção que não foi avaliada."
+    )
 
     @classmethod
     def from_result(cls, result: PlanningResult) -> PlanningResponse:
@@ -204,6 +208,7 @@ class PlanningResponse(BaseModel):
                 RecommendationResponse.from_recommendation(item) for item in result.recommendations
             ],
             notes=list(result.notes),
+            timed_out=result.timed_out,
         )
 
 

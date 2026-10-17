@@ -14,8 +14,9 @@ from app.domain.services.tandem_load_split import TANDEM_CAPACITY_FACTOR, split_
 TANDEM_CAPACITY_SHARE = TANDEM_CAPACITY_FACTOR
 """Fração da capacidade de cada guindaste que o tandem pode usar (RN-016; TASK-074)."""
 
-HOIST_POINT_FRACTION = 0.4
-"""Os pontos de içamento ficam a 40 % do comprimento da carga, para cada lado do centro."""
+HOIST_POINT_FRACTION = 0.25
+"""Os pontos de içamento ficam a 1/4 e 3/4 do comprimento da carga: a 25 % dele, para cada lado do
+centro, como na cena (`frontend/src/domain/tandem/tandem.ts`; ADR-037 § 4 e ADR-041)."""
 
 
 class InvalidTandemGeometryError(ValueError):

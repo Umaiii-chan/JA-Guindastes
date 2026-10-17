@@ -120,8 +120,20 @@ def test_ordena_validas_primeiro_pela_menor_utilizacao() -> None:
     assert all(item.valid for item in result.recommendations)
 
 
+def beam_request(weight_kg: float = 4000.0) -> PlanningRequest:
+    """Viga FICTÍCIA de 16 m levada 4 m ao longo de X (TASK-089): com os pontos de içamento a 8 m
+    um do outro, os dois guindastes ficam em linha e giram no mesmo sentido. (A carga de 3 m do
+    container só tinha pares de frente um para o outro, girando em sentidos opostos: F-04.)"""
+    return PlanningRequest(
+        load=PlanLoad(weight_kg, 16.0, 1.0, 1.0),
+        pick=PlanPoint(0.0, 0.0),
+        delivery=PlanPoint(4.0, 0.0),
+        scenario=ScenarioSpec(),
+    )
+
+
 def test_sem_guindaste_unico_recomenda_dois_em_tandem_com_75_por_cento() -> None:
-    result = caso_de_uso_planejamento().execute(request(6000.0))
+    result = caso_de_uso_planejamento().execute(beam_request())
 
     best = result.recommendations[0]
     assert best.kind == "tandem"
@@ -129,14 +141,15 @@ def test_sem_guindaste_unico_recomenda_dois_em_tandem_com_75_por_cento() -> None
     assert len(best.configuration_ids) == 2
     assert len(best.placements) == 2
     # Divisão pelo CG no centro: metade para cada um.
-    assert [detail.share_kg for detail in best.details] == [3000.0, 3000.0]
+    assert [detail.share_kg for detail in best.details] == [2000.0, 2000.0]
     assert {point.crane_index for point in best.trajectory} == {0, 1}
     assert any("tandem" in note for note in result.notes)
 
 
 def test_tandem_sincroniza_os_instantes_das_duas_trajetorias() -> None:
-    best = caso_de_uso_planejamento().execute(request(6000.0)).recommendations[0]
+    best = caso_de_uso_planejamento().execute(beam_request()).recommendations[0]
 
+    assert best.kind == "tandem"
     by_crane = {
         index: [p.t_s for p in best.trajectory if p.crane_index == index] for index in (0, 1)
     }

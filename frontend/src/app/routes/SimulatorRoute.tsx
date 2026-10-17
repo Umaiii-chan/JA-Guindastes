@@ -813,6 +813,9 @@ export function SimulatorRoute() {
                     lengthM: validLoad.lengthM,
                     widthM: validLoad.widthM,
                     heightM: validLoad.heightM,
+                    ...(validLoad.centerOfGravity
+                      ? { cgOffsetM: validLoad.centerOfGravity.alongLengthM }
+                      : {}),
                   }
                 : null
             }
