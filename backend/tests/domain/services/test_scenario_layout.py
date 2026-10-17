@@ -84,6 +84,15 @@ def test_a_flatbed_trailer_stays_on_the_delivery_point() -> None:
     assert layout.spec.obstacles[0].center_z == 25
 
 
+def test_a_box_called_trailer_is_moved_off_the_delivery_point() -> None:
+    # ADR-049: só o caminhão plataforma da biblioteca recebe a carga; uma caixa "carreta" é
+    # obstáculo comum e sai do ponto de entrega.
+    layout = run(scenario(car(0, 25, "Carreta")))
+
+    assert len(layout.moves) == 1
+    assert "o ponto de entrega" in layout.moves[0].describe()
+
+
 def test_a_flatbed_trailer_cannot_sit_on_the_crane() -> None:
     trailer = replace(car(0, 0, "Carreta"), model_id="caminhao-plataforma", width_m=12, depth_m=2.6)
 

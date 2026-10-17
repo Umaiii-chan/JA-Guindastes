@@ -31,6 +31,8 @@ export interface PlanningSectionProps {
     readonly lengthM: number
     readonly widthM: number
     readonly heightM: number
+    /** Centro de gravidade ao longo do comprimento (m), da tela de Carga; ausente = no centro. */
+    readonly cgOffsetM?: number
   } | null
   readonly accessoryIds: readonly string[]
   /** Estado do guindaste na cena, ou `null` sem cena. */
@@ -150,6 +152,7 @@ export function PlanningSection({
     if (current.cargo === undefined || current.delivery === undefined) scenario.setSpec(spec)
     const hookAttachM = getHookAttachM()
     const request: PlanningRequest = {
+      // Com o CG da Carga, o tandem divide a carga pela alavanca (RN-016; TASK-089, F-03).
       load,
       pick: { x: pick.x, z: pick.z, rotationYDeg: pick.rotationYDeg },
       delivery: { x: delivery.x, z: delivery.z, rotationYDeg: delivery.rotationYDeg },

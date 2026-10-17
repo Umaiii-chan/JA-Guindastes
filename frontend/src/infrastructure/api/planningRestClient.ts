@@ -101,6 +101,7 @@ export function toPlanningDto(request: PlanningRequest): Record<string, unknown>
       length_m: request.load.lengthM,
       width_m: request.load.widthM,
       height_m: request.load.heightM,
+      ...(request.load.cgOffsetM !== undefined ? { cg_offset_m: request.load.cgOffsetM } : {}),
     },
     pick: { x: request.pick.x, z: request.pick.z, rotation_y_deg: request.pick.rotationYDeg },
     delivery: {
@@ -220,5 +221,14 @@ export function mapPlanningResponse(json: unknown): PlanningResult {
       mapRecommendation(item, `${path}.recommendations[${index}]`),
     ),
     notes: readStrings(body, 'notes', path),
+    timedOut: readTimedOut(body, path),
   }
+}
+
+/** `timed_out` (TASK-089): ausente num servidor anterior a ele = busca completa. */
+function readTimedOut(record: Readonly<Record<string, unknown>>, path: string): boolean {
+  const value = record.timed_out
+  if (value === undefined) return false
+  if (typeof value !== 'boolean') throw new ContractViolationError(`${path}.timed_out`, 'booleano')
+  return value
 }

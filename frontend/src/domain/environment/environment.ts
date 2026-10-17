@@ -57,6 +57,11 @@ export interface Obstacle {
   readonly depthM: number
   readonly heightM: number
   readonly rotationYDeg: number
+  /**
+   * Altura (m) da base acima do terreno no centro; 0 se ausente. Só a carga solta sobre a carroceria de um
+   * caminhão a usa (TASK-103); nunca vem do editor nem é gravada.
+   */
+  readonly baseElevationM?: number
 }
 
 /** Posição do guindaste no cenário: eixo de giro em (x, z) e rumo do chassi (graus, de +X). */

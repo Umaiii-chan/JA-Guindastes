@@ -55,6 +55,42 @@ def _body_samples(placement: CranePlacementSpec) -> list[tuple[float, float]]:
     return samples
 
 
+def _body_frame(
+    placement: CranePlacementSpec,
+) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float]]:
+    """Centro do retângulo do corpo no mundo e os eixos X e Z locais (como em `_body_samples`)."""
+    heading = placement.heading_deg * _DEG
+    cos = math.cos(heading)
+    sin = math.sin(heading)
+    center_x = (BODY_MIN_X_M + BODY_MAX_X_M) / 2
+    center_z = (BODY_MIN_Z_M + BODY_MAX_Z_M) / 2
+    center = (
+        placement.x + center_x * cos + center_z * sin,
+        placement.z - center_x * sin + center_z * cos,
+    )
+    return center, (cos, -sin), (sin, cos)
+
+
+def crane_bodies_overlap(first: CranePlacementSpec, second: CranePlacementSpec) -> bool:
+    """Os corpos de dois guindastes (em planta) se sobrepõem? Teste exato entre os dois retângulos
+    (eixos separadores); encostar na borda não conta (TASK-089, tandem)."""
+    half_x = (BODY_MAX_X_M - BODY_MIN_X_M) / 2
+    half_z = (BODY_MAX_Z_M - BODY_MIN_Z_M) / 2
+    (ax0, az0), a_x, a_z = _body_frame(first)
+    (bx0, bz0), b_x, b_z = _body_frame(second)
+    dx = bx0 - ax0
+    dz = bz0 - az0
+    for nx, nz in (a_x, a_z, b_x, b_z):
+        reach = 0.0
+        for ux, uz in (a_x, b_x):
+            reach += half_x * abs(nx * ux + nz * uz)
+        for ux, uz in (a_z, b_z):
+            reach += half_z * abs(nx * ux + nz * uz)
+        if abs(nx * dx + nz * dz) >= reach - 1e-9:
+            return False
+    return True
+
+
 _BODY_CENTER_Z_M = (BODY_MIN_Z_M + BODY_MAX_Z_M) / 2
 _BODY_CIRCUMRADIUS_M = math.hypot(
     (BODY_MAX_X_M - BODY_MIN_X_M) / 2, (BODY_MAX_Z_M - BODY_MIN_Z_M) / 2

@@ -37,3 +37,8 @@ Desenho registrado no [ADR-045](../../docs/decisions/ADR-045-tela-do-simulador-c
 - E2E de layout: canvas ≥ 85 % da área útil e sem rolagem horizontal nos três tamanhos.
 - E2E de tela cheia nativa com uma janela aberta (o Playwright sem cabeça não entra em tela cheia de
   verdade; hoje só o modo por CSS é exercitado).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-17 (00h50, horário de Brasília; PR #54). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

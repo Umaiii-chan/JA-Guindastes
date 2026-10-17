@@ -28,7 +28,13 @@ from app.domain.entities.scenario import (
 from app.domain.services.planning.models import CraneStateValues, PlanLoad, PlanPhase, PlanPoint
 from app.domain.services.planning.planner import HOOK_ATTACH_M, sling_drop_m
 from app.domain.services.planning.scene import direction, distance_to_obstacle_m
-from app.domain.services.planning.sweep import COLLISION_BOOM, segment_hits_solid, solids_of
+from app.domain.services.planning.sweep import (
+    COLLISION_APPROACH,
+    COLLISION_BOOM,
+    footprint_overlaps_obstacle,
+    segment_hits_solid,
+    solids_of,
+)
 from tests.fixtures.planejamento_ficticio import caso_de_uso_planejamento, container_ficticio
 
 PIVOT_OFFSET_M = 0.46  # ficha FICTÍCIA da fixture (`geometria_planejamento`)
@@ -101,6 +107,30 @@ def boom_inside(rec: Recommendation, obstacle: ObstacleSpec) -> int:
     """Quadros (de todas as fases) com o eixo da lança dentro do obstáculo."""
     (solid,) = solids_of(ScenarioSpec(obstacles=(obstacle,)))
     return sum(1 for _, state in frames(rec) if segment_hits_solid(solid, *boom(rec, state), 0.0))
+
+
+def _footprint_axes(rotation_y_deg: float):  # type: ignore[no-untyped-def]
+    angle = math.radians(rotation_y_deg)
+    return (math.cos(angle), -math.sin(angle)), (math.sin(angle), math.cos(angle))
+
+
+def bed_truck(x: float, z: float, bed_top_m: float, identifier: str = "CARRETA") -> ObstacleSpec:
+    """Caminhão plataforma da biblioteca (4,05 × 7,41 m, sem giro) com o CENTRO da carroceria em
+    (x, z) e o topo dela a `bed_top_m`: a carroceria fica 1,85 m atrás do centro do caminhão e tem
+    0,53 da altura do objeto (`loadBed` de objectLibrary.ts)."""
+    height = bed_top_m / (1.86 / 3.51)
+    return ObstacleSpec(
+        identifier,
+        "Caminhão plataforma",
+        ObstacleKind.MODEL,
+        x,
+        z + 1.85,
+        4.05,
+        7.41,
+        height,
+        0.0,
+        "caminhao-plataforma",
+    )
 
 
 def pole(identifier: str, x: float, z: float) -> ObstacleSpec:
@@ -182,9 +212,7 @@ def test_entrega_dentro_de_obstaculo_que_nao_e_carreta_e_recusada() -> None:
 def test_entrega_sobre_a_carreta_pousa_a_carga_no_topo_dela() -> None:
     # F-13 (prova 8): carreta de 1,3 m na entrega; sem a correção, a carga descia até o chão, por
     # dentro dela.
-    truck = ObstacleSpec(
-        "CARRETA", "Caminhão plataforma", ObstacleKind.BOX, 7.5, 0.0, 2.5, 9.0, 1.3, 0.0
-    )
+    truck = bed_truck(7.5, 0.0, 1.3)
     load = PlanLoad(1500.0, 3.0, 1.5, 1.2)
 
     result = plan(
@@ -209,9 +237,7 @@ def test_entrega_sobre_a_carreta_pousa_a_carga_no_topo_dela() -> None:
 def test_carga_baixa_sobre_a_carreta_nao_e_recusada_pelo_cabo(height_m: float) -> None:
     # IMPORTANTE-3 da revisão do PR #48: com h <= 0,2 m a linha do cabo terminava abaixo do topo da
     # carreta + meia-largura do gancho, e a própria carreta recusava a entrega ("colisao_cabo").
-    truck = ObstacleSpec(
-        "CARRETA", "Caminhão plataforma", ObstacleKind.BOX, 7.5, 0.0, 2.5, 9.0, 1.3, 0.0
-    )
+    truck = bed_truck(7.5, 0.0, 1.3)
 
     result = plan(
         ScenarioSpec(obstacles=(truck,)),
@@ -221,6 +247,48 @@ def test_carga_baixa_sobre_a_carreta_nao_e_recusada_pelo_cabo(height_m: float) -
     )
 
     assert result.recommendations, result.notes
+
+
+@pytest.mark.parametrize("side", [1, -1])
+def test_giro_da_carga_na_entrega_respeita_o_sentido_do_giro(side: int) -> None:
+    # MENOR-4 da revisão do PR #48: na entrega a carga está girada do quanto a torre girou
+    # (`planner.py`, `rotation = cargo_pick.rotation + sign * arc`). Coleta em (-6, 0) e entrega em
+    # (0, ±6): o guindaste fica de um lado ou do outro (giro de -73,7° ou +73,7°). Um muro pequeno
+    # no canto da carga girada pelo giro da melhor posição só bloqueia a entrega com esse giro: com
+    # o sinal invertido, o planejador aceitaria a posição, e o plano voltaria com a carga no muro.
+    load = PlanLoad(1500.0, 3.0, 1.5, 1.2)
+    pick = PlanPoint(-6.0, 0.0)
+    delivery = PlanPoint(0.0, 6.0 * side)
+    free = plan(ScenarioSpec(), load=load, pick=pick, delivery=delivery)
+    swing = free.recommendations[0].details[0].swing_deg
+    assert abs(swing) % 90 > 10  # com giro de 90° o sinal não mudaria a pegada
+
+    ax, az = _footprint_axes(swing)
+    wall = ObstacleSpec(
+        "MURO",
+        "Muro FICTÍCIO",
+        ObstacleKind.BOX,
+        delivery.x + ax[0] * (load.width_m / 2 - 0.03) + az[0] * (load.length_m / 2 - 0.03),
+        delivery.z + ax[1] * (load.width_m / 2 - 0.03) + az[1] * (load.length_m / 2 - 0.03),
+        0.04,
+        0.04,
+        3.0,
+        0.0,
+    )
+
+    def blocks(rotation_deg: float) -> bool:
+        return footprint_overlaps_obstacle(
+            wall, delivery.x, delivery.z, load.width_m / 2, load.length_m / 2, rotation_deg
+        )
+
+    assert blocks(swing) and not blocks(-swing)
+
+    result = plan(ScenarioSpec(obstacles=(wall,)), load=load, pick=pick, delivery=delivery)
+
+    assert result.recommendations
+    for rec in result.recommendations:
+        for detail in rec.details:
+            assert not blocks(detail.swing_deg)
 
 
 def test_monte_estreito_no_caminho_sobe_a_altura_de_transporte() -> None:
@@ -250,7 +318,7 @@ def test_descartes_por_colisao_aparecem_com_texto_claro() -> None:
 
     assert "12 com a lança batendo em obstáculo" in note
     assert "3 com o cabo ou o gancho batendo em obstáculo" in note
-    assert "2 com a carga na entrega sobre ou sob obstáculo que não é a carreta" in note
+    assert "2 com a carga na entrega sobre ou sob obstáculo que não é a carroceria" in note
 
 
 def test_cenario_cheio_responde_dentro_do_orcamento() -> None:
@@ -317,3 +385,68 @@ def test_carga_dentro_do_barracao_aberto_nao_e_mais_recusada_na_coleta() -> None
 
     assert not any("sob ou dentro de" in note for note in result.notes)
     assert any("Combinações descartadas" in note for note in result.notes)
+
+
+def _truck_at_origin() -> ObstacleSpec:
+    return ObstacleSpec(
+        "CAMINHAO",
+        "Caminhão plataforma",
+        ObstacleKind.MODEL,
+        0.0,
+        0.0,
+        4.05,
+        7.41,
+        3.51,
+        0.0,
+        "caminhao-plataforma",
+    )
+
+
+def test_coleta_sobre_a_carroceria_do_caminhao_tem_plano() -> None:
+    # IMPORTANTE-1 do PR #58: a cena assenta a carga sobre a carroceria (PRs #55 e #57); o plano
+    # pega a carga ali (base a 1,86 m, centro da pegada na carroceria) em vez de recusar a coleta.
+    load = PlanLoad(1500.0, 3.0, 1.5, 1.2)
+
+    result = plan(
+        ScenarioSpec(obstacles=(_truck_at_origin(),)),
+        load=load,
+        pick=PlanPoint(0.0, -1.85),
+        delivery=PlanPoint(14.0, -1.85),
+    )
+
+    assert result.recommendations, result.notes
+    assert result.recommendations[0].valid
+    assert not any("sob ou dentro de" in note for note in result.notes)
+
+
+def test_centro_da_carga_sobre_a_cabine_diz_que_o_centro_vai_na_carroceria() -> None:
+    result = plan(
+        ScenarioSpec(obstacles=(_truck_at_origin(),)),
+        load=PlanLoad(1500.0, 3.0, 1.5, 1.2),
+        pick=PlanPoint(0.0, 1.5),
+        delivery=PlanPoint(14.0, 0.0),
+    )
+
+    assert result.recommendations == ()
+    assert "carroceria (traseira)" in result.notes[0]
+
+
+def test_caixa_carreta_na_entrega_e_recusada_com_o_motivo() -> None:
+    trailer = ObstacleSpec("CARRETA", "Carreta", ObstacleKind.BOX, 14.0, 0.0, 2.5, 9.0, 1.3, 0.0)
+
+    result = plan(
+        ScenarioSpec(obstacles=(trailer,)),
+        load=PlanLoad(1500.0, 3.0, 1.5, 1.2),
+        pick=PlanPoint(-14.0, 0.0),
+        delivery=PlanPoint(14.0, 0.0),
+    )
+
+    assert result.recommendations == ()
+    assert "«Carreta»" in result.notes[0]
+    assert "só o caminhão plataforma da biblioteca" in result.notes[0]
+
+
+def test_descarte_pela_aproximacao_do_gancho_tem_texto_proprio() -> None:
+    note = _rejection_note({COLLISION_APPROACH: 7})
+
+    assert "7 com a aproximação do gancho (da partida até a carga) batendo em obstáculo" in note

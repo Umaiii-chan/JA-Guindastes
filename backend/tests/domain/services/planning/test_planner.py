@@ -328,3 +328,122 @@ def test_coleta_coberta_nao_gera_plano() -> None:
 
     assert search.plans == ()
     assert search.rejections == {"coleta": 1}
+
+
+def test_carga_dentro_do_barracao_aberto_passa_por_baixo_do_arco() -> None:
+    # Lacuna da revisão do PR #48: o barracão aberto é oco (as caixas de `hangarBoxes`, `_parts` em
+    # `library_boxes.py`) e o plano com a carga DENTRO dele fecha quando a lança discreta cabe sob o
+    # arco. Guindaste FICTÍCIO de uma só lança de 14,0 m (a 14,7° a ponta fica a 6,9 m; 14,3 m já
+    # bate no teto do tamanho padrão) em z = 24, voltado para o barracão (porta em +Z, z = 13,72).
+    # O barracão tem 12 m de altura (o tamanho do objeto é do usuário; a 8,27 m a aproximação do
+    # gancho, que desce da pose de partida, ainda atravessa o teto). A altura de transporte por
+    # cima do arco (`_swings`) não teria cabo; vale a que passa por baixo dele.
+    geometry = replace(GEOMETRY, boom_pivot_offset_m=0.46, boom_pivot_height=Length(3.3))
+    crane = replace(
+        CRANE,
+        geometry=replace(geometry, cable_length_max=Length(15.0), boom_length_max=Length(22.0)),
+        max_radius_m=20.0,
+        boom_lengths_m=(14.0,),
+    )
+    barn = ObstacleSpec(
+        "BARRACAO",
+        "Galpão com frente aberta",
+        ObstacleKind.MODEL,
+        0.0,
+        0.0,
+        19.22,
+        27.44,
+        12.0,
+        0.0,
+        "barracao-aberto",
+    )
+
+    search = plan_crane(
+        crane=crane,
+        scenario=ScenarioSpec(obstacles=(barn,)),
+        load=PlanLoad(1500.0, 3.0, 0.6, 0.6),
+        pick=PlanPoint(0.0, 10.0),
+        delivery=PlanPoint(3.0, 10.5),
+        evaluator=FakeEvaluator(),
+        max_positions=3000,
+    )
+
+    best = search.plans[0]
+    assert best.valid
+    assert best.boom_length_m == 14.0
+    assert best.placement.z > 20.0  # fora do barracão, de frente para a porta
+    assert best.crossed_obstacle_ids == ("BARRACAO",)
+    assert best.transport_height_m < 2.0  # sob o arco, não por cima dele
+
+
+class FakeZoneEvaluator(FakeEvaluator):
+    """Como `FakeEvaluator`, com a frente (ψ de 300° a 60°) a 40 % da capacidade; na fronteira, a
+    menor das duas (como a avaliação real)."""
+
+    def __call__(self, **kwargs: object) -> StateAssessment:  # type: ignore[override]
+        base = super().__call__(**kwargs)  # type: ignore[arg-type]
+        state = kwargs["state"]
+        assert isinstance(state, CraneStateValues)
+        psi = state.turret_rotation_deg % 360.0
+        front = psi >= 300.0 - 1e-6 or psi <= 60.0 + 1e-6
+        factor = 0.4 if front else 1.0
+        return replace(base, utilization_percent=base.utilization_percent / factor)
+
+
+def replay_max(evaluator: FakeEvaluator, plan_item, weight_kg: float) -> float:  # type: ignore[no-untyped-def]
+    """Maior utilização no giro como a cena o executa (quadros-chave interpolados)."""
+    worst = 0.0
+    for a, b in zip(plan_item.path, plan_item.path[1:], strict=False):
+        for i in range(201):
+            f = i / 200
+            state = CraneStateValues(
+                a.boom_length_m,
+                a.boom_angle_deg + (b.boom_angle_deg - a.boom_angle_deg) * f,
+                a.turret_rotation_deg + (b.turret_rotation_deg - a.turret_rotation_deg) * f,
+                a.cable_length_m + (b.cable_length_m - a.cable_length_m) * f,
+            )
+            result = evaluator(
+                configuration_id="CFG-FICTICIA",
+                state=state,
+                load_weight_kg=weight_kg,
+                ground_slope_deg=None,
+                soil_kinds=(),
+                wind_speed_ms=None,
+                obstacle_conflicts=(),
+            )
+            worst = max(worst, result.utilization_percent)
+    return worst
+
+
+def test_pior_ponto_na_fronteira_de_zona_entre_dois_quadros_chave() -> None:
+    # TASK-089 (F-06): giro da torre limitado (rumo fixo, giro centrado em ψ = 0) e raio crescendo
+    # da coleta à entrega: a frente fraca termina em ψ = 60°, entre dois quadros-chave.
+    limited = replace(
+        CRANE,
+        geometry=replace(
+            GEOMETRY, turret_rotation_min=Angle(-170.0), turret_rotation_max=Angle(170.0)
+        ),
+        zone_boundaries_deg=(60.0, 300.0),
+    )
+    weight = 700.0
+    pick = PlanPoint(-10.5 * math.sin(math.radians(75.0)), 10.5 * math.cos(math.radians(75.0)))
+    delivery = PlanPoint(16.0 * math.sin(math.radians(75.0)), 16.0 * math.cos(math.radians(75.0)))
+
+    search = plan_crane(
+        crane=limited,
+        scenario=ScenarioSpec(),
+        load=replace(LOAD, weight_kg=weight),
+        pick=pick,
+        delivery=delivery,
+        evaluator=FakeZoneEvaluator(),
+        keep=10,
+    )
+
+    assert search.plans
+    crossing = 0
+    for item in search.plans:
+        psis = [state.turret_rotation_deg for state in item.path]
+        if min(psis) < 60.0 < max(psis) and 60.0 not in psis:
+            crossing += 1
+        assert item.max_utilization_percent >= replay_max(FakeZoneEvaluator(), item, weight) - 1e-6
+    assert crossing > 0

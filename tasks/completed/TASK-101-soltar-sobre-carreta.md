@@ -18,3 +18,8 @@ na tela. ADR-035 (carga, engatar e soltar), ADR-036 (biblioteca) e ADR-046 (esta
   estavam (pendência registrada no handoff).
 - [ ] **CA-5** — Testes unitários do domínio: sobre a carroceria, ao lado, parcialmente fora, com
   giro do caminhão, engate de novo sobre a carroceria.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-17 (00h52, horário de Brasília; PR #55). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

@@ -61,13 +61,12 @@ from app.domain.services.planning.sweep import (
     delivery_surface,
     first_path_collision,
     load_crossings,
-    pick_cover,
+    pick_surface,
     solids_of,
     swing_arc,
     terrain_peak_along,
 )
 from app.domain.services.planning.terrain import (
-    cargo_base_y,
     ground_slope_under_crane_deg,
     soil_kinds_under_shoes,
     terrain_height_at,
@@ -153,6 +152,8 @@ class _Context:
     fixed_delivery: DeliverySurface | None
     """Superfície da entrega quando o giro da carga já é dado (tandem); senão, depende do giro."""
     radius_load_m: float
+    pick_supports: tuple[ObstacleSpec, ...]
+    """Caminhões em cuja carroceria a carga está apoiada na coleta."""
     pick_base_y: float
     """Altura da base da carga apoiada na coleta."""
     solids: tuple[Solid, ...]
@@ -302,12 +303,13 @@ def _sites(
     weight_with_extras_kg: float,
     rejections: Counter[str],
     max_positions: int,
-) -> list[_Site]:
-    """As `max_positions` posições livres de menor raio máximo, cada uma com o melhor rumo.
+) -> list[tuple[_Site, ...]]:
+    """As `max_positions` posições livres de menor raio máximo, cada uma com os rumos possíveis.
 
     As posições são avaliadas em ordem de raio máximo (depois X e Z) e a busca para quando junta
     `max_positions`: o resultado é o mesmo de avaliar todas e ficar com as primeiras, com menos
-    trabalho (a conferência densa do giro custa mais que a de 13 pontos)."""
+    trabalho (a conferência densa do giro custa mais que a de 13 pontos). O rumo não é escolhido
+    aqui: `plan_crane` confere todos, com os dois sentidos do giro (TASK-089)."""
     pick, delivery = ctx.pick, ctx.delivery
     geometry = crane.geometry
     pivot = geometry.boom_pivot_offset_m
@@ -338,9 +340,9 @@ def _sites(
             candidates.append((max(rp, rd), x, z))
     candidates.sort()
 
-    sites: list[_Site] = []
+    positions: list[tuple[_Site, ...]] = []
     for _, x, z in candidates:
-        if len(sites) >= max_positions:
+        if len(positions) >= max_positions:
             break
         base_heading = _centered_heading(
             crane,
@@ -348,7 +350,7 @@ def _sites(
             azimuth_deg(delivery.x - x, delivery.z - z),
         )
         sweeps: list[_Sweep] | None = None
-        best: tuple[float, _Site] | None = None
+        headings: list[_Site] = []
         reason = "obstaculo"
         for step in _HEADING_STEPS_DEG if free_turret else (0.0,):
             placement = CranePlacementSpec(x=x, z=z, heading_deg=base_heading + step)
@@ -362,14 +364,12 @@ def _sites(
             if not swings:
                 reason = DELIVERY_BLOCKED
                 break  # a entrega não depende do rumo
-            cost = _swing_seconds(swings[0], ctx)
-            if best is None or cost < best[0] - 1e-9:
-                best = (cost, replace(result, swings=tuple(swings)))
-        if best is None:
+            headings.append(replace(result, swings=tuple(swings)))
+        if not headings:
             rejections[reason] += 1
         else:
-            sites.append(best[1])
-    return sites
+            positions.append(tuple(headings))
+    return positions
 
 
 def _ends_ground(ctx: _Context) -> float:
@@ -472,14 +472,78 @@ def _swings(ctx: _Context, site: _Site, sweeps: Sequence[_Sweep]) -> list[_Swing
                 )
             )
 
-    swings.sort(
-        key=lambda swing: (
-            round(_swing_seconds(swing, ctx), 3),
-            bool(swing.crossed) or swing.crosses_body,
-            swing.arc_deg,
-        )
-    )
+    swings.sort(key=lambda swing: _swing_rank(swing, ctx))
     return swings
+
+
+def _swing_rank(swing: _Swing, ctx: _Context) -> tuple[float, bool, float]:
+    """Preferência entre giros: o de menor tempo, depois o que não cruza nada, depois o mais
+    curto."""
+    return (
+        round(_swing_seconds(swing, ctx), 3),
+        bool(swing.crossed) or swing.crosses_body,
+        swing.arc_deg,
+    )
+
+
+def _routes(
+    crane: PlannerCrane, ctx: _Context, headings: Sequence[_Site]
+) -> list[tuple[_Site, _Swing]]:
+    """Todos os rumos e os dois sentidos do giro de uma posição, do mais rápido ao mais lento.
+
+    Sem zonas de giro, ψ não muda a avaliação (TASK-089): dois rumos com o mesmo sentido, a mesma
+    altura de transporte e o mesmo chão sob as sapatas dão a mesma opção, e só o primeiro fica."""
+    routes = [(site, swing) for site in headings for swing in site.swings]
+    routes.sort(key=lambda route: _swing_rank(route[1], ctx))
+    if crane.zone_boundaries_deg:
+        return routes
+    seen: set[tuple[int, float, float, tuple[SoilKind, ...]]] = set()
+    unique: list[tuple[_Site, _Swing]] = []
+    for site, swing in routes:
+        key = (swing.sign, round(swing.bottom_y, 6), site.slope_deg, site.soil_kinds)
+        if key not in seen:
+            seen.add(key)
+            unique.append((site, swing))
+    return unique
+
+
+ZONE_BOUNDARY_OFFSET_DEG = 1e-3
+"""Quanto antes e depois de cada fronteira de zona o giro é avaliado (TASK-089)."""
+
+
+def _boundary_states(
+    crane: PlannerCrane, path: Sequence[CraneStateValues]
+) -> list[CraneStateValues]:
+    """Estados do giro logo antes e logo depois de cada fronteira de zona atravessada, entre dois
+    quadros-chave, interpolados como a cena (L, θ, ψ e c em linha reta), então com o raio de lá.
+
+    Numa zona, a capacidade só cai com o raio, e o raio só muda num sentido entre dois quadros: o
+    pior ponto de cada zona fica num quadro-chave ou numa fronteira (F-06)."""
+    if not crane.zone_boundaries_deg:
+        return []
+    states: list[CraneStateValues] = []
+    for a, b in zip(path, path[1:], strict=False):
+        span = b.turret_rotation_deg - a.turret_rotation_deg
+        if abs(span) < 1e-9:
+            continue
+        low, high = sorted((a.turret_rotation_deg, b.turret_rotation_deg))
+        for boundary in crane.zone_boundaries_deg:
+            turn = math.ceil((low - boundary - ZONE_BOUNDARY_OFFSET_DEG) / 360.0)
+            while boundary + 360.0 * turn <= high + ZONE_BOUNDARY_OFFSET_DEG:
+                for offset in (-ZONE_BOUNDARY_OFFSET_DEG, ZONE_BOUNDARY_OFFSET_DEG):
+                    psi = boundary + 360.0 * turn + offset
+                    if low <= psi <= high:
+                        f = (psi - a.turret_rotation_deg) / span
+                        states.append(
+                            CraneStateValues(
+                                a.boom_length_m + (b.boom_length_m - a.boom_length_m) * f,
+                                a.boom_angle_deg + (b.boom_angle_deg - a.boom_angle_deg) * f,
+                                psi,
+                                a.cable_length_m + (b.cable_length_m - a.cable_length_m) * f,
+                            )
+                        )
+                turn += 1
+    return states
 
 
 def _boom_angle_deg(crane: PlannerCrane, boom_length_m: float, radius_m: float) -> float | None:
@@ -613,7 +677,12 @@ def _try_length(
         boom_length_m, last.boom_angle_deg, last.turret_rotation_deg, delivery_cable
     )
 
-    sampled = (pick_state, path[PATH_SEGMENTS // 2], delivery_state)
+    sampled = (
+        pick_state,
+        path[PATH_SEGMENTS // 2],
+        delivery_state,
+        *_boundary_states(crane, path),
+    )
     result = _worst(
         [_assess(evaluator, crane, site, s, weight_kg, wind_speed_ms) for s in sampled],
         capacity_share,
@@ -650,6 +719,7 @@ def _collision(crane: PlannerCrane, ctx: _Context, option: _Option) -> str | Non
         delivery_state=option.delivery_state,
         delivery_load_top_y=option.swing.delivery_rest_y + REST_CLEARANCE_M + load.height_m,
         delivery_supports=option.swing.delivery_supports,
+        pick_supports=ctx.pick_supports,
     )
 
 
@@ -694,7 +764,8 @@ def plan_crane(
     scenario = replace(scenario, obstacles=expand_obstacles(scenario))
     rejections: Counter[str] = Counter()
     cargo_at_pick = pick if cargo_pick is None else cargo_pick
-    if pick_cover(scenario, load, cargo_at_pick):
+    pick_surf = pick_surface(scenario, load, cargo_at_pick)
+    if pick_surf.blockers:
         rejections[PICK_COVERED] += 1
         return PlanSearch((), dict(rejections))
     fixed_delivery: DeliverySurface | None = None
@@ -716,27 +787,23 @@ def plan_crane(
         delivery_center=delivery_center,
         fixed_delivery=fixed_delivery,
         radius_load_m=math.hypot(load.length_m, load.width_m) / 2,
-        pick_base_y=cargo_base_y(
-            scenario.terrain,
-            load.length_m,
-            load.width_m,
-            cargo_at_pick.x,
-            cargo_at_pick.z,
-            cargo_at_pick.rotation_y_deg,
-        ),
+        pick_supports=pick_surf.supports,
+        pick_base_y=pick_surf.rest_y,
         solids=solids_of(scenario),
         accessory_drop_m=accessory_drop_m,
         hook_attach_m=hook_attach_m,
     )
-    sites = _sites(crane, ctx, weight_kg + extra_weight_kg, rejections, max_positions)
+    positions = _sites(crane, ctx, weight_kg + extra_weight_kg, rejections, max_positions)
     options: list[_Option] = []
     timed_out = False
-    for site in sites:
+    for headings in positions:
         if deadline is not None and clock() > deadline:
             timed_out = True
             break
+        # Todos os rumos e os dois sentidos, do mais rápido ao mais lento: vale o primeiro que
+        # atende (válidas primeiro, o tempo só desempata); se nenhum atende, o mais rápido (F-18).
         best: _Option | None = None
-        for swing in site.swings:
+        for site, swing in _routes(crane, ctx, headings):
             candidates = [
                 option
                 for length in crane.boom_lengths_m
@@ -757,13 +824,19 @@ def plan_crane(
                 is not None
             ]
             # A melhor opção que não bate em nada; as que batem saem com o motivo.
+            found: _Option | None = None
             for option in sorted(candidates, key=_option_key):
                 collision = _collision(crane, ctx, option)
                 if collision is None:
-                    best = option
+                    found = option
                     break
                 rejections[collision] += 1
-            if best is not None:
+            if found is None:
+                continue
+            if best is None:
+                best = found
+            if not _option_key(found)[0]:
+                best = found
                 break
         if best is not None:
             options.append(best)
@@ -807,7 +880,12 @@ def _refine(
 ) -> CranePlan | None:
     """Avalia todas as amostras do caminho e monta o plano com o pior ponto."""
     site = option.site
-    states = (option.pick_state, *option.path, option.delivery_state)
+    states = (
+        option.pick_state,
+        *option.path,
+        *_boundary_states(crane, option.path),
+        option.delivery_state,
+    )
     result = _worst(
         [_assess(evaluator, crane, site, s, weight_kg, wind_speed_ms) for s in states],
         capacity_share,

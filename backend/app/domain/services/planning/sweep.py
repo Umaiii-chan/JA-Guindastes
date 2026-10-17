@@ -37,7 +37,13 @@ from app.domain.entities.scenario import (
     TerrainSpec,
 )
 from app.domain.services.planning.crane_body import distance_to_crane_body_m
-from app.domain.services.planning.library_boxes import expand_obstacles
+from app.domain.services.planning.library_boxes import (
+    bed_contains,
+    expand_obstacles,
+    is_platform_truck,
+    platform_truck_bed_ratio,
+    platform_truck_cab_parts,
+)
 from app.domain.services.planning.models import CraneStateValues, PlanLoad, PlanPoint
 from app.domain.services.planning.scene import (
     direction,
@@ -53,7 +59,6 @@ from app.domain.services.planning.terrain import (
     terrain_peak_near,
     terrain_plane_peak_near,
 )
-from app.domain.services.scenario_layout import is_platform_vehicle
 from app.domain.value_objects.crane_geometry import CraneGeometry
 
 SWEEP_STEP_M = 0.25
@@ -77,6 +82,7 @@ APPROACH_MAX_SAMPLES = 120
 COLLISION_LOAD = "colisao_carga"
 COLLISION_CABLE = "colisao_cabo"
 COLLISION_BOOM = "colisao_lanca"
+COLLISION_APPROACH = "colisao_aproximacao"
 
 _EPS = 1e-9
 
@@ -292,21 +298,6 @@ def _in_height_range(terrain: TerrainSpec, obstacle: ObstacleSpec, low: float, h
     return top > low + 1e-6 and top - obstacle.height_m < high - 1e-6
 
 
-def pick_cover(
-    scenario: ScenarioSpec, load: PlanLoad, cargo: PlanPoint
-) -> tuple[ObstacleSpec, ...]:
-    """Obstáculos sobre a carga na coleta (ou que a contêm). A cena assenta a carga no terreno,
-    então qualquer obstáculo na pegada dela a cobre: o gancho não a alcança por cima."""
-    base = cargo_base_y(
-        scenario.terrain, load.length_m, load.width_m, cargo.x, cargo.z, cargo.rotation_y_deg
-    )
-    return tuple(
-        obstacle
-        for obstacle in _under_footprint(scenario, load, cargo.x, cargo.z, cargo.rotation_y_deg)
-        if _in_height_range(scenario.terrain, obstacle, base, base + load.height_m)
-    )
-
-
 @dataclass(frozen=True, slots=True)
 class DeliverySurface:
     """Onde a carga pousa na entrega."""
@@ -319,23 +310,77 @@ class DeliverySurface:
     """Outros obstáculos sob a pegada, acima de onde ela pousaria: a entrega não é possível."""
 
 
+def _supports_load(obstacle: ObstacleSpec, x: float, z: float) -> bool:
+    """O obstáculo recebe por cima a carga centrada em (x, z)? Só o caminhão plataforma da
+    biblioteca (a cena só tem carroceria nele, `loadBedsOf`), e só se o centro da pegada cai dentro
+    da carroceria (o mesmo critério da cena, `loadBeds.ts`); senão a carga fica no terreno e o
+    caminhão, como qualquer outro obstáculo, é colisão. Uma caixa "carreta" não recebe a carga."""
+    return is_platform_truck(obstacle) and bed_contains(obstacle, x, z)
+
+
+def support_top_y(terrain: TerrainSpec, obstacle: ObstacleSpec) -> float:
+    """Altura (m) em que a carga repousa sobre o caminhão plataforma: o topo da carroceria
+    (`loadBed` do frontend: 0,53 da altura), não o da caixa inteira (cabine)."""
+    top = obstacle_top_y(terrain, obstacle)
+    return top - obstacle.height_m * (1.0 - platform_truck_bed_ratio())
+
+
+def _surface(
+    scenario: ScenarioSpec,
+    load: PlanLoad,
+    x: float,
+    z: float,
+    rotation_y_deg: float,
+    *,
+    low_obstacles_block: bool,
+) -> DeliverySurface:
+    under = _under_footprint(scenario, load, x, z, rotation_y_deg)
+    rest = cargo_base_y(scenario.terrain, load.length_m, load.width_m, x, z, rotation_y_deg)
+    supports = tuple(obstacle for obstacle in under if _supports_load(obstacle, x, z))
+    if supports:
+        rest = max(rest, max(support_top_y(scenario.terrain, item) for item in supports))
+    blockers = [
+        obstacle
+        for obstacle in under
+        if obstacle not in supports
+        and (low_obstacles_block or obstacle_top_y(scenario.terrain, obstacle) > rest + 1e-6)
+        and _in_height_range(scenario.terrain, obstacle, rest, rest + load.height_m)
+    ]
+    # Apoiada na carroceria, a carga não pode invadir os trechos mais altos do caminhão (a cabine).
+    for truck in supports:
+        blockers.extend(
+            part
+            for part in platform_truck_cab_parts(truck, scenario.terrain)
+            if footprint_overlaps_obstacle(
+                part, x, z, load.width_m / 2, load.length_m / 2, rotation_y_deg
+            )
+            and obstacle_top_y(scenario.terrain, part) > rest + 1e-6
+        )
+    return DeliverySurface(rest, supports, tuple(blockers))
+
+
 def delivery_surface(
     scenario: ScenarioSpec, load: PlanLoad, x: float, z: float, rotation_y_deg: float
 ) -> DeliverySurface:
-    """Superfície da entrega com a carga centrada em (x, z) e girada de `rotation_y_deg`."""
-    under = _under_footprint(scenario, load, x, z, rotation_y_deg)
-    rest = cargo_base_y(scenario.terrain, load.length_m, load.width_m, x, z, rotation_y_deg)
-    supports = tuple(obstacle for obstacle in under if is_platform_vehicle(obstacle))
-    if supports:
-        rest = max(rest, max(obstacle_top_y(scenario.terrain, item) for item in supports))
-    blockers = tuple(
-        obstacle
-        for obstacle in under
-        if not is_platform_vehicle(obstacle)
-        and obstacle_top_y(scenario.terrain, obstacle) > rest + 1e-6
-        and _in_height_range(scenario.terrain, obstacle, rest, rest + load.height_m)
+    """Superfície da entrega com a carga centrada em (x, z) e girada de `rotation_y_deg`: onde ela
+    repousa (o terreno ou a carroceria do caminhão plataforma) e o que a impede."""
+    return _surface(scenario, load, x, z, rotation_y_deg, low_obstacles_block=False)
+
+
+def pick_surface(scenario: ScenarioSpec, load: PlanLoad, cargo: PlanPoint) -> DeliverySurface:
+    """Superfície da coleta: a cena assenta a carga no terreno ou sobre a carroceria (mesmo apoio
+    da entrega), então qualquer outro obstáculo na pegada a cobre (`blockers`): o gancho não a
+    alcança por cima."""
+    return _surface(
+        scenario, load, cargo.x, cargo.z, cargo.rotation_y_deg, low_obstacles_block=True
     )
-    return DeliverySurface(rest, supports, blockers)
+
+
+def pick_cover(
+    scenario: ScenarioSpec, load: PlanLoad, cargo: PlanPoint
+) -> tuple[ObstacleSpec, ...]:
+    """Obstáculos sobre a carga na coleta (ou que a contêm)."""
+    return pick_surface(scenario, load, cargo).blockers
 
 
 def delivery_cover(
@@ -349,14 +394,14 @@ def delivery_cover(
     ground = terrain_height_at(scenario.terrain, center.x, center.z)
     for obstacle in obstacles:
         if (
-            is_platform_vehicle(obstacle)
+            _supports_load(obstacle, center.x, center.z)
             and distance_to_obstacle_m(obstacle, center.x, center.z) <= radius
         ):
-            rest_limit = max(rest_limit, obstacle_top_y(scenario.terrain, obstacle))
+            rest_limit = max(rest_limit, support_top_y(scenario.terrain, obstacle))
     return tuple(
         obstacle
         for obstacle in obstacles
-        if not is_platform_vehicle(obstacle)
+        if not _supports_load(obstacle, center.x, center.z)
         and (
             obstacle.elevation_m is None
             or obstacle_top_y(scenario.terrain, obstacle) - obstacle.height_m <= ground + 1e-6
@@ -570,7 +615,11 @@ def _swing_collision(
 
 
 def _approach_collision(
-    rig: Rig, solids: Sequence[Solid], start: CraneStateValues, end: CraneStateValues
+    rig: Rig,
+    solids: Sequence[Solid],
+    start: CraneStateValues,
+    end: CraneStateValues,
+    cable_exempt_ids: frozenset[str] = frozenset(),
 ) -> str | None:
     """Da pose de partida até o gancho acima da carga: ψ fica parado, a lança desce e estende."""
     longest = max(start.boom_length_m, end.boom_length_m)
@@ -603,7 +652,9 @@ def _approach_collision(
         pose = _pose(rig, length, angle, psi)
         hook_bottom = pose[4] - cable - rig.hook_drop_m
         for solid in near:
-            hit = _boom_or_line_hit(solid, pose, hook_bottom, half)
+            hit = _boom_or_line_hit(
+                solid, pose, hook_bottom, half, check_cable=solid.spec.id not in cable_exempt_ids
+            )
             if hit is not None:
                 return hit
     return None
@@ -641,6 +692,7 @@ def first_path_collision(
     delivery_state: CraneStateValues,
     delivery_load_top_y: float,
     delivery_supports: Sequence[ObstacleSpec] = (),
+    pick_supports: Sequence[ObstacleSpec] = (),
 ) -> str | None:
     """Primeiro motivo de colisão (`COLLISION_*`) no caminho inteiro da opção, ou `None`.
 
@@ -648,13 +700,16 @@ def first_path_collision(
     coleta, com a linha até o topo da carga no chão). Levantar e baixar: só o cabo muda, e a linha
     da ponta até a carga apoiada cobre todo o trecho. Girar: amostras densas do movimento
     interpolado. A pegada da carga na coleta e na entrega é conferida à parte (`pick_cover`,
-    `delivery_surface`).
+    `delivery_surface`). O cabo não é conferido contra o caminhão que apoia a carga (na coleta ou na
+    entrega); a aproximação tem motivo próprio (`COLLISION_APPROACH`).
     """
     if not solids:
         return None
+    pick_exempt = frozenset(support.id for support in pick_supports)
+    if _approach_collision(rig, solids, *approach, pick_exempt) is not None:
+        return COLLISION_APPROACH
     return (
-        _approach_collision(rig, solids, *approach)
-        or _static_collision(rig, solids, pick_state, pick_load_top_y)
+        _static_collision(rig, solids, pick_state, pick_load_top_y, pick_exempt)
         or _swing_collision(rig, solids, arc, path)
         or _static_collision(
             rig,
@@ -668,6 +723,7 @@ def first_path_collision(
 
 __all__ = [
     "BOOM_HALF_SECTION_M",
+    "COLLISION_APPROACH",
     "COLLISION_BOOM",
     "COLLISION_CABLE",
     "COLLISION_LOAD",
@@ -684,8 +740,10 @@ __all__ = [
     "footprint_overlaps_obstacle",
     "load_crossings",
     "pick_cover",
+    "pick_surface",
     "samples_within",
     "segment_hits_solid",
+    "support_top_y",
     "solids_of",
     "swing_arc",
     "terrain_peak_along",

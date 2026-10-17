@@ -530,7 +530,9 @@ export function SimulatorRoute() {
         craneCommands.getState().cableLengthM + height - RELEASE_MAX_HEIGHT_M / 2,
       )
     }
-    return handle.releaseCargo() ? null : 'Não deu para soltar a carga: baixe-a até perto do chão.'
+    return handle.releaseCargo()
+      ? null
+      : 'Não deu para soltar a carga: baixe-a até perto do chão ou da carroceria.'
   }
   const cargoGuide = cargoGuidance({
     status: cargoStatus,
@@ -815,6 +817,9 @@ export function SimulatorRoute() {
                     lengthM: validLoad.lengthM,
                     widthM: validLoad.widthM,
                     heightM: validLoad.heightM,
+                    ...(validLoad.centerOfGravity
+                      ? { cgOffsetM: validLoad.centerOfGravity.alongLengthM }
+                      : {}),
                   }
                 : null
             }

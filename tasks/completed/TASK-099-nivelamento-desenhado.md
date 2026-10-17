@@ -10,3 +10,8 @@ mergeadas em 2026-10-17: a TASK-094 calculava o nivelamento pelo comando das pat
   esse nivelamento muda.
 - [x] **CA-2** — As tarefas mergeadas da rodada de correções (TASK-090 a 094, 096 a 098) vão para
   `tasks/completed/` com a seção "Encerramento".
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-17 (00h33, horário de Brasília; PR #51). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).
