@@ -18,8 +18,8 @@ Regras (valores FICTÍCIOS e configuráveis até haver dado oficial):
 - guindastes adicionais (TASK-074): no máximo 3, ids únicos, `configuration_id` de 1 a 64 caracteres
   e posição finita;
 - rede elétrica (TASK-107; ADR-051): trecho reto horizontal entre dois pontos distintos, a uma
-  altura de 0,5 a 200 m, com tensão de 0 a 1000 kV (o alcance da tabela ASME B30.5 / OSHA
-  1926.1408); no máximo 20 trechos, ids únicos;
+  altura de 0,5 a 200 m, com tensão de 0 a 1000 kV (o alcance da tabela de distância
+  mínima; L-018); no máximo 20 trechos, ids únicos;
 - no máximo 50 feições e 100 obstáculos; ids únicos dentro de cada lista;
 - nome do cenário: 1 a 120 caracteres, sem espaços nas pontas.
 """

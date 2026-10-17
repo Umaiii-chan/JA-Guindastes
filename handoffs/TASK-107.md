@@ -20,7 +20,7 @@
   `critical_lift` na resposta, alertas depois do `assess_safety` (sem tocar o `tipping_risk`). Frontend:
   editor com tensão selecionável, malha 3D (cabo, postes e zona), cliente REST, `site` sempre enviado,
   painel com distâncias e plano de içamento crítico, caixa "carga sobre pessoas ou estruturas ocupadas".
-- ADR-051 (Aceito, decisão delegada pelo Anderson), `known-gaps.md` (L-017, L-018), índice dos ADRs.
+- ADR-051 (Aceito, decisão delegada pelo Anderson), `known-gaps.md` (L-018, L-019), índice dos ADRs.
 - Mesclei `anderson/development` (TASK-106, estabilidade por física): o gatilho de vento usa agora
   `wind_limit_ms` da EN 13000 (a constante `WIND_BLOCK_LIMIT_MS` deixou de existir).
 
@@ -40,7 +40,7 @@
 
 - **⚠️ A tabela de distância decidida não confere com a Tabela A do OSHA 1926.1408** (10/15/20/25/35/45
   pés; conferido em osha.gov). Acima de 50 kV a implementada é menos conservadora. Implementei como decidido
-  e registrei no ADR-051 e em L-017; a troca é local (`power_line.py`, `powerLine.ts`, JSON de casos).
+  e registrei no ADR-051 e em L-018; a troca é local (`power_line.py`, `powerLine.ts`, JSON de casos).
 - Lingas a 60° ficam mais altas que a heurística antiga: testes de cena/colisão que dependiam da altura
   antiga foram ajustados (cabo mais curto, lingas de 45° ou pose engatada com 2 m), com comentário em cada um.
 - A regra de engate mudou: o gancho precisa estar perto do ponto em que as lingas esticam, não mais a até
@@ -53,5 +53,5 @@
 
 ## 5. Próximo passo
 
-**Papel:** Revisor (Coruja), depois a pessoa responsável: decidir a tabela (L-017) e fazer o merge.
+**Papel:** Revisor (Coruja), depois a pessoa responsável: decidir a tabela (L-018) e fazer o merge.
 **Ler primeiro:** `docs/decisions/ADR-051-...md`, `backend/app/domain/services/{rigging,power_line,critical_lift}.py`.

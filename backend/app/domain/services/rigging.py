@@ -34,7 +34,8 @@ FALLBACK_ANGLE_DEG = 45.0
 """Ângulo do padrão quando a linga a 60° ficaria longa demais (também o mínimo recomendado)."""
 MIN_ALLOWED_ANGLE_DEG = 30.0
 """Abaixo disto o ASME B30.9 proíbe usar a linga: o ângulo informado é recusado."""
-MAX_ALLOWED_ANGLE_DEG = 90.0
+MAX_ALLOWED_ANGLE_DEG = 85.0
+"""Perto de 90° a queda `r·tan α` explode: o teto é 85° (a 89° seria 57× o alcance)."""
 MAX_PREFERRED_LENGTH_M = 8.0
 """Comprimento a partir do qual o padrão abandona os 60°."""
 MIN_DROP_M = 0.3
@@ -74,7 +75,7 @@ def _positive(name: str, value: float) -> float:
 
 
 def check_angle_deg(angle_deg: float) -> float:
-    """Ângulo válido (de 30° a 90°), ou `InvalidSlingGeometryError`."""
+    """Ângulo válido (de 30° a 85°), ou `InvalidSlingGeometryError`."""
     value = _positive("o ângulo da linga", angle_deg)
     if value < MIN_ALLOWED_ANGLE_DEG - 1e-9 or value > MAX_ALLOWED_ANGLE_DEG + 1e-9:
         raise InvalidSlingGeometryError(
@@ -100,9 +101,6 @@ def from_angle(reach: float, angle_deg: float) -> SlingGeometry:
     """Lingas com o alcance `reach` e o ângulo `angle_deg`: `L = r / cos α`, `queda = r · tan α`."""
     r = _positive("o alcance horizontal", reach)
     alpha = check_angle_deg(angle_deg)
-    if alpha >= MAX_ALLOWED_ANGLE_DEG - 1e-9:
-        # Vertical: a queda não depende de r; o piso mantém o gancho fora da carga.
-        return SlingGeometry(r, MIN_DROP_M, alpha, MIN_DROP_M)
     radians = math.radians(alpha)
     natural = r * math.tan(radians)
     if natural >= MIN_DROP_M:
@@ -139,7 +137,7 @@ def default_geometry(
     """As lingas da carga `length_m × width_m`: o ângulo informado, ou o padrão (60°; 45° se longa).
 
     É a conta que o planejador, o tandem e a cena usam para a altura das lingas. `angle_deg=None`
-    escolhe o padrão; um valor fora de 30°–90° levanta `InvalidSlingGeometryError`.
+    escolhe o padrão; um valor fora de 30°–85° levanta `InvalidSlingGeometryError`.
     """
     reach = reach_m(length_m, width_m, tandem=tandem)
     if angle_deg is not None:

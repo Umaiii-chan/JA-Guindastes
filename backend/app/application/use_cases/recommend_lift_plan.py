@@ -155,7 +155,7 @@ class PlanningRequest:
     hook_attach_m: float = HOOK_ATTACH_M
     """Do gancho ao ponto de amarração das lingas, medido no modelo 3D em uso."""
     sling_angle_deg: float | None = None
-    """Ângulo das lingas com a horizontal (30° a 90°); `None` = o padrão da carga (F-19)."""
+    """Ângulo das lingas com a horizontal (30° a 85°); `None` = o padrão da carga (F-19)."""
 
 
 @dataclass(frozen=True)

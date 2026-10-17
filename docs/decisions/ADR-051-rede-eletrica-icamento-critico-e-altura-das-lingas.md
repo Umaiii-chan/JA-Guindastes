@@ -28,7 +28,7 @@ O plano e a cena discordavam, e a carga planejada não pousava onde o plano dizi
    10 pés (3,05 m); acima de 50 até 200 kV, 10 pés + 0,4 pol por kV acima de 50; 15 pés de 200 a 350 kV;
    20 pés de 350 a 500; 25 pés de 500 a 750; 35 pés de 750 a 1000. Fora de 0–1000 kV, recusa.
 3. **Conferência:** distância 3D mínima entre o cabo e a lança (pino→ponta), o cabo de aço
-   (ponta→gancho) e a carga pendurada (cilindro com a meia-diagonal da pegada), **agora e com o giro
+   (ponta→gancho) e a carga pendurada (cilindro com a meia-diagonal da pegada; no tandem, o alcance até o canto mais afastado da metade içada), **agora e com o giro
    varrido de 0° a 360°** (passo de 1°). Abaixo da mínima: alerta CRÍTICO
    (`POWER_LINE_CLEARANCE_VIOLATION`, ou `POWER_LINE_SWEPT_VIOLATION` se só o giro viola); abaixo de
    1,5× a mínima: atenção.
@@ -61,12 +61,13 @@ O plano e a cena discordavam, e a carga planejada não pousava onde o plano dizi
    que cada guindaste ergue); `α` = ângulo da linga com a **horizontal**; `L = r / cos α`;
    **queda = r · tan α**, piso de 0,3 m.
 2. **Padrão** α = 60°; se a linga passar de 8 m, 45°; se ainda passar, 45° e o aparelho real pediria
-   balancim (`needs_spreader`). Ângulo informado: de 30° (ASME B30.9) a 90°; fora disso, 422.
+   balancim (`needs_spreader`). Ângulo informado: de 30° (ASME B30.9) a 85° (perto de 90° a queda explode); fora disso, 422.
 3. **Planejador e cena usam a mesma conta.** O plano devolve `sling_length_m`, `sling_angle_deg` e
    `sling_drop_m` por guindaste e aceita `sling_angle_deg`. O gancho de coleta do plano fica a `queda`
    acima do topo da carga (lingas esticadas).
 4. **Engate da cena** passa a ser o das lingas esticadas: vale com o fim do gancho de −0,1 m a +0,5 m
-   em torno de `queda` acima do topo. A altura gravada é a da geometria, **não** a folga medida. O
+   em torno de `queda` acima do topo. A altura gravada é a da geometria, **não** a folga medida: ao engatar, a carga pode subir até 0,5 m ou
+   afundar até 0,1 m (o ajuste ao ponto em que as lingas esticam). O
    tandem usa `tandemSlingDropM` (a constante de 1,5 m saiu).
 5. **Paridade provada** por uma tabela de casos única,
    `backend/tests/fixtures/sling_geometry_cases.json`, lida pelo pytest e pelo vitest. A tabela de
@@ -81,7 +82,7 @@ até 200, **15 pés**; acima de 200 até 350, **20**; acima de 350 até 500, **2
 Acima de 50 kV a tabela implementada é **menos conservadora** que a do OSHA (138 kV: 3,94 m contra
 4,57 m). Os valores não foram trocados por conta do agente. Se o dono optar pelo OSHA, a mudança é só
 `power_line.py` (`required_clearance_m`), `powerLine.ts` e o JSON de casos. Registrado em
-`docs/known-gaps.md` (L-017).
+`docs/known-gaps.md` (L-018).
 
 ## Alternativas consideradas
 
@@ -105,7 +106,7 @@ Acima de 50 kV a tabela implementada é **menos conservadora** que a do OSHA (13
 
 ## Impacto na documentação
 
-- [x] `docs/known-gaps.md` (L-017 e L-018)
+- [x] `docs/known-gaps.md` (L-018 e L-019)
 - [x] índice em `docs/decisions/README.md`
 - [ ] `docs/business-rules.md` não foi alterado por agente: as regras de rede elétrica e de içamento
   crítico precisam ser registradas pela pessoa responsável (RN a numerar).

@@ -259,7 +259,8 @@ export function SimulatorRoute() {
     // Rede elétrica, posição do guindaste, carga e contexto do içamento (TASK-107; ADR-051).
     site: buildEvaluationSite({
       spec: scenario.spec,
-      load: validLoad ? loadDimensionsOf(validLoad) : null,
+      // Só a carga pendurada entra na distância à rede: no chão, a avaliação vê só o gancho.
+      load: loadHanging && validLoad ? loadDimensionsOf(validLoad) : null,
       tandem: tandemActive,
       loadOverOccupied,
     }),

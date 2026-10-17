@@ -115,7 +115,11 @@ def test_piso_da_altura_mantem_o_gancho_fora_da_carga() -> None:
 
 
 def test_linga_vertical_usa_o_piso_da_altura() -> None:
-    assert from_angle(2.0, 90.0).drop_m == rigging.MIN_DROP_M
+    # Teto de 85°: a queda não explode perto de 90° (r = 2 m: 22,9 m a 85°).
+    assert from_angle(2.0, 85.0).drop_m == pytest.approx(2.0 * math.tan(math.radians(85.0)))
+    for angle in (85.1, 89.0, 90.0):
+        with pytest.raises(InvalidSlingGeometryError):
+            from_angle(2.0, angle)
 
 
 def test_linga_mais_curta_que_o_alcance_e_recusada() -> None:

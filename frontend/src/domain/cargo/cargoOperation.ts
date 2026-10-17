@@ -261,8 +261,8 @@ export function checkEngage(
  * Engata: a carga fica onde está e passa a seguir o gancho. Guarda o deslocamento e o giro em relação
  * a ele e as lingas da geometria única (comprimento, ângulo e altura; F-19, ADR-051): a altura é a
  * mesma que o planejador supôs, e não a folga medida no instante do engate. Por isso o engate só vale
- * com o gancho perto do ponto em que as lingas esticam (`checkEngage`): a carga não pula nem entra no
- * chão ao ser levantada.
+ * com o gancho perto do ponto em que as lingas esticam (`checkEngage`): ao engatar, a carga pode subir até
+ * `ENGAGE_MAX_GAP_M` ou afundar até `ENGAGE_MIN_GAP_M` (o ajuste ao ponto das lingas esticadas).
  */
 export function engageCargo(
   state: CargoState,

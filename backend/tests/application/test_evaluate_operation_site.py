@@ -15,6 +15,7 @@ from app.application.use_cases.evaluate_operation import (
     SiteContext,
 )
 from app.domain.entities.scenario import PowerLineSpec
+from app.domain.services import rigging
 from app.domain.services.exact_point_lookup import ExactPointLookup
 from app.domain.services.power_line import ClearanceStatus, required_clearance_m
 from app.domain.value_objects.mass import Mass
@@ -221,3 +222,25 @@ def test_alertas_ficam_ordenados_por_severidade() -> None:
     order = {"CRITICAL": 0, "ATTENTION": 1, "INFO": 2}
     ranks = [order[a.severity.value] for a in result.alerts]
     assert ranks == sorted(ranks)
+
+
+def test_no_tandem_o_raio_da_carga_vai_ate_o_canto_mais_afastado_da_metade_icada() -> None:
+    """Cada gancho fica a L/4 do centro: o canto mais afastado está a 3L/4 (7,5 m para L = 10 m),
+    e não à meia-diagonal da carga inteira (5,1 m). As lingas são as do tandem (F-19)."""
+    drop = rigging.sling_drop_m(10.0, 2.0, tandem=True)
+    top = 1.5 - 1.05 - drop  # o gancho neste ponto da tabela fica a y = 1,5 m
+    site = SiteContext(
+        # Rede paralela à lança, 9 m ao lado, a meia altura da carga de 2 m.
+        power_lines=(PowerLineSpec("R1", "Rede ao lado", 9.0, 0.0, 9.0, 20.0, top - 1.0, 13.8),),
+        load_length_m=10.0,
+        load_width_m=2.0,
+        load_height_m=2.0,
+        tandem=True,
+    )
+
+    (c,) = evaluate(site).power_line_clearances
+
+    assert c.nearest_part == "load"
+    assert c.distance_m == pytest.approx(
+        9.0 - math.hypot(7.5, 1.0), abs=1e-6
+    )  # com a meia-diagonal inteira: 3,9 m

@@ -20,4 +20,4 @@ no ADR-051. Origem: `handoffs/TASK-090.md` § 8 item 3 (altura das lingas) e a l
 
 ## Fora do escopo
 
-`docs/business-rules.md` (a pessoa registra as RN); conferência da tabela com o texto oficial (L-017).
+`docs/business-rules.md` (a pessoa registra as RN); conferência da tabela com o texto oficial (L-018).

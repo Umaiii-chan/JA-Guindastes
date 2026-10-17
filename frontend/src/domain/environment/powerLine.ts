@@ -1,9 +1,8 @@
 // Rede elétrica aérea no cenário e a distância mínima exigida (D4; TASK-107; ADR-051), sem Three.js.
 //
-// A tabela é a de distância mínima de aproximação do ASME B30.5 (e OSHA 29 CFR 1926.1408, tabela A, na
-// forma adotada pelo dono do produto; o ADR-051 registra que a conferência com o texto oficial está
-// pendente). É a MESMA do backend (`backend/app/domain/services/power_line.py`), que é quem avalia:
-// aqui ela só serve para mostrar a distância exigida ao escolher a tensão e para desenhar a zona. A
+// A tabela é a decidida pelo dono do produto (ADR-051). NÃO é a Tabela A do OSHA 29 CFR 1926.1408
+// (10/15/20/25/35/45 pés): é menos conservadora acima de 50 kV (known-gaps L-018).
+// É a MESMA do backend (`backend/app/domain/services/power_line.py`), que é quem avalia: aqui ela só serve para mostrar a distância exigida ao escolher a tensão e para desenhar a zona. A
 // paridade é provada por uma tabela de casos única (`backend/tests/fixtures/power_line_clearance_cases.json`).
 //
 //   até 50 kV ........................ 10 pés (3,05 m)

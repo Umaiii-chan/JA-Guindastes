@@ -32,7 +32,7 @@ class SitePayload(BaseModel):
         default_factory=list,
         max_length=MAX_POWER_LINES,
         description="Trechos de rede elétrica do cenário; a tensão de cada um define a distância "
-        "mínima (tabela ASME B30.5 / OSHA 1926.1408).",
+        "mínima (tabela do dono, ADR-051; não é a do OSHA, L-018).",
     )
     crane_x_m: float = Field(default=0.0, description="Posição X do eixo de giro no mundo (m).")
     crane_z_m: float = Field(default=0.0, description="Posição Z do eixo de giro no mundo (m).")
@@ -45,7 +45,7 @@ class SitePayload(BaseModel):
     sling_angle_deg: float | None = Field(
         default=None,
         ge=30,
-        le=90,
+        le=85,
         description="Ângulo das lingas com a horizontal (F-19); sem ele, o padrão da carga.",
     )
     hook_attach_m: float = Field(

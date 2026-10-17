@@ -759,7 +759,7 @@ def plan_crane(
 ) -> PlanSearch:
     """Melhores planos de `crane` para levar a carga de `pick` a `delivery`.
 
-    `sling_angle_deg` é o ângulo das lingas com a horizontal (30° a 90°); omitido, vale o padrão
+    `sling_angle_deg` é o ângulo das lingas com a horizontal (30° a 85°); omitido, vale o padrão
     da carga (`rigging.default_geometry`). No tandem (`share_kg` dado) cada guindaste ergue a
     sua metade.
 

@@ -95,7 +95,7 @@ class PlanningRequestBody(BaseModel):
         ge=MIN_ALLOWED_ANGLE_DEG,
         le=MAX_ALLOWED_ANGLE_DEG,
         description=(
-            "Ângulo das lingas com a horizontal, de 30° a 90° (F-19; ADR-051). Sem ele, vale o "
+            "Ângulo das lingas com a horizontal, de 30° a 85° (F-19; ADR-051). Sem ele, vale o "
             "padrão da carga (60°; 45° se a linga ficaria longa). A altura das lingas do plano sai "
             "daqui e volta em cada guindaste (`sling_*`): a cena toca o plano com as mesmas."
         ),

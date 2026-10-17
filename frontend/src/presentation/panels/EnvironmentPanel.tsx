@@ -137,7 +137,7 @@ function FeatureEditor({
 
 /**
  * Trecho de rede elétrica (TASK-107; ADR-051): a tensão é escolhida na lista (ou digitada) e define
- * a distância mínima da tabela ASME B30.5, que o backend confere contra a lança, o cabo e a carga.
+ * a distância mínima da tabela do dono (ADR-051; não é a do OSHA, L-018), que o backend confere contra a lança, o cabo e a carga.
  */
 function PowerLineEditor({
   line,
@@ -187,7 +187,7 @@ function PowerLineEditor({
       <p className={styles.fineprint} role="status">
         {clearance === null
           ? 'Tensão fora da tabela.'
-          : `Distância mínima: ${clearance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m (ASME B30.5).`}
+          : `Distância mínima: ${clearance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m (tabela do dono, não é a do OSHA).`}
       </p>
       <div className={styles.grid2}>
         <NumberField

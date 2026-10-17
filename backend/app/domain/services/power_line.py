@@ -1,9 +1,8 @@
 """Distância mínima de rede elétrica aérea (D4; TASK-107; ADR-051). Serviço puro, sem E/S.
 
-A tabela é a de distância mínima de aproximação do ASME B30.5 (e do OSHA 29 CFR 1926.1408, tabela A,
-na forma adotada pelo dono do produto; o ADR-051 registra que a conferência com o texto oficial
-está pendente). A distância depende da tensão nominal, que o usuário escolhe no editor (entrada do
-ambiente):
+A tabela é a decidida pelo dono do produto (ADR-051). **Ela NÃO é a Tabela A do OSHA 29 CFR
+1926.1408** (10/15/20/25/35/45 pés) e é menos conservadora acima de 50 kV (known-gaps L-018).
+A distância depende da tensão nominal, que o usuário escolhe no editor (entrada do ambiente):
 
 - até 50 kV: 10 pés (3,05 m);
 - acima de 50 até 200 kV: 10 pés + 0,4 pol por kV acima de 50;
@@ -61,7 +60,7 @@ class InvalidVoltageError(ValueError):
 
 
 def required_clearance_m(voltage_kv: float) -> float:
-    """Distância mínima (m) da rede de `voltage_kv` kV: a tabela do ASME B30.5."""
+    """Distância mínima (m) da rede de `voltage_kv` kV (tabela do dono, ADR-051; não é a OSHA)."""
     if not math.isfinite(voltage_kv) or voltage_kv <= 0 or voltage_kv > POWER_LINE_MAX_KV:
         raise InvalidVoltageError(
             f"tensão de {voltage_kv!r} kV fora da tabela (0 a {POWER_LINE_MAX_KV:g} kV)"

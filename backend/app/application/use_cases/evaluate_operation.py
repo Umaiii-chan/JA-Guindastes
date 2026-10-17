@@ -697,7 +697,9 @@ def _power_line_clearances(
         )
         replaces_hook = any(a.type is AccessoryType.HOOK_BLOCK for a in result.accessories)
         attach = REPLACED_HOOK_ATTACH_M if replaces_hook else site.hook_attach_m
-        load_radius = math.hypot(site.load_length_m, site.load_width_m) / 2
+        # No tandem cada gancho fica a L/4 do centro: o canto mais afastado está a 3L/4 dele.
+        reach_along = 0.75 * site.load_length_m if site.tandem else site.load_length_m / 2
+        load_radius = math.hypot(reach_along, site.load_width_m / 2)
         load_drop = attach + sum(a.rigging_height_m for a in result.accessories) + sling.drop_m
         load_height = site.load_height_m
     parts = CraneParts(

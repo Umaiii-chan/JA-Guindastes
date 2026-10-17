@@ -185,7 +185,7 @@ describe('painel do ambiente: rede elétrica', () => {
     const markup = renderToStaticMarkup(createElement(EnvironmentPanel, props(spec)))
     const body = text(markup)
 
-    expect(body).toContain('Distância mínima: 3,94 m (ASME B30.5).')
+    expect(body).toContain('Distância mínima: 3,94 m (tabela do dono, não é a do OSHA).')
     expect(markup).toContain('<option value="138" selected="">138 kV</option>')
     for (const kv of ['13,8 kV', '230 kV', '500 kV', '1.000 kV']) expect(body).toContain(kv)
   })

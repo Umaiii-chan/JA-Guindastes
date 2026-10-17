@@ -113,9 +113,9 @@ describe('propriedades da geometria única', () => {
     expect(metade).toBeLessThan(inteira)
   })
 
-  it('ângulo fora de 30°–90° e medidas inválidas são recusados', () => {
+  it('ângulo fora de 30°–85° e medidas inválidas são recusados', () => {
     expect(() => checkAngleDeg(29.9)).toThrow(InvalidSlingGeometryError)
-    expect(() => checkAngleDeg(90.1)).toThrow(InvalidSlingGeometryError)
+    expect(() => checkAngleDeg(85.1)).toThrow(InvalidSlingGeometryError)
     expect(() => reachM(0, 1)).toThrow(InvalidSlingGeometryError)
     expect(() => reachM(1, Number.NaN)).toThrow(InvalidSlingGeometryError)
     expect(() => fromLength(3, 2)).toThrow(InvalidSlingGeometryError)

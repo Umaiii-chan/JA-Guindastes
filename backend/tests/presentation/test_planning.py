@@ -161,8 +161,8 @@ def test_o_angulo_da_linga_informado_vale_no_plano() -> None:
     assert abs(detail["sling_drop_m"] - 1.677051) < 1e-4
 
 
-def test_angulo_da_linga_fora_de_30_a_90_e_422() -> None:
-    for angle in (29.9, 90.1, 0, -10):
+def test_angulo_da_linga_fora_de_30_a_85_e_422() -> None:
+    for angle in (29.9, 85.1, 89.0, 90.0, 0, -10):
         response = make_client().post(PLANNING_PATH, json=body(sling_angle_deg=angle))
         assert response.status_code == 422, angle
 

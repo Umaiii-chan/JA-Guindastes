@@ -207,11 +207,11 @@
       }
     },
     {
-      "nome": "ângulo acima de 90°",
+      "nome": "ângulo acima de 85°",
       "entrada": {
         "length_m": 3.0,
         "width_m": 2.0,
-        "angle_deg": 91.0
+        "angle_deg": 86.0
       }
     },
     {

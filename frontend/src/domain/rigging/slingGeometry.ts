@@ -19,7 +19,8 @@ export const PREFERRED_ANGLE_DEG = 60
 export const FALLBACK_ANGLE_DEG = 45
 /** Abaixo disto o ASME B30.9 proíbe usar a linga. */
 export const MIN_ALLOWED_ANGLE_DEG = 30
-export const MAX_ALLOWED_ANGLE_DEG = 90
+/** Perto de 90° a queda r·tan α explode: o teto é 85°. */
+export const MAX_ALLOWED_ANGLE_DEG = 85
 /** Comprimento a partir do qual o padrão abandona os 60°. */
 export const MAX_PREFERRED_LENGTH_M = 8
 /** Piso da altura das lingas: o gancho não encosta no topo da carga. */
@@ -86,10 +87,6 @@ export function reachM(lengthM: number, widthM: number, tandem = false): number 
 export function fromAngle(reach: number, angleDeg: number): SlingGeometry {
   const r = positive('o alcance horizontal', reach)
   const alpha = checkAngleDeg(angleDeg)
-  if (alpha >= MAX_ALLOWED_ANGLE_DEG - EPS) {
-    // Vertical: a queda não depende de r; o piso mantém o gancho fora da carga.
-    return { reachM: r, lengthM: MIN_DROP_M, angleDeg: alpha, dropM: MIN_DROP_M }
-  }
   const natural = r * Math.tan(alpha * RAD)
   if (natural >= MIN_DROP_M) {
     return { reachM: r, lengthM: r / Math.cos(alpha * RAD), angleDeg: alpha, dropM: natural }
