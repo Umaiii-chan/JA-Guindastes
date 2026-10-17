@@ -18,9 +18,12 @@ export const PROVISIONAL_CRANE_DIMENSIONS: ProvisionalCraneDimensions = {
   boomExtendedLengthM: 22,
 }
 
-/** FICTÍCIO: limites dos comandos na PoC; não são limites de nenhum guindaste real. */
+/**
+ * FICTÍCIO: limites dos comandos na PoC; não são limites de nenhum guindaste real. Sem ficha, o giro
+ * é contínuo (ADR-013 C-4: sem ψ_min/ψ_max): −180°..180° é só a forma de mostrar uma volta.
+ */
 export const PROVISIONAL_CRANE_LIMITS: CraneLimits = {
-  turretRotationDeg: { min: -180, max: 180 },
+  turretRotationDeg: { min: -180, max: 180, continuous: true },
   boomAngleDeg: { min: 0, max: 80 },
   boomLengthM: {
     min: PROVISIONAL_CRANE_DIMENSIONS.boomRetractedLengthM,

@@ -494,6 +494,8 @@ export function mountCraneScene(
         accessoryChain.totalDropM,
         accessoryChain.replacesHook,
       )
+      // A cadeia entra na colisão (TASK-091): reavalia o estado atual com ela.
+      crane.revalidate()
       invalidate()
     },
     setRotationZones(zones) {
