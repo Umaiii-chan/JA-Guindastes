@@ -47,7 +47,12 @@ def test_scenario_from_text_builds_a_validated_spec_with_cargo_and_delivery() ->
     assert [o.id for o in draft.spec.obstacles] == ["ia-obstaculo-1", "ia-obstaculo-2"]
     assert draft.spec.cargo is not None and (draft.spec.cargo.x, draft.spec.cargo.z) == (12, 0)
     assert draft.spec.delivery is not None and draft.spec.delivery.radius_m == 3
-    assert draft.assumptions == ("Largura e altura da viga estimadas.",)
+    # A viga de 6 m fica ao longo de Z local, como na cena: a parede em z = 4 m ficava a 0,85 m da
+    # ponta dela, dentro da folga de 1,5 m, e sai (TASK-094).
+    assert draft.assumptions == (
+        "Largura e altura da viga estimadas.",
+        "Parede lateral movido de (12; 4) para (12; 5) para não ficar sobre a carga na coleta.",
+    )
     assert draft.completion.model == "modelo-ficticio"
 
 

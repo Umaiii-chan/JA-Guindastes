@@ -1,9 +1,12 @@
 import {
+  type AccessoryChainSpan,
+  type CollisionHit,
   type CollisionReport,
   type CollisionState,
   type CraneBody,
   evaluateCollisions,
 } from '../../domain/collision/collisions'
+import type { CranePayload } from '../../domain/collision/multiCraneCollisions'
 import {
   EMPTY_SCENARIO,
   type Obstacle,
@@ -37,6 +40,8 @@ export class SceneCollisions implements CollisionGuard {
     blocked: false,
   }
   private listener: ((state: CollisionState) => void) | null = null
+  /** Nome deste guindaste nas colisões com os outros (TASK-091); `null` com um guindaste só. */
+  private ownerLabel: string | null = null
 
   private readonly hookLoad: HookLoad
   private readonly geometryParameters: CraneGeometryParameters
@@ -97,23 +102,53 @@ export class SceneCollisions implements CollisionGuard {
     this.listener = listener
   }
 
+  /**
+   * Nome do guindaste (TASK-091): com vários na cena, a carga de um pode encostar no outro, e o
+   * destaque vermelho só vale para a carga deste.
+   */
+  setOwnerLabel(label: string | null): void {
+    this.ownerLabel = label
+  }
+
+  /**
+   * Cadeia de acessórios pendurada no gancho (TASK-056; TASK-091): parte do ponto de amarração e desce
+   * a soma das alturas, os mesmos valores com que a cena desce a carga.
+   */
+  private chain(): AccessoryChainSpan | null {
+    const dropM = this.hookLoad.currentAccessoriesDropM
+    return dropM > 0 ? { topM: this.hookLoad.currentAttachOffsetM, dropM } : null
+  }
+
+  /** O que pende do gancho agora (carga, gancho e cadeia), para a colisão com outros guindastes. */
+  payload(): CranePayload {
+    return {
+      geometryParameters: this.geometryParameters,
+      load: this.hookLoad.currentLayout,
+      hook: this.hookLoad.currentHookBox,
+      chain: this.chain(),
+    }
+  }
+
   evaluate(state: CraneState): CollisionReport {
     return evaluateCollisions({
       state,
-      geometryParameters: this.geometryParameters,
       scenario: this.effective,
       body: this.body,
-      load: this.hookLoad.currentLayout,
-      hook: this.hookLoad.currentHookBox,
+      ...this.payload(),
     })
   }
 
   /** Estado depois de um comando (ou de uma reavaliação): pinta o que foi atingido e avisa. */
   onResult(result: CollisionState): void {
     this.latest = result
-    this.hookLoad.setCollisionHighlight(result.hits.some((hit) => hit.subject === 'load'))
+    this.hookLoad.setCollisionHighlight(result.hits.some((hit) => this.isOwnLoad(hit)))
     this.highlight.show(result)
     this.listener?.(result)
+  }
+
+  /** A carga atingida é a deste guindaste (e não a de outro que encostou nele)? */
+  private isOwnLoad(hit: CollisionHit): boolean {
+    return hit.subject === 'load' && (hit.owner === undefined || hit.owner === this.ownerLabel)
   }
 
   dispose(): void {

@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useId } from 'react'
+import { type CSSProperties, type KeyboardEvent, type ReactNode, useId } from 'react'
 
 import { cx } from './cx'
 import styles from './Slider.module.css'
@@ -16,6 +16,11 @@ export interface SliderProps {
   readonly onChange: (value: number) => void
   /** Observação sob o controle (ex.: limite FICTÍCIO). */
   readonly note?: ReactNode
+  /**
+   * Escala que dá a volta (giro contínuo; TASK-092): nas pontas, as setas continuam e `onChange`
+   * recebe um valor além do limite (ex.: 181 com máximo 180), que quem comanda traz de volta à faixa.
+   */
+  readonly wraps?: boolean
   /** @deprecated Compatibilidade com o ADR-017: ícone pequeno antes do rótulo. O ADR-019 dispensa. */
   readonly icon?: ReactNode
   readonly id?: string
@@ -62,6 +67,7 @@ export function Slider({
   format = String,
   onChange,
   note,
+  wraps = false,
   icon,
   id,
   className,
@@ -73,6 +79,19 @@ export function Slider({
   const noteId = `${inputId}-note`
   const unavailable = value === undefined || min === undefined || max === undefined
   const fill = sliderFillPercent(value, min, max)
+  // Na ponta, o controle nativo ignora a seta; com volta, o passo segue além do limite.
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (!wraps || disabled || value === undefined || min === undefined || max === undefined) return
+    const forward = event.key === 'ArrowRight' || event.key === 'ArrowUp'
+    const backward = event.key === 'ArrowLeft' || event.key === 'ArrowDown'
+    if (forward && value >= max) {
+      event.preventDefault()
+      onChange(value + step)
+    } else if (backward && value <= min) {
+      event.preventDefault()
+      onChange(value - step)
+    }
+  }
 
   return (
     <div
@@ -133,6 +152,7 @@ export function Slider({
           aria-describedby={note ? noteId : undefined}
           aria-valuetext={value === undefined ? undefined : format(value)}
           onChange={(event) => onChange(event.currentTarget.valueAsNumber)}
+          onKeyDown={wraps ? handleKeyDown : undefined}
         />
       </div>
       {!compact && min !== undefined && max !== undefined && (

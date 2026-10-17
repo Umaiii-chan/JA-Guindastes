@@ -78,7 +78,11 @@ function format(value: number, control: ControlDefinition): string {
   return `${number}${control.unit}`
 }
 
-/** Sliders dos comandos do guindaste. Mostra o valor aplicado pela cena (já limitado aos limites). */
+/**
+ * Sliders dos comandos do guindaste. Mostra o valor aplicado pela cena (já limitado aos limites). Com
+ * giro contínuo, o slider do giro continua de −180° a 180°, mas as setas nas pontas dão a volta e o
+ * comando vai pelo menor ângulo (TASK-092).
+ */
 export function CraneControlPanel({
   limits,
   state,
@@ -88,6 +92,7 @@ export function CraneControlPanel({
   variant = 'stack',
 }: CraneControlPanelProps) {
   const bar = variant === 'bar'
+  const continuousTurret = limits?.turretRotationDeg.continuous === true
   return (
     <section
       className={cx(bar ? styles.controlBar : styles.stack)}
@@ -111,6 +116,7 @@ export function CraneControlPanel({
             step={control.step}
             format={(value) => format(value, control)}
             note={notes[control.key]}
+            wraps={control.key === 'turretRotationDeg' && continuousTurret}
             compact={bar}
             shortLabel={bar ? control.short : undefined}
             className={bar ? styles.controlBarItem : undefined}

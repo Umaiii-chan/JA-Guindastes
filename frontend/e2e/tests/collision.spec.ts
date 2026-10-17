@@ -49,10 +49,15 @@ test('baixar o cabo até a carga tocar o chão para o cabo e mostra o alerta de 
     .getByRole('region', { name: /Geometria/ })
     .locator('dt:text-is("Altura do gancho") + dd')
 
+  // O grupo «Colisões» fica sempre na página, sobre a cena (TASK-078; TASK-082): sem colisão, ele
+  // não tem nenhum aviso (TASK-091).
+  const collisionItems = page.getByRole('group', { name: 'Colisões' }).getByRole('listitem')
+
   // Sobe o cabo e a lança para a carga ficar solta, longe de tudo.
   await cable.focus()
   await cable.press('Home')
-  await expect(page.getByRole('group', { name: 'Colisões' })).toHaveCount(0)
+  await expect(page.getByRole('group', { name: 'Colisões' })).toHaveCount(1)
+  await expect(collisionItems).toHaveCount(0)
 
   // Vai ao máximo (40 m): o gancho iria bem abaixo do chão, então o cabo para no contato.
   await cable.press('End')
@@ -68,7 +73,7 @@ test('baixar o cabo até a carga tocar o chão para o cabo e mostra o alerta de 
 
   // Soltar a carga do chão (cabo curto) limpa o alerta.
   await cable.press('Home')
-  await expect(page.getByRole('group', { name: 'Colisões' })).toHaveCount(0)
+  await expect(collisionItems).toHaveCount(0)
   expect(pageErrors).toEqual([])
 })
 

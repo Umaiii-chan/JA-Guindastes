@@ -12,3 +12,8 @@ Relatos da pessoa usuária em 2026-10-14, no ensaio da apresentação.
 
 - Teste do caso de uso com resposta falsa contendo o guindaste duplicado.
 - Planejador: conferir colisão da carga com obstáculos ao longo do giro.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PR #41). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

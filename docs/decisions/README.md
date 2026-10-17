@@ -67,7 +67,7 @@ Crie um ADR quando a decisão:
 | [ADR-027](ADR-027-gravacao-e-reproducao-de-simulacoes.md) | Gravação e reprodução de simulações | Aceito | 2026-10-14 |
 | [ADR-028](ADR-028-colisoes-da-carga.md) | Colisões da carga | Aceito | 2026-10-14 |
 | [ADR-029](ADR-029-lanca-entre-colunas-proxima-mais-longa.md) | Lança entre colunas: próxima mais longa | Aceito | 2026-10-14 |
-| [ADR-030](ADR-030-interpolacao-linear-provisoria.md) | Interpolação linear provisória | Aceito | 2026-10-14 |
+| [ADR-030](ADR-030-interpolacao-linear-provisoria.md) | Interpolação linear provisória | Substituído em parte por ADR-043 (comprimento de lança) | 2026-10-14 |
 | [ADR-032](ADR-032-editor-3d-do-ambiente.md) | Editor 3D livre do ambiente | Aceito | 2026-10-14 |
 | [ADR-031](ADR-031-modelo-3d-guindaste-80t.md) | Troca do modelo 3D do guindaste (80 t, CC BY 4.0) | Substituído em parte por ADR-034 | 2026-10-14 |
 | [ADR-034](ADR-034-eixo-de-giro-real-do-modelo-80t.md) | Eixo de giro real do modelo 80 t (a = 0,46 m) | Aceito | 2026-10-14 |
@@ -78,3 +78,4 @@ Crie um ADR quando a decisão:
 | [ADR-039](ADR-039-assistente-de-ia-gemini.md) | Assistente de IA (Gemini): cenário por texto, explicação, relatório e revisão | Aceito | 2026-10-14 |
 | [ADR-040](ADR-040-provedor-openai-com-reserva.md) | Provedor OpenAI para a IA, com reserva entre provedores | Aceito | 2026-10-14 |
 | [ADR-042](ADR-042-tela-do-simulador-com-a-cena-como-prioridade.md) | Tela do simulador com a cena como prioridade: painéis sobre a cena, folhas que escondem | Proposto | 2026-10-17 |
+| [ADR-043](ADR-043-lanca-entre-colunas-na-interpolacao.md) | Lança entre colunas na interpolação: próxima mais longa | Aceito | 2026-10-16 |

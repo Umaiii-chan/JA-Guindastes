@@ -200,7 +200,8 @@ pt-BR):
 
 Desde a TASK-069, a ficha de demonstração tem a = 0,46 m (eixo de giro real do modelo 3D). Os
 valores acima são os da leitura conservadora da tabela (`tests/test_demo_seed.py`); o simulador
-interpola entre os pontos (ADR-030) e mostra capacidades um pouco maiores entre eles.
+interpola só no raio, dentro da coluna da lança (ADR-030 e ADR-043), e mostra capacidades um pouco
+maiores entre dois raios tabelados. Entre colunas, como em D, vale a coluna da lança mais longa.
 
 Como ler:
 

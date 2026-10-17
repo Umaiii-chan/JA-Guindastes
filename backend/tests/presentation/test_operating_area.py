@@ -17,6 +17,12 @@ from app.domain.value_objects.crane_geometry import CraneGeometry
 from app.domain.value_objects.safety_profile import SafetyProfile
 from app.presentation.api.main import create_app
 from app.presentation.api.operating_area import shared_compute_operating_area
+from tests.fixtures.acessorios_ficticios import (
+    CINTA_FICTICIA,
+    GANCHO_ACESSORIO_FICTICIO,
+    MANILHA_FICTICIA,
+    InMemoryAccessories,
+)
 from tests.fixtures.avaliacao_operacional_ficticia import (
     CONFIGURATION_AVALIACAO_FICTICIA_ID,
     build_load_chart_avaliacao_ficticio,
@@ -50,12 +56,15 @@ class FakeProfile:
         return self._profile
 
 
-def make_client(profile: SafetyProfile | None = None) -> TestClient:
+def make_client(
+    profile: SafetyProfile | None = None, accessories: InMemoryAccessories | None = None
+) -> TestClient:
     use_case = ComputeOperatingArea(
         crane_geometry_provider=FakeGeometry(),
         active_load_chart_provider=FakeCharts(),
         load_chart_interpolator=ConservativeTabulatedLookup(),
         safety_profile_provider=None if profile is None else FakeProfile(profile),
+        accessory_provider=accessories,
     )
     return TestClient(create_app(operating_area=shared_compute_operating_area(use_case)))
 
@@ -136,3 +145,60 @@ def test_non_positive_step_is_422(field: str) -> None:
 
 def test_unknown_field_is_422() -> None:
     assert post(make_client(), extra=1).status_code == 422
+
+
+# --- TASK-094 (F-15; RN-014): acessórios no peso comparado ---------------------------------------
+
+
+def accessory_client() -> TestClient:
+    return make_client(
+        accessories=InMemoryAccessories(GANCHO_ACESSORIO_FICTICIO, MANILHA_FICTICIA, CINTA_FICTICIA)
+    )
+
+
+def test_accessories_add_to_the_compared_weight() -> None:
+    # 1700 kg + moitão 200 + manilha 20 + cinta 15 = 1935 kg (sem gancho na configuração).
+    ids = [GANCHO_ACESSORIO_FICTICIO.id, MANILHA_FICTICIA.id, CINTA_FICTICIA.id]
+    client = accessory_client()
+
+    without = post(client, load_weight_kg=1700.0).json()
+    with_accessories = post(client, load_weight_kg=1700.0, accessory_ids=ids).json()
+
+    assert without["compared_weight_kg"] == pytest.approx(1700.0)
+    assert with_accessories["compared_weight_kg"] == pytest.approx(1935.0)
+    # 1700 / 2000 = 85 % (verde); 1935 / 2000 = 96,75 % (faixa de atenção de 90 %).
+    assert level_at(without, 0.0, 12.0) == "GREEN"
+    assert level_at(with_accessories, 0.0, 12.0) == "YELLOW"
+
+
+def test_accessories_can_push_a_cell_over_the_limit() -> None:
+    # 1900 kg sozinhos ficam na atenção (95 %); com o moitão, 2100 kg passam de 2000 kg.
+    client = accessory_client()
+
+    assert level_at(post(client, load_weight_kg=1900.0).json(), 0.0, 12.0) == "YELLOW"
+    body = post(client, load_weight_kg=1900.0, accessory_ids=[GANCHO_ACESSORIO_FICTICIO.id]).json()
+    assert level_at(body, 0.0, 12.0) == "RED"
+
+
+def test_a_repeated_accessory_adds_again() -> None:
+    body = post(accessory_client(), accessory_ids=[MANILHA_FICTICIA.id, MANILHA_FICTICIA.id]).json()
+
+    assert body["compared_weight_kg"] == pytest.approx(1540.0)
+
+
+def test_unknown_accessory_is_422_instead_of_underestimating() -> None:
+    response = post(accessory_client(), accessory_ids=[MANILHA_FICTICIA.id, "ACC-NAO-EXISTE"])
+
+    assert response.status_code == 422
+    assert "ACC-NAO-EXISTE" in response.json()["detail"]
+
+
+def test_accessories_without_a_catalog_are_422() -> None:
+    response = post(make_client(), accessory_ids=[MANILHA_FICTICIA.id])
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("ids", [[""], ["x" * 65], ["ACC"] * 21, "ACC"])
+def test_malformed_accessory_ids_are_422(ids: Any) -> None:
+    assert post(accessory_client(), accessory_ids=ids).status_code == 422

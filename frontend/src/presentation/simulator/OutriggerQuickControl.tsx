@@ -6,7 +6,12 @@ import { useSimulatorLayout } from './layout/simulatorLayout'
 import styles from './OutriggerQuickControl.module.css'
 
 export interface OutriggerQuickControlProps {
+  /** Comando: o que a pessoa pediu. */
   readonly state: OutriggerState
+  /** O que a animação da cena já alcançou (TASK-093); padrão: o próprio comando. */
+  readonly reached?: OutriggerState
+  /** A cena ainda anima as patolas até o comando. */
+  readonly moving?: boolean
   /** Correção máxima dos macacos (graus), a mesma do painel Patolas. */
   readonly maxLevelingDeg: number
   onChange(state: OutriggerState): void
@@ -21,16 +26,22 @@ export interface OutriggerQuickControlProps {
  */
 export function OutriggerQuickControl({
   state,
+  reached,
+  moving = false,
   maxLevelingDeg,
   onChange,
   onShowPanel,
 }: OutriggerQuickControlProps) {
   const layout = useSimulatorLayout()
-  const ready = outriggersReady(state)
-  const extension = state.extensionPercent.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
-  const summary = ready
-    ? 'prontas'
-    : `${extension} % · ${state.jacksSet ? 'apoiadas' : 'não apoiadas'}`
+  // O estado à vista é o alcançado na cena, como no painel Patolas e na avaliação (TASK-093).
+  const shown = reached ?? state
+  const ready = outriggersReady(shown)
+  const extension = shown.extensionPercent.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+  const summary = moving
+    ? `${extension} % · em movimento`
+    : ready
+      ? 'prontas'
+      : `${extension} % · ${shown.jacksSet ? 'apoiadas' : 'não apoiadas'}`
   const showPanel = () => {
     onShowPanel?.()
     layout?.openSheet('setup')
@@ -46,7 +57,7 @@ export function OutriggerQuickControl({
         <span className={styles.caption}>Patolas</span>
         <span className={styles.value}>{summary}</span>
       </button>
-      {!ready && (
+      {!outriggersReady(state) && (
         <Button
           size="sm"
           icon={<ArrowDownToLine size={13} />}

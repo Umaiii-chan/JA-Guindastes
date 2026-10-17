@@ -12,9 +12,22 @@ export interface NumericRange {
   readonly max: number
 }
 
-/** Limites de cada comando do `CraneController`; os valores recebidos são limitados (clamp) a eles. */
+/**
+ * Faixa do giro da torre. `continuous` marca o giro contínuo (a ficha não traz ψ_min/ψ_max; ADR-013
+ * C-4): a faixa é só a forma de mostrar uma volta, o comando dá a volta (181° vira −179°) e o giro
+ * vai pelo menor ângulo. Sem `continuous`, a faixa é um batente: o valor é limitado (clamp) e o
+ * caminho fica dentro dela (TASK-092).
+ */
+export interface TurretRange extends NumericRange {
+  readonly continuous?: boolean
+}
+
+/**
+ * Limites de cada comando do `CraneController`; os valores recebidos são limitados (clamp) a eles,
+ * menos o giro contínuo, que dá a volta (`TurretRange`).
+ */
 export interface CraneLimits {
-  readonly turretRotationDeg: NumericRange
+  readonly turretRotationDeg: TurretRange
   readonly boomAngleDeg: NumericRange
   readonly boomLengthM: NumericRange
   readonly cableLengthM: NumericRange
@@ -62,8 +75,9 @@ export interface CraneCommands {
   setCableLength(m: number): number
   /**
    * Aplica de uma vez os campos informados (todos limitados à faixa) e devolve o estado resultante.
-   * Com a guarda de colisões da cena, a checagem é só no estado final: se ele colidir, o conjunto é
-   * recuado ao último estado seguro na reta entre o anterior e o pedido. Com `guarded: false` (a
+   * Com a guarda de colisões da cena, o caminho do estado anterior ao pedido é varrido em passos
+   * pequenos, como num comando de um eixo (TASK-092): se algum ponto colidir, o conjunto para no
+   * último estado seguro do caminho (o giro contínuo vai pelo menor ângulo). Com `guarded: false` (a
    * reprodução de uma gravação, cujo estado já foi validado), nada é recuado; a cena só atualiza os
    * destaques de colisão.
    */
