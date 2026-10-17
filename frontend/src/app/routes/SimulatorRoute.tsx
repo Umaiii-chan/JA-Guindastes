@@ -98,7 +98,7 @@ import type { SceneAccessory } from '../../three/accessories/AccessoryChain'
 import { useAuth } from '../auth/authContext'
 import { useCatalog } from '../catalog/catalogContext'
 import { chooseCraneSetup } from '../craneSetup'
-import { buildEvaluationInput } from '../evaluationInput'
+import { buildEvaluationInput, residualGroundSlopeDeg } from '../evaluationInput'
 import { useScenario } from '../scenario/scenarioContext'
 import { sceneRotationZoneCode } from '../sceneRotationZone'
 import { useSimulationRecording } from '../simulator/useSimulationRecording'
@@ -234,13 +234,16 @@ export function SimulatorRoute() {
   const cargoMode = scenario.spec.cargo !== undefined && validLoad !== null
   const cargoHooked = cargoStatus.state?.phase === 'hooked'
   const loadWeightText = cargoMode && !cargoHooked ? '0' : loadWeightTextForEvaluation(load)
+  // RN-013: a avaliação recebe a inclinação residual (terreno − nivelamento dos macacos apoiados),
+  // não a bruta do terreno (TASK-094).
+  const evaluationSlopeDeg = residualGroundSlopeDeg(scenario.groundSlopeDeg, outriggers)
   const evaluationInput = buildEvaluationInput(
     crane?.state ?? null,
     selectedConfiguration?.id ?? '',
     loadWeightText,
     { extensionPercent: reachedOutriggers.extensionPercent, jacksSet: reachedOutriggers.jacksSet },
     accessoryIds,
-    scenario.groundSlopeDeg,
+    evaluationSlopeDeg,
     scenarioExtras,
   )
   const accessoryKey = accessoryIds.join('|')
@@ -348,6 +351,8 @@ export function SimulatorRoute() {
     accessoryKey,
     input?.outriggers?.extensionPercent,
     input?.outriggers?.jacksSet,
+    // O nivelamento dos macacos muda a inclinação residual enviada (RN-013; TASK-094).
+    outriggers.levelingDeg,
     input?.groundSlopeDeg,
     scenarioExtrasKey,
   ])
@@ -422,12 +427,14 @@ export function SimulatorRoute() {
       locked ||
       (evaluationInput.problem === null && evaluation.error === null && !evaluation.pending),
   })
-  // Área de operação (TASK-055): só lança e carga mudam a grade; ψ e R não entram.
+  // Área de operação (TASK-055): só lança, carga e acessórios mudam a grade; ψ e R não entram.
+  // Os acessórios somam ao peso comparado como na avaliação (RN-014; TASK-094).
   const operatingArea = useOperatingArea({
     enabled: operatingAreaEnabled,
     configurationId: input?.configurationId ?? null,
     boomLengthM: input?.boomLengthM ?? null,
     loadWeightKg: input?.loadWeightKg ?? null,
+    accessoryIds,
   })
   // Na reprodução, a cena mostra o que foi gravado: carga, acessórios, patolas e ambiente.
   const sceneLoad = playbackFrame

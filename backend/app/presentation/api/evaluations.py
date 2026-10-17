@@ -70,7 +70,7 @@ class EvaluationDependencies:
     - `crane_geometry_provider`: ficha técnica geométrica da configuração (ADR-013 C-4);
     - `active_load_chart_provider`: tabela de carga `ACTIVE` da configuração (RN-001);
     - `load_chart_interpolator`: estratégia de consulta à tabela; na composição, a
-      `ConservativeTabulatedLookup` (ADR-015).
+      `LinearInterpolationLookup` provisória (ADR-030).
     """
 
     crane_geometry_provider: CraneGeometryProvider
@@ -142,9 +142,10 @@ def create_evaluations_router(
         description=(
             "Calcula a geometria no backend (ADR-013; RN-008), consulta a tabela de carga ativa "
             "da configuração (RN-001, RN-004) e calcula a utilização `carga / capacidade × 100`. "
-            "A capacidade vem da consulta conservadora **provisória** (ADR-015; "
-            "`strategy: CONSERVATIVE_PROVISIONAL`): entre dois raios tabelados, vale a menor "
-            "capacidade dos vizinhos; o valor não é definitivo (PEND-001, PEND-003). "
+            "A capacidade vem da interpolação linear **provisória** (ADR-030; "
+            "`strategy: LINEAR_INTERPOLATION_PROVISIONAL`): entre dois raios tabelados, e entre "
+            "duas colunas de lança, o valor é interpolado em linha reta; não é definitivo "
+            "(PEND-001, PEND-003). "
             "Estado fora das faixas, configuração sem ficha técnica ou sem tabela ativa e "
             "consulta fora da tabela respondem **200** com `status: NOT_EVALUABLE` e os motivos "
             "(RN-007). Sem níveis de alerta (PEND-004). Nada é gravado. "
