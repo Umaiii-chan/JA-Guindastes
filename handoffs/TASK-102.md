@@ -60,7 +60,7 @@ real com lança contínua fecha mais casos; não verifiquei. Registrado em L-016
 | `uv run mypy app` | ✅ `Success: no issues found in 177 source files` |
 | `uv run lint-imports` | ✅ `Contracts: 3 kept, 0 broken.` |
 | `uv run pytest` | ✅ 1862 passed, 88 skipped, 0 failed (contagem dos pontos da saída) |
-| `bash scripts/check-structure.sh` (raiz) | ver o commit final: o único erro era este handoff ausente |
+| `bash scripts/check-structure.sh` (raiz) | ✅ `OK: 0 erros, 1 aviso(s)` |
 
 Um teste de tempo (`test_cenario_pequeno_responde_em_menos_de_3_segundos`) falhou uma vez numa
 rodada com a máquina carregada (outras execuções em paralelo) e passa isolado em 0,26 s: falso alarme
