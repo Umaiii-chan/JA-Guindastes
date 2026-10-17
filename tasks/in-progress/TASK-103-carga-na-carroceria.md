@@ -14,3 +14,7 @@ carroceria não acompanhava o caminhão movido no editor. ADR-047 (esta decisão
   assenta no apoio que houver (terreno ou outra carroceria).
 - [ ] **CA-4** — Carga no gancho, ao lado do caminhão ou apoiada em outro caminhão não é afetada.
 - [ ] **CA-5** — Testes unitários do domínio para os textos e para o acompanhamento.
+- [ ] **CA-6** — A carga só se apoia na carroceria quando o centro da pegada cai dentro dela (ADR-046);
+  senão assenta no terreno, sem flutuar na borda.
+- [ ] **CA-7** — A colisão da carga solta sobre a carroceria é um prisma da altura da carroceria ao
+  topo da carga, não do terreno.

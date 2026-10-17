@@ -185,9 +185,10 @@ export function craneBaseTransform(scenario: ScenarioSpec): Transform {
   }
 }
 
-/** Obstáculo como caixa: base na altura do terreno no centro; cilindro vira a caixa que o envolve. */
+/** Obstáculo como caixa: base na altura do terreno no centro (mais `baseElevationM`, se houver); cilindro vira a caixa que o envolve. */
 export function obstacleObb(obstacle: Obstacle, terrain: TerrainSpec): Obb {
-  const ground = terrainHeightAt(terrain, obstacle.centerX, obstacle.centerZ)
+  const ground =
+    terrainHeightAt(terrain, obstacle.centerX, obstacle.centerZ) + (obstacle.baseElevationM ?? 0)
   const isCylinder = obstacle.kind === 'cylinder'
   const frame: Transform = {
     rot: isCylinder ? IDENTITY : rotY(obstacle.rotationYDeg * DEG),

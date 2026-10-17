@@ -1,6 +1,6 @@
 // Carroceria onde a carga pode ser solta (TASK-101; ADR-046), sem Three.js: a superfície de apoio
 // é o maior entre o terreno e o topo da carroceria de um caminhão plataforma da biblioteca
-// (`loadBed`) sob a pegada da carga. Outros objetos de topo plano não recebem carga (pendência).
+// (`loadBed`) sob o centro da pegada da carga. Outros objetos de topo plano não recebem carga (pendência).
 //
 // Eixos da cena (ADR-013): Y para cima; X e Z no chão; metros e graus (RN-006).
 
@@ -9,8 +9,8 @@ import { type Obstacle, type TerrainSpec, terrainHeightAt } from '../environment
 import { findLibraryObject, scaledLoadBed } from '../environment/objectLibrary'
 
 const DEG = Math.PI / 180
-/** Sobreposição (m) abaixo da qual a pegada só encosta na carroceria e não se apoia nela. */
-const MIN_OVERLAP_M = 1e-6
+/** Tolerância (m²) do produto vetorial para um ponto na borda da carroceria contar como dentro. */
+const EDGE_EPSILON = 1e-9
 
 interface Point {
   readonly x: number
@@ -55,46 +55,35 @@ export function loadBedsOf(
   return beds
 }
 
-/** Projeção (min, max) de um polígono convexo sobre um eixo. */
-function project(corners: readonly Point[], axis: Point): [number, number] {
-  const values = corners.map((corner) => corner.x * axis.x + corner.z * axis.z)
-  return [Math.min(...values), Math.max(...values)]
-}
-
-/** Dois retângulos (cantos em ordem) se sobrepõem com área? Eixo separador: teorema dos eixos. */
-export function rectsOverlap(a: readonly Point[], b: readonly Point[]): boolean {
-  for (const polygon of [a, b]) {
-    for (let index = 0; index < polygon.length; index += 1) {
-      const from = polygon[index] as Point
-      const to = polygon[(index + 1) % polygon.length] as Point
-      const length = Math.hypot(to.x - from.x, to.z - from.z)
-      if (length === 0) continue
-      const axis = { x: -(to.z - from.z) / length, z: (to.x - from.x) / length }
-      const [minA, maxA] = project(a, axis)
-      const [minB, maxB] = project(b, axis)
-      if (Math.min(maxA, maxB) - Math.max(minA, minB) <= MIN_OVERLAP_M) return false
-    }
+/** O ponto está dentro do retângulo (cantos em ordem)? Borda conta como dentro. */
+export function pointInRect(point: Point, corners: readonly Point[]): boolean {
+  let sign = 0
+  for (let index = 0; index < corners.length; index += 1) {
+    const from = corners[index] as Point
+    const to = corners[(index + 1) % corners.length] as Point
+    const cross = (to.x - from.x) * (point.z - from.z) - (to.z - from.z) * (point.x - from.x)
+    if (Math.abs(cross) <= EDGE_EPSILON) continue
+    const side = Math.sign(cross)
+    if (sign === 0) sign = side
+    else if (side !== sign) return false
   }
   return true
 }
 
-/** A carroceria mais alta sob a pegada (cantos da base da carga), ou `null` se não há nenhuma. */
-export function loadBedUnder(
-  footprint: readonly Point[],
-  beds: readonly LoadBed[],
-): LoadBed | null {
+/**
+ * A carroceria mais alta sob o centro da pegada da carga, ou `null` se o centro não cai em nenhuma
+ * (TASK-103; ADR-046): só então a carga se apoia nela; senão vale o terreno.
+ */
+export function loadBedUnder(center: Point, beds: readonly LoadBed[]): LoadBed | null {
   let found: LoadBed | null = null
   for (const bed of beds) {
-    if (!rectsOverlap(footprint, bed.corners)) continue
+    if (!pointInRect(center, bed.corners)) continue
     if (found === null || bed.topY > found.topY) found = bed
   }
   return found
 }
 
-/** Maior topo de carroceria sob a pegada (cantos da base da carga), ou `null` se não há nenhuma. */
-export function loadBedTopUnder(
-  footprint: readonly Point[],
-  beds: readonly LoadBed[],
-): number | null {
-  return loadBedUnder(footprint, beds)?.topY ?? null
+/** Topo da carroceria sob o centro da pegada da carga, ou `null` se não há nenhuma. */
+export function loadBedTopUnder(center: Point, beds: readonly LoadBed[]): number | null {
+  return loadBedUnder(center, beds)?.topY ?? null
 }

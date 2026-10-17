@@ -11,6 +11,16 @@
   `loadBedUnder` (a carroceria mais alta sob a pegada; `loadBedTopUnder` passou a usá-la).
 - ADR-047 (Proposto) e TASK-103.
 
+## Acréscimo da revisão do PR #55 (Coruja)
+- **Carga que flutua:** `loadBeds.ts` (`pointInRect`, `loadBedUnder(center, …)`): a carga só se apoia
+  na carroceria se o **centro da pegada** cai no retângulo girado dela (borda conta); senão, terreno.
+  `cargoOperation.ts` ganhou `cargoSupport` ({ baseY, onBed }); `cargoBaseY` o usa. O critério (igual
+  ao do backend, TASK-102) está no ADR-046 (Proposto, editado). `rectsOverlap` saiu.
+- **Colisão da carga solta:** `Obstacle.baseElevationM` (opcional, só a carga sobre carroceria; não vem
+  do editor) e `obstacleObb` o soma; `groundObstacle` (agora exportada) usa base na carroceria e
+  altura só da carga quando `onBed`. Teste sem WebGL: `tests/three/scene/cargoOnTruckBed.test.ts`.
+- Textos 'do apoio': já feitos no primeiro commit.
+
 ## Opção escolhida (e por quê)
 **Acompanhar**, não só reassentar. Era pequeno: a altura já é recalculada a cada desenho
 (`cargoBaseY`), então só faltava a transformação rígida de x, z e giro em relação ao centro do

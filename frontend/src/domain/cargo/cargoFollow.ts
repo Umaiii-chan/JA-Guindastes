@@ -2,10 +2,9 @@
 // ambiente (TASK-103; ADR-047), sem Three.js: posição, giro e altura (a altura vem do apoio, que
 // `cargoBaseY` recalcula a cada desenho). Eixos da cena (ADR-013): Y para cima; metros e graus (RN-006).
 
-import { type LoadDimensions } from '../collision/loadBox'
 import { mulVec, rotY } from '../collision/obb'
 import { type Obstacle, type TerrainSpec } from '../environment/environment'
-import { type CargoState, footprintCorners } from './cargoOperation'
+import { type CargoState } from './cargoOperation'
 import { loadBedsOf, loadBedUnder } from './loadBeds'
 
 const DEG = Math.PI / 180
@@ -16,7 +15,7 @@ function normalizeDeg(deg: number): number {
 }
 
 /**
- * Carga no chão apoiada na carroceria de um caminhão (a pegada cobre a carroceria em `before`): leva a
+ * Carga no chão apoiada na carroceria de um caminhão (o centro dela cai na carroceria em `before`): leva a
  * carga junto quando o mesmo caminhão (`id`) muda de lugar, de giro ou de tamanho em `after`. A
  * posição e o giro dela em relação ao caminhão se mantêm (as medidas da carga não mudam; o
  * afastamento do centro do caminhão acompanha a escala dele). Se o caminhão sumiu ou deixou de ter
@@ -26,13 +25,12 @@ function normalizeDeg(deg: number): number {
  */
 export function followLoadBed(
   state: CargoState,
-  size: LoadDimensions,
   before: readonly Obstacle[],
   after: readonly Obstacle[],
   terrain: TerrainSpec,
 ): CargoState {
   if (state.phase !== 'ground' || before === after) return state
-  const bed = loadBedUnder(footprintCorners(size, state), loadBedsOf(before, terrain))
+  const bed = loadBedUnder({ x: state.x, z: state.z }, loadBedsOf(before, terrain))
   if (!bed) return state
   const from = before.find((obstacle) => obstacle.id === bed.obstacleId)
   const to = after.find((obstacle) => obstacle.id === bed.obstacleId)

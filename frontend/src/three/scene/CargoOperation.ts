@@ -1,7 +1,8 @@
 import {
   type CargoState,
+  type CargoSupport,
   type CargoStatus,
-  cargoBaseY,
+  cargoSupport,
   cargoStatusKey,
   cargoStatusOf,
   clearResult,
@@ -105,13 +106,7 @@ export class CargoOperation {
       this.resetLive()
     } else if (this.live && this.size) {
       // Carga solta sobre a carroceria acompanha o caminhão movido no editor (TASK-103; ADR-047).
-      this.live = followLoadBed(
-        this.live,
-        this.size,
-        previous.obstacles,
-        spec.obstacles,
-        previous.terrain,
-      )
+      this.live = followLoadBed(this.live, previous.obstacles, spec.obstacles, previous.terrain)
     }
     this.sync()
   }
@@ -237,9 +232,9 @@ export class CargoOperation {
         collisions.setGroundCargo(null)
       } else {
         hookLoad.setLoad(null)
-        const baseY = cargoBaseY(this.spec.terrain, size, state, this.spec.obstacles)
-        this.ground.show(size, state, baseY, delivered)
-        collisions.setGroundCargo(groundObstacle(size, state, heightAt(state.x, state.z), baseY))
+        const support = cargoSupport(this.spec.terrain, size, state, this.spec.obstacles)
+        this.ground.show(size, state, support.baseY, delivered)
+        collisions.setGroundCargo(groundObstacle(size, state, heightAt(state.x, state.z), support))
       }
     } else {
       // Sem carga posicionada (ou sem medidas): a carga das medidas fica no gancho, como antes; o
@@ -247,7 +242,7 @@ export class CargoOperation {
       hookLoad.setLoad(size)
       collisions.setGroundCargo(null)
       if (this.placement && !this.suspended) {
-        const baseY = cargoBaseY(
+        const { baseY } = cargoSupport(
           this.spec.terrain,
           PLACEHOLDER_CARGO_SIZE,
           this.placement,
@@ -286,15 +281,18 @@ export class CargoOperation {
 }
 
 /**
- * A carga no chão como obstáculo: a base fica no terreno do centro e a altura cobre até o topo da
- * carga, que assenta no ponto mais alto da pegada.
+ * A carga no chão como obstáculo. No terreno, a base fica no terreno do centro e a altura cobre até o
+ * topo da carga, que assenta no ponto mais alto da pegada. Sobre a carroceria (TASK-103), a base fica
+ * na altura dela (`baseElevationM`) e o prisma tem só a altura da carga: não desce até o terreno
+ * atravessando o caminhão.
  */
-function groundObstacle(
+export function groundObstacle(
   size: LoadDimensions,
   pose: { readonly x: number; readonly z: number; readonly rotationYDeg: number },
   centerGroundY: number,
-  baseY: number,
+  support: CargoSupport,
 ): Obstacle {
+  const lift = Math.max(0, support.baseY - centerGroundY)
   return {
     id: GROUND_CARGO_ID,
     label: 'Carga',
@@ -303,7 +301,8 @@ function groundObstacle(
     centerZ: pose.z,
     widthM: size.widthM,
     depthM: size.lengthM,
-    heightM: size.heightM + Math.max(0, baseY - centerGroundY),
+    heightM: support.onBed ? size.heightM : size.heightM + lift,
     rotationYDeg: pose.rotationYDeg,
+    ...(support.onBed ? { baseElevationM: lift } : {}),
   }
 }

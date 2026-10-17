@@ -140,17 +140,25 @@ export function footprintCorners(
   }))
 }
 
+/** Onde a base da carga assenta: a altura (m) e se é no topo de uma carroceria (e não no terreno). */
+export interface CargoSupport {
+  readonly baseY: number
+  readonly onBed: boolean
+}
+
 /**
- * Altura (m) em que a base da carga assenta: a maior entre a do ponto mais alto do terreno sob a
- * pegada (centro, cantos e meios das arestas), para a caixa não entrar no chão em terreno irregular, e
- * a do topo da carroceria de um caminhão plataforma (TASK-101) que a pegada cubra, mesmo em parte.
+ * Apoio da carga no chão: o maior entre o ponto mais alto do terreno sob a pegada (centro, cantos e
+ * meios das arestas), para a caixa não entrar no chão em terreno irregular, e o topo da carroceria de
+ * um caminhão plataforma (TASK-101; ADR-046) **só se o centro da pegada cair dentro da carroceria**
+ * (TASK-103): apoiada na borda ou com só a ponta sobre ela, a carga assenta no terreno e o caminhão
+ * é um obstáculo comum.
  */
-export function cargoBaseY(
+export function cargoSupport(
   terrain: TerrainSpec,
   size: LoadDimensions,
   pose: GroundPose,
   obstacles: readonly Obstacle[] = [],
-): number {
+): CargoSupport {
   const corners = footprintCorners(size, pose)
   const points = [{ x: pose.x, z: pose.z }, ...corners]
   for (let index = 0; index < corners.length; index += 1) {
@@ -159,8 +167,20 @@ export function cargoBaseY(
     points.push({ x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 })
   }
   const terrainY = Math.max(...points.map((point) => terrainHeightAt(terrain, point.x, point.z)))
-  const bedY = loadBedTopUnder(corners, loadBedsOf(obstacles, terrain))
-  return bedY === null ? terrainY : Math.max(terrainY, bedY)
+  const bedY = loadBedTopUnder({ x: pose.x, z: pose.z }, loadBedsOf(obstacles, terrain))
+  return bedY !== null && bedY >= terrainY
+    ? { baseY: bedY, onBed: true }
+    : { baseY: terrainY, onBed: false }
+}
+
+/** Altura (m) em que a base da carga assenta (`cargoSupport`). */
+export function cargoBaseY(
+  terrain: TerrainSpec,
+  size: LoadDimensions,
+  pose: GroundPose,
+  obstacles: readonly Obstacle[] = [],
+): number {
+  return cargoSupport(terrain, size, pose, obstacles).baseY
 }
 
 /** O gancho no mundo: referencial (origem em G, eixos da torre) e o que pende abaixo dele. */
