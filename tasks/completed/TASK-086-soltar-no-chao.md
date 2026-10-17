@@ -10,3 +10,8 @@ A trajetória terminava com a carga a ~1,3 m do chão (o planejador não descont
 ## Testes a escrever depois
 
 - E2E da trajetória até "Entregue"; corrigir no planejador a altura final (`delivery_state`).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PR #40). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).
