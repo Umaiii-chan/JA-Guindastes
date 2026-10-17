@@ -9,7 +9,7 @@
 
 import type { Locator, Page, Route } from '@playwright/test'
 
-import { expect, hasBackend, test } from './auth.js'
+import { expect, test } from './auth.js'
 import { chooseConfiguration, fillValidLoad, mockCatalog } from './catalogMock.js'
 import { topGround } from './topView.js'
 
@@ -17,7 +17,6 @@ const SCREENSHOT_DIR = process.env.E2E_SCREENSHOT_DIR?.trim() ?? ''
 const WEIGHT_KG = 3000
 
 test.describe('coleta e entrega da carga', () => {
-  test.skip(hasBackend, 'usa catálogo e avaliação respondidos pelo navegador')
   test.setTimeout(180_000)
 
   async function shot(page: Page, name: string): Promise<void> {
@@ -93,6 +92,38 @@ test.describe('coleta e entrega da carga', () => {
           load_chart_version: 'v1',
           reasons: [],
         },
+      })
+    })
+    // O mesmo no WebSocket: com a stack no ar (CI), o navegador avalia por ele e não pelo REST. Sem
+    // este desvio o teste só funcionava sem backend, e por isso era pulado no CI e ninguém via quando
+    // ficava defasado (TASK-112).
+    await page.routeWebSocket(/\/api\/v1\/ws\/evaluation/, (socket) => {
+      socket.onMessage((raw) => {
+        const message = JSON.parse(String(raw)) as {
+          sequence: number
+          payload: { boom_length_m: number; load_weight_kg: number }
+        }
+        weights.push(message.payload.load_weight_kg)
+        socket.send(
+          JSON.stringify({
+            type: 'simulation.evaluated',
+            sequence: message.sequence,
+            payload: {
+              result: 'EVALUATED',
+              geometry: null,
+              capacity: {
+                maximum_capacity_kg: 8000,
+                strategy: 'CONSERVATIVE_PROVISIONAL',
+                queried_radius_m: null,
+                used_point: { boom_length_m: 22, working_radius_m: 40, max_capacity_kg: 8000 },
+              },
+              utilization_percent: (message.payload.load_weight_kg / 8000) * 100,
+              load_chart_id: 'LC-E2E-FICTICIA',
+              load_chart_version: 'v1',
+              reasons: [],
+            },
+          }),
+        )
       })
     })
     // Gravações FALSAS: guarda o que o navegador envia e devolve na reprodução.
@@ -192,16 +223,30 @@ test.describe('coleta e entrega da carga', () => {
     await approach()
     expect(await missingMeters(page)).toBeLessThan(0.5)
 
-    // Baixa o cabo: o gancho para ao tocar o topo da carga e o botão Engatar é liberado.
-    await cable.press('End')
-    await settle(page)
+    // Baixa o cabo até as lingas esticarem: o Engatar só é liberado com o gancho a `queda` do topo da
+    // carga (geometria única das lingas, TASK-107; ADR-051; 60° → 2,45 m para esta carga de 2 × 2 m), e
+    // não mais encostado nele. Como uma pessoa faria: desce aos poucos até o botão liberar.
     const engage = strip(page).getByRole('button', { name: 'Engatar' })
+    const cableMin = Number(await cable.getAttribute('min'))
+    const cableMax = Number(await cable.getAttribute('max'))
+    for (
+      let value = cableMin;
+      value <= cableMax + 1e-9 && !(await engage.isEnabled());
+      value += 0.2
+    ) {
+      await cable.fill(String(Math.round(value * 10) / 10))
+      await settle(page)
+    }
     await expect(engage).toBeEnabled()
+    // O gancho está acima do topo da carga, na distância das lingas: a dica não pede mais descer.
+    await expect(strip(page)).toContainText('Toque em Engatar')
     await shot(page, 'task-073-pronto-para-engatar')
 
     await engage.click()
-    // Engatada ainda no chão: a dica já manda levar e soltar.
-    await expect(strip(page)).toContainText('Toque em Soltar')
+    // Engatada com as lingas esticadas, a base da carga fica um pouco acima do chão (a folga do
+    // engate), ainda fora dos 0,20 m da soltura: a dica manda levar e baixar, e o Soltar espera.
+    await expect(strip(page)).toContainText('Carga engatada: leve a carga até o ponto de entrega')
+    await expect(strip(page).getByRole('button', { name: 'Soltar' })).toBeDisabled()
     await expect(engage).toBeDisabled()
     // Engatada, o peso entra na avaliação.
     await expect.poll(() => weights.at(-1)).toBe(WEIGHT_KG)
