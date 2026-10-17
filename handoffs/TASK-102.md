@@ -59,7 +59,7 @@ real com lança contínua fecha mais casos; não verifiquei. Registrado em L-016
 | `uv run ruff format --check .` | ✅ `330 files already formatted` |
 | `uv run mypy app` | ✅ `Success: no issues found in 177 source files` |
 | `uv run lint-imports` | ✅ `Contracts: 3 kept, 0 broken.` |
-| `uv run pytest` | ✅ 1862 passed, 88 skipped, 0 failed (contagem dos pontos da saída) |
+| `uv run pytest` | ✅ 1872 passed, 88 skipped, 0 failed (após as correções da revisão; antes 1862) |
 | `bash scripts/check-structure.sh` (raiz) | ✅ `OK: 0 erros, 1 aviso(s)` |
 
 Um teste de tempo (`test_cenario_pequeno_responde_em_menos_de_3_segundos`) falhou uma vez numa
@@ -73,7 +73,32 @@ de carga.
 - Fora do escopo e não feito: o caminhão plataforma inteiro continua prisma cheio na conferência do
   cabo e da lança (a cabine é mais alta que a carroceria).
 
-## 7. Próximo passo
+## 7. Correções da revisão do PR #58
+
+- **Coleta sobre a carroceria.** `sweep.pick_surface` (mesmo apoio da entrega; `pick_cover` usa os
+  `blockers` dela) e `planner` (`pick_base_y` = `rest_y` da superfície, `pick_supports`): o centro
+  da pegada na carroceria → base a 1,86 m e sem recusa por esse caminhão. O cabo é isento do apoio
+  também na coleta e na aproximação. Teste: `test_coleta_sobre_a_carroceria_do_caminhao_tem_plano`.
+- **Só o modelo da biblioteca apoia.** `_supports_load = is_platform_truck and bed_contains`; a
+  caixa "Carreta" é obstáculo comum. Testes: `test_caixa_carreta_nao_recebe_a_carga_por_cima`,
+  `test_caixa_carreta_na_entrega_e_recusada_com_o_motivo`. Os testes antigos com caixa "carreta"
+  passaram a usar o caminhão plataforma da biblioteca (`bed_truck`).
+- **Carga comprida sobre a cabine.** Apoiada, a pegada é conferida contra os trechos do caminhão
+  mais altos que a carroceria (`platform_truck_cab_parts`, as caixas de `vehicle()`): bloqueio.
+  Teste: carga 6,0×1,2×0,5 com centro em z = -0,5 → `blockers` não vazio.
+- **Paridade com o frontend.** `test_library_boxes.py`: valores dourados de `objectLibrary.ts`
+  (L249-253, L359) e `loadBeds.ts` (L39-53), em escala 1 e girado 90° e escalado.
+- **Texto.** `_blocked_ends_note`: com o centro sobre a cabine diz que o centro da carga precisa
+  ficar sobre a carroceria (traseira); sem caminhão, que só o caminhão plataforma da biblioteca
+  recebe a carga por cima.
+- **Motivo "aproximação".** `COLLISION_APPROACH` ("com a aproximação do gancho (da partida até a
+  carga) batendo em obstáculo"), devolvido por `first_path_collision` quando a aproximação é o
+  gargalo.
+- **Não editei o ADR-042 (Aceito)**: a § Decisão 5 cita "carreta ou caminhão plataforma" genérico e
+  o critério novo (carroceria por centro da pegada, só o modelo da biblioteca) deve ir ao ADR-046
+  (Cinzel) ou a um ADR novo; registrado em known-gaps L-016.
+
+## 8. Próximo passo
 
 **Papel:** Revisor. Ler: `AGENTS.md`, este handoff, `backend/app/domain/services/planning/sweep.py`
 (`_supports_load`, `delivery_surface`, `delivery_cover`) e `library_boxes.py`.
