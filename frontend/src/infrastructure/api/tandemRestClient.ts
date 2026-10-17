@@ -2,10 +2,16 @@
 //
 // Corpo (snake_case): `{ load_weight_kg, load_cg: {x, z}, cranes: [{ configuration_id,
 // placement: {x, z, heading_deg}, state: {boom_length_m, boom_angle_deg, turret_rotation_deg,
-// cable_length_m}, hook_point: {x, z} }] }`. Resposta: `{ shares_kg, share_percent, evaluations,
-// tandem_ok, alerts }`, com cada avaliação no formato de `POST /api/v1/evaluations`.
+// cable_length_m}, hook_point: {x, z}, outriggers?, ground_slope_deg?, accessory_ids?, soil_kinds?,
+// obstacle_conflicts? }], wind_speed_ms? }`. Os opcionais (TASK-090) só vão quando informados, como
+// na avaliação individual. Resposta: `{ shares_kg, share_percent, evaluations, tandem_ok, alerts }`,
+// com cada avaliação no formato de `POST /api/v1/evaluations`.
 
-import type { TandemInput, TandemResult } from '../../domain/tandem/tandemEvaluation'
+import type {
+  TandemCraneEnvironment,
+  TandemInput,
+  TandemResult,
+} from '../../domain/tandem/tandemEvaluation'
 import { readSafety } from '../shared/evaluationSafety'
 import {
   ContractViolationError,
@@ -35,10 +41,31 @@ export interface TandemRestClientOptions {
   readonly timeoutMs?: number
 }
 
+/** Ambiente de um guindaste no JSON, só os campos informados (os mesmos da avaliação individual). */
+function toCraneEnvironmentDto(crane: TandemCraneEnvironment): Record<string, unknown> {
+  return {
+    ...(crane.outriggers && {
+      outriggers: {
+        extension_percent: crane.outriggers.extensionPercent,
+        jacks_set: crane.outriggers.jacksSet,
+      },
+    }),
+    ...(crane.groundSlopeDeg !== undefined && { ground_slope_deg: crane.groundSlopeDeg }),
+    ...(crane.accessoryIds && crane.accessoryIds.length > 0
+      ? { accessory_ids: crane.accessoryIds }
+      : {}),
+    ...(crane.soilKinds && crane.soilKinds.length === 4 ? { soil_kinds: crane.soilKinds } : {}),
+    ...(crane.obstacleConflicts && crane.obstacleConflicts.length > 0
+      ? { obstacle_conflicts: crane.obstacleConflicts }
+      : {}),
+  }
+}
+
 export function toTandemRequestDto(input: TandemInput): Record<string, unknown> {
   return {
     load_weight_kg: input.loadWeightKg,
     load_cg: { x: input.loadCg.x, z: input.loadCg.z },
+    ...(input.windSpeedMs !== undefined && { wind_speed_ms: input.windSpeedMs }),
     cranes: input.cranes.map((crane) => ({
       configuration_id: crane.configurationId,
       placement: {
@@ -53,6 +80,7 @@ export function toTandemRequestDto(input: TandemInput): Record<string, unknown> 
         cable_length_m: crane.state.cableLengthM,
       },
       hook_point: { x: crane.hookPoint.x, z: crane.hookPoint.z },
+      ...toCraneEnvironmentDto(crane),
     })),
   }
 }

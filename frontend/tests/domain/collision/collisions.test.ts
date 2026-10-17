@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  ACCESSORY_CHAIN_HALF_WIDTH_M,
   collisionStateKey,
   type CollisionInput,
   type CraneBody,
@@ -8,6 +9,7 @@ import {
   describeAlert,
   describeHit,
   evaluateCollisions,
+  GROUND_CARGO_ID,
   NO_COLLISION,
   obstacleObb,
   payloadObbs,
@@ -19,6 +21,7 @@ import {
   type ScenarioSpec,
   terrainHeightAt,
 } from '../../../src/domain/environment/environment'
+import { calculateOperationalGeometry } from '../../../src/domain/geometry/operationalGeometry'
 
 const GEOMETRY = { boomPivotOffsetM: -1.56, boomPivotHeightM: 3.3 }
 const STATE = { turretRotationDeg: 0, boomAngleDeg: 35, boomLengthM: 12, cableLengthM: 5 }
@@ -182,6 +185,84 @@ describe('geometria dos objetos', () => {
     expect(high.center.y).toBeGreaterThan(low.center.y)
     const turned = boomAt({ ...STATE, boomAngleDeg: 0, turretRotationDeg: 90 })
     expect(turned.center.x).toBeGreaterThan(4)
+  })
+})
+
+describe('cadeia de acessórios (TASK-091; F-10)', () => {
+  // Gancho giratório + manilha: 0,75 m de cadeia abaixo do ponto de amarração (1,05 m abaixo de G).
+  // FICTÍCIO (ADR-012).
+  const CHAIN = { topM: 1.05, dropM: 0.75 }
+  /** Cabo que deixa G a `heightM` do chão plano, na pose de `STATE`. */
+  const cableForHookAt = (heightM: number) =>
+    calculateOperationalGeometry(STATE, GEOMETRY).boomTip.yM - heightM
+
+  it('vira uma caixa de G − 1,05 m a G − 1,80 m, nos eixos do gancho', () => {
+    const parts = payloadObbs(input({ load: null, chain: CHAIN }))
+    const chain = parts.find((part) => part.subject === 'accessories')!.obb
+    const hookY = calculateOperationalGeometry(STATE, GEOMETRY).hook.yM
+    expect(chain.center.y + chain.half.y).toBeCloseTo(hookY - 1.05)
+    expect(chain.center.y - chain.half.y).toBeCloseTo(hookY - 1.8)
+    expect(chain.half.x).toBe(ACCESSORY_CHAIN_HALF_WIDTH_M)
+    // Sem cadeia (ou sem altura), nada muda.
+    expect(payloadObbs(input({ load: null })).map((part) => part.subject)).toEqual(['hook'])
+    expect(
+      payloadObbs(input({ load: null, chain: { topM: 1.05, dropM: 0 } })).map((p) => p.subject),
+    ).toEqual(['hook'])
+  })
+
+  it('sem carga, o gancho ainda acima do chão: o fim da cadeia é que bate no terreno', () => {
+    // G a 1,4 m: o gancho termina a 0,35 m do chão, mas a cadeia desce até −0,40 m.
+    const state = { ...STATE, cableLengthM: cableForHookAt(1.4) }
+    const report = evaluateCollisions(input({ state, load: null, chain: CHAIN }))
+    expect(report.hits.map((hit) => [hit.subject, hit.target.kind])).toEqual([
+      ['accessories', 'terrain'],
+    ])
+    expect(report.penetrationM).toBeCloseTo(0.4, 3)
+    expect(describeHit(report.hits[0]!)).toBe('A cadeia de acessórios atingiria o terreno.')
+    // Antes da TASK-091, sem a cadeia, nada colidia nessa pose.
+    expect(evaluateCollisions(input({ state, load: null })).hits).toEqual([])
+  })
+
+  it('a cadeia não entra na carga apoiada no chão', () => {
+    const hook = calculateOperationalGeometry(STATE, GEOMETRY).hook
+    // Carga no chão logo abaixo do gancho, com o topo 0,5 m abaixo do fim do gancho.
+    const cargo: Obstacle = {
+      id: GROUND_CARGO_ID,
+      label: 'Carga',
+      kind: 'box',
+      centerX: hook.xM,
+      centerZ: hook.zM,
+      widthM: 2,
+      depthM: 3,
+      heightM: hook.yM - 1.05 - 0.5,
+      rotationYDeg: 0,
+    }
+    const report = evaluateCollisions(
+      input({ scenario: withObstacles(cargo), load: null, chain: CHAIN }),
+    )
+    expect(report.hits.map((hit) => [hit.subject, hit.target.kind])).toEqual([
+      ['accessories', 'obstacle'],
+    ])
+    expect(describeHit(report.hits[0]!)).toBe('A cadeia de acessórios atingiria a carga no chão.')
+  })
+
+  it('como o gancho, a cadeia bate no chassi, mas não na lança de onde pende', () => {
+    // Lança baixa sobre a carroceria (topo a 2 m): o gancho termina a 2,05 m, e a cadeia desce até
+    // 1,30 m, para dentro do chassi.
+    const low = { turretRotationDeg: 0, boomAngleDeg: 0, boomLengthM: 4, cableLengthM: 0.2 }
+    expect(evaluateCollisions(input({ state: low, load: null })).hits).toEqual([])
+    const report = evaluateCollisions(input({ state: low, load: null, chain: CHAIN }))
+    expect(report.hits.some((h) => h.subject === 'accessories' && h.target.kind === 'crane')).toBe(
+      true,
+    )
+    expect(
+      report.hits.some(
+        (h) =>
+          h.subject === 'accessories' &&
+          h.target.kind === 'crane' &&
+          h.target.part === 'crane-boom',
+      ),
+    ).toBe(false)
   })
 })
 

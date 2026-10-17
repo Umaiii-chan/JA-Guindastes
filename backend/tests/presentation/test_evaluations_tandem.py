@@ -2,6 +2,10 @@
 
 Capacidade da tabela fictícia: 4000 kg no ponto (L = 10 m, θ = 0°) e limite do modelo de 85 %; com
 o fator 0,75 do tandem, cada guindaste aceita até 2550 kg (peso comparado, com o gancho).
+
+Com a ficha FICTÍCIA (a = 1,5 m), L = 10 m e θ = 0°, o gancho fica a R = 11,5 m do eixo de giro.
+Cada guindaste é posto a 11,5 m do ponto de içamento dele, para o gancho cair sobre o ponto
+(TASK-090).
 """
 
 from typing import Any
@@ -16,10 +20,14 @@ from tests.presentation.test_evaluations_capacity_limit import build_dependencie
 TANDEM = "/api/v1/evaluations/tandem"
 
 
+RADIUS_M = 11.5
+
+
 def crane(hook_x: float) -> dict[str, Any]:
+    # Rumo 0 e ψ = 0: a lança aponta para +Z, e o gancho fica 11,5 m à frente do eixo de giro.
     return {
         "configuration_id": CONFIGURATION_AVALIACAO_FICTICIA_ID,
-        "placement": {"x": 0.0, "z": 0.0, "heading_deg": 0.0},
+        "placement": {"x": hook_x, "z": -RADIUS_M, "heading_deg": 0.0},
         "state": {
             "boom_length_m": 10.0,
             "boom_angle_deg": 0.0,

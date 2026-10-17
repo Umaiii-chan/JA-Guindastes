@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { HOOK_ATTACH_OFFSET_M } from '../../../src/domain/collision/loadBox'
 import {
   cargoCgWorld,
   craneHookWorld,
@@ -8,8 +9,10 @@ import {
   engageTandem,
   liftPointsWorld,
   localToWorld,
+  slingTopsWorld,
   solveCraneForHook,
   tandemFrame,
+  tandemHookDropM,
   TANDEM_SLING_DROP_M,
   type TandemCrane,
   type TandemCraneState,
@@ -194,6 +197,82 @@ describe('tandem — engate e quadros', () => {
     const frame = tandemFrame(SETUP, engaged.leaderState, engaged.followerState)
 
     expect(frame.cargo.bottomY).toBeCloseTo(0, 2)
-    expect(engageHookHeightM(SETUP)).toBeCloseTo(SETUP.load.heightM + TANDEM_SLING_DROP_M)
+    // Sem medida do gancho, vale o engate do gancho provisório (TASK-090).
+    expect(engageHookHeightM(SETUP)).toBeCloseTo(
+      SETUP.load.heightM + TANDEM_SLING_DROP_M + HOOK_ATTACH_OFFSET_M,
+    )
+  })
+})
+
+// TASK-090 (F-16): as lingas saem do fim do gancho (e da cadeia de acessórios), não de G.
+describe('tandem — altura do gancho no engate e no quadro', () => {
+  /** Distância de G ao fim do moitão do GLB 80 t, medida pela auditoria de 2026-10-16. */
+  const GLB_HOOK_DROP_M = 1.965
+  /** Cadeia FICTÍCIA de acessórios (gancho giratório + manilha) no guindaste 1. */
+  const CHAIN_M = 0.75
+
+  const withDrops = (drops: readonly [number, number]): TandemSetup => ({
+    ...SETUP,
+    load: { ...SETUP.load, hookDropsM: drops },
+  })
+
+  it('reproduz a auditoria: o moitão do 80 t não entra mais na carga', () => {
+    const setup = withDrops([GLB_HOOK_DROP_M, GLB_HOOK_DROP_M])
+    const top = setup.cargoGroundY + setup.load.heightM
+
+    const hookBottom = engageHookHeightM(setup) - GLB_HOOK_DROP_M
+
+    // Antes: G a 1,5 m do topo, e o moitão 1,965 m abaixo de G entrava 0,465 m na carga.
+    expect(top + TANDEM_SLING_DROP_M - GLB_HOOK_DROP_M - top).toBeCloseTo(-0.465, 3)
+    expect(hookBottom - top).toBeCloseTo(TANDEM_SLING_DROP_M, 9)
+  })
+
+  it('cada gancho engata na altura dele: chão + carga + lingas + engate + acessórios', () => {
+    const setup = withDrops([GLB_HOOK_DROP_M + CHAIN_M, GLB_HOOK_DROP_M])
+
+    const result = engageTandem(setup, PREFERRED, PREFERRED)
+
+    expect(result.reachable).toBe(true)
+    const hook1 = craneHookWorld(setup.leader, result.leaderState)
+    const hook2 = craneHookWorld(setup.follower, result.followerState)
+    const base = setup.cargoGroundY + setup.load.heightM + TANDEM_SLING_DROP_M
+    expect(hook1.y).toBeCloseTo(base + GLB_HOOK_DROP_M + CHAIN_M, 2)
+    expect(hook2.y).toBeCloseTo(base + GLB_HOOK_DROP_M, 2)
+  })
+
+  it('no quadro, a carga pende do fim do gancho de quem conduz, e o outro acompanha essa altura', () => {
+    const setup = withDrops([GLB_HOOK_DROP_M + CHAIN_M, GLB_HOOK_DROP_M])
+    const engaged = engageTandem(setup, PREFERRED, PREFERRED)
+    const raised = { ...engaged.leaderState, cableLengthM: engaged.leaderState.cableLengthM - 2 }
+
+    const frame = tandemFrame(setup, raised, engaged.followerState)
+
+    expect(frame.reachable).toBe(true)
+    expect(frame.cargo.bottomY).toBeCloseTo(2, 2)
+    const [top1, top2] = slingTopsWorld(frame.hooks, setup.load)
+    // As lingas dos dois saem da mesma altura, 1,5 m acima do topo da carga.
+    expect(top1.y).toBeCloseTo(frame.cargo.bottomY + setup.load.heightM + TANDEM_SLING_DROP_M, 6)
+    expect(top2.y).toBeCloseTo(top1.y, 2)
+    expect(frame.hooks[0].y - frame.hooks[1].y).toBeCloseTo(CHAIN_M, 2)
+  })
+
+  it('a carga recém engatada com o gancho medido fica apoiada no chão', () => {
+    const setup = withDrops([GLB_HOOK_DROP_M + CHAIN_M, GLB_HOOK_DROP_M])
+    const engaged = engageTandem(setup, PREFERRED, PREFERRED)
+
+    const frame = tandemFrame(setup, engaged.leaderState, engaged.followerState)
+
+    expect(frame.cargo.bottomY).toBeCloseTo(0, 2)
+  })
+
+  it('medida ausente ou inválida cai no engate do gancho provisório', () => {
+    expect(tandemHookDropM(SETUP.load, 0)).toBe(HOOK_ATTACH_OFFSET_M)
+    expect(tandemHookDropM({ ...SETUP.load, hookDropsM: [Number.NaN, 0] }, 0)).toBe(
+      HOOK_ATTACH_OFFSET_M,
+    )
+    expect(tandemHookDropM({ ...SETUP.load, hookDropsM: [Number.NaN, 0] }, 1)).toBe(
+      HOOK_ATTACH_OFFSET_M,
+    )
+    expect(tandemHookDropM({ ...SETUP.load, hookDropsM: [2.2, 1.1] }, 1)).toBe(1.1)
   })
 })

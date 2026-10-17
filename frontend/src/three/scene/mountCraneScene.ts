@@ -16,7 +16,7 @@ import {
   keepCameraAboveGround,
 } from '../controls/createOrbitControls'
 import type { OutriggerState } from '../../domain/crane/outriggers'
-import { OutriggerController } from '../crane/OutriggerController'
+import { OutriggerController, terrainHeightInFrame } from '../crane/OutriggerController'
 import { TRUCK_CRANE_OUTRIGGER_TRAVEL_M } from '../loaders/loadTruckCraneModel'
 import type { CraneCommands, CraneSetup, CraneState } from '../crane/types'
 import type { CargoState, CargoStatus } from '../../domain/cargo/cargoOperation'
@@ -48,12 +48,26 @@ import { type EvaluationStatus, normalizeEvaluationStatus, statusCssColor } from
 import { type SceneEditorCallbacks, type SceneEditorConfig, SceneEditor } from './SceneEditor'
 import { createScaleBar, pixelsPerMeter } from './scaleBar'
 import { createRadiusLabel, createZoneLabelElement, paintZoneLabel } from './sceneLabels'
+import { withLiveHookDrops } from './tandemRigging'
 import {
   type CraneModelLoader,
   type CraneModelUpgradeResult,
   loadDefaultCraneModel,
   upgradeCraneModel,
 } from './upgradeCraneModel'
+
+/** Patolas como a cena as mostra (TASK-093): o que a animação alcançou e se o modelo as desenha. */
+export interface OutriggerSceneReport {
+  /**
+   * Estado que a animação já alcançou, nunca além do comando (`OutriggerController.reportedState`):
+   * é o que vale para a tela ("Patolas prontas") e para a avaliação (F-27).
+   */
+  readonly state: OutriggerState
+  /** `true` enquanto o desenho ainda não chegou ao comando. */
+  readonly moving: boolean
+  /** `true` quando o modelo 3D em uso tem os nós `crane-outrigger-*` e a cena desenha as patolas. */
+  readonly modelAvailable: boolean
+}
 
 /** Opções de `mountCraneScene`. */
 export interface MountCraneSceneOptions {
@@ -89,6 +103,12 @@ export interface MountCraneSceneOptions {
   readonly onExtraCranesChange?: (commands: ReadonlyMap<string, CraneCommands>) => void
   /** Avisado a cada quadro do tandem engatado, e com `null` quando ele é desfeito (TASK-074). */
   readonly onTandemFrame?: (frame: TandemSceneFrame | null) => void
+  /**
+   * Avisado quando as patolas mudam na cena (TASK-093): o estado que a animação alcançou, se ela
+   * ainda anda e se o modelo em uso tem patolas. Nos marcos da animação, não a cada quadro. Chamado
+   * uma vez na montagem.
+   */
+  readonly onOutriggersChange?: (report: OutriggerSceneReport) => void
 }
 
 /** Opções de `setCameraPreset`. */
@@ -129,7 +149,10 @@ export interface CraneSceneHandle {
   setScenario(scenario: ScenarioSpec | null): void
   /** Leva a câmera a uma predefinição, enquadrando o estado atual do guindaste. */
   setCameraPreset(preset: CameraPreset, options?: CameraPresetOptions): void
-  /** Distância (m) de G até onde as lingas se prendem, medida no gancho em uso (TASK-075). */
+  /**
+   * Distância (m) de G até onde as lingas se prendem, medida no gancho em uso (TASK-075); com um
+   * moitão na cadeia, o fim do cabo (TASK-093).
+   */
   hookAttachOffsetM(): number
   /**
    * Dados do cenário (terreno, obstáculos e posição do guindaste) usados só para colidir (TASK-053;
@@ -154,8 +177,9 @@ export interface CraneSceneHandle {
   /** Última situação da coleta e entrega. */
   getCargoStatus(): CargoStatus
   /**
-   * Patolas (TASK-054): estende as vigas, desce os macacos e nivela, animado. Só move os nós
-   * `crane-outrigger-*` que o modelo 3D tiver; sem eles, não desenha nada.
+   * Patolas (TASK-054): estende as vigas, desce os macacos até o terreno e nivela, animado. Só move
+   * os nós `crane-outrigger-*` que o modelo 3D tiver; sem eles, não desenha nada. O estado que a
+   * animação alcança volta por `onOutriggersChange` (TASK-093).
    */
   setOutriggers(state: OutriggerState): void
   /**
@@ -351,7 +375,12 @@ export function mountCraneScene(
   const accessoryChain = new AccessoryChain({
     loader: options.loadAccessoryModel,
     onModelResult: options.onAccessoryModelResult,
-    onChange: invalidate,
+    onChange: () => {
+      // O modelo de um acessório chegou: um moitão passa a colidir com a caixa medida (TASK-093).
+      hookLoad.remeasureAccessories()
+      crane.revalidate()
+      invalidate()
+    },
   })
 
   const resize = (): void => {
@@ -386,18 +415,58 @@ export function mountCraneScene(
     return true
   }
 
-  // Patolas (TASK-054): a animação avança a cada quadro e invalida só enquanto algo se move.
+  // Patolas (TASK-054): a animação avança a cada quadro e invalida só enquanto algo se move. As
+  // sapatas descem até o terreno sob cada uma, no referencial da base (TASK-093, F-25).
   const outriggers = new OutriggerController({
     getRoot: () => contents.rig.base,
     invalidate,
     beamTravelM: TRUCK_CRANE_OUTRIGGER_TRAVEL_M,
+    groundHeightAt: terrainHeightInFrame(
+      () => contents.rig.base,
+      (x, z) => environment.heightAt(x, z),
+    ),
     reducedMotion: prefersReducedMotion(),
   })
+  // O modelo em uso desenha as patolas? O provisório não tem os nós; o GLB, sim (TASK-064).
+  let outriggerModel = outriggers.hasModel()
+  let outriggerKey = ''
+  /** Avisa a UI quando o estado alcançado, o movimento ou o modelo das patolas muda (TASK-093). */
+  const reportOutriggers = (): void => {
+    const report: OutriggerSceneReport = {
+      state: outriggers.reportedState,
+      moving: outriggers.animating,
+      modelAvailable: outriggerModel,
+    }
+    const key = JSON.stringify(report)
+    if (key === outriggerKey) return
+    outriggerKey = key
+    options.onOutriggersChange?.(report)
+  }
+  let drawnLevelingDeg = 0
+  /**
+   * Com os macacos apoiados, a inclinação do terreno até a correção deles some do modelo. Segue o
+   * nivelamento já desenhado, não o comando (TASK-093, F-27), e as sapatas acompanham a atitude nova.
+   */
+  const syncLeveling = (): void => {
+    const next = Math.min(
+      Math.max(0, outriggers.currentState.levelingDeg),
+      outriggers.maxLevelingDeg,
+    )
+    if (next === drawnLevelingDeg) return
+    drawnLevelingDeg = next
+    contents.setLevelingDeg(next)
+    outriggers.reapply()
+  }
 
   const renderFrame = (): void => {
     const now = performance.now()
     const extrasMoved = contents.multi.update(now)
-    const outriggersMoved = outriggers.update(now) || extrasMoved
+    const ownOutriggersMoved = outriggers.update(now)
+    if (ownOutriggersMoved) {
+      syncLeveling()
+      reportOutriggers()
+    }
+    const outriggersMoved = ownOutriggersMoved || extrasMoved
     const craneChanged = syncWithCrane() || outriggersMoved
     const moving = transition !== null
     if (transition) {
@@ -462,6 +531,10 @@ export function mountCraneScene(
   if (loadModel) {
     void upgradeCraneModel(contents, loadModel, { signal: modelAbort.signal }).then((result) => {
       outriggers.reapply()
+      if (!disposed) {
+        outriggerModel = outriggers.hasModel()
+        reportOutriggers()
+      }
       invalidate()
       crane.revalidate()
       contents.multi.onPrimaryModelChanged()
@@ -493,6 +566,9 @@ export function mountCraneScene(
         accessoryChain.totalDropM,
         accessoryChain.replacesHook,
       )
+      // A cadeia entra na colisão (TASK-091), e um moitão troca o ponto de amarração e a caixa do
+      // gancho (TASK-093): reavalia colisões e o engate com o estado atual.
+      crane.revalidate()
       invalidate()
     },
     setRotationZones(zones) {
@@ -519,6 +595,8 @@ export function mountCraneScene(
     setScenario(scenario) {
       if (disposed) return
       contents.setScenario(scenario)
+      // As sapatas acompanham o terreno e a posição novos (TASK-093, F-25).
+      outriggers.reapply()
       contents.multi.setScenario(scenario ?? EMPTY_SCENARIO)
       editor?.refresh()
       if (followedPreset && !transition) jumpTo(presetView(followedPreset))
@@ -576,10 +654,10 @@ export function mountCraneScene(
     setOutriggers(state) {
       if (disposed) return
       outriggers.setState(state)
-      // Com os macacos apoiados, a inclinação do terreno até a correção deles some do modelo.
-      contents.setLevelingDeg(
-        state.jacksSet ? Math.min(Math.max(0, state.levelingDeg), outriggers.maxLevelingDeg) : 0,
-      )
+      // A inclinação e o estado mostrado seguem a animação (TASK-093, F-27): aqui só mudam na hora
+      // com movimento reduzido; senão, a cada quadro em que a animação anda.
+      syncLeveling()
+      reportOutriggers()
       editor?.refresh()
       invalidate()
     },
@@ -596,7 +674,15 @@ export function mountCraneScene(
       if (disposed) return
       // A carga de um guindaste só (TASK-073) cede o lugar à do tandem enquanto ele estiver ligado.
       cargo.setSuspended(config !== null)
-      contents.multi.setTandemCargo(config)
+      // As lingas saem do fim do gancho (e da cadeia de acessórios) de cada guindaste (TASK-090).
+      contents.multi.setTandemCargo(
+        config &&
+          withLiveHookDrops(
+            config,
+            () => contents.hookLoad,
+            () => contents.multi.getExtra(config.followerId)?.hookLoad,
+          ),
+      )
     },
     engageTandem() {
       if (disposed) return null
@@ -673,5 +759,6 @@ export function mountCraneScene(
     },
   }
   handle.setEvaluationStatus('unknown')
+  reportOutriggers()
   return handle
 }

@@ -72,6 +72,27 @@ describe('cliente REST da área de operação', () => {
     })
   })
 
+  it('manda a cadeia de acessórios quando há (RN-014) e omite a lista vazia', async () => {
+    const fetchFn = vi.fn<typeof fetch>(async () => json(OPERATING_AREA_BODY))
+    const client = createOperatingAreaRestClient({ fetchFn })
+
+    await client.compute({
+      ...REQUEST,
+      accessoryIds: ['ACC-FICTICIO-MANILHA', 'ACC-FICTICIO-MANILHA'],
+    })
+    await client.compute({ ...REQUEST, accessoryIds: [] })
+
+    expect(JSON.parse(fetchFn.mock.calls[0][1]?.body as string)).toEqual({
+      boom_length_m: 20,
+      load_weight_kg: 1500,
+      accessory_ids: ['ACC-FICTICIO-MANILHA', 'ACC-FICTICIO-MANILHA'],
+    })
+    expect(JSON.parse(fetchFn.mock.calls[1][1]?.body as string)).toEqual({
+      boom_length_m: 20,
+      load_weight_kg: 1500,
+    })
+  })
+
   it('HTTP 422 e 404 viram erro com a mensagem do servidor', async () => {
     const fetchFn = vi.fn<typeof fetch>(async () =>
       json({ detail: 'boom_length_m fora da faixa' }, 422),

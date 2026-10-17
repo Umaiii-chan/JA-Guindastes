@@ -119,6 +119,13 @@ test('modo sem autenticação (sem banco): /login leva ao Início com o aviso', 
   await page.route('**/api/v1/auth/session', (route) =>
     route.fulfill({ json: { authEnabled: false, user: null } }),
   )
+  // Sem banco não há login, e o status da IA (TASK-076) não pede sessão. Contra a stack com banco,
+  // a chamada real responderia 401, e a tela trataria isso como sessão vencida.
+  await page.route('**/api/v1/ai/status', (route) =>
+    route.fulfill({
+      json: { enabled: false, model: null, fallback_models: [], usage_limit_per_hour: null },
+    }),
+  )
   await mockCatalog(page)
   await page.goto('/login')
   await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible()

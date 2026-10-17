@@ -9,9 +9,10 @@ Liga as peças do motor de cálculo na ordem da doc-fonte § 14.1:
    e vale a tabela ativa dela; a ±ε de uma fronteira, valem as tabelas ativas das duas zonas
    vizinhas;
 3. `LoadChartInterpolator`: a capacidade para o comprimento de lança do estado e o **raio
-   calculado** (estratégia injetada: `ExactPointLookup` ou, na composição, a
-   `ConservativeTabulatedLookup` provisória do ADR-015). Na fronteira, vale a **menor**
-   capacidade das duas zonas (lado seguro);
+   calculado** (estratégia injetada: na composição, `app/main.py`, a `LinearInterpolationLookup`
+   provisória do ADR-030; a `ConservativeTabulatedLookup` do ADR-015/029 e a `ExactPointLookup`
+   continuam atrás da mesma porta). Na fronteira, vale a **menor** capacidade das duas zonas
+   (lado seguro);
 4. utilização `peso comparado / capacidade × 100` (doc-fonte § 14.3). O peso comparado é o de
    `weight_compared_with_capacity`: **carga + gancho** (ADR-018 § 2), com o peso do gancho
    cadastrado na configuração (`None` = 0 kg).

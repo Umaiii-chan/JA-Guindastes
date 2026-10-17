@@ -1,7 +1,7 @@
 // Área de operação do simulador (TASK-055; ADR-025): pede ao backend a grade verde, amarela e
-// vermelha quando o recurso está ligado e recalcula, com debounce, quando a lança, a carga ou a
-// configuração mudam. O giro e o raio NÃO entram: a grade já cobre todos os ψ e R. Resposta
-// atrasada é descartada (vale a do último pedido).
+// vermelha quando o recurso está ligado e recalcula, com debounce, quando a lança, a carga, os
+// acessórios (RN-014; TASK-094) ou a configuração mudam. O giro e o raio NÃO entram: a grade já
+// cobre todos os ψ e R. Resposta atrasada é descartada (vale a do último pedido).
 
 import { useEffect, useMemo, useState } from 'react'
 
@@ -21,6 +21,8 @@ export interface UseOperatingAreaParams {
   readonly boomLengthM: number | null
   /** Peso da carga em kg, ou `null` sem carga válida. */
   readonly loadWeightKg: number | null
+  /** Cadeia de acessórios de içamento (RN-014), a mesma enviada à avaliação. */
+  readonly accessoryIds?: readonly string[]
   /** Cliente injetável (testes); padrão: REST na mesma origem. */
   readonly client?: OperatingAreaRestClient
   readonly debounceMs?: number
@@ -44,6 +46,7 @@ export function useOperatingArea({
   configurationId,
   boomLengthM,
   loadWeightKg,
+  accessoryIds = [],
   client,
   debounceMs = OPERATING_AREA_DEBOUNCE_MS,
 }: UseOperatingAreaParams): UseOperatingAreaResult {
@@ -51,20 +54,26 @@ export function useOperatingArea({
   const restClient = client ?? defaultClient
   const [settled, setSettled] = useState<Settled | null>(null)
 
-  // Identifica o pedido atual; `null` = nada a pedir (desligado ou sem dados).
+  // Identifica o pedido atual; `null` = nada a pedir (desligado ou sem dados). Os acessórios
+  // entram na chave: trocar a cadeia muda o peso comparado e pede a grade de novo.
   const key =
     enabled && configurationId && boomLengthM !== null && loadWeightKg !== null
-      ? JSON.stringify([configurationId, boomLengthM, loadWeightKg])
+      ? JSON.stringify([configurationId, boomLengthM, loadWeightKg, accessoryIds])
       : null
 
   useEffect(() => {
     if (key === null) return
-    const [id, boom, weight] = JSON.parse(key) as [string, number, number]
+    const [id, boom, weight, accessories] = JSON.parse(key) as [string, number, number, string[]]
     const controller = new AbortController()
     const timer = setTimeout(() => {
       restClient
         .compute(
-          { configurationId: id, boomLengthM: boom, loadWeightKg: weight },
+          {
+            configurationId: id,
+            boomLengthM: boom,
+            loadWeightKg: weight,
+            accessoryIds: accessories,
+          },
           controller.signal,
         )
         .then((area) => {

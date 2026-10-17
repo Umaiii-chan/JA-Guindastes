@@ -2,12 +2,13 @@
 
 `POST /api/v1/configurations/{configuration_id}/operating-area` devolve uma grade polar de células
 (giro ψ × raio R) com o nível `GREEN`, `YELLOW` ou `RED` de cada uma, para um comprimento de lança e
-uma carga. Nada é gravado.
+uma carga, com os acessórios de içamento pedidos somados ao peso comparado (RN-014). Nada é
+gravado.
 
 - **200** com a grade;
 - **404** quando a configuração não tem ficha técnica;
-- **422** quando a requisição é malformada, a lança fica fora da faixa da ficha técnica ou a grade
-  teria células demais.
+- **422** quando a requisição é malformada, a lança fica fora da faixa da ficha técnica, a grade
+  teria células demais ou um acessório pedido não existe no catálogo.
 
 Autorização igual à da avaliação (ADR-016): com banco, qualquer perfil autenticado (a composição
 passa a exigência de sessão na inclusão do router). Como na avaliação, o caso de uso chega por uma
@@ -27,6 +28,7 @@ from app.application.use_cases.compute_operating_area import (
     OperatingAreaInvalidInputError,
 )
 from app.domain.value_objects.mass import Mass
+from app.presentation.api.evaluation_schemas import MAX_ACCESSORY_IDS, AccessoryId
 
 OPERATING_AREA_PATH = "/api/v1/configurations/{configuration_id}/operating-area"
 
@@ -56,6 +58,13 @@ class OperatingAreaRequest(BaseModel):
     wind_speed_ms: float | None = Field(
         default=None, ge=0, description="Velocidade do vento, em m/s (opcional)."
     )
+    accessory_ids: list[AccessoryId] = Field(
+        default_factory=list,
+        max_length=MAX_ACCESSORY_IDS,
+        description="Ids de acessórios de içamento do catálogo (RN-014), como na avaliação: cada "
+        "id soma o peso do acessório ao peso comparado; o mesmo id repetido soma de novo. Id "
+        "desconhecido responde 422.",
+    )
 
 
 class OperatingAreaCellResponse(BaseModel):
@@ -71,7 +80,9 @@ class OperatingAreaResponse(BaseModel):
     configuration_id: str
     boom_length_m: float
     load_weight_kg: float
-    compared_weight_kg: float = Field(description="Carga + gancho, em kg (ADR-018 § 2).")
+    compared_weight_kg: float = Field(
+        description="Carga + gancho + acessórios, em kg (ADR-018 § 2; RN-014)."
+    )
     psi_step_deg: float
     radius_step_m: float
     max_radius_m: float = Field(description="Alcance horizontal máximo da lança, `a + L`, em m.")
@@ -105,13 +116,15 @@ def create_operating_area_router(dependency: ComputeOperatingAreaDependency) -> 
         summary="Área de operação (verde, amarela, vermelha) de uma configuração",
         description=(
             "Grade polar de células (giro × raio) para o comprimento de lança e a carga. Usa a "
-            "consulta conservadora (ADR-029), as zonas de giro, o gancho e o limite do modelo "
+            "mesma consulta da avaliação (na composição, a interpolação linear provisória do "
+            "ADR-030), as zonas de giro, o gancho, os acessórios (RN-014) e o limite do modelo "
             "(RN-011). Vermelho: acima do limite ou fora da tabela. Nada é gravado."
         ),
         responses={
             status.HTTP_404_NOT_FOUND: {"description": "A configuração não tem ficha técnica."},
             422: {
-                "description": "Requisição malformada, lança fora da faixa ou grade grande demais."
+                "description": "Requisição malformada, lança fora da faixa, grade grande demais "
+                "ou acessório inexistente."
             },
         },
     )
@@ -129,6 +142,7 @@ def create_operating_area_router(dependency: ComputeOperatingAreaDependency) -> 
                 radius_step_m=request.radius_step_m,
                 ground_slope_deg=request.ground_slope_deg,
                 wind_speed_ms=request.wind_speed_ms,
+                accessory_ids=tuple(request.accessory_ids),
             )
         except OperatingAreaConfigurationNotFoundError:
             raise HTTPException(

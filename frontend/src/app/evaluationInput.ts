@@ -2,9 +2,23 @@
 // tela (TASK-032); desde a TASK-033, o id é o da configuração escolhida no catálogo. Só confere a forma que o backend exige (id não vazio, carga finita e >= 0); as
 // faixas do guindaste são validadas no backend, com a ficha técnica (RN-008; ADR-013 C-5).
 
+import { type OutriggerState, residualSlopeDeg } from '../domain/crane/outriggers'
 import type { SoilKind } from '../domain/environment/environment'
 import type { EvaluationInput, OutriggerInput } from '../domain/evaluation/evaluation'
 import type { CraneState } from '../three/crane/types'
+
+/**
+ * Inclinação que vai à avaliação (RN-013; TASK-094): a **residual**, o terreno sob o guindaste
+ * menos o nivelamento dos macacos apoiados (`residualSlopeDeg`), em centésimos de grau como a
+ * inclinação do cenário. Terreno plano continua `undefined` (o campo não vai ao backend).
+ */
+export function residualGroundSlopeDeg(
+  terrainSlopeDeg: number | undefined,
+  outriggers: OutriggerState,
+): number | undefined {
+  if (terrainSlopeDeg === undefined) return undefined
+  return Math.round(residualSlopeDeg(terrainSlopeDeg, outriggers) * 100) / 100
+}
 
 export interface ScenarioEvaluationExtras {
   readonly soilKinds?: readonly SoilKind[]
@@ -22,7 +36,10 @@ export function buildEvaluationInput(
   loadWeightText: string,
   outriggers?: OutriggerInput,
   accessoryIds: readonly string[] = [],
-  /** Inclinação do terreno sob o guindaste (TASK-052); `undefined` com terreno plano. */
+  /**
+   * Inclinação residual sob o guindaste (TASK-052; RN-013), já descontado o nivelamento
+   * (`residualGroundSlopeDeg`); `undefined` com terreno plano.
+   */
   groundSlopeDeg?: number,
   /** Solo, vento e conflitos com obstáculos (TASK-066); só vão ao backend quando existem. */
   scenarioExtras: ScenarioEvaluationExtras = {},

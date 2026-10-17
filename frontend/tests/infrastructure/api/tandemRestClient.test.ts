@@ -130,6 +130,43 @@ describe('cliente REST do tandem', () => {
       'load_weight_kg',
     ])
   })
+
+  it('manda o ambiente de cada guindaste e o vento comum, como na avaliação individual', () => {
+    const [first, second] = INPUT.cranes
+    const dto = toTandemRequestDto({
+      ...INPUT,
+      windSpeedMs: 11.8,
+      cranes: [
+        {
+          ...first,
+          outriggers: { extensionPercent: 50, jacksSet: false },
+          groundSlopeDeg: 0.8,
+          accessoryIds: ['ACC-MANILHA'],
+          soilKinds: ['clay', 'clay', 'rock', 'rock'],
+          obstacleConflicts: ['Poste'],
+        },
+        { ...second, outriggers: { extensionPercent: 100, jacksSet: true }, accessoryIds: [] },
+      ],
+    })
+
+    expect(dto.wind_speed_ms).toBe(11.8)
+    const cranes = dto.cranes as Record<string, unknown>[]
+    expect(cranes[0]).toMatchObject({
+      outriggers: { extension_percent: 50, jacks_set: false },
+      ground_slope_deg: 0.8,
+      accessory_ids: ['ACC-MANILHA'],
+      soil_kinds: ['clay', 'clay', 'rock', 'rock'],
+      obstacle_conflicts: ['Poste'],
+    })
+    // Lista vazia de acessórios não vai (o backend aceitaria, mas o corpo fica como antes).
+    expect(Object.keys(cranes[1] ?? {}).sort()).toEqual([
+      'configuration_id',
+      'hook_point',
+      'outriggers',
+      'placement',
+      'state',
+    ])
+  })
 })
 
 describe('cenário com guindastes adicionais e carga', () => {

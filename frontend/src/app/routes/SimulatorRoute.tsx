@@ -54,7 +54,7 @@ import {
   defaultCargoBetween,
 } from '../../application/tandem/tandemScenario'
 import type { CargoPlacement } from '../../domain/environment/environment'
-import { cargoCgWorld, type TandemLoad } from '../../domain/tandem/tandem'
+import type { TandemLoad } from '../../domain/tandem/tandem'
 import type { TandemInput } from '../../domain/tandem/tandemEvaluation'
 import { environmentSummary } from '../../application/environment/scenarioEditing'
 import {
@@ -86,6 +86,7 @@ import { EnvironmentSection } from '../../presentation/simulator/EnvironmentSect
 import { GuidedStepsPanel } from '../../presentation/simulator/GuidedStepsPanel'
 import { buttonClassName, EmptyState } from '../../presentation/ui'
 import { FICTITIOUS_MAX_LEVELING_DEG } from '../../three/crane/OutriggerController'
+import type { OutriggerSceneReport } from '../../three/scene/mountCraneScene'
 import type { CraneCommands, CraneState } from '../../three/crane/types'
 import type {
   ExtraCraneInput,
@@ -97,7 +98,7 @@ import type { SceneAccessory } from '../../three/accessories/AccessoryChain'
 import { useAuth } from '../auth/authContext'
 import { useCatalog } from '../catalog/catalogContext'
 import { chooseCraneSetup } from '../craneSetup'
-import { buildEvaluationInput } from '../evaluationInput'
+import { buildEvaluationInput, residualGroundSlopeDeg } from '../evaluationInput'
 import { useScenario } from '../scenario/scenarioContext'
 import { sceneRotationZoneCode } from '../sceneRotationZone'
 import { useSimulationRecording } from '../simulator/useSimulationRecording'
@@ -106,6 +107,7 @@ import { useCollisionState } from '../simulator/useCollisionState'
 import { useConfigurationsById } from '../simulator/useConfigurationsById'
 import { useEnvironmentEditor } from '../simulator/useEnvironmentEditor'
 import { useTandemEvaluation } from '../simulator/useTandemEvaluation'
+import { buildTandemInput } from '../tandemInput'
 import { PlanningSection } from '../planning/PlanningSection'
 import { RECORDING_UI_REFRESH_MS, UI_REFRESH_MS } from '../planning/usePlanPlayback'
 import { useAccessoryCatalog } from '../useAccessoryCatalog'
@@ -149,6 +151,10 @@ export function SimulatorRoute() {
   const [tandemFrame, setTandemFrame] = useState<TandemSceneFrame | null>(null)
   const [tandemMessage, setTandemMessage] = useState<TandemMessage | null>(null)
   const [outriggers, setOutriggers] = useState<OutriggerState>(RETRACTED_OUTRIGGERS)
+  // Patolas na cena (TASK-093): o que a animação já alcançou e se o modelo as desenha.
+  const [outriggerScene, setOutriggerScene] = useState<OutriggerSceneReport | null>(null)
+  // É esse estado que a tela mostra e a avaliação recebe (F-27); sem cena, vale o comando.
+  const reachedOutriggers = crane && outriggerScene ? outriggerScene.state : outriggers
   const { load, setLoad, requestedStep, setRequestedStep, accessoryIds, setAccessoryIds } =
     useSimulatorDraft()
   const { state: accessoryCatalog, reload: reloadAccessories } = useAccessoryCatalog()
@@ -229,13 +235,16 @@ export function SimulatorRoute() {
   const cargoMode = scenario.spec.cargo !== undefined && validLoad !== null
   const cargoHooked = cargoStatus.state?.phase === 'hooked'
   const loadWeightText = cargoMode && !cargoHooked ? '0' : loadWeightTextForEvaluation(load)
+  // RN-013: a avaliação recebe a inclinação residual (terreno − nivelamento dos macacos apoiados),
+  // não a bruta do terreno (TASK-094).
+  const evaluationSlopeDeg = residualGroundSlopeDeg(scenario.groundSlopeDeg, outriggers)
   const evaluationInput = buildEvaluationInput(
     crane?.state ?? null,
     selectedConfiguration?.id ?? '',
     loadWeightText,
-    { extensionPercent: outriggers.extensionPercent, jacksSet: outriggers.jacksSet },
+    { extensionPercent: reachedOutriggers.extensionPercent, jacksSet: reachedOutriggers.jacksSet },
     accessoryIds,
-    scenario.groundSlopeDeg,
+    evaluationSlopeDeg,
     scenarioExtras,
   )
   const accessoryKey = accessoryIds.join('|')
@@ -343,6 +352,8 @@ export function SimulatorRoute() {
     accessoryKey,
     input?.outriggers?.extensionPercent,
     input?.outriggers?.jacksSet,
+    // O nivelamento dos macacos muda a inclinação residual enviada (RN-013; TASK-094).
+    outriggers.levelingDeg,
     input?.groundSlopeDeg,
     scenarioExtrasKey,
   ])
@@ -417,12 +428,14 @@ export function SimulatorRoute() {
       locked ||
       (evaluationInput.problem === null && evaluation.error === null && !evaluation.pending),
   })
-  // Área de operação (TASK-055): só lança e carga mudam a grade; ψ e R não entram.
+  // Área de operação (TASK-055): só lança, carga e acessórios mudam a grade; ψ e R não entram.
+  // Os acessórios somam ao peso comparado como na avaliação (RN-014; TASK-094).
   const operatingArea = useOperatingArea({
     enabled: operatingAreaEnabled,
     configurationId: input?.configurationId ?? null,
     boomLengthM: input?.boomLengthM ?? null,
     loadWeightKg: input?.loadWeightKg ?? null,
+    accessoryIds,
   })
   // Na reprodução, a cena mostra o que foi gravado: carga, acessórios, patolas e ambiente.
   const sceneLoad = playbackFrame
@@ -523,6 +536,7 @@ export function SimulatorRoute() {
       ? { followerId: follower.item.id, load: tandemLoad, cargo: tandemCargo }
       : null
   const tandemEngaged = tandemFrame !== null
+  // Cada guindaste vai com o próprio ambiente e os pontos de içamento da carga (TASK-090).
   const tandemInput: TandemInput | null =
     tandemEngaged &&
     tandemFrame &&
@@ -530,24 +544,22 @@ export function SimulatorRoute() {
     tandemLoad &&
     validLoad &&
     selectedConfiguration !== null
-      ? {
+      ? buildTandemInput({
+          frame: tandemFrame,
+          load: tandemLoad,
           loadWeightKg: validLoad.weightKg,
-          loadCg: cargoCgWorld(tandemFrame.cargo, tandemLoad),
-          cranes: [
-            {
-              configurationId: selectedConfiguration.id,
-              placement: scenario.spec.crane,
-              state: tandemFrame.leaderState,
-              hookPoint: { x: tandemFrame.hooks[0].x, z: tandemFrame.hooks[0].z },
-            },
-            {
-              configurationId: follower.configuration.id,
-              placement: follower.item.placement,
-              state: tandemFrame.followerState,
-              hookPoint: { x: tandemFrame.hooks[1].x, z: tandemFrame.hooks[1].z },
-            },
-          ],
-        }
+          spec: scenario.spec,
+          leader: {
+            configurationId: selectedConfiguration.id,
+            placement: scenario.spec.crane,
+            evaluation: input,
+          },
+          follower: {
+            configurationId: follower.configuration.id,
+            placement: follower.item.placement,
+            parameters: follower.choice.setup.geometryParameters,
+          },
+        })
       : null
   const tandemEvaluation = useTandemEvaluation(tandemInput)
   const tandemStatuses = tandemEvaluation.result
@@ -560,7 +572,10 @@ export function SimulatorRoute() {
       : tandemStatuses.includes('warning')
         ? 'warning'
         : tandemStatuses.every((status) => status === 'ok')
-          ? 'ok'
+          ? // Içamento não permitido (gancho fora do ponto, CG fora) não fica verde (TASK-090).
+            tandemEvaluation.result.tandemOk
+            ? 'ok'
+            : 'over'
           : 'unknown'
 
   // No tandem engatado, a cena mostra a situação do Guindaste 1 (a do outro vai no gancho dele).
@@ -694,6 +709,7 @@ export function SimulatorRoute() {
           follower && tandemEngaged ? { [follower.item.id]: tandemStatuses[1] ?? 'unknown' } : {}
         }
         outriggers={playbackFrame?.outriggers ?? outriggers}
+        onOutriggersChange={setOutriggerScene}
         operatingArea={operatingAreaEnabled ? operatingArea.area : null}
         scenario={
           playbackFrame ? (recording.player.recording?.scenario ?? scenario.spec) : scenario.spec
@@ -782,7 +798,10 @@ export function SimulatorRoute() {
                     {activeExtra === null && (
                       <OutriggerPanel
                         state={outriggers}
+                        reached={reachedOutriggers}
+                        moving={crane !== null && (outriggerScene?.moving ?? false)}
                         maxLevelingDeg={FICTITIOUS_MAX_LEVELING_DEG}
+                        modelAvailable={crane !== null && (outriggerScene?.modelAvailable ?? false)}
                         onChange={setOutriggers}
                       />
                     )}
