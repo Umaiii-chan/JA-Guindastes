@@ -4,7 +4,8 @@ import type {
 } from '../../domain/geometry/operationalGeometry'
 import type { CollisionReport, CollisionState } from '../../domain/collision/collisions'
 import { CraneController, type CraneRig } from './CraneController'
-import type { CraneCommands, CraneLimits, CraneState } from './types'
+import { fitTurretToRange, turretTravelDeg } from './turretRotation'
+import type { CraneCommands, CraneLimits, CraneState, TurretRange } from './types'
 
 /**
  * Guarda de colisões (TASK-053; ADR-028; RN-012): `evaluate` diz o que um estado atingiria e
@@ -24,6 +25,52 @@ function lerp(from: number, to: number, fraction: number): number {
   return from + (to - from) * fraction
 }
 
+/** Passo máximo do teste varrido por comando (graus ou metros), para não atravessar objetos. */
+const SWEEP_STEP: Record<keyof CraneState, number> = {
+  turretRotationDeg: 0.5,
+  boomAngleDeg: 0.25,
+  boomLengthM: 0.05,
+  cableLengthM: 0.05,
+}
+/** Teto de amostras por comando, para o custo de um salto enorme continuar limitado. */
+const MAX_SWEEP_STEPS = 400
+
+/**
+ * Caminho do guindaste de `from` até `to` (dois estados já na faixa), como função da fração
+ * percorrida (0 a 1), e o número de passos da varredura. Os campos andam juntos, em reta; o giro anda
+ * `turretTravelDeg` (pelo menor ângulo, se o giro for contínuo) e cada ponto volta à faixa só depois
+ * de interpolado (TASK-092).
+ */
+function pathBetween(
+  from: CraneState,
+  to: CraneState,
+  turretRange: TurretRange,
+): { readonly at: (fraction: number) => CraneState; readonly steps: number } {
+  const turretTravel = turretTravelDeg(from.turretRotationDeg, to.turretRotationDeg, turretRange)
+  const at = (fraction: number): CraneState =>
+    fraction >= 1
+      ? to
+      : {
+          turretRotationDeg: fitTurretToRange(
+            from.turretRotationDeg + turretTravel * fraction,
+            turretRange,
+          ),
+          boomAngleDeg: lerp(from.boomAngleDeg, to.boomAngleDeg, fraction),
+          boomLengthM: lerp(from.boomLengthM, to.boomLengthM, fraction),
+          cableLengthM: lerp(from.cableLengthM, to.cableLengthM, fraction),
+        }
+  const steps = Math.min(
+    MAX_SWEEP_STEPS,
+    Math.max(
+      Math.ceil(Math.abs(turretTravel) / SWEEP_STEP.turretRotationDeg),
+      Math.ceil(Math.abs(to.boomAngleDeg - from.boomAngleDeg) / SWEEP_STEP.boomAngleDeg),
+      Math.ceil(Math.abs(to.boomLengthM - from.boomLengthM) / SWEEP_STEP.boomLengthM),
+      Math.ceil(Math.abs(to.cableLengthM - from.cableLengthM) / SWEEP_STEP.cableLengthM),
+    ),
+  )
+  return { at, steps }
+}
+
 /**
  * Comandos do guindaste que continuam valendo quando o modelo 3D da cena é trocado (TASK-041): a UI
  * recebe este objeto uma vez só, e ele repassa tudo ao `CraneController` do rig atual.
@@ -32,15 +79,6 @@ function lerp(from: number, to: number, fraction: number): number {
  * técnica, nunca do modelo; RN-003) e com o estado atual, então o guindaste novo aparece na mesma
  * pose. A geometria operacional não muda com a troca (ADR-013 C-7).
  */
-/** Passo máximo do teste varrido por comando (graus ou metros), para não atravessar objetos. */
-const SWEEP_STEP: Record<keyof CraneState, number> = {
-  turretRotationDeg: 0.5,
-  boomAngleDeg: 0.25,
-  boomLengthM: 0.05,
-  cableLengthM: 0.05,
-}
-const MAX_SWEEP_STEPS = 400
-
 export class SwitchableCrane implements CraneCommands {
   private controller: CraneController
   private afterCommand: (() => void) | null = null
@@ -110,9 +148,10 @@ export class SwitchableCrane implements CraneCommands {
 
   /**
    * Liga (ou desliga, com `null`) a guarda de colisões. Com ela, um comando que levaria a carga a
-   * colidir é cortado no estado seguro mais próximo, por busca binária entre o valor anterior (seguro)
-   * e o pedido, e o resultado é sinalizado. Se o estado de antes já colide (o cenário mudou sob o
-   * guindaste), os comandos passam sem corte, para a pessoa poder sair dali; o estado segue sinalizado.
+   * colidir no caminho ou no fim é cortado no último estado seguro do caminho (varredura em passos
+   * pequenos e busca binária entre o último passo seguro e o primeiro inseguro), e o resultado é
+   * sinalizado. Se o estado de antes já colide (o cenário mudou sob o guindaste), os comandos passam
+   * sem corte, para a pessoa poder sair dali; o estado segue sinalizado.
    */
   setCollisionGuard(guard: CollisionGuard | null): void {
     this.guard = guard
@@ -144,8 +183,9 @@ export class SwitchableCrane implements CraneCommands {
 
   /**
    * Aplica um estado inteiro de uma vez (reprodução de gravação e trajetória planejada). Guardado
-   * (padrão): checa a colisão só no estado final e, se ele colidir, recua todos os campos juntos ao
-   * último estado seguro entre o anterior e o pedido (busca binária na reta). Sem guarda
+   * (padrão): confere o caminho do estado anterior até o pedido, com os mesmos passos de varredura
+   * do comando de um eixo (TASK-092), e, se algum ponto colidir, recua todos os campos juntos ao
+   * último estado seguro desse caminho. O giro contínuo vai pelo menor ângulo. Sem guarda
    * (`guarded: false`): aplica como veio e só reavalia uma vez, para os destaques de colisão.
    */
   setState(state: Partial<CraneState>, options: { readonly guarded?: boolean } = {}): CraneState {
@@ -164,45 +204,7 @@ export class SwitchableCrane implements CraneCommands {
 
     const previous = this.controller.getState()
     const previousReport = guard.evaluate(previous)
-    const limit = previousReport.hits.length === 0 ? 0 : previousReport.penetrationM
-    const isSafe = (report: CollisionReport): boolean =>
-      report.hits.length === 0 || report.penetrationM <= limit + SAFE_EPSILON_M
-    const proposedState = this.controller.setState(state)
-    const proposed = guard.evaluate(proposedState)
-    if (isSafe(proposed)) {
-      this.run(0)
-      guard.onResult({ ...proposed, blocked: false })
-      return proposedState
-    }
-
-    // Recusado: recua juntos todos os campos ao último ponto seguro da reta anterior -> pedido.
-    const at = (fraction: number): CraneState => ({
-      turretRotationDeg: lerp(
-        previous.turretRotationDeg,
-        proposedState.turretRotationDeg,
-        fraction,
-      ),
-      boomAngleDeg: lerp(previous.boomAngleDeg, proposedState.boomAngleDeg, fraction),
-      boomLengthM: lerp(previous.boomLengthM, proposedState.boomLengthM, fraction),
-      cableLengthM: lerp(previous.cableLengthM, proposedState.cableLengthM, fraction),
-    })
-    let safe = 0
-    let unsafe = 1
-    for (let i = 0; i < GUARD_ITERATIONS; i++) {
-      const middle = (safe + unsafe) / 2
-      if (isSafe(guard.evaluate(at(middle)))) safe = middle
-      else unsafe = middle
-    }
-    const final = this.controller.setState(at(safe))
-    this.run(0)
-    const after = guard.evaluate(final)
-    guard.onResult({
-      hits: proposed.hits,
-      alerts: after.alerts,
-      penetrationM: proposed.penetrationM,
-      blocked: true,
-    })
-    return final
+    return this.guardedMove(guard, previous, previousReport, this.controller.setState(state))
   }
 
   private command(key: keyof CraneState, value: number, apply: (v: number) => number): number {
@@ -211,52 +213,67 @@ export class SwitchableCrane implements CraneCommands {
 
     const previous = this.controller.getState()
     const previousReport = guard.evaluate(previous)
+    apply(value)
+    return this.guardedMove(guard, previous, previousReport, this.controller.getState())[key]
+  }
+
+  /**
+   * Guarda de colisões de um movimento já aplicado no controller (`proposedState`). Movimento
+   * varrido: um salto grande (slider, ou um quadro longo da trajetória) não pode atravessar um
+   * obstáculo fino, então o caminho desde `previous` é testado em passos pequenos e para no primeiro
+   * estado inseguro (TASK-063; TASK-092). Recusado, aplica o ponto seguro mais próximo do primeiro
+   * inseguro (busca binária) e sinaliza o bloqueio.
+   */
+  private guardedMove(
+    guard: CollisionGuard,
+    previous: CraneState,
+    previousReport: CollisionReport,
+    proposedState: CraneState,
+  ): CraneState {
     // Estado de partida já colidindo (o cenário mudou sob o guindaste): só se aceita o que não
     // aumenta a penetração, para dar para sair dali (ex.: subir o cabo).
     const limit = previousReport.hits.length === 0 ? 0 : previousReport.penetrationM
     const isSafe = (report: CollisionReport): boolean =>
       report.hits.length === 0 || report.penetrationM <= limit + SAFE_EPSILON_M
-    const applied = apply(value)
-    const proposedState = this.controller.getState()
     const proposed = guard.evaluate(proposedState)
 
-    // Movimento varrido: um salto grande do slider não pode atravessar um obstáculo fino. Testa o
-    // caminho em passos pequenos e para no primeiro estado inseguro (TASK-063).
-    const from = previous[key]
-    const to = proposedState[key]
-    const steps = Math.min(MAX_SWEEP_STEPS, Math.ceil(Math.abs(to - from) / SWEEP_STEP[key]))
-    let lastSafe = from
+    const { at, steps } = pathBetween(
+      previous,
+      proposedState,
+      this.controller.limits.turretRotationDeg,
+    )
+    let lastSafe = 0
     let firstUnsafe: number | null = null
     let firstUnsafeReport: CollisionReport | null = null
     for (let i = 1; i < steps; i++) {
-      const sample = from + ((to - from) * i) / steps
-      const report = guard.evaluate({ ...proposedState, [key]: sample })
+      const fraction = i / steps
+      const report = guard.evaluate(at(fraction))
       if (!isSafe(report)) {
-        firstUnsafe = sample
+        firstUnsafe = fraction
         firstUnsafeReport = report
         break
       }
-      lastSafe = sample
+      lastSafe = fraction
     }
 
     if (firstUnsafe === null && isSafe(proposed)) {
-      this.run(applied)
+      this.run(0)
       guard.onResult({ ...proposed, blocked: false })
-      return applied
+      return proposedState
     }
 
     // Recusado: busca, entre o último passo seguro e o primeiro inseguro, o mais próximo do pedido.
     const blockedReport = firstUnsafeReport ?? proposed
     let safe = lastSafe
-    let unsafe = firstUnsafe ?? to
+    let unsafe = firstUnsafe ?? 1
     for (let i = 0; i < GUARD_ITERATIONS; i++) {
       const middle = (safe + unsafe) / 2
-      if (isSafe(guard.evaluate({ ...proposedState, [key]: middle }))) safe = middle
+      if (isSafe(guard.evaluate(at(middle)))) safe = middle
       else unsafe = middle
     }
-    const final = apply(safe)
-    this.run(final)
-    const after = guard.evaluate(this.controller.getState())
+    const final = this.controller.setState(at(safe))
+    this.run(0)
+    const after = guard.evaluate(final)
     guard.onResult({
       hits: blockedReport.hits,
       alerts: after.alerts,
