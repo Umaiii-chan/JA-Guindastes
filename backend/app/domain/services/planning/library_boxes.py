@@ -105,6 +105,48 @@ def platform_truck_bed_ratio() -> float:
     return _round2(_TRUCK_FLAT_HEIGHT * _TRUCK_FLAT_BED) / _TRUCK_FLAT_HEIGHT
 
 
+_TRUCK_FLAT_SIZE = (4.05, 7.41, _TRUCK_FLAT_HEIGHT)
+"""`TRUCK_FLAT` do frontend: largura (x), profundidade (z) e altura (y) do modelo, em metros."""
+
+
+def platform_truck_bed() -> Box:
+    """Espelho de `loadBed` do caminhão plataforma (`TRUCK_FLAT_COLLISION[0]` do frontend): a
+    carroceria, o trecho traseiro de 0 a 0,5 do comprimento, na largura toda e a 0,53 da altura."""
+    width, depth, height = _TRUCK_FLAT_SIZE
+    return (
+        0.0,
+        _round2(depth * ((0.0 + 0.5) / 2 - 0.5)),
+        0.0,
+        _round2(width * 1.0),
+        _round2(depth * (0.5 - 0.0)),
+        _round2(height * _TRUCK_FLAT_BED),
+    )
+
+
+def bed_contains(obstacle: ObstacleSpec, x: float, z: float) -> bool:
+    """O ponto (x, z) do plano cai dentro da carroceria do caminhão plataforma `obstacle` (o
+    retângulo da carroceria, na escala e no giro do objeto)? Critério de apoio da carga: o centro da
+    pegada dela; igual ao do frontend (`loadBeds.ts`)."""
+    bed_x, bed_z, _, bed_w, bed_d, _ = platform_truck_bed()
+    base_w, base_d, _ = _TRUCK_FLAT_SIZE
+    sx = obstacle.width_m / base_w
+    sz = obstacle.depth_m / base_d
+    angle = math.radians(obstacle.rotation_y_deg)
+    dx = x - obstacle.center_x
+    dz = z - obstacle.center_z
+    # Inverso de rotY(ângulo): leva o ponto ao referencial do objeto.
+    local_x = dx * math.cos(angle) - dz * math.sin(angle)
+    local_z = dx * math.sin(angle) + dz * math.cos(angle)
+    return (
+        abs(local_x - bed_x * sx) <= bed_w * sx / 2 + 1e-9
+        and abs(local_z - bed_z * sz) <= bed_d * sz / 2 + 1e-9
+    )
+
+
+def is_platform_truck(obstacle: ObstacleSpec) -> bool:
+    return obstacle.kind is ObstacleKind.MODEL and obstacle.model_id == PLATFORM_TRUCK_MODEL_ID
+
+
 def _parts(obstacle: ObstacleSpec, terrain: TerrainSpec) -> tuple[ObstacleSpec, ...]:
     base_w, base_d, base_h = HANGAR_BASE_SIZE
     sx = obstacle.width_m / base_w

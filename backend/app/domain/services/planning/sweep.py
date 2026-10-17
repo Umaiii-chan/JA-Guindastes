@@ -37,7 +37,12 @@ from app.domain.entities.scenario import (
     TerrainSpec,
 )
 from app.domain.services.planning.crane_body import distance_to_crane_body_m
-from app.domain.services.planning.library_boxes import expand_obstacles
+from app.domain.services.planning.library_boxes import (
+    bed_contains,
+    expand_obstacles,
+    is_platform_truck,
+    platform_truck_bed_ratio,
+)
 from app.domain.services.planning.models import CraneStateValues, PlanLoad, PlanPoint
 from app.domain.services.planning.scene import (
     direction,
@@ -319,19 +324,37 @@ class DeliverySurface:
     """Outros obstáculos sob a pegada, acima de onde ela pousaria: a entrega não é possível."""
 
 
+def _supports_load(obstacle: ObstacleSpec, x: float, z: float) -> bool:
+    """O obstáculo recebe por cima a carga centrada em (x, z)? Só o veículo-plataforma; o caminhão
+    plataforma da biblioteca, só se o centro da pegada cai dentro da carroceria (o mesmo critério da
+    cena, `loadBeds.ts`); senão a carga fica no terreno e o caminhão é obstáculo comum."""
+    if not is_platform_vehicle(obstacle):
+        return False
+    return bed_contains(obstacle, x, z) if is_platform_truck(obstacle) else True
+
+
+def support_top_y(terrain: TerrainSpec, obstacle: ObstacleSpec) -> float:
+    """Altura (m) em que a carga repousa sobre um veículo-plataforma: o topo dele; no caminhão
+    plataforma da biblioteca, o topo da carroceria (`loadBed` do frontend), não o da caixa."""
+    top = obstacle_top_y(terrain, obstacle)
+    if is_platform_truck(obstacle):
+        return top - obstacle.height_m * (1.0 - platform_truck_bed_ratio())
+    return top
+
+
 def delivery_surface(
     scenario: ScenarioSpec, load: PlanLoad, x: float, z: float, rotation_y_deg: float
 ) -> DeliverySurface:
     """Superfície da entrega com a carga centrada em (x, z) e girada de `rotation_y_deg`."""
     under = _under_footprint(scenario, load, x, z, rotation_y_deg)
     rest = cargo_base_y(scenario.terrain, load.length_m, load.width_m, x, z, rotation_y_deg)
-    supports = tuple(obstacle for obstacle in under if is_platform_vehicle(obstacle))
+    supports = tuple(obstacle for obstacle in under if _supports_load(obstacle, x, z))
     if supports:
-        rest = max(rest, max(obstacle_top_y(scenario.terrain, item) for item in supports))
+        rest = max(rest, max(support_top_y(scenario.terrain, item) for item in supports))
     blockers = tuple(
         obstacle
         for obstacle in under
-        if not is_platform_vehicle(obstacle)
+        if obstacle not in supports
         and obstacle_top_y(scenario.terrain, obstacle) > rest + 1e-6
         and _in_height_range(scenario.terrain, obstacle, rest, rest + load.height_m)
     )
@@ -349,14 +372,14 @@ def delivery_cover(
     ground = terrain_height_at(scenario.terrain, center.x, center.z)
     for obstacle in obstacles:
         if (
-            is_platform_vehicle(obstacle)
+            _supports_load(obstacle, center.x, center.z)
             and distance_to_obstacle_m(obstacle, center.x, center.z) <= radius
         ):
-            rest_limit = max(rest_limit, obstacle_top_y(scenario.terrain, obstacle))
+            rest_limit = max(rest_limit, support_top_y(scenario.terrain, obstacle))
     return tuple(
         obstacle
         for obstacle in obstacles
-        if not is_platform_vehicle(obstacle)
+        if not _supports_load(obstacle, center.x, center.z)
         and (
             obstacle.elevation_m is None
             or obstacle_top_y(scenario.terrain, obstacle) - obstacle.height_m <= ground + 1e-6
@@ -686,6 +709,7 @@ __all__ = [
     "pick_cover",
     "samples_within",
     "segment_hits_solid",
+    "support_top_y",
     "solids_of",
     "swing_arc",
     "terrain_peak_along",

@@ -280,17 +280,71 @@ def test_entrega_sobre_a_carreta_apoia_no_topo_dela() -> None:
     assert surface.blockers == ()
 
 
-def test_caminhao_plataforma_da_biblioteca_tambem_recebe_a_carga() -> None:
-    model = ObstacleSpec(
-        "C1", "Caminhão 1", ObstacleKind.MODEL, 0.0, 0.0, 4.0, 7.4, 3.5, 0.0, "caminhao-plataforma"
+def _platform_truck() -> ObstacleSpec:
+    # Caminhão plataforma da biblioteca em escala 1 (4,05 × 7,41 × 3,51 m), no centro, sem giro.
+    return ObstacleSpec(
+        "C1",
+        "Caminhão 1",
+        ObstacleKind.MODEL,
+        0.0,
+        0.0,
+        4.05,
+        7.41,
+        3.51,
+        0.0,
+        "caminhao-plataforma",
     )
 
-    surface = delivery_surface(ScenarioSpec(obstacles=(model,)), LOAD, 0.0, 0.0, 0.0)
 
-    assert surface.rest_y == pytest.approx(
-        3.5
-    )  # topo da caixa do modelo (sem medida da carroceria)
+def test_caminhao_plataforma_da_biblioteca_tambem_recebe_a_carga() -> None:
+    # A carroceria é o trecho traseiro (z de -3,7 a 0): 1,85 m atrás do centro, com 3,71 m de
+    # comprimento (`loadBed` de objectLibrary.ts). Centro da pegada dentro dela: a carga repousa no
+    # topo da carroceria (0,53 da altura: 1,86 m de 3,51 m), não no topo da caixa inteira (cabine).
+    truck = _platform_truck()
+
+    surface = delivery_surface(ScenarioSpec(obstacles=(truck,)), LOAD, 0.0, -1.85, 0.0)
+
+    assert surface.rest_y == pytest.approx(1.86)
+    assert surface.supports == (truck,)
     assert surface.blockers == ()
+
+
+def test_carga_com_o_centro_fora_da_carroceria_nao_e_entregue_sobre_ela() -> None:
+    # Mesmo critério da cena (`loadBeds.ts`): o centro da pegada decide. Sobre a cabine (z > 0), a
+    # carga fica no terreno e o caminhão é obstáculo comum: a entrega é recusada.
+    truck = _platform_truck()
+    scenario = ScenarioSpec(obstacles=(truck,))
+
+    over_cab = delivery_surface(scenario, LOAD, 0.0, 1.5, 0.0)
+
+    assert over_cab.supports == ()
+    assert over_cab.rest_y == pytest.approx(0.0)
+    assert over_cab.blockers == (truck,)
+    assert delivery_cover(scenario, LOAD, PlanPoint(0.0, 1.5)) == (truck,)
+    # A carga com o centro dentro da carroceria, ainda que a pegada passe da borda, se apoia nela.
+    assert delivery_surface(scenario, LOAD, 0.0, -0.3, 0.0).supports == (truck,)
+    assert delivery_cover(scenario, LOAD, PlanPoint(0.0, -1.85)) == ()
+
+
+def test_carroceria_acompanha_o_giro_e_a_escala_do_caminhao() -> None:
+    # Girado de 90° (a traseira, em z local negativo, vai para x negativo) e esticado em z.
+    truck = ObstacleSpec(
+        "C1",
+        "Caminhão 1",
+        ObstacleKind.MODEL,
+        10.0,
+        5.0,
+        4.05,
+        14.82,
+        3.51,
+        90.0,
+        "caminhao-plataforma",
+    )
+    scenario = ScenarioSpec(obstacles=(truck,))
+
+    # Centro da carroceria: 3,7 m atrás do centro, no eixo do caminhão: x = 10 - 3,7 = 6,3.
+    assert delivery_surface(scenario, LOAD, 6.3, 5.0, 90.0).supports == (truck,)
+    assert delivery_surface(scenario, LOAD, 13.7, 5.0, 90.0).supports == ()
 
 
 def test_entrega_sob_outro_obstaculo_e_recusada() -> None:
