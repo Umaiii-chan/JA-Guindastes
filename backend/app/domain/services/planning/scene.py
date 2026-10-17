@@ -43,7 +43,8 @@ def obstacle_circumradius_m(obstacle: ObstacleSpec) -> float:
 
 def obstacle_top_y(terrain: TerrainSpec, obstacle: ObstacleSpec) -> float:
     """Topo do obstáculo (m): base na altura do terreno no centro, mais a altura."""
-    return terrain_height_at(terrain, obstacle.center_x, obstacle.center_z) + obstacle.height_m
+    ground = terrain_height_at(terrain, obstacle.center_x, obstacle.center_z)
+    return ground + (obstacle.elevation_m or 0.0) + obstacle.height_m
 
 
 def distance_to_obstacle_m(obstacle: ObstacleSpec, x: float, z: float) -> float:

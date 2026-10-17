@@ -80,6 +80,116 @@ def terrain_height_at(terrain: TerrainSpec, x: float, z: float) -> float:
     return height
 
 
+def cargo_footprint_points(
+    length_m: float, width_m: float, x: float, z: float, rotation_y_deg: float
+) -> list[tuple[float, float]]:
+    """Centro, cantos e meios das arestas da base da carga (como `cargoBaseY` do frontend): a
+    largura fica em X local e o comprimento em Z local, girados por `rotation_y_deg`."""
+    angle = rotation_y_deg * _DEG
+    cos = math.cos(angle)
+    sin = math.sin(angle)
+    half_x = width_m / 2
+    half_z = length_m / 2
+    corners = [
+        (x + local_x * cos + local_z * sin, z - local_x * sin + local_z * cos)
+        for local_x, local_z in (
+            (-half_x, -half_z),
+            (half_x, -half_z),
+            (half_x, half_z),
+            (-half_x, half_z),
+        )
+    ]
+    points = [(x, z), *corners]
+    for index, (ax, az) in enumerate(corners):
+        bx, bz = corners[(index + 1) % len(corners)]
+        points.append(((ax + bx) / 2, (az + bz) / 2))
+    return points
+
+
+def cargo_base_y(
+    terrain: TerrainSpec, length_m: float, width_m: float, x: float, z: float, rotation_y_deg: float
+) -> float:
+    """Altura (m) em que a base da carga assenta (`cargoBaseY`): o ponto mais alto do terreno sob a
+    pegada (centro, cantos e meios das arestas), para a caixa não entrar no chão."""
+    return max(
+        terrain_height_at(terrain, px, pz)
+        for px, pz in cargo_footprint_points(length_m, width_m, x, z, rotation_y_deg)
+    )
+
+
+def _ramp_frame(feature: TerrainFeatureSpec, x: float, z: float) -> tuple[float, float, float]:
+    """(ao longo, através, meia largura) do ponto no referencial da rampa."""
+    angle = (feature.direction_deg or 0.0) * _DEG
+    dx = x - feature.center_x
+    dz = z - feature.center_z
+    along = dx * math.cos(angle) - dz * math.sin(angle)
+    across = dx * math.sin(angle) + dz * math.cos(angle)
+    half_width = (feature.radius_m if feature.width_m is None else feature.width_m) / 2
+    return along, across, half_width
+
+
+def feature_distance_m(feature: TerrainFeatureSpec, x: float, z: float) -> float:
+    """Distância (m, no plano) do ponto à região que a feição altera (0 dentro dela); infinita
+    para feição sem raio. Muda no máximo 1 m por metro andado (serve para pular amostras)."""
+    if feature.radius_m <= 0:
+        return math.inf
+    if feature.kind is FeatureKind.RAMP:
+        along, across, half_width = _ramp_frame(feature, x, z)
+        return math.hypot(
+            max(0.0, abs(along) - feature.radius_m), max(0.0, abs(across) - half_width)
+        )
+    return max(0.0, math.hypot(x - feature.center_x, z - feature.center_z) - feature.radius_m)
+
+
+def feature_peak_near(feature: TerrainFeatureSpec, x: float, z: float, radius_m: float) -> float:
+    """Limite superior (m) do quanto a feição sobe o terreno no círculo de raio `radius_m` em volta
+    de (x, z). A cava só desce (0) e a nivelação não soma (fica em `terrain_peak_near`)."""
+    height = max(0.0, feature.height_m)
+    distance = math.hypot(x - feature.center_x, z - feature.center_z)
+    nearest = max(0.0, distance - radius_m)
+    match feature.kind:
+        case FeatureKind.MOUND:
+            return height * _cosine_bump(nearest, feature.radius_m)
+        case FeatureKind.PLATEAU:
+            return height * _plateau_weight(nearest, feature.radius_m)
+        case FeatureKind.RAMP:
+            if feature.radius_m <= 0:
+                return 0.0
+            along, across, half_width = _ramp_frame(feature, x, z)
+            if abs(along) > feature.radius_m + radius_m or abs(across) > half_width + radius_m:
+                return 0.0
+            farthest = min(feature.radius_m, along + radius_m)
+            return height * max(0.0, (farthest + feature.radius_m) / (2 * feature.radius_m))
+        case FeatureKind.PIT | FeatureKind.FLATTEN:
+            return 0.0
+    return 0.0  # pragma: no cover - enum exaustivo
+
+
+def terrain_plane_peak_near(terrain: TerrainSpec, x: float, z: float, radius_m: float) -> float:
+    """Maior altura do plano inclinado (sem as feições) no círculo de raio `radius_m`."""
+    gradient = math.hypot(terrain.slope_x_percent, terrain.slope_z_percent) / 100
+    plane = terrain.slope_x_percent / 100 * x + terrain.slope_z_percent / 100 * z
+    return plane + gradient * radius_m
+
+
+def terrain_peak_near(terrain: TerrainSpec, x: float, z: float, radius_m: float) -> float:
+    """Limite superior (m) da altura do terreno no círculo de raio `radius_m` em volta de (x, z).
+
+    As feições somam ao plano, e a nivelação leva a altura para perto da dela; então o terreno no
+    círculo não passa do maior entre o plano e as nivelações que o tocam, mais a soma dos picos das
+    outras feições que o tocam."""
+    base = terrain_plane_peak_near(terrain, x, z, radius_m)
+    added = 0.0
+    for feature in terrain.features:
+        if feature_distance_m(feature, x, z) > radius_m:
+            continue
+        if feature.kind is FeatureKind.FLATTEN:
+            base = max(base, feature.height_m)
+        else:
+            added += feature_peak_near(feature, x, z, radius_m)
+    return base + added
+
+
 def terrain_slope_deg_at(terrain: TerrainSpec, x: float, z: float, step_m: float = 0.5) -> float:
     """Inclinação do plano tangente (graus, sem sinal), por diferença central de passo `step_m`."""
     gx = (terrain_height_at(terrain, x + step_m, z) - terrain_height_at(terrain, x - step_m, z)) / (

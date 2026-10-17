@@ -10,7 +10,7 @@ com um modelo 3D real, elas passam a vir da ficha técnica.
 import math
 
 from app.domain.entities.scenario import CranePlacementSpec, ObstacleSpec
-from app.domain.services.planning.scene import distance_to_obstacle_m
+from app.domain.services.planning.scene import distance_to_obstacle_m, obstacle_circumradius_m
 
 BODY_MIN_X_M = -3.10
 BODY_MAX_X_M = 3.10
@@ -55,9 +55,24 @@ def _body_samples(placement: CranePlacementSpec) -> list[tuple[float, float]]:
     return samples
 
 
+_BODY_CENTER_Z_M = (BODY_MIN_Z_M + BODY_MAX_Z_M) / 2
+_BODY_CIRCUMRADIUS_M = math.hypot(
+    (BODY_MAX_X_M - BODY_MIN_X_M) / 2, (BODY_MAX_Z_M - BODY_MIN_Z_M) / 2
+)
+
+
 def crane_body_overlaps_obstacle(placement: CranePlacementSpec, obstacle: ObstacleSpec) -> bool:
     """O corpo do guindaste (em planta) encosta no obstáculo? Amostra o corpo a cada metro e confere
     também o centro do obstáculo, para um obstáculo pequeno dentro do corpo não escapar."""
+    heading = placement.heading_deg * _DEG
+    center_x = placement.x + _BODY_CENTER_Z_M * math.sin(heading)
+    center_z = placement.z + _BODY_CENTER_Z_M * math.cos(heading)
+    # Pré-filtro (TASK-088): com os círculos que envolvem o corpo e o obstáculo separados, nenhuma
+    # amostra do corpo cai no obstáculo; o resultado é o mesmo, sem amostrar.
+    if math.hypot(obstacle.center_x - center_x, obstacle.center_z - center_z) > (
+        _BODY_CIRCUMRADIUS_M + obstacle_circumradius_m(obstacle) + 1e-9
+    ):
+        return False
     if distance_to_crane_body_m(placement, obstacle.center_x, obstacle.center_z) == 0.0:
         return True
     return any(distance_to_obstacle_m(obstacle, x, z) == 0.0 for x, z in _body_samples(placement))

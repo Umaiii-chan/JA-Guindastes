@@ -47,29 +47,36 @@ def _travel_s(start: CraneStateValues, end: CraneStateValues, minimum_s: float) 
     return max(minimum_s, seconds)
 
 
-def start_state(plan: CranePlan, geometry: CraneGeometry) -> CraneStateValues:
-    """Pose inicial: lança recolhida e erguida, gancho no alto, já voltada para a carga."""
-    angle = max(
-        plan.boom_angle_pick_deg, min(geometry.boom_angle_max.degrees, START_BOOM_ANGLE_DEG)
-    )
-    return CraneStateValues(
+def approach_states(
+    pick: CraneStateValues, geometry: CraneGeometry
+) -> tuple[CraneStateValues, CraneStateValues]:
+    """Pose inicial (lança recolhida e erguida, gancho no alto, já voltada para a carga) e o fim da
+    aproximação (gancho `HOOK_ABOVE_LOAD_M` acima da pose de coleta)."""
+    angle = max(pick.boom_angle_deg, min(geometry.boom_angle_max.degrees, START_BOOM_ANGLE_DEG))
+    start = CraneStateValues(
         boom_length_m=geometry.boom_length_min.meters,
         boom_angle_deg=angle,
-        turret_rotation_deg=plan.pick_state.turret_rotation_deg,
+        turret_rotation_deg=pick.turret_rotation_deg,
         cable_length_m=geometry.cable_length_min.meters,
     )
-
-
-def build_segments(plan: CranePlan, geometry: CraneGeometry) -> tuple[Segment, ...]:
-    """Trechos de cada fase, com a duração natural de cada um."""
-    start = start_state(plan, geometry)
-    pick = plan.pick_state
     cable_min = geometry.cable_length_min.meters
     cable_max = geometry.cable_length_max.meters if geometry.cable_length_max else float("inf")
     above_cable = min(cable_max, max(cable_min, pick.cable_length_m - HOOK_ABOVE_LOAD_M))
     above = CraneStateValues(
         pick.boom_length_m, pick.boom_angle_deg, pick.turret_rotation_deg, above_cable
     )
+    return start, above
+
+
+def start_state(plan: CranePlan, geometry: CraneGeometry) -> CraneStateValues:
+    """Pose inicial: lança recolhida e erguida, gancho no alto, já voltada para a carga."""
+    return approach_states(plan.pick_state, geometry)[0]
+
+
+def build_segments(plan: CranePlan, geometry: CraneGeometry) -> tuple[Segment, ...]:
+    """Trechos de cada fase, com a duração natural de cada um."""
+    start, above = approach_states(plan.pick_state, geometry)
+    pick = plan.pick_state
     segments: list[Segment] = []
     current = start
 

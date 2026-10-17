@@ -160,6 +160,9 @@ class ObstacleSpec:
     height_m: float
     rotation_y_deg: float
     model_id: str | None = None
+    elevation_m: float | None = None
+    """Só do planejador (TASK-088; não vem da API nem é gravado): altura da base acima do terreno
+    no centro desta parte de um objeto da biblioteca; `None` é o obstáculo inteiro."""
 
     def validate(self, path: str) -> None:
         _text(f"{path}.id", self.id, ID_MAX_LENGTH)
