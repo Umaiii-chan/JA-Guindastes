@@ -10,3 +10,8 @@ Achados F-01, F-02 e F-13 da auditoria AUD-01 (2026-10-16, base `784a9e1`), no p
 - [x] **CA-3 (F-13)** — Coleta sob ou dentro de obstáculo é recusada com motivo claro (nome do obstáculo); entrega sobre a carreta ou o caminhão plataforma apoia a carga no topo dele; outro obstáculo na entrega recusa; aproximação, engate, subida e descida são conferidas. O frontend não muda (a diferença com a soltura da cena fica no handoff).
 - [x] **CA-4** — O tempo de `recommend_lift_plan` no fixture `planejamento_ficticio.py` fica dentro do orçamento de 2,5 s, medido antes e depois.
 - [x] **CA-5** — Testes de regressão a partir das provas da auditoria (p1, p2 e p8), com dados FICTÍCIOS.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-17 (00h51, horário de Brasília; PR #48). Revisão independente (AGENTS.md § 3): a Coruja revisou e aprovou na segunda rodada. Pendências do `handoffs/TASK-088.md` § 8: ADR-042 aceito em 2026-10-17; o barracão aberto passou a ser oco (revisão do PR #48); a soltura sobre a carreta foi feita na TASK-101 (PR #55); continuam abertas a entrega sobre container (decisão da pessoa responsável) e as meias-medidas FICTÍCIAS da lança e do cabo (dependem da ficha). A altura da carroceria, o teste do giro da carga, o teste de plano no barracão e a nota da L-016 seguem na TASK-102.
