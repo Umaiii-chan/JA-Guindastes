@@ -1,6 +1,7 @@
 // Colisões com objetos da biblioteca (TASK-072; ADR-036): cada obstáculo `model` vira várias caixas,
 // escaladas e giradas com o objeto. Dados FICTÍCIOS.
 
+import { Group, MathUtils, Vector3 } from 'three'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -10,12 +11,40 @@ import {
   obstacleObbs,
 } from '../../../src/domain/collision/collisions'
 import { computeLoadBox } from '../../../src/domain/collision/loadBox'
+import type { Obb } from '../../../src/domain/collision/obb'
 import {
   EMPTY_SCENARIO,
   type Obstacle,
   type ScenarioSpec,
 } from '../../../src/domain/environment/environment'
-import { findLibraryObject, newModelObstacle } from '../../../src/domain/environment/objectLibrary'
+import {
+  findLibraryObject,
+  newModelObstacle,
+  scaledCollisionBoxes,
+} from '../../../src/domain/environment/objectLibrary'
+
+/**
+ * O grupo do obstáculo como a cena o monta (`ObstacleMeshes`): na posição do centro, com
+ * `rotation.y` = `rotationYDeg`. Serve de referência para o sinal do giro das caixas de colisão.
+ */
+function sceneGroup(obstacle: Obstacle, baseY = 0): Group {
+  const group = new Group()
+  group.position.set(obstacle.centerX, baseY, obstacle.centerZ)
+  group.rotation.y = MathUtils.degToRad(obstacle.rotationYDeg)
+  group.updateMatrixWorld(true)
+  return group
+}
+
+function expectAxesLikeScene(obb: Obb, group: Group): void {
+  const sceneAxes = [new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(0, 0, 1)].map((axis) =>
+    axis.applyQuaternion(group.quaternion),
+  )
+  obb.axes.forEach((axis, index) => {
+    expect(axis.x).toBeCloseTo(sceneAxes[index]!.x, 9)
+    expect(axis.y).toBeCloseTo(sceneAxes[index]!.y, 9)
+    expect(axis.z).toBeCloseTo(sceneAxes[index]!.z, 9)
+  })
+}
 
 const GEOMETRY = { boomPivotOffsetM: -1.56, boomPivotHeightM: 3.3 }
 const LOAD = computeLoadBox({ lengthM: 4, widthM: 2, heightM: 1.5 }, 1.05)
@@ -79,6 +108,48 @@ describe('obstacleObbs', () => {
     }
     const raised = obstacleObbs(shed(), hill)
     expect(raised[0]!.center.y - boxes[0]!.center.y).toBeCloseTo(2)
+  })
+
+  it('o sinal do giro é o da cena: com 90°, o fundo do galpão vai para −X (TASK-091; F-30)', () => {
+    // 0° e 180° dão o mesmo resultado com qualquer sinal; 90° não. Como `rotation.y` do Three.js,
+    // +90° leva +Z para +X, então as faixas do fundo (z local = −11,61) vão para x = −11,61.
+    const terrain = EMPTY_SCENARIO.terrain
+    const quarter = obstacleObbs(shed({ rotationYDeg: 90 }), terrain)
+    const atX = (x: number) => quarter.filter((obb) => Math.abs(obb.center.x - x) < 1e-6)
+    expect(atX(-11.61).length).toBeGreaterThan(0)
+    expect(atX(11.61)).toEqual([])
+  })
+
+  it('cada caixa do objeto fica onde a cena desenha o modelo, num giro qualquer (30°)', () => {
+    const obstacle = shed({ centerX: 4, centerZ: -7, rotationYDeg: 30 })
+    const group = sceneGroup(obstacle)
+    const object = findLibraryObject('barracao-aberto')!
+    const boxes = scaledCollisionBoxes(obstacle, object)
+    const obbs = obstacleObbs(obstacle, EMPTY_SCENARIO.terrain)
+    expect(obbs).toHaveLength(boxes.length)
+    boxes.forEach((box, index) => {
+      const expected = group.localToWorld(new Vector3(box.x, box.y + box.h / 2, box.z))
+      const obb = obbs[index]!
+      expect(obb.center.x).toBeCloseTo(expected.x, 9)
+      expect(obb.center.y).toBeCloseTo(expected.y, 9)
+      expect(obb.center.z).toBeCloseTo(expected.z, 9)
+      expectAxesLikeScene(obb, group)
+    })
+  })
+
+  it('a caixa simples também gira com o sinal da cena (30°)', () => {
+    const box: Obstacle = {
+      id: 'c',
+      label: 'Caixa FICTÍCIA',
+      kind: 'box',
+      centerX: 2,
+      centerZ: 3,
+      widthM: 6,
+      depthM: 1,
+      heightM: 2,
+      rotationYDeg: 30,
+    }
+    expectAxesLikeScene(obstacleObb(box, EMPTY_SCENARIO.terrain), sceneGroup(box))
   })
 
   it('escala o tamanho do obstáculo junto com as caixas', () => {

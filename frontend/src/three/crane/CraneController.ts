@@ -6,6 +6,7 @@ import {
   type OperationalGeometry,
   validateCraneGeometryParameters,
 } from '../../domain/geometry/operationalGeometry'
+import { fitTurretToRange } from './turretRotation'
 import type { CraneCommands, CraneLimits, CraneState, NumericRange } from './types'
 
 /**
@@ -156,6 +157,8 @@ export class CraneController implements CraneCommands {
     if (!Number.isFinite(value)) {
       throw new RangeError(`${key}: valor precisa ser um número finito (recebido ${value}).`)
     }
+    // Giro contínuo dá a volta em vez de travar na ponta da faixa (TASK-092).
+    if (key === 'turretRotationDeg') return fitTurretToRange(value, this.limits.turretRotationDeg)
     const { min, max } = this.limits[key]
     return MathUtils.clamp(value, min, max)
   }

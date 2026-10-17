@@ -1,3 +1,4 @@
+import { Group } from 'three'
 import { describe, expect, it } from 'vitest'
 
 import type { CollisionState } from '../../../src/domain/collision/collisions'
@@ -161,6 +162,26 @@ describe('SceneCollisions', () => {
     const onHill = contents.crane.setCableLength(15)
 
     expect(flat - onHill).toBeCloseTo(2, 1)
+  })
+
+  it('sem carga, com gancho giratório e manilha (0,75 m), o fim da cadeia não passa do chão (TASK-091)', () => {
+    const { contents, states } = sceneWithGuard()
+    // Cadeia FICTÍCIA de 0,75 m (sem modelo 3D: só a distância), como a cena monta na TASK-056.
+    contents.hookLoad.setAccessories(new Group(), 0.75)
+    contents.crane.revalidate()
+
+    const applied = contents.crane.setCableLength(15)
+
+    const chainEndY =
+      contents.crane.getOperationalGeometry().hookHeightM -
+      contents.hookLoad.currentAttachOffsetM -
+      0.75
+    expect(applied).toBeLessThan(15)
+    expect(chainEndY).toBeGreaterThanOrEqual(-1e-3)
+    expect(chainEndY).toBeLessThan(0.01)
+    const last = states.at(-1)!
+    expect(last.blocked).toBe(true)
+    expect(last.hits).toContainEqual({ subject: 'accessories', target: { kind: 'terrain' } })
   })
 
   it('troca de modelo: o corpo é medido de novo no rig novo', () => {

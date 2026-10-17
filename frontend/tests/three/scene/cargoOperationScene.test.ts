@@ -1,5 +1,6 @@
 // Coleta e entrega na cena (TASK-073): a carga no chão, engatar, levar e soltar no alvo, sem WebGL.
 
+import { Group } from 'three'
 import { describe, expect, it } from 'vitest'
 
 import type { CargoStatus } from '../../../src/domain/cargo/cargoOperation'
@@ -97,6 +98,37 @@ describe('coleta e entrega na cena', () => {
     contents.cargo.release(14_500)
     expect(contents.cargo.status.state?.result).toBe('delivered')
     expect(contents.cargo.status.state?.elapsedMs).toBe(12_500)
+  })
+
+  it('com acessórios, a cadeia para no topo da carga no chão, e dá para engatar (TASK-091)', () => {
+    const contents = buildCraneScene()
+    contents.crane.setCollisionGuard(contents.collisions)
+    // Gancho giratório + manilha: 0,75 m de cadeia FICTÍCIA abaixo do gancho.
+    contents.hookLoad.setAccessories(new Group(), 0.75)
+    const hook = contents.crane.getOperationalGeometry().hook
+    const attach = contents.hookLoad.currentAttachOffsetM
+    // Carga no chão com o topo 0,3 m abaixo do fim da cadeia.
+    const load = { lengthM: 3, widthM: 2, heightM: hook.yM - attach - 0.75 - 0.3 }
+    contents.cargo.setLoad(load)
+    contents.cargo.setScenario({
+      ...EMPTY_SCENARIO,
+      cargo: { x: hook.xM, z: hook.zM, rotationYDeg: 0 },
+    })
+    const cable = contents.crane.getState().cableLengthM
+
+    // Descer 1 m levaria a cadeia 0,7 m para dentro da carga: o cabo para no contato, 0,3 m abaixo.
+    const applied = contents.crane.setCableLength(cable + 1)
+
+    expect(applied - cable).toBeCloseTo(0.3, 2)
+    expect(contents.collisions.state.hits).toContainEqual(
+      expect.objectContaining({
+        subject: 'accessories',
+        target: expect.objectContaining({ id: GROUND_CARGO_ID }),
+      }),
+    )
+    contents.cargo.refresh()
+    expect(contents.cargo.status.canEngage).toBe(true)
+    expect(contents.cargo.engage(0)).toBe(true)
   })
 
   it('não engata nem solta fora das condições', () => {

@@ -131,6 +131,7 @@ export class MultiCrane {
     this.contents = contents
     contents.scene.add(this.cargoView.root)
     contents.crane.setAppliedListener(() => this.syncTandem())
+    contents.collisions.setOwnerLabel(PRIMARY_CRANE_LABEL)
   }
 
   /** Liga a cena real (renderização, carregador do modelo, avisos para a UI). */
@@ -183,7 +184,10 @@ export class MultiCrane {
       onResult: (result) => {
         own.onResult(result)
         if (this.engaged) {
-          this.cargoView.setCollisionHighlight(result.hits.some((hit) => hit.subject === 'load'))
+          // A carga do tandem não tem dono; a carga com dono é a de um gancho (TASK-091).
+          this.cargoView.setCollisionHighlight(
+            result.hits.some((hit) => hit.subject === 'load' && hit.owner === undefined),
+          )
         }
       },
     }
@@ -376,6 +380,7 @@ export class MultiCrane {
     })
     extra.setPlacement(terrain, input.placement)
     extra.collisions.setScenario({ ...this.collisionScenario(), crane: input.placement })
+    extra.collisions.setOwnerLabel(input.label)
     extra.collisions.setListener((state) => {
       options.invalidate()
       options.onCollision(state)
@@ -411,7 +416,10 @@ export class MultiCrane {
     return [primary, ...extras]
   }
 
-  /** Colisões do guindaste `id` no estado `state` contra os outros e, no tandem, a carga. */
+  /**
+   * Colisões do guindaste `id` no estado `state` contra os outros (corpo, e o que pende de cada um:
+   * carga, gancho, cadeia e cabo; TASK-091) e, no tandem, a carga içada.
+   */
   private crossReport(id: string, state: CraneState): CollisionReport {
     const members = this.members()
     if (members.length < 2) return EMPTY_REPORT
@@ -451,6 +459,7 @@ export class MultiCrane {
         placement: member.placement,
         state: states.get(member.id) ?? member.state,
         body: member.collisions.currentBody,
+        payload: member.collisions.payload(),
       })),
       cargo,
     })
