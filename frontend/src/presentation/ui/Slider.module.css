@@ -168,3 +168,54 @@
   font-size: var(--font-size-xs);
   color: var(--color-status-warning-text);
 }
+
+/* Versão compacta (barra de comando do simulador, TASK-095): rótulo em caixa alta pequena e o
+   valor em mono na mesma linha, trilha logo abaixo, sem os limites. */
+.compact {
+  gap: 0;
+}
+
+.compact .label {
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-2);
+  white-space: nowrap;
+}
+
+.compact .value {
+  min-width: 6.5ch;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.compact .control {
+  height: 20px;
+}
+
+.compact .range::-webkit-slider-thumb {
+  margin-top: calc((20px - var(--slider-thumb-h)) / 2);
+}
+
+.noteMark {
+  margin-left: 2px;
+  color: var(--color-status-warning-text);
+  cursor: help;
+}
+
+.compact .header {
+  justify-content: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.compact .label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compact .value {
+  margin-left: auto;
+}
