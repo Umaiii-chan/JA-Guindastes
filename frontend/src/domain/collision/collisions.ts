@@ -26,7 +26,6 @@ import {
   type Obb,
   obbFromFrame,
   obbPenetration,
-  obbSurfacePoints,
   rotX,
   rotY,
   segmentIntersectsObb,
@@ -35,6 +34,9 @@ import {
   compose,
   IDENTITY,
 } from './obb'
+import { obbTerrainDepth } from './terrainSampling'
+
+export { obbTerrainDepth, TERRAIN_TOLERANCE_M } from './terrainSampling'
 
 const DEG = Math.PI / 180
 
@@ -143,9 +145,6 @@ export const NO_COLLISION: CollisionState = {
   penetrationM: 0,
   blocked: false,
 }
-
-/** Altura (m) abaixo do terreno que ainda se aceita (ruído numérico): a busca binária para dentro dela. */
-export const TERRAIN_TOLERANCE_M = 1e-4
 
 /** Posição e rumo do guindaste no mundo: referencial da base (origem em O, no terreno). */
 export function craneBaseTransform(scenario: ScenarioSpec): Transform {
@@ -291,19 +290,9 @@ export function payloadObbs(
   return parts
 }
 
-/** A caixa entra no terreno? Amostra a superfície da caixa e compara com a altura do terreno. */
+/** A caixa entra no terreno? Compara a face de baixo (e os picos das feições) com o terreno. */
 export function obbHitsTerrain(obb: Obb, terrain: TerrainSpec): boolean {
   return obbTerrainDepth(obb, terrain) > 0
-}
-
-/** Quanto (m) o ponto mais fundo da caixa está abaixo do terreno (0 se nenhum ponto passa da tolerância). */
-export function obbTerrainDepth(obb: Obb, terrain: TerrainSpec): number {
-  let depth = 0
-  for (const point of obbSurfacePoints(obb)) {
-    const below = terrainHeightAt(terrain, point.x, point.z) - point.y
-    if (below > TERRAIN_TOLERANCE_M) depth = Math.max(depth, below)
-  }
-  return depth
 }
 
 /** Frames do corpo que o gancho sem carga não pode atravessar (a lança é onde ele fica preso). */

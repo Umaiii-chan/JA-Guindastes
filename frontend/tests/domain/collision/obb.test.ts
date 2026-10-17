@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   IDENTITY,
   IDENTITY_TRANSFORM,
+  MAX_SAMPLE_POINTS,
   type Obb,
   obbFromFrame,
   obbOverlap,
@@ -84,5 +85,15 @@ describe('obbSurfacePoints', () => {
       (p) => Math.abs(Math.hypot(p.x - 1, p.y - 2, p.z - 3) - Math.sqrt(3)) < 1e-9,
     )
     expect(corners.length).toBeGreaterThanOrEqual(8)
+  })
+
+  it('o teto é do total de pontos, não por aresta (TASK-091)', () => {
+    const zero = { x: 0, y: 0, z: 0 }
+    const big = obbFromFrame(IDENTITY_TRANSFORM, zero, { x: 30, y: 30, z: 30 })
+    expect(obbSurfacePoints(big).length).toBeLessThanOrEqual(MAX_SAMPLE_POINTS)
+    // Uma viga de 20 m mantém o passo de 0,5 m ao longo dela (antes, 12 pontos: passo de 1,8 m).
+    const beam = obbFromFrame(IDENTITY_TRANSFORM, zero, { x: 0.25, y: 0.25, z: 10 })
+    const along = new Set(obbSurfacePoints(beam).map((p) => p.z.toFixed(6)))
+    expect(along.size).toBe(41)
   })
 })
