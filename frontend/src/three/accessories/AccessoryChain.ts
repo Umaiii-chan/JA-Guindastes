@@ -12,6 +12,22 @@ import { loadGltf } from '../loaders/loadGltf'
 // sem arquivo (`modelUrl: null`) ou com o arquivo ausente/inválido, o acessório entra só no peso e na
 // distância, sem malha, e o aviso "modelo 3D pendente" fica por conta da UI.
 
+/**
+ * Orientação (Euler XYZ, rad) que põe cada modelo de terceiros na pose pendurada: +Y para cima e o
+ * olhal/laço no topo, que é por onde ele se prende ao gancho (ou ao cabo). Os arquivos vêm em
+ * qualquer pose (o gancho e a manilha deitados no plano XZ), então a pose é registrada por NOME DE
+ * ARQUIVO; sem registro, o modelo é tido como já pendurado e só ganha a escala (`fitModel`).
+ * Medidas dos arquivos de 2026-10-14 (`frontend/public/models/acessorios/CREDITS.md`).
+ */
+export const ACCESSORY_MODEL_ORIENTATION: Readonly<
+  Record<string, readonly [x: number, y: number, z: number]>
+> = {
+  // Perfil no plano XZ (5,58 × 3,55; espessura 0,39 em Y), olhal em +X: gira +X para +Y.
+  'gancho-polydavid.glb': [0, 0, Math.PI / 2],
+  // Perfil no plano XZ (laço em −Z, pino em +Z; 3,62 × 4,27; pino ao longo de X): gira −Z para +Y.
+  'manilha-3ddomino.glb': [Math.PI / 2, 0, 0],
+} as const
+
 export const ACCESSORY_CHAIN_NAMES = {
   root: 'hook-load-accessories',
   item: (index: number) => `hook-load-accessory-${index}`,
@@ -166,7 +182,7 @@ export class AccessoryChain {
     try {
       const template = await this.template(url, loader)
       if (this.disposed || generation !== this.generation) return
-      slot.add(fitModel(template.clone(true), height))
+      slot.add(fitModel(template.clone(true), height, orientationOf(url)))
       this.onChange?.()
       this.onModelResult?.(item.id, true)
     } catch (error) {
@@ -177,20 +193,32 @@ export class AccessoryChain {
   }
 }
 
+function orientationOf(url: string): readonly [number, number, number] | null {
+  const file = url.split(/[?#]/)[0].split('/').pop() ?? ''
+  return ACCESSORY_MODEL_ORIENTATION[file] ?? null
+}
+
 /**
  * Encaixa o modelo no espaço do acessório: com `heightM > 0`, escala uniforme para a altura do modelo
  * ser `heightM`; sem altura, mantém a escala do arquivo. O topo do modelo fica na origem do espaço e o
  * centro horizontal, no eixo do cabo.
+ *
+ * Com `orientation` (modelo registrado em `ACCESSORY_MODEL_ORIENTATION`), o modelo é posto na pose
+ * pendurada e a altura é a medida VERTICAL dele. Sem ela, a pose do arquivo é desconhecida: o maior
+ * lado (deitado ou em pé) cabe na altura, para nunca passar do tamanho real (TASK-065).
  */
-function fitModel(model: Object3D, heightM: number): Object3D {
+function fitModel(
+  model: Object3D,
+  heightM: number,
+  orientation: readonly [number, number, number] | null = null,
+): Object3D {
   const holder = new Group()
   holder.add(model)
+  if (orientation) model.rotation.set(...orientation)
   holder.updateMatrixWorld(true)
   const size = new Box3().setFromObject(model).getSize(new Vector3())
-  // Modelos de terceiros vêm em qualquer orientação: o maior lado (deitado ou em pé) cabe na
-  // altura do acessório, para nunca passar do tamanho real (TASK-065).
-  const largest = Math.max(size.x, size.y, size.z)
-  if (heightM > 0 && largest > 0) model.scale.multiplyScalar(heightM / largest)
+  const reference = orientation ? size.y : Math.max(size.x, size.y, size.z)
+  if (heightM > 0 && reference > 0) model.scale.multiplyScalar(heightM / reference)
   holder.updateMatrixWorld(true)
   const box = new Box3().setFromObject(model)
   if (!box.isEmpty()) {
