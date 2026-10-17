@@ -37,6 +37,7 @@ from app.domain.entities.scenario import (
     TerrainSpec,
 )
 from app.domain.services.planning.crane_body import distance_to_crane_body_m
+from app.domain.services.planning.library_boxes import expand_obstacles
 from app.domain.services.planning.models import CraneStateValues, PlanLoad, PlanPoint
 from app.domain.services.planning.scene import (
     direction,
@@ -48,6 +49,7 @@ from app.domain.services.planning.terrain import (
     cargo_base_y,
     feature_distance_m,
     feature_peak_near,
+    terrain_height_at,
     terrain_peak_near,
     terrain_plane_peak_near,
 )
@@ -274,11 +276,20 @@ def _under_footprint(
 ) -> list[ObstacleSpec]:
     return [
         obstacle
-        for obstacle in scenario.obstacles
+        for obstacle in expand_obstacles(scenario)
         if footprint_overlaps_obstacle(
             obstacle, x, z, load.width_m / 2, load.length_m / 2, rotation_y_deg
         )
     ]
+
+
+def _in_height_range(terrain: TerrainSpec, obstacle: ObstacleSpec, low: float, high: float) -> bool:
+    """O obstáculo ocupa alguma altura de [low, high]? Só as partes de objetos ocos (com
+    `elevation_m`) têm vão por baixo; o obstáculo inteiro vale do terreno ao topo."""
+    if obstacle.elevation_m is None:
+        return True
+    top = obstacle_top_y(terrain, obstacle)
+    return top > low + 1e-6 and top - obstacle.height_m < high - 1e-6
 
 
 def pick_cover(
@@ -286,7 +297,14 @@ def pick_cover(
 ) -> tuple[ObstacleSpec, ...]:
     """Obstáculos sobre a carga na coleta (ou que a contêm). A cena assenta a carga no terreno,
     então qualquer obstáculo na pegada dela a cobre: o gancho não a alcança por cima."""
-    return tuple(_under_footprint(scenario, load, cargo.x, cargo.z, cargo.rotation_y_deg))
+    base = cargo_base_y(
+        scenario.terrain, load.length_m, load.width_m, cargo.x, cargo.z, cargo.rotation_y_deg
+    )
+    return tuple(
+        obstacle
+        for obstacle in _under_footprint(scenario, load, cargo.x, cargo.z, cargo.rotation_y_deg)
+        if _in_height_range(scenario.terrain, obstacle, base, base + load.height_m)
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -315,6 +333,7 @@ def delivery_surface(
         for obstacle in under
         if not is_platform_vehicle(obstacle)
         and obstacle_top_y(scenario.terrain, obstacle) > rest + 1e-6
+        and _in_height_range(scenario.terrain, obstacle, rest, rest + load.height_m)
     )
     return DeliverySurface(rest, supports, blockers)
 
@@ -326,7 +345,9 @@ def delivery_cover(
     deles, eles não são a carreta e passam de qualquer altura em que a carga poderia pousar ali."""
     radius = math.hypot(load.length_m, load.width_m) / 2
     rest_limit = terrain_peak_near(scenario.terrain, center.x, center.z, radius)
-    for obstacle in scenario.obstacles:
+    obstacles = expand_obstacles(scenario)
+    ground = terrain_height_at(scenario.terrain, center.x, center.z)
+    for obstacle in obstacles:
         if (
             is_platform_vehicle(obstacle)
             and distance_to_obstacle_m(obstacle, center.x, center.z) <= radius
@@ -334,8 +355,12 @@ def delivery_cover(
             rest_limit = max(rest_limit, obstacle_top_y(scenario.terrain, obstacle))
     return tuple(
         obstacle
-        for obstacle in scenario.obstacles
+        for obstacle in obstacles
         if not is_platform_vehicle(obstacle)
+        and (
+            obstacle.elevation_m is None
+            or obstacle_top_y(scenario.terrain, obstacle) - obstacle.height_m <= ground + 1e-6
+        )
         and distance_to_obstacle_m(obstacle, center.x, center.z) == 0.0
         and obstacle_top_y(scenario.terrain, obstacle) > rest_limit + 1e-6
     )
@@ -357,7 +382,7 @@ class Solid:
 
 def solids_of(scenario: ScenarioSpec) -> tuple[Solid, ...]:
     solids: list[Solid] = []
-    for obstacle in scenario.obstacles:
+    for obstacle in expand_obstacles(scenario):
         top = obstacle_top_y(scenario.terrain, obstacle)
         solids.append(
             Solid(obstacle, top - obstacle.height_m, top, obstacle_circumradius_m(obstacle))

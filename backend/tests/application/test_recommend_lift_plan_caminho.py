@@ -286,3 +286,34 @@ def test_cenario_cheio_responde_dentro_do_orcamento() -> None:
 
     assert time.perf_counter() - start < TIME_BUDGET_S
     assert result.recommendations
+
+
+def test_carga_dentro_do_barracao_aberto_nao_e_mais_recusada_na_coleta() -> None:
+    # IMPORTANTE-1 da revisão do PR #48: o "barracao-aberto" é oco para o planejador, como na cena
+    # (`hangarBoxes`), e é o cenário que a IA monta (a carga DENTRO, o guindaste fora, de frente
+    # para a porta; ai_fakes.py `scenario_ia_json`). Girado de -90°, a porta (+Z) olha para -X.
+    # Antes: nenhum guindaste era tentado ("fica sob ou dentro de «Galpão com frente aberta»").
+    # Com o guindaste da fixture (ficha FICTÍCIA) o plano completo não fecha: o cabo atravessa o
+    # teto nos posicionamentos que a busca tenta (ver handoff); aqui vale só a coleta liberada.
+    barn = ObstacleSpec(
+        "BARRACAO",
+        "Galpão com frente aberta",
+        ObstacleKind.MODEL,
+        22.0,
+        0.0,
+        19.22,
+        27.44,
+        8.27,
+        -90.0,
+        "barracao-aberto",
+    )
+
+    result = plan(
+        ScenarioSpec(obstacles=(barn,)),
+        load=PlanLoad(1500.0, 3.0, 0.6, 0.6),
+        pick=PlanPoint(11.0, 0.0),
+        delivery=PlanPoint(-13.0, 0.0),
+    )
+
+    assert not any("sob ou dentro de" in note for note in result.notes)
+    assert any("Combinações descartadas" in note for note in result.notes)
