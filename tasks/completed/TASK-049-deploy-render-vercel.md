@@ -126,3 +126,8 @@ pois o upgrade WebSocket através desse rewrite não faz parte do contrato docum
 ## 11. Encerramento
 
 - Pendente.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-09-30 (PRs #1 e #2 no fork). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).

@@ -18,3 +18,8 @@ Testes: `backend/tests/infrastructure/test_openai_provider.py`, `backend/tests/t
 - Chamada real à OpenAI com chave de teste (nenhuma foi feita: sem chave no ambiente), confirmando o `json_schema` não estrito com o esquema do cenário e o nome do modelo em "Respondido por".
 - Teste de frontend/e2e do "Respondido por gpt-5-mini" (a UI só repassa `model`).
 - Conversão do esquema com todos os campos de `SCENARIO_RESPONSE_SCHEMA` contra a validação de um modelo real.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PRs #31 e #32). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).
