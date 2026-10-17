@@ -17,7 +17,7 @@ import {
   cableObb,
   craneBodyObbs,
   obbTerrainDepth,
-  obstacleObb,
+  obstacleObbs,
   payloadObbs,
 } from './collisions'
 import { type Obb, obbFromFrame, obbPenetration, rotY } from './obb'
@@ -182,14 +182,16 @@ export function evaluateMultiCraneCollisions(input: MultiCraneInput): CollisionR
       penetrationM += terrainDepth
     }
     for (const obstacle of scenario.obstacles) {
-      const obstacleBox = obstacleObb(obstacle, scenario.terrain)
-      const depth = obbPenetration(box, obstacleBox)
-      if (depth > 0) {
-        penetrationM += depth
-        hits.push({
-          subject: 'load',
-          target: { kind: 'obstacle', id: obstacle.id, label: obstacle.label, obb: obstacleBox },
-        })
+      // TASK-091 (F-23): as caixas detalhadas do objeto da biblioteca, como no guindaste único.
+      for (const obstacleBox of obstacleObbs(obstacle, scenario.terrain)) {
+        const depth = obbPenetration(box, obstacleBox)
+        if (depth > 0) {
+          penetrationM += depth
+          hits.push({
+            subject: 'load',
+            target: { kind: 'obstacle', id: obstacle.id, label: obstacle.label, obb: obstacleBox },
+          })
+        }
       }
     }
     for (const { crane, obbs } of bodies) {

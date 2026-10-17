@@ -5,6 +5,7 @@ import {
   type CraneBody,
   describeHit,
   evaluateCollisions,
+  payloadObbs,
 } from '../../../src/domain/collision/collisions'
 import { computeLoadBox } from '../../../src/domain/collision/loadBox'
 import {
@@ -13,7 +14,12 @@ import {
   type HoistedCargo,
   type MultiCrane,
 } from '../../../src/domain/collision/multiCraneCollisions'
-import { EMPTY_SCENARIO } from '../../../src/domain/environment/environment'
+import {
+  EMPTY_SCENARIO,
+  type Obstacle,
+  type ScenarioSpec,
+} from '../../../src/domain/environment/environment'
+import { findLibraryObject, newModelObstacle } from '../../../src/domain/environment/objectLibrary'
 
 // Corpo FICTÍCIO: só uma caixa de lança de 10 m, a partir do pino a 3 m de altura.
 const BODY: CraneBody = {
@@ -315,5 +321,47 @@ describe('o que pende de um guindaste contra os outros (TASK-091; F-07)', () => 
     })
     expect(report.hits).toEqual([])
     expect(report.penetrationM).toBe(0)
+  })
+})
+
+describe('tandem e objetos da biblioteca (TASK-091; F-23)', () => {
+  // Galpão aberto FICTÍCIO com a porta para o guindaste, como em `objectCollisions.test.ts`.
+  const shed: Obstacle = {
+    ...newModelObstacle(findLibraryObject('barracao-aberto')!, 'barracao-1', 'Galpão FICTÍCIO'),
+    centerX: 0,
+    centerZ: 22,
+    rotationYDeg: 180,
+  }
+  const scenario: ScenarioSpec = { ...EMPTY_SCENARIO, obstacles: [shed] }
+
+  /** A carga içada na mesma caixa da carga pendurada num guindaste só, no estado dado. */
+  function cargoAt(turretRotationDeg: number): HoistedCargo {
+    const obb = payloadObbs({
+      state: { turretRotationDeg, boomAngleDeg: 8, boomLengthM: 20, cableLengthM: 0.5 },
+      geometryParameters: GEOMETRY,
+      scenario,
+      body: null,
+      load: LOAD,
+      hook: null,
+    }).find((part) => part.subject === 'load')!.obb
+    return {
+      x: obb.center.x,
+      z: obb.center.z,
+      rotationYDeg: turretRotationDeg,
+      bottomY: obb.center.y - obb.half.y,
+      lengthM: 4,
+      widthM: 2,
+      heightM: 1.5,
+    }
+  }
+
+  it('a carga dentro do galpão aberto não colide (antes, a caixa envolvente dava falso alarme)', () => {
+    const report = evaluateMultiCraneCollisions({ scenario, cranes: [], cargo: cargoAt(0) })
+    expect(report.hits).toEqual([])
+  })
+
+  it('de lado, a carga bate na parede do galpão, como com um guindaste só', () => {
+    const report = evaluateMultiCraneCollisions({ scenario, cranes: [], cargo: cargoAt(28) })
+    expect(report.hits.some((hit) => hit.target.kind === 'obstacle')).toBe(true)
   })
 })
