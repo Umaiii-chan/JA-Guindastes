@@ -12,3 +12,8 @@ Causa: o planejador gera dois quadros "engatar" seguidos (`move(HOOK)` e `hold(H
 ## Testes a escrever depois
 
 - E2E: planejar, aplicar e executar a trajetória até a entrega.
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PR #39). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).
