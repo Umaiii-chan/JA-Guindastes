@@ -77,3 +77,4 @@ Crie um ADR quando a decisão:
 | [ADR-038](ADR-038-planejamento-da-operacao.md) | Planejamento da operação: guindaste, posição e trajetória | Aceito | 2026-10-14 |
 | [ADR-039](ADR-039-assistente-de-ia-gemini.md) | Assistente de IA (Gemini): cenário por texto, explicação, relatório e revisão | Aceito | 2026-10-14 |
 | [ADR-040](ADR-040-provedor-openai-com-reserva.md) | Provedor OpenAI para a IA, com reserva entre provedores | Aceito | 2026-10-14 |
+| [ADR-042](ADR-042-conferencia-continua-do-plano.md) | Conferência contínua do plano: giro denso, lança, cabo, coleta e entrega | Proposto | 2026-10-16 |
