@@ -24,3 +24,8 @@ A estabilização dos campos de texto e do layout (CSS, selos, alertas) ficou na
 - `usePlanPlayback`: `setProgress` e `onMoved` respeitam `refreshMs` (5 Hz e 10 Hz gravando); fase atualiza no quadro-chave.
 - Gravação durante a trajetória: quadros espaçados ~100 ms (verificar no navegador, antes eram ~840 ms).
 - e2e da reprodução e captura de tela (ficaram para depois).
+
+
+## Encerramento
+
+Mergeada pela pessoa responsável em 2026-10-14 (PR #30, integração leva-f/integracao-2). Revisão independente (AGENTS.md § 3) dispensada por ela (autorização permanente, `handoffs/current.md` § 3, item 1).
