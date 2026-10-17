@@ -98,7 +98,15 @@ de carga.
   o critério novo (carroceria por centro da pegada, só o modelo da biblioteca) deve ir ao ADR-046
   (Cinzel) ou a um ADR novo; registrado em known-gaps L-016.
 
-## 8. Próximo passo
+## 8. ADR-049 e layout da IA
+
+- `docs/decisions/ADR-049-...md` (Proposto) substitui só a Decisão 5 do ADR-042; índice atualizado.
+- `scenario_layout.is_platform_vehicle` agora vale só para o modelo `caminhao-plataforma`: uma caixa
+  "carreta" é afastada do ponto de entrega como qualquer obstáculo. O fake da IA
+  (`tests/fixtures/ai_fakes.py`) passou a usar o caminhão plataforma da biblioteca; teste novo em
+  `test_scenario_layout.py`.
+
+## 9. Próximo passo
 
 **Papel:** Revisor. Ler: `AGENTS.md`, este handoff, `backend/app/domain/services/planning/sweep.py`
 (`_supports_load`, `delivery_surface`, `delivery_cover`) e `library_boxes.py`.
