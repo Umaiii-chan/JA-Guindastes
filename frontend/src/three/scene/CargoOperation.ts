@@ -145,7 +145,7 @@ export class CargoOperation {
     if (!cargoStatusOf(state, hook, size, terrain, this.spec.delivery ?? null, obstacles).canEngage)
       return false
     this.startedAtMs ??= nowMs
-    this.live = engageCargo(clearResult(state), hook, size, terrain, obstacles)
+    this.live = engageCargo(clearResult(state), hook, size)
     this.sync()
     return true
   }

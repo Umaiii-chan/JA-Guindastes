@@ -134,7 +134,9 @@ describe('MultiCrane — o que pende de um guindaste, fora do tandem (TASK-091; 
     extra.crane.setCableLength(1)
     extra.crane.setBoomAngle(0)
     contents.multi.setExtras([{ ...SECOND, placement: { x: -9, z: hook.zM, headingDeg: 90 } }])
-    contents.hookLoad.setLoad(LOAD)
+    // Lingas de 2 m (pose engatada): com as lingas da geometria única (3,87 m para esta carga; F-19)
+    // a carga já tocaria a lança deitada do adicional na pose inicial deste teste.
+    contents.hookLoad.setLoad(LOAD, { offsetX: 0, offsetZ: 0, yawDeg: 0, slingDropM: 2 })
     contents.crane.revalidate()
     return { contents, extra, primaryStates, extraStates }
   }

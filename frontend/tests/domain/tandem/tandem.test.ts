@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { defaultGeometry } from '../../../src/domain/rigging/slingGeometry'
 import { HOOK_ATTACH_OFFSET_M } from '../../../src/domain/collision/loadBox'
 import {
   cargoCgWorld,
@@ -13,7 +14,7 @@ import {
   solveCraneForHook,
   tandemFrame,
   tandemHookDropM,
-  TANDEM_SLING_DROP_M,
+  tandemSlingDropM,
   type TandemCrane,
   type TandemCraneState,
   type TandemSetup,
@@ -199,7 +200,7 @@ describe('tandem — engate e quadros', () => {
     expect(frame.cargo.bottomY).toBeCloseTo(0, 2)
     // Sem medida do gancho, vale o engate do gancho provisório (TASK-090).
     expect(engageHookHeightM(SETUP)).toBeCloseTo(
-      SETUP.load.heightM + TANDEM_SLING_DROP_M + HOOK_ATTACH_OFFSET_M,
+      SETUP.load.heightM + tandemSlingDropM(SETUP.load) + HOOK_ATTACH_OFFSET_M,
     )
   })
 })
@@ -222,9 +223,11 @@ describe('tandem — altura do gancho no engate e no quadro', () => {
 
     const hookBottom = engageHookHeightM(setup) - GLB_HOOK_DROP_M
 
-    // Antes: G a 1,5 m do topo, e o moitão 1,965 m abaixo de G entrava 0,465 m na carga.
-    expect(top + TANDEM_SLING_DROP_M - GLB_HOOK_DROP_M - top).toBeCloseTo(-0.465, 3)
-    expect(hookBottom - top).toBeCloseTo(TANDEM_SLING_DROP_M, 9)
+    // Antes (1,5 m fixos): G a 1,5 m do topo, e o moitão 1,965 m abaixo de G entrava 0,465 m na
+    // carga. Com as lingas da geometria única (F-19) sobra folga: a altura é r·tan 60°.
+    const drop = tandemSlingDropM(setup.load)
+    expect(drop - GLB_HOOK_DROP_M).toBeGreaterThan(0)
+    expect(hookBottom - top).toBeCloseTo(drop, 9)
   })
 
   it('cada gancho engata na altura dele: chão + carga + lingas + engate + acessórios', () => {
@@ -235,7 +238,7 @@ describe('tandem — altura do gancho no engate e no quadro', () => {
     expect(result.reachable).toBe(true)
     const hook1 = craneHookWorld(setup.leader, result.leaderState)
     const hook2 = craneHookWorld(setup.follower, result.followerState)
-    const base = setup.cargoGroundY + setup.load.heightM + TANDEM_SLING_DROP_M
+    const base = setup.cargoGroundY + setup.load.heightM + tandemSlingDropM(setup.load)
     expect(hook1.y).toBeCloseTo(base + GLB_HOOK_DROP_M + CHAIN_M, 2)
     expect(hook2.y).toBeCloseTo(base + GLB_HOOK_DROP_M, 2)
   })
@@ -250,8 +253,11 @@ describe('tandem — altura do gancho no engate e no quadro', () => {
     expect(frame.reachable).toBe(true)
     expect(frame.cargo.bottomY).toBeCloseTo(2, 2)
     const [top1, top2] = slingTopsWorld(frame.hooks, setup.load)
-    // As lingas dos dois saem da mesma altura, 1,5 m acima do topo da carga.
-    expect(top1.y).toBeCloseTo(frame.cargo.bottomY + setup.load.heightM + TANDEM_SLING_DROP_M, 6)
+    // As lingas dos dois saem da mesma altura, `tandemSlingDropM` acima do topo da carga.
+    expect(top1.y).toBeCloseTo(
+      frame.cargo.bottomY + setup.load.heightM + tandemSlingDropM(setup.load),
+      6,
+    )
     expect(top2.y).toBeCloseTo(top1.y, 2)
     expect(frame.hooks[0].y - frame.hooks[1].y).toBeCloseTo(CHAIN_M, 2)
   })
@@ -274,5 +280,20 @@ describe('tandem — altura do gancho no engate e no quadro', () => {
       HOOK_ATTACH_OFFSET_M,
     )
     expect(tandemHookDropM({ ...SETUP.load, hookDropsM: [2.2, 1.1] }, 1)).toBe(1.1)
+  })
+})
+
+describe('tandem — as lingas são as da geometria única (F-19; ADR-051)', () => {
+  it('a altura das lingas do tandem é a do planejador: cada guindaste ergue a sua metade', () => {
+    // 8 × 2 m em tandem: r = hipot(8/4, 2/2) = 2,236 m a 60° → queda 3,873 m (o backend usa a mesma
+    // tabela de casos em `test_rigging.py`).
+    expect(tandemSlingDropM(SETUP.load)).toBeCloseTo(Math.hypot(2, 1) * Math.tan(Math.PI / 3), 9)
+  })
+
+  it('acompanha o ângulo informado e é menor que a da carga inteira içada por um só', () => {
+    expect(tandemSlingDropM(SETUP.load, 45)).toBeCloseTo(Math.hypot(2, 1), 9)
+    expect(tandemSlingDropM(SETUP.load)).toBeLessThan(
+      defaultGeometry(8, 2, { angleDeg: 60 }).dropM + 1e-9,
+    )
   })
 })

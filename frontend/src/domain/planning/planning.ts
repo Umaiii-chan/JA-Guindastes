@@ -62,6 +62,14 @@ export interface PlanCraneDetail {
   readonly utilizationPercent: number
   readonly transportHeightM: number
   readonly crossedObstacleIds: readonly string[]
+  /**
+   * As lingas que o plano supôs (F-19; ADR-051): comprimento, ângulo com a horizontal e altura do ponto
+   * de suspensão ao topo da carga. É a geometria única (`domain/rigging/slingGeometry`): a cena toca o
+   * plano com as MESMAS lingas, então o engate do plano e o da cena coincidem.
+   */
+  readonly slingLengthM: number
+  readonly slingAngleDeg: number
+  readonly slingDropM: number
 }
 
 export type PlanTippingRisk = 'LOW' | 'ATTENTION' | 'HIGH'
@@ -102,4 +110,6 @@ export interface PlanningRequest {
   readonly accessoryIds: readonly string[]
   /** Do gancho ao ponto de amarração das lingas, medido na cena (m); ausente = padrão do servidor. */
   readonly hookAttachM?: number
+  /** Ângulo das lingas com a horizontal (30° a 90°); ausente = o padrão da carga (60°; F-19). */
+  readonly slingAngleDeg?: number
 }

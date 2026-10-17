@@ -5,6 +5,8 @@
 // pende na vertical (S-2), então o −Y local é "para baixo" e o +Z local segue a direção horizontal
 // da lança (o nó do cabo compensa a inclinação da lança; ver `CraneController`).
 
+import { defaultGeometry } from '../rigging/slingGeometry'
+
 /** Medidas da carga em metros. Comprimento na direção da lança, largura na transversal. */
 export interface LoadDimensions {
   readonly lengthM: number
@@ -42,14 +44,19 @@ export interface LoadBoxLayout {
 
 /**
  * Onde a carga está em relação ao gancho depois de engatada (TASK-073; ADR-035): deslocamento do centro
- * no plano do gancho, giro relativo e a altura das lingas, que é a distância que havia entre o gancho
- * e o topo da carga no momento de engatar.
+ * no plano do gancho, giro relativo e as lingas. A altura das lingas (`slingDropM`) é a da geometria
+ * única (`domain/rigging/slingGeometry`; F-19, ADR-051), a mesma que o planejador usa; comprimento e
+ * ângulo vêm da mesma conta (opcionais: gravações antigas só têm a altura).
  */
 export interface HookedCargoPose {
   readonly offsetX: number
   readonly offsetZ: number
   readonly yawDeg: number
   readonly slingDropM: number
+  /** Comprimento da linga (m) da geometria única. */
+  readonly slingLengthM?: number
+  /** Ângulo da linga com a horizontal (graus) da geometria única. */
+  readonly slingAngleDeg?: number
 }
 
 /** Mesma posição engatada? */
@@ -62,7 +69,9 @@ export function sameHookedPose(
     a.offsetX === b.offsetX &&
     a.offsetZ === b.offsetZ &&
     a.yawDeg === b.yawDeg &&
-    a.slingDropM === b.slingDropM
+    a.slingDropM === b.slingDropM &&
+    a.slingLengthM === b.slingLengthM &&
+    a.slingAngleDeg === b.slingAngleDeg
   )
 }
 
@@ -73,10 +82,13 @@ export function sameHookedPose(
  */
 export const HOOK_ATTACH_OFFSET_M = 1.05
 
-/** Altura das lingas entre o gancho e o topo da carga: metade do maior lado, entre 0,6 e 3 m. */
-export function slingDropM(load: LoadDimensions): number {
-  const half = Math.max(load.lengthM, load.widthM) / 2
-  return Math.min(3, Math.max(0.6, half))
+/**
+ * Altura das lingas entre o gancho e o topo da carga: a geometria única (F-19; ADR-051). Lingas em
+ * ponte a 60° com a horizontal (45° se a linga passaria de 8 m), ou o ângulo informado. Antes era a
+ * metade do maior lado entre 0,6 e 3 m, e o planejador usava outra conta.
+ */
+export function slingDropM(load: LoadDimensions, angleDeg?: number | null): number {
+  return defaultGeometry(load.lengthM, load.widthM, { angleDeg }).dropM
 }
 
 /** `true` se as três medidas forem números finitos maiores que zero. */
@@ -97,13 +109,14 @@ export function computeLoadBox(
   attachOffsetM: number = HOOK_ATTACH_OFFSET_M,
   accessoriesDropM = 0,
   hooked: HookedCargoPose | null = null,
+  slingAngleDeg: number | null = null,
 ): LoadBoxLayout | null {
   if (!isValidLoad(load)) return null
   const attach =
     Number.isFinite(attachOffsetM) && attachOffsetM > 0 ? attachOffsetM : HOOK_ATTACH_OFFSET_M
   // TASK-056 (RN-014): a cadeia de acessórios desce o ponto das lingas e a caixa.
   const drop = Number.isFinite(accessoriesDropM) && accessoriesDropM > 0 ? accessoriesDropM : 0
-  const sling = hooked ? hooked.slingDropM : slingDropM(load)
+  const sling = hooked ? hooked.slingDropM : slingDropM(load, slingAngleDeg)
   const topY = -(attach + drop + sling)
   const halfX = load.widthM / 2
   const halfZ = load.lengthM / 2

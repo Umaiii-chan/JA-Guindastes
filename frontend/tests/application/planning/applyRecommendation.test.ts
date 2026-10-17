@@ -25,6 +25,9 @@ function detail(configurationId: string): PlanCraneDetail {
     utilizationPercent: 40,
     transportHeightM: 5,
     crossedObstacleIds: [],
+    slingLengthM: 3.4,
+    slingAngleDeg: 60,
+    slingDropM: 2.9,
   }
 }
 

@@ -8,7 +8,8 @@ const GROUND: CargoStatus = {
   active: true,
   hasDelivery: true,
   state: { phase: 'ground', x: 10, z: 0, rotationYDeg: 0, result: 'none' },
-  gapM: 3,
+  gapM: 6,
+  slingDropM: 2.4,
   offsetM: 4,
 }
 
@@ -37,12 +38,22 @@ describe('dicas da coleta e entrega', () => {
     expect(guidance.currentStep).toBe('engage')
     expect(guidance.steps[0]?.done).toBe(true)
     expect(guidance.message).toContain('alinhe o gancho')
-    expect(guidance.message).toContain('baixe o gancho')
+    expect(guidance.message).toContain('baixe o gancho até 2,40 m do topo')
+    expect(guidance.message).toContain('as lingas esticam')
+  })
+
+  it('com o gancho abaixo do ponto em que as lingas esticam, manda subir até ele (F-19)', () => {
+    const guidance = cargoGuidance({
+      status: { ...GROUND, gapM: 1.2, offsetM: 0.1 },
+      cargoPlaced: true,
+      deliveryPlaced: true,
+    })
+    expect(guidance.message).toContain('suba o gancho até 2,40 m do topo')
   })
 
   it('manda tocar em Engatar quando o gancho está no lugar', () => {
     const guidance = cargoGuidance({
-      status: { ...GROUND, canEngage: true, gapM: 0.2, offsetM: 0.1 },
+      status: { ...GROUND, canEngage: true, gapM: 2.6, offsetM: 0.1 },
       cargoPlaced: true,
       deliveryPlaced: true,
     })
