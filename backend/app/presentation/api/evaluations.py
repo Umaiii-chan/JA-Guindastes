@@ -179,6 +179,7 @@ def create_evaluations_router(
             accessory_ids=request.accessory_ids,
             soil_kinds=to_soil_kinds(request.soil_kinds),
             wind_speed_ms=request.wind_speed_ms,
+            load_wind_area_m2=request.load_wind_area_m2,
             obstacle_conflicts=request.obstacle_conflicts,
         )
         return EvaluationResponse.from_evaluation(request.configuration_id, evaluation)
