@@ -14,4 +14,4 @@ Achados F-01, F-02 e F-13 da auditoria AUD-01 (2026-10-16, base `784a9e1`), no p
 
 ## Encerramento
 
-Mergeada pela pessoa responsável em 2026-10-17 (00h51, horário de Brasília; PR #48). Revisão independente (AGENTS.md § 3): a Coruja revisou e aprovou na segunda rodada. As pendências do `handoffs/TASK-088.md` § 8 (perguntas 2 a 5, sem bloquear) seguem na TASK-102 (branch `task/TASK-102-pendencias-planejador`).
+Mergeada pela pessoa responsável em 2026-10-17 (00h51, horário de Brasília; PR #48). Revisão independente (AGENTS.md § 3): a Coruja revisou e aprovou na segunda rodada. Pendências do `handoffs/TASK-088.md` § 8: ADR-042 aceito em 2026-10-17; o barracão aberto passou a ser oco (revisão do PR #48); a soltura sobre a carreta foi feita na TASK-101 (PR #55); continuam abertas a entrega sobre container (decisão da pessoa responsável) e as meias-medidas FICTÍCIAS da lança e do cabo (dependem da ficha). A altura da carroceria, o teste do giro da carga, o teste de plano no barracão e a nota da L-016 seguem na TASK-102.

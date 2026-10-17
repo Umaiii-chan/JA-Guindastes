@@ -166,12 +166,12 @@ A máquina estava carregada (outras frentes rodando): uma medição isolada do o
 
 | # | Pergunta | Bloqueia? | Resposta | Respondida em |
 |---|----------|-----------|----------|---------------|
-| 1 | Aceitar o ADR-042 (giro denso; lança e cabo descartam o plano; coleta coberta recusada; entrega só sobre a carreta)? | não | | |
-| 2 | Entregar sobre um container ou outra caixa que não é a carreta deve ser permitido (hoje é recusado)? | não | | |
-| 3 | O prompt da IA pede a carga **dentro** do "barracão aberto"; esses cenários agora são recusados com motivo. Mudar o prompt para a carga ficar na frente da porta? | não | | |
-| 4 | Abrir tarefa no frontend para a soltura sobre a carreta (§ 7) | não | | |
-| 5 | Meias-medidas FICTÍCIAS da lança (0,6 m) e do cabo com gancho (0,3 m): substituir pelas da ficha quando chegar | não | | |
-| 6 | O número ADR-042 foi escolhido porque o ADR-041 ficou para a TASK-089 e a TASK-096 usa o 043; se outra frente também usar o 042, renumerar no merge | não | | |
+| 1 | Aceitar o ADR-042 (giro denso; lança e cabo descartam o plano; coleta coberta recusada; entrega só sobre a carreta)? | não | Sim: ADR-042 Aceito (Anderson Sehnem, em chat) | 2026-10-17 |
+| 2 | Entregar sobre um container ou outra caixa que não é a carreta deve ser permitido (hoje é recusado)? | não | Aberta | |
+| 3 | O prompt da IA pede a carga **dentro** do "barracão aberto"; esses cenários agora são recusados com motivo. Mudar o prompt para a carga ficar na frente da porta? | não | Não: o barracão aberto passou a ser oco para o planejador, como na cena (revisão do PR #48) | 2026-10-17 |
+| 4 | Abrir tarefa no frontend para a soltura sobre a carreta (§ 7) | não | Feita na TASK-101 (PR #55) | 2026-10-17 |
+| 5 | Meias-medidas FICTÍCIAS da lança (0,6 m) e do cabo com gancho (0,3 m): substituir pelas da ficha quando chegar | não | Aberta: depende da ficha técnica | |
+| 6 | O número ADR-042 foi escolhido porque o ADR-041 ficou para a TASK-089 e a TASK-096 usa o 043; se outra frente também usar o 042, renumerar no merge | não | Mantido o 042; a nova tela ficou com o ADR-045 | 2026-10-17 |
 
 ## 9. ⚠️ Segurança
 
