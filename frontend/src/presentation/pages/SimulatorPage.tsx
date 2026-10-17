@@ -117,7 +117,7 @@ const SHEETS: readonly {
 ]
 
 /**
- * Página do simulador (ADR-017 § 2 e ADR-019, com o layout do ADR-042; TASK-095): a cena ocupa o
+ * Página do simulador (ADR-017 § 2 e ADR-019, com o layout do ADR-045; TASK-095): a cena ocupa o
  * palco inteiro e os painéis flutuam sobre ela, na camada `overlay-panel`. À esquerda, a barra de
  * ferramentas abre UMA folha lateral por vez (não modal; fecha com Esc ou no próprio botão; fechada,
  * só esconde). No topo, o chip da operação e a barra de vistas; no meio do topo, o editor e as

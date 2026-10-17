@@ -24,7 +24,7 @@ export interface SimulatorToolbarProps {
 }
 
 /**
- * Barra de ferramentas vertical do simulador (TASK-095; ADR-042): um botão por folha lateral, com o
+ * Barra de ferramentas vertical do simulador (TASK-095; ADR-045): um botão por folha lateral, com o
  * ícone e um rótulo curto embaixo, como o índice de uma prancha. A folha aberta fica marcada com o
  * filete laranja; clicar de novo fecha.
  */

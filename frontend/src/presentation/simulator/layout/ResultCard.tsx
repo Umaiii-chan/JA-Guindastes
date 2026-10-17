@@ -12,7 +12,7 @@ export interface ResultCardProps {
 }
 
 /**
- * Cartão de resultado no canto da cena (TASK-095; ADR-042). Guarda se "Detalhes" está aberto (e
+ * Cartão de resultado no canto da cena (TASK-095; ADR-045). Guarda se "Detalhes" está aberto (e
  * lembra entre visitas) e o entrega à ficha pelo contexto; os detalhes ficam no HTML mesmo fechados.
  */
 export function ResultCard({ result, extra }: ResultCardProps) {

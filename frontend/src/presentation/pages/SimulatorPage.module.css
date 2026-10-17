@@ -1,5 +1,5 @@
 /*
- * Simulador com a cena como prioridade (TASK-095; ADR-042, com o visual do ADR-019): a cena ocupa o
+ * Simulador com a cena como prioridade (TASK-095; ADR-045, com o visual do ADR-019): a cena ocupa o
  * palco inteiro e os painéis flutuam sobre ela, na camada `--z-overlay-panel`, em papel com moldura
  * de tinta e cantos retos (sem degradê nem vidro). A grade do `.hud` só posiciona; ela mesma não
  * pega o mouse (`pointer-events: none`), então a cena continua respondendo entre os painéis.

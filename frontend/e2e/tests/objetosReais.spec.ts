@@ -155,8 +155,12 @@ test('TASK-072: barracão, árvores, caminhão e carro; a carga entra pela porta
   await setSlider(page.getByLabel('Comprimento da lança'), 30)
   await setSlider(page.getByLabel('Comprimento do cabo'), 12)
   await expect(page.getByRole('alert').filter({ hasText: /bloqueado/ })).toBeVisible()
+  // Desde a TASK-091 o cabo e a lança podem citar o barracão ao mesmo tempo: basta um aviso com ele.
   await expect(
-    page.getByRole('group', { name: 'Colisões' }).getByText(/Galpão com frente aberta/),
+    page
+      .getByRole('group', { name: 'Colisões' })
+      .getByText(/Galpão com frente aberta/)
+      .first(),
   ).toBeVisible()
   if (SCREENSHOT_DIR) {
     await page.screenshot({ path: `${SCREENSHOT_DIR}/carga-barrada-pelo-telhado.png` })

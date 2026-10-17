@@ -1,4 +1,4 @@
-# ADR-042 — Tela do simulador com a cena como prioridade
+# ADR-045 — Tela do simulador com a cena como prioridade
 
 | Campo | Valor |
 |-------|-------|

@@ -1,4 +1,4 @@
-// Folhas laterais do simulador (TASK-095; ADR-042): o que um painel precisa saber da folha em que
+// Folhas laterais do simulador (TASK-095; ADR-045): o que um painel precisa saber da folha em que
 // está. As folhas ESCONDEM o conteúdo fechado, não o desmontam (F-20): o estado do planejamento, a
 // lista de cenários e as janelas da IA continuam vivos com a folha fechada.
 

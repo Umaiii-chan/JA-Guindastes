@@ -4,7 +4,7 @@ Pedido da pessoa responsável em 2026-10-16: "quero melhorar os menus dentro da 
 ocupam muito espaço e tem muitas informações, quero algo mais simples sem remover nada do que temos,
 quero que na tela de simulação o canva seja a prioridade, ocupe o maximo de espaço possivel na tela".
 
-Desenho registrado no [ADR-042](../../docs/decisions/ADR-042-tela-do-simulador-com-a-cena-como-prioridade.md)
+Desenho registrado no [ADR-045](../../docs/decisions/ADR-045-tela-do-simulador-com-a-cena-como-prioridade.md)
 (Proposto).
 
 ## Critérios de aceite

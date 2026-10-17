@@ -24,7 +24,7 @@ export interface ContextChipProps {
 }
 
 /**
- * Chip de contexto no topo da cena (TASK-095; ADR-042): o resumo dos passos 01 e 02 (guindaste e
+ * Chip de contexto no topo da cena (TASK-095; ADR-045): o resumo dos passos 01 e 02 (guindaste e
  * carga) e o progresso; clicar abre a folha "Configurar".
  */
 export function ContextChip({ summary, expanded, controls, onOpen }: ContextChipProps) {

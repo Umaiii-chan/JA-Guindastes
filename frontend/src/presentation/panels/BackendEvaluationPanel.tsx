@@ -91,7 +91,7 @@ const ALERT_ORDER: Record<SafetyAlertSeverity, number> = { CRITICAL: 0, ATTENTIO
 
 /**
  * Ficha do resultado OFICIAL, calculado no backend (RN-008), no cartão sobre a cena (TASK-095;
- * ADR-042, com o visual do ADR-019). No primeiro nível, o que se olha o tempo todo: a situação, a
+ * ADR-045, com o visual do ADR-019). No primeiro nível, o que se olha o tempo todo: a situação, a
  * régua da utilização, a capacidade, o peso comparado, o raio, o risco de tombamento e o alerta mais
  * grave. Em "Detalhes" (no HTML mesmo fechado), a conta carga + gancho + acessórios = peso comparado,
  * a zona de giro, o limite do modelo e a capacidade efetiva, todos os alertas e a consulta da tabela.

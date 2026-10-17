@@ -1,4 +1,4 @@
-// "Detalhes" do cartão de resultado (TASK-095; ADR-042): um só botão abre, no próprio cartão, a conta
+// "Detalhes" do cartão de resultado (TASK-095; ADR-045): um só botão abre, no próprio cartão, a conta
 // do peso, o limite, os alertas, a consulta e a geometria. O cartão guarda o estado; a ficha da
 // avaliação (ou a do tandem) mostra o botão no lugar certo e esconde o que é detalhe.
 

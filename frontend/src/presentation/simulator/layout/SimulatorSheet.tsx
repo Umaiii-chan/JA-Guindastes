@@ -18,7 +18,7 @@ const OPEN: SheetState = { open: true }
 const CLOSED: SheetState = { open: false }
 
 /**
- * Folha lateral NÃO modal sobre a cena (TASK-095; ADR-042): título, fechar e o conteúdo com rolagem
+ * Folha lateral NÃO modal sobre a cena (TASK-095; ADR-045): título, fechar e o conteúdo com rolagem
  * própria. Fechada, a folha fica `hidden` — o conteúdo continua montado (F-20).
  */
 export function SimulatorSheet({ id, title, open, onClose, children }: SimulatorSheetProps) {

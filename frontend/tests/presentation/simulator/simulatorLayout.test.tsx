@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Tela do simulador com a cena como prioridade (TASK-095; ADR-042): folhas que escondem sem
+// Tela do simulador com a cena como prioridade (TASK-095; ADR-045): folhas que escondem sem
 // desmontar (F-20), Esc, abertura sozinha com passos pendentes, "Detalhes" do cartão, janelas em tela
 // cheia (F-21), atalhos das vistas e o trilho recolhido no simulador.
 

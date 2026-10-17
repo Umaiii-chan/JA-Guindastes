@@ -1,4 +1,4 @@
-// Folha aberta no simulador (TASK-095; ADR-042), para os controles que estão fora das folhas (o chip
+// Folha aberta no simulador (TASK-095; ADR-045), para os controles que estão fora das folhas (o chip
 // de contexto, o estado das patolas na barra de comando) abrirem a folha certa.
 
 import { createContext, useContext } from 'react'
