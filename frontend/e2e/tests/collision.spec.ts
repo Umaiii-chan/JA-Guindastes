@@ -6,7 +6,12 @@
 import type { Page } from '@playwright/test'
 
 import { expect, test } from './auth.js'
-import { chooseConfiguration, fillValidLoad, mockCatalog } from './catalogMock.js'
+import {
+  chooseConfiguration,
+  fillValidLoad,
+  mockCatalog,
+  openResultDetails,
+} from './catalogMock.js'
 
 const SCREENSHOT_DIR = process.env.E2E_SCREENSHOT_DIR?.trim() ?? ''
 
@@ -29,6 +34,8 @@ async function openPositionStep(page: Page): Promise<void> {
   await expect(page.getByLabel('Comprimento do cabo')).toBeEnabled()
   await modelResponse
   await page.waitForTimeout(1500) // interpretar o GLB e trocar o guindaste
+  // A altura do gancho fica nos "Detalhes" do cartão de resultado (TASK-095).
+  await openResultDetails(page)
 }
 
 test('baixar o cabo até a carga tocar o chão para o cabo e mostra o alerta de colisão', async ({
