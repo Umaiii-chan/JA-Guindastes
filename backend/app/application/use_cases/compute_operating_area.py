@@ -7,9 +7,15 @@ o nível de cada uma:
 - `YELLOW`: na faixa de atenção do limite;
 - `GREEN`: abaixo da faixa de atenção.
 
-Usa a consulta conservadora do ADR-029 (a injetada), as zonas de giro e o gancho da configuração
-(ADR-018) e o perfil de segurança (`SafetyProfileProvider`; padrões FICTÍCIOS até a TASK-051).
-Na fronteira entre zonas vale a menor capacidade. Não grava nada.
+Usa a estratégia de consulta injetada, a mesma da avaliação (na composição, `app/main.py`, a
+interpolação linear provisória do ADR-030; a consulta conservadora do ADR-015/029 continua atrás
+da mesma porta), as zonas de giro e o gancho da configuração (ADR-018), os acessórios de içamento
+pedidos (RN-014) e o perfil de segurança (`SafetyProfileProvider`; padrões FICTÍCIOS até a
+TASK-051). Na fronteira entre zonas vale a menor capacidade. Não grava nada.
+
+O peso comparado é o da avaliação (`weight_compared_with_capacity`): carga + gancho + acessórios
+(RN-014). Um `accessory_id` que não existe no catálogo levanta `OperatingAreaInvalidInputError`,
+para a grade não sair verde com o peso subestimado.
 
 A grade vai de `radius_step` até o alcance horizontal máximo da lança (`a + L`, ADR-013), de
 `psi_step` em `psi_step` graus em [0°, 360°). O giro fora dos limites da ficha técnica não é
@@ -17,10 +23,11 @@ tratado à parte: a célula segue a tabela da zona.
 """
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
+from app.application.ports.accessory_repository import AccessoryProvider
 from app.application.ports.active_load_chart_provider import ActiveLoadChartProvider
 from app.application.ports.configuration_load_rules_provider import (
     ConfigurationLoadRules,
@@ -28,6 +35,7 @@ from app.application.ports.configuration_load_rules_provider import (
 )
 from app.application.ports.crane_geometry_provider import CraneGeometryProvider
 from app.application.ports.safety_profile_provider import SafetyProfileProvider
+from app.domain.entities.accessory import Accessory
 from app.domain.entities.load_chart import LoadChart
 from app.domain.services.compared_load_weight import weight_compared_with_capacity
 from app.domain.services.environment_factors import (
@@ -62,7 +70,8 @@ class OperatingAreaConfigurationNotFoundError(Exception):
 
 
 class OperatingAreaInvalidInputError(Exception):
-    """Parâmetros fora do que a grade aceita (passo inválido, grade grande demais, lança fora)."""
+    """Parâmetros fora do que a grade aceita (passo inválido, grade grande demais, lança fora,
+    acessório que não existe no catálogo)."""
 
 
 @dataclass(frozen=True)
@@ -93,12 +102,14 @@ class ComputeOperatingArea:
         load_chart_interpolator: LoadChartInterpolator,
         configuration_load_rules_provider: ConfigurationLoadRulesProvider | None = None,
         safety_profile_provider: SafetyProfileProvider | None = None,
+        accessory_provider: AccessoryProvider | None = None,
     ) -> None:
         self._geometry_provider = crane_geometry_provider
         self._chart_provider = active_load_chart_provider
         self._interpolator = load_chart_interpolator
         self._rules_provider = configuration_load_rules_provider
         self._profile_provider = safety_profile_provider
+        self._accessory_provider = accessory_provider
 
     def execute(
         self,
@@ -110,9 +121,11 @@ class ComputeOperatingArea:
         radius_step_m: float = 1.0,
         ground_slope_deg: float | None = None,
         wind_speed_ms: float | None = None,
+        accessory_ids: Sequence[str] = (),
     ) -> OperatingArea:
         """Calcula a grade. Inclinação e vento reduzem a capacidade em todas as células (RN-015);
-        terreno inclinado demais ou vento acima do limite deixam tudo vermelho.
+        terreno inclinado demais ou vento acima do limite deixam tudo vermelho. `accessory_ids`
+        (RN-014): cada ocorrência soma o peso do acessório ao peso comparado, como na avaliação.
         Levanta `OperatingAreaConfigurationNotFoundError` ou `OperatingAreaInvalidInputError`."""
         geometry = self._geometry_provider.get_crane_geometry(configuration_id)
         if geometry is None:
@@ -136,10 +149,11 @@ class ComputeOperatingArea:
                 "aumente psi_step_deg ou radius_step_m"
             )
 
+        accessories = self._resolve_accessories(accessory_ids)
         rules = self._rules(configuration_id)
         profile = self._profile(configuration_id)
         hook = rules.hook_block_weight or Mass(0.0)
-        compared = weight_compared_with_capacity(load_weight, hook)
+        compared = weight_compared_with_capacity(load_weight, hook, accessories)
         factor = slope_factor(ground_slope_deg, profile) * wind_factor(wind_speed_ms)
         blocked = slope_blocks(ground_slope_deg, profile) or wind_blocks(wind_speed_ms)
 
@@ -210,6 +224,20 @@ class ComputeOperatingArea:
                 return AreaLevel.YELLOW
             case LimitLevel.OK:
                 return AreaLevel.GREEN
+
+    def _resolve_accessories(self, accessory_ids: Sequence[str]) -> tuple[Accessory, ...]:
+        """Os acessórios pedidos, na ordem e com repetições, como `EvaluateOperation` resolve.
+
+        Na avaliação, um id desconhecido deixa a operação não avaliável (`ACCESSORY_NOT_FOUND`);
+        a grade não tem esse estado, então o pedido é recusado em vez de sair com o peso menor."""
+        if not accessory_ids:
+            return ()
+        provider = self._accessory_provider
+        found = {} if provider is None else provider.get_accessories(tuple(accessory_ids))
+        missing = [item for item in accessory_ids if item not in found]
+        if missing:
+            raise OperatingAreaInvalidInputError(f"acessório não encontrado: {missing[0]!r}")
+        return tuple(found[item] for item in accessory_ids)
 
     def _rules(self, configuration_id: str) -> ConfigurationLoadRules:
         provider = self._rules_provider

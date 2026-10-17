@@ -194,8 +194,13 @@ def build_compute_operating_area(
     active_load_chart_provider: ActiveLoadChartProvider,
     configuration_load_rules_provider: ConfigurationLoadRulesProvider | None = None,
     crane_limits_provider: CraneLimitsProvider | None = None,
+    accessory_provider: AccessoryProvider | None = None,
 ) -> ComputeOperatingArea:
-    """Área de operação (TASK-055) com a mesma estratégia de consulta da avaliação."""
+    """Área de operação (TASK-055) com a mesma estratégia de consulta da avaliação.
+
+    `accessory_provider` (TASK-094; RN-014): catálogo de acessórios, para somar ao peso comparado
+    os mesmos acessórios da avaliação.
+    """
     return ComputeOperatingArea(
         crane_geometry_provider=crane_geometry_provider,
         active_load_chart_provider=active_load_chart_provider,
@@ -206,6 +211,7 @@ def build_compute_operating_area(
             if crane_limits_provider is not None
             else None
         ),
+        accessory_provider=accessory_provider,
     )
 
 
@@ -217,7 +223,11 @@ def operating_area_per_request(engine: Engine) -> ComputeOperatingAreaDependency
             session_factory = sessionmaker(bind=connection)
             catalog = SqlAlchemyCraneCatalogRepository(session_factory)
             yield build_compute_operating_area(
-                catalog, SqlAlchemyLoadChartRepository(session_factory), catalog, catalog
+                catalog,
+                SqlAlchemyLoadChartRepository(session_factory),
+                catalog,
+                catalog,
+                SqlAlchemyAccessoryRepository(session_factory),
             )
 
     return provide
