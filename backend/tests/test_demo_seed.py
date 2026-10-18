@@ -26,6 +26,7 @@ from app.application.use_cases.import_load_chart import (
 )
 from app.application.use_cases.validate_load_chart_import import InvalidLoadChartImport
 from app.demo_seed import (
+    DEMO_ACCESSORIES,
     DEMO_CONFIGURATION_NAME,
     DEMO_CRANE_MODEL_NAME,
     DEMO_FRONT_ZONE,
@@ -43,14 +44,17 @@ from app.demo_seed import (
     LEGACY_DEMO_CONFIGURATION_NAME,
     LEGACY_DEMO_CRANE_MODEL_NAME,
     LEGACY_DEMO_PIVOT_OFFSET_M,
+    LEGACY_MOITAO_MODEL_FILE,
     DemoSeedError,
     DemoSeedResult,
     SeedAction,
+    _seed_accessory,
     build_demo_crane_geometry,
     build_demo_rotation_zones,
     main,
     seed_demo,
 )
+from app.domain.entities.accessory import Accessory, AccessoryType
 from app.domain.entities.load_chart import LoadChartStatus
 from app.domain.services.conservative_tabulated_lookup import ConservativeTabulatedLookup
 from app.domain.value_objects.crane_geometry import CraneGeometry
@@ -488,3 +492,52 @@ def test_ficha_e_nomes_anteriores_a_task_069_sao_migrados(demo: Demo) -> None:
     renamed_crane = demo.catalog.get_crane(DEMO_SEED_IDS.crane_id)
     assert renamed_crane is not None
     assert renamed_crane.model_name == DEMO_CRANE_MODEL_NAME
+
+
+class _AccessoryRepo:
+    """Repositório de acessórios em memória, só o que o seed usa."""
+
+    def __init__(self, *items: Accessory) -> None:
+        self.items = {item.id: item for item in items}
+
+    def get(self, accessory_id: str) -> Accessory | None:
+        return self.items.get(accessory_id)
+
+    def add(self, accessory: Accessory) -> None:
+        self.items[accessory.id] = accessory
+
+    def update(self, accessory: Accessory) -> bool:
+        if accessory.id not in self.items:
+            return False
+        self.items[accessory.id] = accessory
+        return True
+
+
+def _moitao() -> Accessory:
+    return next(item for item in DEMO_ACCESSORIES if item.type is AccessoryType.HOOK_BLOCK)
+
+
+def test_moitao_do_seed_nao_aponta_para_a_casa() -> None:
+    assert _moitao().model_file is None
+    assert _moitao().credit is None
+
+
+def test_banco_com_o_modelo_errado_do_moitao_fica_pendente_sem_perder_edicoes() -> None:
+    editado = replace(
+        _moitao(),
+        name="Moitão do cliente",
+        weight=Mass(400.0),
+        model_file=LEGACY_MOITAO_MODEL_FILE,
+        credit="Harmony-RS",
+        license="CC BY 4.0",
+    )
+    repo = _AccessoryRepo(editado)
+
+    step = _seed_accessory(repo, _moitao())  # type: ignore[arg-type]
+
+    assert step.action is SeedAction.MODEL_CLEARED
+    atual = repo.items[editado.id]
+    assert (atual.model_file, atual.credit, atual.license) == (None, None, None)
+    assert (atual.name, atual.weight) == ("Moitão do cliente", Mass(400.0))
+    # Rodar de novo não altera mais nada.
+    assert _seed_accessory(repo, _moitao()).action is SeedAction.ALREADY_EXISTS  # type: ignore[arg-type]
