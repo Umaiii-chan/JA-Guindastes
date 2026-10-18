@@ -99,8 +99,8 @@ O plano e a cena discordavam, e a carga planejada não pousava onde o plano dizi
 
 - [x] `docs/known-gaps.md` (L-018 e L-019)
 - [x] índice em `docs/decisions/README.md`
-- [ ] `docs/business-rules.md` não foi alterado por agente: as regras de rede elétrica e de içamento
-  crítico precisam ser registradas pela pessoa responsável (RN a numerar).
+- [x] `docs/business-rules.md`: RN-018 (rede elétrica), RN-019 (içamento crítico) e RN-020 (altura
+  das lingas), registradas a pedido do Anderson em 2026-10-18
 
 ## Evidências
 

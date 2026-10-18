@@ -7,7 +7,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Última revisão | 2026-09-26 |
+| Última revisão | 2026-10-18 |
 | Aprovado por | Anderson Sehnem (transcrição da doc-fonte autorizada em 2026-09-26, TASK-002) |
 
 ---
@@ -234,6 +234,61 @@ A capacidade efetiva (RN-011) deixa de ter fator de inclinação e de vento (os 
 **Testes relacionados:** `backend/tests/domain/test_stability.py`, `backend/tests/domain/test_environment_factors.py`, `backend/tests/presentation/test_evaluations.py`, `frontend/tests/infrastructure/api/evaluationStability.test.ts`
 **Origem:** decisão D1 do Anderson Sehnem, em chat em 2026-10-16 (auditoria da física)
 
+### RN-018 — Distância mínima de rede elétrica aérea
+
+**Status:** Ativa
+**Contexto:** avaliação operacional e planejamento (TASK-107; ADR-051). Decisão D4 do Anderson Sehnem, delegada ao agente ("decida por mim, quanto mais real melhor"), em 2026-10-17.
+**Regra:** o cenário pode ter trechos de rede elétrica aérea (`power_lines`: trecho reto horizontal, altura de 0,5 a 200 m, tensão de 0 exclusive a 1000 kV, até 20 trechos). A **tensão é entrada do ambiente**. A distância mínima entre a rede e qualquer parte do guindaste ou da carga é a **Tabela A da OSHA 29 CFR 1926.1408**: até 50 kV, 10 pés (3,05 m); acima de 50 até 200 kV, 15 pés (4,57 m); acima de 200 até 350 kV, 20 pés (6,10 m); acima de 350 até 500 kV, 25 pés (7,62 m); acima de 500 até 750 kV, 35 pés (10,67 m); acima de 750 até 1000 kV, 45 pés (13,72 m). O limite da faixa pertence a ela. Tensão fora de 0–1000 kV é recusada.
+- **Conferência:** distância 3D mínima entre o trecho e a lança (do pino à ponta), o cabo de aço (da ponta ao gancho) e a carga pendurada (cilindro com a meia-diagonal da pegada; no tandem, o canto mais afastado da metade içada), **na posição atual e com o giro varrido de 0° a 360°**, de 1° em 1°.
+- **Resultado:** abaixo da mínima, alerta **crítico** (`POWER_LINE_CLEARANCE_VIOLATION`, ou `POWER_LINE_SWEPT_VIOLATION` se só a varredura do giro viola); abaixo de 1,5 × a mínima, **atenção**.
+- **Planejamento:** cada trecho é um obstáculo elevado, com a caixa crescida da distância mínima em todas as direções; o plano nunca leva lança, cabo ou carga abaixo da mínima.
+- **Sem `power_lines`** (ou sem o `site` da avaliação), não há conferência nem alerta. Os alertas de rede **não mudam** o `tipping_risk`.
+**Exemplos:**
+- 13,8 kV e 33 kV: mínima de 3,05 m; 138 kV: 4,57 m (e não 3,94 m, como dava a fórmula antiga "10 pés + 0,4 pol por kV", trocada pela Tabela A)
+- a ponta da lança a 2,25 m de um trecho de 13,8 kV → alerta crítico; a 4,0 m → atenção (abaixo de 1,5 × 3,05 = 4,57 m); a 5,0 m → sem alerta
+- a ponta a 5,0 m na posição atual, mas a 2,5 m quando o giro passa por 40° → `POWER_LINE_SWEPT_VIOLATION`
+**Exceções:** a NR-10 e a NR-11 são o contexto normativo brasileiro, mas não trazem tabela própria de distância para guindaste; ficam citadas no plano de içamento exigido (RN-019). A rede é um trecho reto horizontal e o terreno sob ela vale y = 0 na avaliação. A Tabela A foi conferida no osha.gov pela implementação; a equivalência com a norma brasileira não foi verificada.
+**Testes relacionados:** `backend/tests/domain/services/test_power_line.py`, `backend/tests/fixtures/power_line_clearance_cases.json`, `backend/tests/domain/services/planning/test_planner.py`, `frontend/tests/domain/environment/powerLine.test.ts`
+**Origem:** decisão D4 do Anderson Sehnem, em chat em 2026-10-17 (delegada ao agente; a tabela inicial estava errada e foi trocada pela Tabela A)
+
+### RN-019 — Içamento crítico
+
+**Status:** Ativa
+**Contexto:** avaliação operacional (TASK-107; ADR-051). Decisão D4 do Anderson Sehnem, delegada ao agente, em 2026-10-17.
+**Regra:** o içamento é **crítico** quando **qualquer** destes gatilhos vale:
+- carga comparada (RN-014) **≥ 75 %** da capacidade efetiva (RN-011);
+- içamento em tandem (RN-016);
+- carga sobre pessoas ou estruturas ocupadas (informado pelo usuário);
+- distância à rede elétrica abaixo de **1,5 ×** a mínima (RN-018), inclusive na varredura do giro;
+- vento acima de **70 %** da velocidade máxima de rajada da carga (`wind_limit_ms`, RN-017);
+- solo sob as sapatas em atenção, ou inclinação residual a **70 %** ou mais do máximo do modelo.
+
+Içamento crítico **não é proibido**: gera o alerta `CRITICAL_LIFT` (severidade **atenção**) com **a razão de cada gatilho e o plano de içamento exigido**: responsável técnico, memória de cálculo, supervisor e sinaleiro, análise de risco e permissão de trabalho, mais itens por gatilho (rede e NR-10, tandem, evacuação, vento, solo). O alerta não muda o `tipping_risk` e só aparece quando a avaliação recebe o `site`.
+**Exemplos:**
+- carga comparada de 3 000 kg com capacidade efetiva de 4 000 kg (75 %) → crítico, razão "carga a 75 % da capacidade"
+- carga de 2 000 kg com capacidade de 4 000 kg (50 %), sem rede, sem vento, em solo bom → não é crítico
+- tandem com cada guindaste a 60 % → crítico (tandem), com o plano exigido
+**Exceções:** os limiares de 75 %, 70 % e 70 % são decisão do agente, delegada pelo Anderson, e não vêm de norma conferida; o plano exigido é uma lista de itens, não um documento. O cálculo depende da capacidade efetiva e do vento de RN-011 e RN-017, cujos valores numéricos são FICTÍCIOS até haver dado oficial (D5).
+**Testes relacionados:** `backend/tests/domain/services/test_power_line.py`, `backend/tests/application/test_evaluate_operation_site.py`, `backend/tests/presentation/test_evaluations.py`, `frontend/tests/presentation/panels/PowerLinePanels.test.ts`
+**Origem:** decisão D4 do Anderson Sehnem, em chat em 2026-10-17 (delegada ao agente)
+
+### RN-020 — Altura das lingas: uma só geometria
+
+**Status:** Ativa
+**Contexto:** planejamento, engate e cena (TASK-107; ADR-051). Decisão F-19 do Anderson Sehnem, delegada ao agente, em 2026-10-17. Substitui as quatro definições anteriores da altura das lingas (planejador, cena do guindaste único, tandem com 1,5 m fixos e folga medida no engate).
+**Regra:** a altura entre o gancho (ou a cadeia de acessórios, RN-014) e o topo da carga vem da **geometria real de amarração em ponte**, a mesma no planejador, na avaliação e na cena: `r` é a meia-diagonal da pegada da carga (no tandem, da metade que cada guindaste ergue); `α` é o ângulo da linga com a **horizontal**; o comprimento da linga é `L = r ÷ cos α` e a **queda** é `r · tan α`, com piso de 0,3 m.
+- **Ângulo padrão:** α = 60°; se a linga passar de 8 m, 45°; se ainda passar, 45° e o aparelho real pediria balancim (`needs_spreader`).
+- **Ângulo informado:** de 30° (ASME B30.9) a 85°; fora disso, 422.
+- **Planejador:** o gancho de coleta do plano fica a `queda` acima do topo da carga, e o plano devolve `sling_length_m`, `sling_angle_deg` e `sling_drop_m` por guindaste.
+- **Engate na cena:** vale com o fim do gancho de −0,1 m a +0,5 m em torno de `queda` acima do topo da carga; a altura gravada é a da geometria, não a folga medida no instante do engate.
+**Exemplos:**
+- carga 2 × 2 m (r = 1,41 m) a 60°: queda = 1,41 · tan 60° = 2,45 m e linga de 2,83 m
+- a mesma carga a 45°: queda = 1,41 m
+- ângulo informado de 20° ou de 88° → 422
+**Exceções:** a tela não tem controle do ângulo da linga (backend e cliente aceitam; fica o padrão). A altura de amarração medida na cena (`hook_attach_m`) ainda não vai no `site`: vale o padrão de 1,05 m. Cargas pequenas e compridas ficam com lingas mais altas que antes, e planos com pouco vão (sob arco, galpão) podem fechar só com ângulo menor.
+**Testes relacionados:** `backend/tests/domain/services/test_rigging.py`, `backend/tests/fixtures/sling_geometry_cases.json` (lida também pelo vitest), `frontend/tests/domain/rigging`
+**Origem:** decisão F-19 do Anderson Sehnem, em chat em 2026-10-17 (delegada ao agente)
+
 ---
 
 ## Regras por domínio (índice)
@@ -246,6 +301,9 @@ A capacidade efetiva (RN-011) deixa de ter fator de inclinação e de vento (os 
 | Validação frontend ↔ backend | RN-008 |
 | Içamento com dois guindastes | RN-016 |
 | Estabilidade, vento e inclinação (física) | RN-017 (substitui RN-013 e RN-015) |
+| Rede elétrica aérea | RN-018 |
+| Içamento crítico | RN-019 |
+| Altura das lingas (geometria única) | RN-020 |
 
 ---
 
