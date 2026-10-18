@@ -72,14 +72,16 @@ export function ConnectionStatusBar({
         )}
       </span>
       {/* Sempre no lugar, só a visibilidade muda: montar e desmontar a célula empurra a barra
-          a cada avaliação (o tremor da tela). */}
+          a cada avaliação (o tremor da tela). Na barra compacta (sobre a cena) só o indicador
+          ocupa lugar: reservar o texto abria um vazio e jogava as ações para uma segunda linha. */}
       <span
-        className={cx(styles.cell, styles.pending)}
+        className={cx(styles.cell, styles.pending, compact && styles.pendingCompact)}
         title={pending ? pendingText : undefined}
         style={{ visibility: pending ? 'visible' : 'hidden' }}
         aria-hidden={!pending}
       >
-        <Spinner size={10} /> <span className={styles.pendingText}>{pendingText}</span>
+        <Spinner size={10} />{' '}
+        <span className={compact ? 'visually-hidden' : styles.pendingText}>{pendingText}</span>
       </span>
       <span className={styles.spacer} aria-hidden="true" />
       {cameraActions ?? (
