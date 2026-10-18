@@ -210,6 +210,7 @@ class SeedAction(StrEnum):
     ALREADY_ACTIVE = "já estava ativa; nada alterado"
     UPDATED = "atualizada (ficha e nomes atuais)"
     RENAMED = "renomeado (nome atual)"
+    MODEL_CLEARED = "modelo 3D errado removido (fica pendente)"
     SUPERSEDED_KEPT = "está SUPERSEDED (outra versão foi ativada); não reativada"
 
 
@@ -242,6 +243,9 @@ class DemoSeedError(Exception):
 # Acessórios com modelo 3D de terceiros (TASK-065). Peso e altura são valores de referência do
 # fabricante típico; o administrador ajusta no catálogo. Os créditos CC BY 4.0 estão em
 # frontend/public/models/acessorios/CREDITS.md.
+LEGACY_MOITAO_MODEL_FILE = "moitao-mccarthy-harmony-rs.glb"
+"""Modelo que o seed registrou para o moitão e que não era um moitão (era uma casa; TASK-115)."""
+
 DEMO_ACCESSORIES: tuple[Accessory, ...] = (
     Accessory(
         id="acessorio-moitao-mccarthy",
@@ -249,9 +253,8 @@ DEMO_ACCESSORIES: tuple[Accessory, ...] = (
         name="Moitão de 4 polias",
         weight=Mass(350.0),
         rigging_height_m=1.4,
-        model_file="moitao-mccarthy-harmony-rs.glb",
-        credit="P11789F - McCarthy - Hook Block 4, de Harmony-RS (Sketchfab)",
-        license="CC BY 4.0",
+        # Sem modelo 3D até haver um moitão de verdade (TASK-115): o arquivo de antes era uma casa.
+        model_file=None,
     ),
     Accessory(
         id="acessorio-gancho-giratorio",
@@ -321,7 +324,12 @@ def seed_demo(
 
 def _seed_accessory(accessories: AccessoryRepository, accessory: Accessory) -> SeedStep:
     entity = "acessório"
-    if accessories.get(accessory.id) is not None:
+    existing = accessories.get(accessory.id)
+    if existing is not None:
+        # Só o modelo errado de antes é trocado; o resto do que o administrador editou fica.
+        if existing.model_file == LEGACY_MOITAO_MODEL_FILE:
+            accessories.update(replace(existing, model_file=None, credit=None, license=None))
+            return SeedStep(entity, accessory.id, SeedAction.MODEL_CLEARED)
         return SeedStep(entity, accessory.id, SeedAction.ALREADY_EXISTS)
     accessories.add(accessory)
     return SeedStep(entity, accessory.id, SeedAction.CREATED)
