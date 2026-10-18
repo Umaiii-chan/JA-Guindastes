@@ -129,8 +129,10 @@ describe('conexão compacta', () => {
     expect(cell.style.visibility).toBe('visible')
   })
 
-  it('"atualizando…" fica visível', () => {
+  it('"atualizando…" mostra o indicador e deixa o texto para leitor de tela (sem reservar largura de texto)', () => {
     render(<ConnectionStatusBar connectionStatus="rest" transport="rest" pending compact />)
-    expect(screen.getByText('atualizando…').className).not.toContain('visually-hidden')
+    const text = screen.getByText('atualizando…')
+    expect(text.className).toContain('visually-hidden')
+    expect((text.closest('[aria-hidden]') as HTMLElement).style.visibility).toBe('visible')
   })
 })
