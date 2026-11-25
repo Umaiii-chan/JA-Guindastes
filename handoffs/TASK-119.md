@@ -49,6 +49,14 @@ Nada fora do escopo.
 | `npx vitest run` (suíte inteira) | 1ª execução: ✅ 1359 passed, 1 skipped. Execuções seguintes, com a máquina ocupada: ⚠️ 3 a 19 falhas por timeout de 5 s só em `authFlow`, `appRoutes`, `catalog*`, `tables*` (conjuntos diferentes a cada vez); esses arquivos passam isolados. Instabilidade sob carga, não ligada a esta mudança (mesma família da TASK-114) |
 | `bash scripts/check-structure.sh` | ✅ 0 erros |
 
+## 4b. Correções da revisão do PR (Sourcery)
+
+Aceitas: desfazer o engate do tandem ao repetir (`MultiCrane.disengage`), coleta nova a cada viagem,
+memória da viagem zerada ao trocar de cenário, coleta que acompanha o caminhão movido
+(`CargoOperation.start`), `reset` sem efeito durante reprodução, teste com entrega longe da coleta,
+L-020 em `known-gaps.md`. Não feito: Guindaste 2 voltar ao início (L-020); aceitar o ADR-053 (é da pessoa
+responsável); testes do tandem e da tela (sem execução manual registrada, escrito em § 6).
+
 ## 5. Decisões
 
 - Tecla R, sem modificadores, fora de campos/sliders/modal: segue o padrão das teclas 1–4.

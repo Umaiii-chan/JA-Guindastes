@@ -47,6 +47,8 @@ export interface CraneViewportHandle {
   setCargoPlayback(state: CargoState | null): void
   /** Devolve a carga ao ponto de coleta e zera o resultado (TASK-119). */
   resetCargo(): void
+  /** Desfaz o engate do tandem (TASK-119). */
+  resetTandem(): void
   /** Engata os dois ganchos nos pontos de içamento (TASK-074); `null` sem tandem ou sem cena. */
   engageTandem(): EngageResult | null
   /** Solta a carga do tandem, se ela estiver apoiada no chão (TASK-074). */
@@ -210,6 +212,7 @@ export function CraneViewport({
       getCargoStatus: () => sceneRef.current?.getCargoStatus() ?? null,
       setCargoPlayback: (state) => sceneRef.current?.setCargoPlayback(state),
       resetCargo: () => sceneRef.current?.resetCargo(),
+      resetTandem: () => sceneRef.current?.resetTandem(),
       engageTandem() {
         return sceneRef.current?.engageTandem() ?? null
       },

@@ -104,32 +104,64 @@ describe('coleta e entrega na cena', () => {
   })
 
   it('depois de entregar, reset devolve a carga à coleta e dá para simular de novo (TASK-119)', () => {
+    const { contents, load, spec } = setup()
+    contents.cargo.setLoad(load)
+    contents.cargo.setScenario(spec)
+    contents.cargo.engage(2_000)
+    // Leva a carga para longe da coleta e a entrega ali, sob o gancho.
+    contents.crane.setTurretRotation(40)
+    const moved = contents.crane.getOperationalGeometry().hook
+    const delivery = { x: moved.xM, z: moved.zM, rotationYDeg: 0, radiusM: 3 }
+    contents.cargo.setScenario({ ...spec, delivery })
+    contents.cargo.release(14_500)
+    expect(contents.cargo.status.state?.result).toBe('delivered')
+    const dropped = contents.cargo.status.state
+    // A carga está longe da coleta: o teste só vale se entrega e coleta forem lugares diferentes.
+    expect(
+      Math.hypot(
+        (dropped?.x ?? 0) - (spec.cargo?.x ?? 0),
+        (dropped?.z ?? 0) - (spec.cargo?.z ?? 0),
+      ),
+    ).toBeGreaterThan(1)
+
+    contents.cargo.reset()
+    const state = contents.cargo.status.state
+    expect(state?.phase).toBe('ground')
+    expect(state?.result).toBe('none')
+    expect(state?.elapsedMs).toBeUndefined()
+    expect(state?.x).toBeCloseTo(spec.cargo?.x ?? NaN, 6)
+    expect(state?.z).toBeCloseTo(spec.cargo?.z ?? NaN, 6)
+    expect(contents.cargo.ground.visible).toBe(true)
+    // O guindaste fica onde está (a tela o devolve ao início): de volta sobre a coleta, dá para engatar.
+    contents.crane.setTurretRotation(0)
+    contents.cargo.refresh()
+    expect(contents.cargo.status.canEngage).toBe(true)
+
+    // Nova rodada: o tempo conta do novo engate, não do anterior.
+    expect(contents.cargo.engage(30_000)).toBe(true)
+    contents.crane.setTurretRotation(40)
+    expect(contents.cargo.release(31_000)).toBe(true)
+    expect(contents.cargo.status.state?.result).toBe('delivered')
+    expect(contents.cargo.status.state?.elapsedMs).toBe(1_000)
+  })
+
+  it('reset não faz nada durante a reprodução de uma gravação (TASK-119)', () => {
     const { contents, hook, load, spec } = setup()
     contents.cargo.setLoad(load)
     contents.cargo.setScenario({
       ...spec,
       delivery: { x: hook.xM, z: hook.zM, rotationYDeg: 0, radiusM: 1 },
     })
-    contents.cargo.engage(2_000)
-    contents.cargo.release(14_500)
-    expect(contents.cargo.status.state?.result).toBe('delivered')
-
-    // Solta fora da coleta: a carga está no ponto de entrega, no chão.
+    contents.cargo.engage(1_000)
+    const frame = { phase: 'ground', x: 3, z: 4, rotationYDeg: 0, result: 'outside' } as const
+    contents.cargo.setPlayback(frame)
     contents.cargo.reset()
-    const state = contents.cargo.status.state
-    expect(state?.phase).toBe('ground')
-    expect(state?.result).toBe('none')
-    expect(state?.elapsedMs).toBeUndefined()
-    expect(state?.x).toBe(spec.cargo?.x)
-    expect(state?.z).toBe(spec.cargo?.z)
-    expect(contents.cargo.ground.visible).toBe(true)
-    expect(contents.cargo.status.canEngage).toBe(true)
-
-    // Nova rodada: o tempo conta do novo engate, não do anterior.
-    expect(contents.cargo.engage(30_000)).toBe(true)
-    expect(contents.cargo.release(31_000)).toBe(true)
-    expect(contents.cargo.status.state?.result).toBe('delivered')
-    expect(contents.cargo.status.state?.elapsedMs).toBe(1_000)
+    expect(contents.cargo.status.state).toEqual(frame)
+    contents.cargo.setPlayback(null)
+    expect(contents.cargo.status.state?.phase).toBe('hooked')
+    // O tempo da operação não se perdeu: conta do engate (1 000 ms).
+    expect(contents.cargo.release(4_000)).toBe(true)
+    expect(contents.cargo.status.state?.elapsedMs).toBe(3_000)
   })
 
   it('com acessórios, a cadeia para no topo da carga no chão, e dá para engatar (TASK-091)', () => {

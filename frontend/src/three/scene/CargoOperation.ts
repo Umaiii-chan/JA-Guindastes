@@ -55,6 +55,8 @@ export class CargoOperation {
   private size: LoadDimensions | null = null
   private placement: CargoPlacement | null = null
   private live: CargoState | null = null
+  /** Estado de partida da carga (a coleta); acompanha o caminhão movido no editor, como `live`. */
+  private start: CargoState | null = null
   /** Quadro de uma gravação em reprodução; vale no lugar do estado ao vivo. */
   private override: CargoState | null = null
   private startedAtMs: number | null = null
@@ -104,9 +106,15 @@ export class CargoOperation {
     if (!samePlacement(placement, this.placement)) {
       this.placement = placement ? { ...placement } : null
       this.resetLive()
-    } else if (this.live && this.size) {
-      // Carga solta sobre a carroceria acompanha o caminhão movido no editor (TASK-103; ADR-047).
-      this.live = followLoadBed(this.live, previous.obstacles, spec.obstacles, previous.terrain)
+    } else {
+      // Carga solta sobre a carroceria acompanha o caminhão movido no editor (TASK-103; ADR-047), e a
+      // coleta de "repetir" também (só com a posição inalterada: uma posição nova já nasce certa).
+      if (this.live && this.size) {
+        this.live = followLoadBed(this.live, previous.obstacles, spec.obstacles, previous.terrain)
+      }
+      if (this.start) {
+        this.start = followLoadBed(this.start, previous.obstacles, spec.obstacles, previous.terrain)
+      }
     }
     this.sync()
   }
@@ -174,9 +182,14 @@ export class CargoOperation {
     return true
   }
 
-  /** Volta a carga ao chão, na posição escolhida, e zera o resultado. */
+  /**
+   * Volta a carga à coleta (na carroceria, onde o caminhão está agora) e zera o resultado. Durante a
+   * reprodução de uma gravação não faz nada: o quadro dela vale no lugar do estado ao vivo.
+   */
   reset(): void {
-    this.resetLive()
+    if (this.override) return
+    this.live = this.start ? { ...this.start } : null
+    this.startedAtMs = null
     this.sync()
   }
 
@@ -188,7 +201,9 @@ export class CargoOperation {
   }
 
   private resetLive(): void {
-    this.live = this.placement ? initialCargoState(this.placement) : null
+    const fresh = this.placement ? initialCargoState(this.placement) : null
+    this.live = fresh
+    this.start = fresh
     this.startedAtMs = null
   }
 
