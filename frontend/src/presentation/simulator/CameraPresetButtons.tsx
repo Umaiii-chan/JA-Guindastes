@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 import { cx } from '../ui'
+import { typingInControl } from './typingInControl'
 import styles from './CameraPresetButtons.module.css'
 
 /**
@@ -26,13 +27,6 @@ export interface CameraPresetButtonsProps {
    * deslizantes, e nunca com uma janela modal aberta.
    */
   readonly shortcuts?: boolean
-}
-
-/** O foco está num controle que usa o teclado por conta própria (campo, lista, slider…)? */
-function typingInControl(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  if (target.isContentEditable) return true
-  return target.closest('input, select, textarea, [role="slider"], [role="spinbutton"]') !== null
 }
 
 /**

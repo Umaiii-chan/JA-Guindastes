@@ -191,6 +191,11 @@ export interface CraneSceneHandle {
   releaseCargo(): boolean
   /** Mostra o estado da carga de uma gravação em reprodução; `null` volta ao estado ao vivo. */
   setCargoPlayback(state: CargoState | null): void
+  /**
+   * Devolve a carga de um guindaste só ao ponto de coleta (no chão ou na carroceria de origem) e zera o
+   * resultado e o tempo da operação, para simular de novo (TASK-119). Não mexe no guindaste.
+   */
+  resetCargo(): void
   /** Última situação da coleta e entrega. */
   getCargoStatus(): CargoStatus
   /**
@@ -716,6 +721,11 @@ export function mountCraneScene(
     setCargoPlayback(state) {
       if (disposed) return
       cargo.setPlayback(state)
+      invalidate()
+    },
+    resetCargo() {
+      if (disposed) return
+      cargo.reset()
       invalidate()
     },
     getCargoStatus() {

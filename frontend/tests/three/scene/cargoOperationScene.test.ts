@@ -103,6 +103,35 @@ describe('coleta e entrega na cena', () => {
     expect(contents.cargo.status.state?.elapsedMs).toBe(12_500)
   })
 
+  it('depois de entregar, reset devolve a carga à coleta e dá para simular de novo (TASK-119)', () => {
+    const { contents, hook, load, spec } = setup()
+    contents.cargo.setLoad(load)
+    contents.cargo.setScenario({
+      ...spec,
+      delivery: { x: hook.xM, z: hook.zM, rotationYDeg: 0, radiusM: 1 },
+    })
+    contents.cargo.engage(2_000)
+    contents.cargo.release(14_500)
+    expect(contents.cargo.status.state?.result).toBe('delivered')
+
+    // Solta fora da coleta: a carga está no ponto de entrega, no chão.
+    contents.cargo.reset()
+    const state = contents.cargo.status.state
+    expect(state?.phase).toBe('ground')
+    expect(state?.result).toBe('none')
+    expect(state?.elapsedMs).toBeUndefined()
+    expect(state?.x).toBe(spec.cargo?.x)
+    expect(state?.z).toBe(spec.cargo?.z)
+    expect(contents.cargo.ground.visible).toBe(true)
+    expect(contents.cargo.status.canEngage).toBe(true)
+
+    // Nova rodada: o tempo conta do novo engate, não do anterior.
+    expect(contents.cargo.engage(30_000)).toBe(true)
+    expect(contents.cargo.release(31_000)).toBe(true)
+    expect(contents.cargo.status.state?.result).toBe('delivered')
+    expect(contents.cargo.status.state?.elapsedMs).toBe(1_000)
+  })
+
   it('com acessórios, a cadeia para no topo da carga no chão, e dá para engatar (TASK-091)', () => {
     const contents = buildCraneScene()
     contents.crane.setCollisionGuard(contents.collisions)

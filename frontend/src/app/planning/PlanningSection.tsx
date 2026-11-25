@@ -16,6 +16,7 @@ import { DEFAULT_CARGO, DEFAULT_DELIVERY } from '../../application/planning/plan
 import { trajectoryOfCrane } from '../../application/planning/trajectoryPlayback'
 import type { CargoPlacement, DeliveryPoint } from '../../domain/environment/environment'
 import type { PlanCraneState, PlanningRequest } from '../../domain/planning/planning'
+import { typingInControl } from '../../presentation/simulator/typingInControl'
 import { PlanningPanel } from '../../presentation/simulator/PlanningPanel'
 import type { CraneCommands, CraneState } from '../../three/crane/types'
 import { useCatalog } from '../catalog/catalogContext'
@@ -49,6 +50,11 @@ export interface PlanningSectionProps {
   /** Do gancho ao ponto de amarração das lingas, medido na cena; `null` sem cena. */
   getHookAttachM(): number | null
   /**
+   * Devolve a carga ao ponto de coleta para simular de novo (TASK-119): no guindaste só, a carga volta ao
+   * chão (ou à carroceria) de origem; no tandem, a posição da carga no cenário volta à da coleta.
+   */
+  onResetCargo(): void
+  /**
    * Engata a carga (TASK-073) ou, no tandem, os dois guindastes (TASK-074), no quadro "Engatar" da
    * trajetória. Devolve `null` se engatou, ou o motivo; com motivo, a execução para.
    */
@@ -69,6 +75,7 @@ export function PlanningSection({
   refreshMs,
   onExtendOutriggers,
   getHookAttachM,
+  onResetCargo,
   onEngage,
   onRelease,
   disabled,
@@ -244,6 +251,39 @@ export function PlanningSection({
     setGuideActive(true)
   }, [playback])
 
+  // Simular de novo (TASK-119): a carga volta à coleta, o guindaste ao estado inicial da trajetória
+  // (se a recomendação está aplicada) e o passo a passo ao primeiro passo.
+  const restartStart = points[0]?.state
+  const restart = () => {
+    playback.reset()
+    setOperationMessage(null)
+    onResetCargo()
+    if (applied && restartStart && commandsRef.current) {
+      applyPlanState(commandsRef.current, restartStart)
+      onCraneMoved()
+    }
+    setGuideIndex(0)
+  }
+  const restartRef = useRef(restart)
+  useEffect(() => {
+    restartRef.current = restart
+  })
+  const canRestart = selected !== undefined && !disabled && !applying && commands !== null
+  useEffect(() => {
+    if (!canRestart) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'r') return
+      if (event.defaultPrevented || event.repeat) return
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+      if (typingInControl(event.target)) return
+      if (document.querySelector('[aria-modal="true"]')) return
+      event.preventDefault()
+      restartRef.current()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [canRestart])
+
   const guide = {
     active: guideActive,
     finished,
@@ -283,6 +323,7 @@ export function PlanningSection({
       applying={applying}
       applied={applied}
       canRun={!disabled && commands !== null}
+      onRestart={() => restartRef.current()}
       playback={{
         playing: playback.playing,
         progress: playback.progress,
