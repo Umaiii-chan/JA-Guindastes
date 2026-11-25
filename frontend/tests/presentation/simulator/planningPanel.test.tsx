@@ -4,7 +4,11 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import type { PlanRecommendation, PlanningResult } from '../../../src/domain/planning/planning'
+import type {
+  PlanCraneDetail,
+  PlanRecommendation,
+  PlanningResult,
+} from '../../../src/domain/planning/planning'
 import {
   PlanningPanel,
   type PlanningPanelProps,
@@ -125,5 +129,65 @@ describe('PlanningPanel', () => {
     render(<PlanningPanel {...props({ recommendations: [], notes: [], timedOut: false })} />)
 
     expect(screen.queryByText(TIMED_OUT_TEXT)).toBeNull()
+  })
+
+  describe('tandem recomendado porque um guindaste só não atende (TASK-120)', () => {
+    const detail = (label: string, shareKg: number): PlanCraneDetail => ({
+      configurationId: label,
+      manufacturerId: 'fab',
+      craneId: label,
+      label,
+      shareKg,
+      boomLengthM: 20,
+      boomAnglePickDeg: 60,
+      boomAngleDeliveryDeg: 60,
+      pickRadiusM: 8,
+      deliveryRadiusM: 9,
+      swingDeg: 90,
+      utilizationPercent: 70,
+      transportHeightM: 5,
+      crossedObstacleIds: [],
+      slingLengthM: 3,
+      slingAngleDeg: 60,
+      slingDropM: 2.5,
+    })
+    const tandem: PlanRecommendation = {
+      kind: 'tandem',
+      configurationIds: ['A', 'B'],
+      placements: [
+        { x: 0, z: 0, headingDeg: 0 },
+        { x: 10, z: 0, headingDeg: 0 },
+      ],
+      maxLimitUtilizationPercent: 70,
+      tippingRisk: 'LOW',
+      valid: true,
+      summary: 'dois guindastes',
+      trajectory: [],
+      notes: [],
+      details: [detail('Guindaste A', 4000), detail('Guindaste B', 6000)],
+    }
+
+    it('avisa que nenhum guindaste sozinho atende e mostra a divisão da carga', () => {
+      render(
+        <PlanningPanel {...props({ recommendations: [tandem], notes: [], timedOut: false })} />,
+      )
+
+      expect(screen.getByText('Recomendamos operar com 2 guindastes')).toBeTruthy()
+      expect(screen.getByText(/Guindaste 1: Guindaste A — 4\.000 kg da carga/)).toBeTruthy()
+      expect(screen.getByText(/Guindaste 2: Guindaste B — 6\.000 kg da carga/)).toBeTruthy()
+    })
+
+    it('com um guindaste só na lista, não mostra o aviso', () => {
+      const single: PlanRecommendation = {
+        ...tandem,
+        kind: 'single',
+        details: [detail('Guindaste A', 10000)],
+      }
+      render(
+        <PlanningPanel {...props({ recommendations: [single], notes: [], timedOut: false })} />,
+      )
+
+      expect(screen.queryByText('Recomendamos operar com 2 guindastes')).toBeNull()
+    })
   })
 })

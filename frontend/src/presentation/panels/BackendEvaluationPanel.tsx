@@ -5,6 +5,7 @@ import {
   evaluationStatus,
   FULL_CAPACITY_PERCENT,
 } from '../../application/evaluation/evaluationStatus'
+import { singleCraneShortfall } from '../../application/planning/singleCraneShortfall'
 import {
   CONSERVATIVE_PROVISIONAL_STRATEGY,
   LINEAR_INTERPOLATION_STRATEGY,
@@ -19,14 +20,17 @@ import {
 import {
   Badge,
   cx,
+  Button,
   EmptyState,
   Gauge,
   type GaugeBand,
+  Notice,
   Skeleton,
   Spinner,
   StatusPill,
   type Tone,
 } from '../ui'
+import { useSimulatorLayout } from '../simulator/layout/simulatorLayout'
 import { useResultDetails } from '../simulator/layout/resultDetails'
 import styles from './BackendEvaluationPanel.module.css'
 import { STATUS_PRESENTATION, TIPPING_RISK_PRESENTATION } from './evaluationPresentation'
@@ -96,6 +100,9 @@ export function BackendEvaluationPanel({
   const details = useResultDetails()
   const shown = inputProblem === null && error === null ? result : null
   const status = evaluationStatus(shown)
+  const shortfall = singleCraneShortfall(shown)
+  // Fora do simulador (sem folhas), não há para onde levar a pessoa: sem recomendação.
+  const layout = useSimulatorLayout()
   const presentation =
     shown?.kind === 'NOT_EVALUABLE'
       ? { tone: 'neutral' as const, label: 'Não avaliável' }
@@ -239,6 +246,15 @@ export function BackendEvaluationPanel({
       ) : result.kind === 'NOT_EVALUABLE' ? (
         <NotEvaluableReasons result={result} />
       ) : null}
+
+      {shortfall !== null && layout !== null && (
+        <Notice tone="warning" compact title="Recomendamos operar com 2 guindastes">
+          <p>{shortfall.message} Dois guindastes dividem a carga (RN-016).</p>
+          <Button size="sm" onClick={() => layout.openSheet('planning')}>
+            Planejar com 2 guindastes
+          </Button>
+        </Notice>
+      )}
 
       {/* Com os detalhes abertos, a lista completa dos alertas está logo abaixo. */}
       {topAlert !== null && !details.open && (

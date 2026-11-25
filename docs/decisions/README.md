@@ -90,3 +90,4 @@ Crie um ADR quando a decisão:
 | [ADR-051](ADR-051-rede-eletrica-icamento-critico-e-altura-das-lingas.md) | Distância mínima de rede elétrica, içamento crítico e altura única das lingas (D4, F-19) | Aceito | 2026-10-17 |
 | [ADR-052](ADR-052-entrega-sobre-conteiner-carreta-e-qualquer-apoio-declarado.md) | Entrega sobre contêiner, carreta prancha e qualquer objeto com superfície de apoio declarada (substitui a Decisão 1 do ADR-049) | Proposto | 2026-10-17 |
 | [ADR-053](ADR-053-repetir-simulacao.md) | Repetir a simulação: a carga volta à coleta e o planejamento volta ao início | Proposto | 2026-11-25 |
+| [ADR-054](ADR-054-recomendar-dois-guindastes-quando-um-nao-atende.md) | Recomendar dois guindastes quando um só não atende e planejar e simular com os dois | Aceito | 2026-11-25 |
