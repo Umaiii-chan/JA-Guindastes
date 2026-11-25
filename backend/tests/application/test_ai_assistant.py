@@ -374,3 +374,14 @@ def test_review_puts_the_indicators_before_the_ai_text() -> None:
 def test_fmt_uses_brazilian_number_format() -> None:
     assert fmt(1234.5, 1, "kg") == "1.234,5 kg"
     assert fmt(None) == "—"
+
+
+def test_o_prompt_do_cenario_diz_como_a_carga_e_orientada() -> None:
+    # TASK-124: sem isto a IA punha o comprimento em X e "ao lado" saía ao longo da própria carga;
+    # o simulador põe o comprimento em Z com giro 0 (`planning.scene.direction`).
+    from app.application.use_cases.ai_prompts import SCENARIO_SYSTEM
+    from app.domain.services.planning.scene import direction
+
+    assert direction(0.0) == (0.0, 1.0)
+    assert "com giro 0, o COMPRIMENTO da carga fica ao longo do eixo Z" in SCENARIO_SYSTEM
+    assert "com giro 0, deslocar em X" in SCENARIO_SYSTEM
