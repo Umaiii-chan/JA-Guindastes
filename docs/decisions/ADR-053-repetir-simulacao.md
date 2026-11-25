@@ -1,12 +1,12 @@
 # ADR-053 — repetir a simulação: a carga volta à coleta e o planejamento volta ao início
 
-| Campo                  | Valor                                                      |
-| ---------------------- | ---------------------------------------------------------- |
-| **Status**             | Proposto                                                   |
-| **Data**               | 2026-11-25                                                 |
-| **Autor**              | agente Claude Code, implementador da TASK-119              |
-| **Decisores**          | Anderson Sehnem (pendente de confirmação)                  |
-| **Tarefa relacionada** | TASK-119                                                   |
+| Campo                  | Valor                                                                            |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| **Status**             | Proposto                                                                         |
+| **Data**               | 2026-11-25                                                                       |
+| **Autor**              | agente Claude Code, implementador da TASK-119                                    |
+| **Decisores**          | Anderson Sehnem (pendente de confirmação)                                        |
+| **Tarefa relacionada** | TASK-119                                                                         |
 | **Complementa**        | ADR-035 (coleta e entrega), ADR-037 (tandem), ADR-038 (planejamento da operação) |
 
 ## Contexto
@@ -35,5 +35,9 @@ precisava recarregar a página e refazer o cenário. O ADR-038 (Aceito) não pre
 
 - Não há regra de negócio nova (nenhuma RN afetada); é só repetição do mesmo cenário.
 - Parar uma trajetória no meio e usar "Repetir simulação" também funciona (volta ao início).
+- Tandem: repetir desfaz o engate (a carga reaparece em repouso) e devolve a coleta; a viagem guardada
+  é descartada ao trocar de cenário. O Guindaste 2 não volta ao primeiro quadro (L-020).
+- A coleta acompanha o caminhão movido no editor (como a carga solta, ADR-047). Durante a reprodução de
+  uma gravação o atalho não faz nada.
 - Limite: a volta do guindaste passa pela guarda de colisão como qualquer movimento; se um obstáculo
   bloquear o caminho de volta ao primeiro quadro, o guindaste fica onde parou e "Aplicar" resolve.

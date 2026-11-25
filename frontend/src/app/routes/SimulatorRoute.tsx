@@ -541,17 +541,29 @@ export function SimulatorRoute() {
       : ''
     return `Não deu para engatar a carga. ${reason}`.trim()
   }
+  // Outro cenário (aberto, novo ou vazio): a coleta e a entrega guardadas eram do anterior.
+  const scenarioId = scenario.current?.id ?? null
+  useEffect(() => {
+    tandemTripRef.current = { pickup: null, released: null }
+  }, [scenarioId])
   // Simular de novo (TASK-119). Guindaste só: a cena devolve a carga à coleta. Tandem: soltar grava a
   // posição de entrega como posição da carga no cenário, então a de coleta, guardada ao engatar, volta.
   const resetCargoForRepeat = () => {
     viewportRef.current?.resetCargo()
+    viewportRef.current?.resetTandem()
     const { pickup, released } = tandemTripRef.current
     tandemTripRef.current = { pickup: null, released: null }
-    if (pickup && released && samePlacement(released, scenario.getSpec().cargo)) changeCargo(pickup)
+    const current = scenario.getSpec().cargo
+    // Entregue: a carga está onde foi solta. Engatada e ainda no ar: a posição do cenário já é a coleta.
+    if (pickup && released && samePlacement(released, current)) changeCargo(pickup)
   }
   const rememberTandemPickup = () => {
+    // Cada viagem nova (a anterior já foi solta) guarda a sua coleta; reengatar no ar mantém a mesma.
     const trip = tandemTripRef.current
-    trip.pickup ??= scenario.getSpec().cargo ?? null
+    if (trip.pickup === null || trip.released !== null) {
+      trip.pickup = scenario.getSpec().cargo ?? null
+      trip.released = null
+    }
   }
   const releaseFromPlan = (tandem: boolean): string | null => {
     const handle = viewportRef.current

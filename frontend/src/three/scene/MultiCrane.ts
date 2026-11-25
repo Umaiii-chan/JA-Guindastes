@@ -535,6 +535,16 @@ export class MultiCrane {
     this.options?.invalidate()
   }
 
+  /**
+   * Desfaz o engate do tandem sem soltar a carga no chão (repetir a simulação, TASK-119): a carga volta a
+   * aparecer em repouso na posição configurada. Sem engate, só redesenha.
+   */
+  disengage(): void {
+    if (this.disposed) return
+    this.forceRelease()
+    this.refreshTandemPreview()
+  }
+
   private forceRelease(): void {
     if (!this.engaged) return
     this.endEngagement()

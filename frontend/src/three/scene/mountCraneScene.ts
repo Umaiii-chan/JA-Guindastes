@@ -196,6 +196,8 @@ export interface CraneSceneHandle {
    * resultado e o tempo da operação, para simular de novo (TASK-119). Não mexe no guindaste.
    */
   resetCargo(): void
+  /** Desfaz o engate do tandem, se houver, e mostra a carga dele em repouso (TASK-119). */
+  resetTandem(): void
   /** Última situação da coleta e entrega. */
   getCargoStatus(): CargoStatus
   /**
@@ -726,6 +728,11 @@ export function mountCraneScene(
     resetCargo() {
       if (disposed) return
       cargo.reset()
+      invalidate()
+    },
+    resetTandem() {
+      if (disposed) return
+      contents.multi.disengage()
       invalidate()
     },
     getCargoStatus() {
