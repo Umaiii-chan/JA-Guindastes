@@ -885,6 +885,7 @@ export function SimulatorRoute() {
             getHookAttachM={() => viewportRef.current?.hookAttachOffsetM() ?? null}
             onEngage={engageFromPlan}
             onRelease={releaseFromPlan}
+            onApplied={(kind) => (kind === 'tandem' ? activateTandem() : deactivateTandem())}
             onResetCargo={resetCargoForRepeat}
             disabled={locked}
           />
