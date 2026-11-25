@@ -189,5 +189,22 @@ describe('PlanningPanel', () => {
 
       expect(screen.queryByText('Recomendamos operar com 2 guindastes')).toBeNull()
     })
+
+    it('tandem primeiro e um guindaste válido depois: avisa da faixa de atenção (TASK-123)', () => {
+      const single: PlanRecommendation = {
+        ...tandem,
+        kind: 'single',
+        details: [detail('Guindaste A', 10000)],
+      }
+      render(
+        <PlanningPanel
+          {...props({ recommendations: [tandem, single], notes: [], timedOut: false })}
+        />,
+      )
+
+      expect(screen.getByText('Recomendamos operar com 2 guindastes')).toBeTruthy()
+      expect(screen.getByText(/já na faixa de atenção do limite/)).toBeTruthy()
+      expect(screen.queryByText(/Nenhum guindaste sozinho atende/)).toBeNull()
+    })
   })
 })

@@ -227,3 +227,32 @@ def test_o_giro_passa_pela_traseira_do_chassi_e_nao_pela_frente_da_cabine() -> N
     from_front = [abs(((psi + 180.0) % 360.0) - 180.0) for psi in swing]
     assert max(from_front) == pytest.approx(180.0, abs=1.0)  # cruza a traseira
     assert min(from_front) > 45.0  # e fica longe da frente da cabine
+
+
+def _viga(weight_kg: float) -> PlanningRequest:
+    return PlanningRequest(
+        load=PlanLoad(weight_kg, 10.0, 0.6, 0.8),
+        pick=PlanPoint(0.0, 0.0),
+        delivery=PlanPoint(0.0, 3.0),
+        scenario=ScenarioSpec(obstacles=()),
+    )
+
+
+def test_single_na_faixa_de_atencao_recomenda_o_tandem_primeiro_e_mantem_o_single() -> None:
+    # TASK-123: o melhor guindaste sozinho atende, mas a 95 % do limite (atenção a partir de 90 %).
+    result = caso_de_uso_planejamento().execute(_viga(3750.0))
+
+    kinds = [item.kind for item in result.recommendations]
+    assert kinds[0] == "tandem" and "single" in kinds
+    assert all(item.valid for item in result.recommendations)
+    single = next(item for item in result.recommendations if item.kind == "single")
+    assert 90.0 <= single.max_limit_utilization_percent <= 100.0
+    assert any("faixa de atenção" in note for note in result.notes)
+
+
+def test_single_abaixo_da_faixa_de_atencao_nao_tenta_o_tandem() -> None:
+    result = caso_de_uso_planejamento().execute(_viga(3500.0))
+
+    assert [item.kind for item in result.recommendations] == ["single"]
+    assert result.recommendations[0].max_limit_utilization_percent < 90.0
+    assert not any("faixa de atenção" in note for note in result.notes)
