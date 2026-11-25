@@ -20,13 +20,13 @@ guindaste na recomendação, e ligar o tandem ao "Aplicar" (antes a pessoa tinha
 
 ## 2. O que foi feito
 
-- `application/planning/singleCraneShortfall.ts` (novo, puro): gatilho (ADR-053 § 2).
+- `application/planning/singleCraneShortfall.ts` (novo, puro): gatilho (ADR-054 § 2).
 - `BackendEvaluationPanel`: aviso "Recomendamos operar com 2 guindastes" + botão que abre a folha
   Planejar (`useSimulatorLayout`); sem layout (fora do simulador) não aparece.
 - `PlanningPanel`: aviso quando só há tandem; lista a divisão por guindaste; texto do "Aplicar" atualizado.
 - `PlanningSection`: `onApplied(kind)`; passo "Posicionar" lista as duas posições no tandem.
 - `SimulatorRoute`: `onApplied` liga (`activateTandem`) ou desliga (`deactivateTandem`) o içamento com dois.
-- ADR-053 (**Proposto**), TASK-120, índice de ADRs.
+- ADR-054 (Aceito), TASK-120, índice de ADRs.
 
 ## 3. Verificação (saída real)
 
@@ -41,9 +41,9 @@ guindaste na recomendação, e ligar o tandem ao "Aplicar" (antes a pessoa tinha
   existentes). Não está provado: a ligação `onApplied → activateTandem` na tela e o engate dos dois pela
   trajetória.
 
-## 4. Decisões e dúvidas para a pessoa responsável (ADR-053)
+## 4. Decisões e dúvidas para a pessoa responsável (ADR-054)
 
-**Atualização 2026-11-25:** a pessoa confirmou o gatilho (item 1) em chat; ADR-053 passou a Aceito. Itens 2 e 3 seguem em aberto.
+**Atualização 2026-11-25:** a pessoa confirmou o gatilho (item 1) em chat; ADR-054 passou a Aceito. Itens 2 e 3 seguem em aberto.
 
 1. O gatilho (> 100 % do limite, ou além da tabela: `POINT_NOT_IN_CHART`, `BOOM_LENGTH_ABOVE_CHART_MAX`,
    `RADIUS_ABOVE_CHART_MAX`; fora disso, não recomenda) é o desejado?
@@ -58,4 +58,4 @@ guindaste na recomendação, e ligar o tandem ao "Aplicar" (antes a pessoa tinha
 ## 6. Próximo passo
 
 **Papel:** Revisor, depois pessoa responsável. Conferir na tela (carga pesada → aviso → Planejar → Aplicar →
-Executar) e responder § 4. **Ler primeiro:** ADR-053, `PlanningSection.tsx`, `singleCraneShortfall.ts`.
+Executar) e responder § 4. **Ler primeiro:** ADR-054, `PlanningSection.tsx`, `singleCraneShortfall.ts`.

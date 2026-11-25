@@ -1,4 +1,4 @@
-# ADR-053 — recomendar dois guindastes quando um só não atende, e planejar e simular com os dois
+# ADR-054 — recomendar dois guindastes quando um só não atende, e planejar e simular com os dois
 
 | Campo                  | Valor                                                              |
 | ---------------------- | ------------------------------------------------------------------ |

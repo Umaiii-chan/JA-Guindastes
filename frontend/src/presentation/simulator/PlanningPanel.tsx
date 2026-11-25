@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom'
-import { Footprints, MapPin, Play, Square, Wand2 } from 'lucide-react'
+import { Footprints, MapPin, Play, RotateCcw, Square, Wand2 } from 'lucide-react'
 
 import type { CargoPlacement, DeliveryPoint } from '../../domain/environment/environment'
 import {
@@ -65,6 +65,8 @@ export interface PlanningPanelProps {
   /** Recomendação aplicada na cena (guindaste na posição dela). */
   readonly applied: boolean
   readonly canRun: boolean
+  /** Simular de novo (tecla R): a carga volta à coleta e o guindaste e os passos, ao início (TASK-119). */
+  onRestart(): void
   readonly playback: PlanningPlaybackView
   readonly guide: PlanningGuideView
 }
@@ -290,6 +292,7 @@ export function PlanningPanel({
   operationMessage = null,
   applied,
   canRun,
+  onRestart,
   playback,
   guide,
 }: PlanningPanelProps) {
@@ -480,6 +483,16 @@ export function PlanningPanel({
                 Executar trajetória
               </Button>
             )}
+            <Button
+              size="sm"
+              icon={<RotateCcw size={14} />}
+              disabled={!canRun || applying}
+              onClick={onRestart}
+              title="Devolve a carga à coleta e o guindaste e os passos ao início (tecla R)"
+              aria-keyshortcuts="R"
+            >
+              Repetir simulação
+            </Button>
             <Button
               size="sm"
               icon={<Footprints size={14} />}

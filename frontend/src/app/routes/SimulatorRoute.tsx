@@ -16,6 +16,7 @@ import {
   type CargoStatus,
   INACTIVE_CARGO,
   RELEASE_MAX_HEIGHT_M,
+  samePlacement,
 } from '../../domain/cargo/cargoOperation'
 import type { RecordingFrame, RecordingSnapshot } from '../../application/recording/recording'
 import type { ScenarioSummary } from '../../application/environment/ports'
@@ -158,6 +159,12 @@ export function SimulatorRoute() {
   // A trajetória planejada está rodando na cena (TASK-075): os controles ficam travados.
   const [planPlaying, setPlanPlaying] = useState(false)
   const viewportRef = useRef<CraneViewportHandle>(null)
+  // Tandem (TASK-119): onde a carga foi coletada e onde foi solta. Soltar grava a entrega como posição da
+  // carga no cenário; "repetir simulação" só devolve a coleta se a carga ainda estiver onde foi solta.
+  const tandemTripRef = useRef<{ pickup: CargoPlacement | null; released: CargoPlacement | null }>({
+    pickup: null,
+    released: null,
+  })
   // Guindastes adicionais e tandem (TASK-074).
   const [selectedCraneId, setSelectedCraneId] = useState<string>(PRIMARY_CRANE_ID)
   const [extraCommands, setExtraCommands] = useState<ReadonlyMap<string, CraneCommands>>(
@@ -512,6 +519,7 @@ export function SimulatorRoute() {
     if (!handle) return 'A cena ainda não está pronta.'
     if (tandem) {
       const result = handle.engageTandem()
+      if (result?.reachable) rememberTandemPickup()
       if (result === null) {
         return 'Para engatar com dois guindastes, ative o içamento com dois guindastes antes de executar.'
       }
@@ -533,12 +541,27 @@ export function SimulatorRoute() {
       : ''
     return `Não deu para engatar a carga. ${reason}`.trim()
   }
+  // Simular de novo (TASK-119). Guindaste só: a cena devolve a carga à coleta. Tandem: soltar grava a
+  // posição de entrega como posição da carga no cenário, então a de coleta, guardada ao engatar, volta.
+  const resetCargoForRepeat = () => {
+    viewportRef.current?.resetCargo()
+    const { pickup, released } = tandemTripRef.current
+    tandemTripRef.current = { pickup: null, released: null }
+    if (pickup && released && samePlacement(released, scenario.getSpec().cargo)) changeCargo(pickup)
+  }
+  const rememberTandemPickup = () => {
+    const trip = tandemTripRef.current
+    trip.pickup ??= scenario.getSpec().cargo ?? null
+  }
   const releaseFromPlan = (tandem: boolean): string | null => {
     const handle = viewportRef.current
     if (!handle) return 'A cena ainda não está pronta.'
     if (tandem) {
       const result = handle.releaseTandem()
-      if (result.released) changeCargo(result.cargo)
+      if (result.released) {
+        tandemTripRef.current.released = result.cargo
+        changeCargo(result.cargo)
+      }
       return result.released ? null : 'Não deu para soltar a carga dos dois guindastes.'
     }
     // A trajetória pode terminar com a carga um pouco acima do chão (o planejador não desconta toda a
@@ -654,6 +677,7 @@ export function SimulatorRoute() {
       return
     }
     setTandemMessage(null)
+    rememberTandemPickup()
     if (crane) setCrane(bindCrane(crane.commands))
     setExtraVersion((version) => version + 1)
   }
@@ -671,6 +695,7 @@ export function SimulatorRoute() {
       return
     }
     setTandemMessage({ tone: 'ok', text: 'Carga apoiada no chão e solta.' })
+    tandemTripRef.current.released = result.cargo
     changeCargo(result.cargo)
   }
   const handleAddCrane = (configuration: Parameters<typeof rememberConfiguration>[0]) => {
@@ -861,6 +886,7 @@ export function SimulatorRoute() {
             onEngage={engageFromPlan}
             onRelease={releaseFromPlan}
             onApplied={(kind) => (kind === 'tandem' ? activateTandem() : deactivateTandem())}
+            onResetCargo={resetCargoForRepeat}
             disabled={locked}
           />
         }

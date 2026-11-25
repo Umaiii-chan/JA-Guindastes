@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Cartão de resultado: recomenda 2 guindastes quando um só não atende (TASK-120; ADR-053).
+// Cartão de resultado: recomenda 2 guindastes quando um só não atende (TASK-120; ADR-054).
 
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'

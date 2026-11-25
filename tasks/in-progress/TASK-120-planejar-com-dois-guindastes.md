@@ -1,7 +1,7 @@
 # TASK-120 — recomendar e planejar com 2 guindastes quando um só não atende
 
 Pedido da pessoa responsável (via sessão coordenadora, 2026-11-25). Decisão no
-[ADR-053](../../docs/decisions/ADR-053-recomendar-dois-guindastes-quando-um-nao-atende.md) (Proposto).
+[ADR-054](../../docs/decisions/ADR-054-recomendar-dois-guindastes-quando-um-nao-atende.md) (Proposto).
 Sem regra de cálculo nova: usa a RN-016.
 
 ## Critérios de aceite

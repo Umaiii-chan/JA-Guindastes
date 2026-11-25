@@ -115,6 +115,37 @@ describe('execução da trajetória', () => {
     expect(result.current.playing).toBe(false)
   })
 
+  it('reset zera o progresso e a fase, e a trajetória roda de novo do início (TASK-119)', () => {
+    const commands = fakeCommands()
+    const phases: PlanPhase[] = []
+    const { result } = renderHook(() =>
+      usePlanPlayback({
+        points: TRAJECTORY,
+        getCommands: () => commands,
+        onMoved: () => undefined,
+        onPlayingChange: () => undefined,
+        onKeyframe: (keyframe) => {
+          phases.push(keyframe.phase)
+          return false
+        },
+      }),
+    )
+    act(() => result.current.start())
+    for (let step = 0; step < 60; step += 1) advance(100)
+    expect(result.current.progress).toBe(1)
+    expect(phases).toHaveLength(6)
+
+    act(() => result.current.reset())
+    expect(result.current.playing).toBe(false)
+    expect(result.current.progress).toBe(0)
+    expect(result.current.phase).toBeNull()
+
+    act(() => result.current.start())
+    for (let step = 0; step < 60; step += 1) advance(100)
+    expect(phases).toHaveLength(12)
+    expect(result.current.progress).toBe(1)
+  })
+
   it('para no quadro em que o engate falha', () => {
     const commands = fakeCommands()
     const phases: PlanPhase[] = []

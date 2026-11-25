@@ -54,6 +54,8 @@ export interface PlanPlayback {
   setSpeed(speed: number): void
   start(): void
   stop(): void
+  /** Para e zera progresso e fase (nova execução). */
+  reset(): void
 }
 
 /**
@@ -126,6 +128,13 @@ export function usePlanPlayback({
     callbacks.current.onMoved()
   }, [cancel])
 
+  /** Para e zera o progresso e a fase mostrados, para uma nova execução (TASK-119). */
+  const reset = useCallback(() => {
+    stop()
+    setProgress(0)
+    setPhase(null)
+  }, [stop])
+
   const start = useCallback(() => {
     const duration = trajectoryDurationS(points)
     if (points.length < 2 || duration <= 0) return
@@ -183,5 +192,5 @@ export function usePlanPlayback({
   // Sair da página ou trocar a trajetória interrompe a execução.
   useEffect(() => cancel, [cancel])
 
-  return { playing, progress, phase, speed, setSpeed, start, stop }
+  return { playing, progress, phase, speed, setSpeed, start, stop, reset }
 }

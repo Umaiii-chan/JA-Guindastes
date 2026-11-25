@@ -1,4 +1,4 @@
-// Quando um guindaste sozinho não atende a operação (TASK-120; ADR-053, Proposto): decide se a tela
+// Quando um guindaste sozinho não atende a operação (TASK-120; ADR-054, Aceito): decide se a tela
 // deve recomendar o içamento com dois guindastes. Função pura sobre o resultado da avaliação do
 // backend; nenhuma capacidade é calculada aqui (RN-008). O cálculo do tandem em si é a RN-016.
 

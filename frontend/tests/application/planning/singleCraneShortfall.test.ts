@@ -1,4 +1,4 @@
-// Quando um guindaste só não atende e a tela recomenda dois (TASK-120; ADR-053). Dados FICTÍCIOS.
+// Quando um guindaste só não atende e a tela recomenda dois (TASK-120; ADR-054). Dados FICTÍCIOS.
 
 import { describe, expect, it } from 'vitest'
 
