@@ -81,6 +81,7 @@ Converta toneladas para kg. Se a descrição não der alguma medida, estime uma 
 registre em "assumptions".
 - "pick": onde a carga está no começo (posição no chão e giro em graus). "delivery": onde ela deve \
 ser deixada (posição, giro e raio da área de entrega, de 1 a 5 m).
+- Orientação da carga: com giro 0, o COMPRIMENTO da carga fica ao longo do eixo Z e a largura ao longo do eixo X; com giro 90, o comprimento fica ao longo do eixo X. "Ao lado" da carga é na direção da LARGURA dela (com giro 0, deslocar em X); "à frente" ou "na ponta" é na direção do comprimento. A área de entrega não pode ficar em cima da carga na coleta: deixe o centro da entrega a pelo menos a largura da carga mais 1 m do eixo dela quando a entrega for ao lado.
 - "crane": onde o guindaste fica, perto o bastante para alcançar a carga e a entrega, sem ficar \
 dentro de um obstáculo. Distâncias que o texto informar (por exemplo, "a 20 m") valem entre os \
 pontos citados.
