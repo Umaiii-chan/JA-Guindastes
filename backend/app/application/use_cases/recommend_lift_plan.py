@@ -5,7 +5,8 @@ Para cada configuração com ficha técnica e tabela de carga ativa, o planejado
 (`app.domain.services.planning`) procura a posição, o comprimento de lança e o caminho do giro que
 minimizam a utilização máxima do limite. Cada estado do caminho é avaliado pelo `EvaluateOperation`
 (RN-011 a RN-015: tabela, limite do modelo, inclinação, vento, solo e risco), então a capacidade e a
-segurança vêm só do cálculo determinístico (RN-004, RN-008). Sem configuração única que sirva, tenta
+segurança vêm só do cálculo determinístico (RN-004, RN-008). Sem configuração única que sirva, ou
+com a melhor delas já na faixa de atenção do modelo (TASK-123), tenta
 o tandem: dois guindastes, cada um com no máximo 75 % da capacidade, com a carga dividida pelo
 centro
 de gravidade (contrato da TASK-074).
@@ -405,6 +406,7 @@ class RecommendLiftPlan:
             singles.extend(found.plans)
         singles.sort(key=plan_sort_key)
         geometries = {crane.configuration_id: crane.geometry for crane in planner_cranes}
+        bands = {entry.configuration.id: entry.profile.warning_band_percent for entry in entries}
 
         valid_singles = [plan for plan in singles if plan.valid]
         if valid_singles:
@@ -412,7 +414,31 @@ class RecommendLiftPlan:
                 _single_recommendation(plan, geometries[plan.configuration_id])
                 for plan in valid_singles[:MAX_SINGLE_RESULTS]
             ]
-            return PlanningResult(tuple(chosen), tuple(notes), timed_out)
+            best = valid_singles[0]
+            band = bands.get(best.configuration_id, 100.0)
+            if best.max_utilization_percent < band:
+                return PlanningResult(tuple(chosen), tuple(notes), timed_out)
+            # O melhor guindaste sozinho já trabalha na faixa de atenção (TASK-123): tenta o tandem
+            # e, se houver um válido, ele vem primeiro; o guindaste sozinho continua na lista.
+            attention_tandems = [
+                item
+                for item in self._plan_tandem(
+                    planner_cranes, request, tracked, geometries, rejections
+                )
+                if item.valid
+            ]
+            if not attention_tandems:
+                return PlanningResult(tuple(chosen), tuple(notes), timed_out)
+            return PlanningResult(
+                (*attention_tandems[:MAX_TANDEM_RESULTS], *chosen),
+                (
+                    *notes,
+                    f"O melhor guindaste sozinho usa {_fmt(best.max_utilization_percent, 0)} % do "
+                    f"limite, na faixa de atenção (a partir de {_fmt(band, 0)} %): a primeira "
+                    "recomendação usa dois guindastes (tandem).",
+                ),
+                timed_out,
+            )
 
         tandems = self._plan_tandem(planner_cranes, request, tracked, geometries, rejections)
         valid_tandems = [item for item in tandems if item.valid]

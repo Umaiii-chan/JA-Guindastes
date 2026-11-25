@@ -402,6 +402,14 @@ export function PlanningPanel({
                 guindastes, cada um com no máximo 75 % da capacidade (RN-016).
               </Notice>
             )}
+          {recommendations[0]?.kind === 'tandem' &&
+            recommendations.some((item) => item.kind === 'single' && item.valid) && (
+              <Notice tone="warning" compact title="Recomendamos operar com 2 guindastes">
+                Um guindaste sozinho atende, mas já na faixa de atenção do limite. A primeira opção
+                usa dois guindastes, cada um com no máximo 75 % da capacidade (RN-016); a opção com
+                um guindaste continua na lista.
+              </Notice>
+            )}
           {result.timedOut && (
             <Notice tone="warning" compact>
               A busca parou no tempo limite: pode haver uma opção melhor que não foi avaliada.

@@ -92,3 +92,4 @@ Crie um ADR quando a decisão:
 | [ADR-053](ADR-053-repetir-simulacao.md) | Repetir a simulação: a carga volta à coleta e o planejamento volta ao início | Proposto | 2026-11-25 |
 | [ADR-054](ADR-054-recomendar-dois-guindastes-quando-um-nao-atende.md) | Recomendar dois guindastes quando um só não atende e planejar e simular com os dois | Aceito | 2026-11-25 |
 | [ADR-055](ADR-055-busca-do-tandem-sentidos-opostos-medidos.md) | Busca do tandem: sentidos opostos medidos pela variação da distância entre os ganchos | Proposto | 2026-11-25 |
+| [ADR-056](ADR-056-tandem-quando-o-guindaste-sozinho-esta-na-faixa-de-atencao.md) | Tentar o tandem quando o melhor guindaste sozinho está na faixa de atenção, com o tandem primeiro na lista | Proposto | 2026-11-25 |
