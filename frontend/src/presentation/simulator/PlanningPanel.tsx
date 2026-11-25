@@ -76,6 +76,14 @@ const RISK_LABEL: Record<string, string> = {
   HIGH: 'Risco alto',
 }
 
+function kilograms(value: number): string {
+  return `${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`
+}
+
+function meters(value: number): string {
+  return `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} m`
+}
+
 function percent(value: number): string {
   return `${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} %`
 }
@@ -384,6 +392,13 @@ export function PlanningPanel({
               Nenhum guindaste serve para esta operação.
             </Notice>
           )}
+          {recommendations.some((item) => item.kind === 'tandem') &&
+            !recommendations.some((item) => item.kind === 'single' && item.valid) && (
+              <Notice tone="warning" compact title="Recomendamos operar com 2 guindastes">
+                Nenhum guindaste sozinho atende a esta operação. As opções abaixo usam dois
+                guindastes, cada um com no máximo 75 % da capacidade (RN-016).
+              </Notice>
+            )}
           {result.timedOut && (
             <Notice tone="warning" compact>
               A busca parou no tempo limite: pode haver uma opção melhor que não foi avaliada.
@@ -419,10 +434,22 @@ export function PlanningPanel({
             ))}
           </ul>
           {selected.kind === 'tandem' && (
-            <Notice tone="info" compact>
-              “Aplicar” posiciona os dois guindastes. A trajetória move o Guindaste 1; para o
-              Guindaste 2 acompanhar, ative o içamento com dois guindastes antes de executar.
-            </Notice>
+            <>
+              <Notice tone="info" compact>
+                “Aplicar” posiciona os dois guindastes e ativa o içamento com dois guindastes;
+                “Executar trajetória” engata a carga nos dois e move o Guindaste 1, com o Guindaste
+                2 acompanhando.
+              </Notice>
+              <ul className={styles.notes} aria-label="Divisão da carga entre os guindastes">
+                {selected.details.map((item, index) => (
+                  <li key={`${item.configurationId}-${index}`}>
+                    Guindaste {index + 1}: {item.label} — {kilograms(item.shareKg)} da carga, raio{' '}
+                    {meters(item.pickRadiusM)} na coleta e {meters(item.deliveryRadiusM)} na
+                    entrega, {percent(item.utilizationPercent)} do limite
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
           <p className={styles.hint}>
             Opção escolhida: {selected.details.map((item) => item.label).join(' + ')}

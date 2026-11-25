@@ -55,6 +55,11 @@ export interface PlanningSectionProps {
   onEngage?(tandem: boolean): string | null
   /** Solta a carga no quadro "Soltar"; devolve `null` ou o motivo, como `onEngage`. */
   onRelease?(tandem: boolean): string | null
+  /**
+   * Avisa que uma recomendação foi aplicada: a tela liga o içamento com dois guindastes quando é um
+   * tandem (e desliga quando é um guindaste só), para a trajetória engatar e mover os dois (TASK-120).
+   */
+  onApplied?(kind: 'single' | 'tandem'): void
   /** A reprodução de uma gravação trava o simulador. */
   readonly disabled: boolean
 }
@@ -71,6 +76,7 @@ export function PlanningSection({
   getHookAttachM,
   onEngage,
   onRelease,
+  onApplied,
   disabled,
 }: PlanningSectionProps) {
   const scenario = useScenario()
@@ -178,6 +184,7 @@ export function PlanningSection({
       }
       // No tandem, o Guindaste 2 (TASK-074) também vai para a posição recomendada.
       scenario.setSpec(applyRecommendationToScenario(scenario.getSpec(), selected))
+      onApplied?.(selected.kind)
       onExtendOutriggers()
       const start = points[0]?.state
       if (start) {
@@ -231,8 +238,12 @@ export function PlanningSection({
         return [`Escolha o guindaste ${detail.label}`]
       }
       const meters = (value: number) => value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
+      const second = selected?.kind === 'tandem' ? selected.placements[1] : undefined
+      const place = (name: string, target: { x: number; z: number; headingDeg: number }) =>
+        `Posicione o ${name} em X ${meters(target.x)} m, Z ${meters(target.z)} m, rumo ${target.headingDeg.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}°`
       return [
-        `Posicione o guindaste em X ${meters(placement.x)} m, Z ${meters(placement.z)} m, rumo ${placement.headingDeg.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}°`,
+        place(second ? 'Guindaste 1' : 'guindaste', placement),
+        ...(second ? [place('Guindaste 2', second)] : []),
       ]
     }
     return guideStep && craneState ? guideActions(guideStep, craneState) : []
