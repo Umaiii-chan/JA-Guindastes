@@ -57,6 +57,7 @@ from app.domain.services.planning.models import (
 from app.domain.services.planning.planner import (
     DELIVERY_BLOCKED,
     HOOK_ATTACH_M,
+    PATH_SEGMENTS,
     PICK_COVERED,
     REPLACED_HOOK_ATTACH_M,
     PlanSearch,
@@ -64,12 +65,13 @@ from app.domain.services.planning.planner import (
     plan_sort_key,
     risk_rank,
 )
-from app.domain.services.planning.scene import direction
+from app.domain.services.planning.scene import azimuth_deg, direction
 from app.domain.services.planning.sweep import (
     COLLISION_APPROACH,
     COLLISION_BOOM,
     COLLISION_CABLE,
     COLLISION_LOAD,
+    SwingArc,
     delivery_cover,
     over_capacity,
     overloaded_supports,
@@ -89,6 +91,7 @@ from app.domain.services.planning.trajectory import (
 )
 from app.domain.services.power_line import required_clearance_m
 from app.domain.services.safety_assessment import AlertSeverity, OutriggerSetting, TippingRisk
+from app.domain.services.tandem_hook_alignment import TANDEM_HOOK_POINT_TOLERANCE_M
 from app.domain.value_objects.angle import Angle
 from app.domain.value_objects.crane_geometry import CraneGeometry
 from app.domain.value_objects.crane_limits import CraneLimits
@@ -110,7 +113,8 @@ TANDEM_PLANS_PER_SIDE = 6
 TANDEM_BODIES = "tandem_corpos"
 """Motivo de descarte: no par do tandem, os corpos dos dois guindastes se sobrepõem."""
 TANDEM_SENSES = "tandem_sentidos"
-"""Motivo de descarte: no par do tandem, os dois giram em sentidos opostos."""
+"""Motivo de descarte: no par do tandem, os dois giram em sentidos opostos e a distância entre os
+ganchos varia no caminho mais que a tolerância (TASK-121; ADR-055)."""
 _MIN_SWING_FOR_SENSE_DEG = 0.5
 _ASSUMED_OUTRIGGERS = OutriggerSetting(extension_percent=100.0, jacks_set=True)
 
@@ -668,11 +672,13 @@ def _tandem_pair_note(rejections: dict[str, int]) -> tuple[str, ...]:
 
 
 def _impossible_pair(first: CranePlan, second: CranePlan) -> str | None:
-    """Por que o par não serve para o tandem, ou `None` (correção mínima do F-04, TASK-089).
+    """Por que o par não serve para o tandem, ou `None` (F-04, TASK-089; refinado na TASK-121).
 
-    Cada guindaste é planejado sozinho; o par só é aceito se os corpos não se sobrepõem e os dois
-    giram no mesmo sentido (em sentidos opostos, a distância entre os ganchos muda no caminho, e a
-    carga, rígida, não acompanha)."""
+    Cada guindaste é planejado sozinho; o par só é aceito se os corpos não se sobrepõem e a carga,
+    rígida, acompanha os dois ganchos. Com os dois girando no mesmo sentido, os arcos acompanham um
+    ao outro e vale como antes. Em sentidos opostos, a distância entre os ganchos pode mudar no
+    caminho: o par só cai se ela varia mais que `TANDEM_HOOK_POINT_TOLERANCE_M` (ADR-055); sem os
+    pontos de içamento para medir, cai como antes."""
     if crane_bodies_overlap(first.placement, second.placement):
         return TANDEM_BODIES
     if (
@@ -680,8 +686,41 @@ def _impossible_pair(first: CranePlan, second: CranePlan) -> str | None:
         and abs(second.swing_deg) > _MIN_SWING_FOR_SENSE_DEG
         and first.swing_deg * second.swing_deg < 0
     ):
-        return TANDEM_SENSES
+        variation = hook_separation_variation_m(first, second)
+        if variation is None or variation > TANDEM_HOOK_POINT_TOLERANCE_M:
+            return TANDEM_SENSES
     return None
+
+
+def _hook_arc(plan: CranePlan) -> SwingArc | None:
+    """O caminho horizontal do gancho de um plano de tandem (o mesmo arco da busca), ou `None` sem
+    os pontos de içamento."""
+    if plan.hoist_pick is None:
+        return None
+    dx = plan.hoist_pick[0] - plan.placement.x
+    dz = plan.hoist_pick[1] - plan.placement.z
+    return SwingArc(
+        plan.placement.x,
+        plan.placement.z,
+        azimuth_deg(dx, dz),
+        1 if plan.swing_deg >= 0 else -1,
+        abs(plan.swing_deg),
+        plan.pick_radius_m,
+        plan.delivery_radius_m,
+        PATH_SEGMENTS,
+    )
+
+
+def hook_separation_variation_m(first: CranePlan, second: CranePlan) -> float | None:
+    """Quanto a distância horizontal entre os dois ganchos se afasta da que tinham na coleta, no
+    pior ponto do giro (m). Com a carga rígida, ela fica constante; `None` sem como medir."""
+    arc_a, arc_b = _hook_arc(first), _hook_arc(second)
+    if arc_a is None or arc_b is None:
+        return None
+    start = math.dist(arc_a.point(0), arc_b.point(0))
+    return max(
+        abs(math.dist(arc_a.point(k), arc_b.point(k)) - start) for k in range(PATH_SEGMENTS + 1)
+    )
 
 
 def _names(obstacles: Sequence[ObstacleSpec]) -> str:
