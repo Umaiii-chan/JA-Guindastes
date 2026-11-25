@@ -43,6 +43,8 @@ guindaste na recomendação, e ligar o tandem ao "Aplicar" (antes a pessoa tinha
 
 ## 4. Decisões e dúvidas para a pessoa responsável (ADR-053)
 
+**Atualização 2026-11-25:** a pessoa confirmou o gatilho (item 1) em chat; ADR-053 passou a Aceito. Itens 2 e 3 seguem em aberto.
+
 1. O gatilho (> 100 % do limite, ou além da tabela: `POINT_NOT_IN_CHART`, `BOOM_LENGTH_ABOVE_CHART_MAX`,
    `RADIUS_ABOVE_CHART_MAX`; fora disso, não recomenda) é o desejado?
 2. Registrar o gatilho como RN em `docs/business-rules.md` (protegido; não editei).

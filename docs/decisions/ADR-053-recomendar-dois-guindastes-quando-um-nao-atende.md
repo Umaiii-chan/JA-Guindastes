@@ -2,10 +2,10 @@
 
 | Campo                  | Valor                                                              |
 | ---------------------- | ------------------------------------------------------------------ |
-| **Status**             | Proposto                                                           |
+| **Status**             | Aceito (gatilho confirmado em 2026-11-25)                          |
 | **Data**               | 2026-11-25                                                         |
 | **Autor**              | agente Claude Code, implementador da TASK-120                      |
-| **Decisores**          | Anderson Sehnem (pendente de confirmação)                          |
+| **Decisores**          | Anderson Sehnem (confirmou o gatilho em chat, 2026-11-25)                          |
 | **Tarefa relacionada** | TASK-120                                                           |
 | **Regras**             | RN-008, RN-011, RN-016 (nenhuma regra de cálculo nova)             |
 | **Complementa**        | ADR-037 (tandem), ADR-038 (planejamento), ADR-041 (pontos de içamento) |
