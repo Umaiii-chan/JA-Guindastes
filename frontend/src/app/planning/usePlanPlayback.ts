@@ -28,9 +28,27 @@ export const RECORDING_UI_REFRESH_MS = 100
  */
 export const MAX_FRAME_DT_S = 0.1
 
+/**
+ * O segundo guindaste de um tandem planejado (TASK-125): a trajetória também traz os quadros dele
+ * (`craneIndex` 1, nos mesmos instantes), e a reprodução os aplica nos comandos dele enquanto os dois
+ * ganchos não estão presos à carga (aproximação e depois da soltura). Engatado, quem o conduz é o
+ * tandem da cena (cinemática inversa a cada comando do Guindaste 1; ADR-037), e aplicar os quadros
+ * aqui brigaria com ele.
+ */
+export interface PlanFollower {
+  /** Quadros-chave do segundo guindaste, em ordem de tempo. */
+  readonly points: readonly TrajectoryPoint[]
+  /** Comandos do segundo guindaste agora, ou `null` se a cena ainda não os tem. */
+  getCommands(): CraneCommands | null
+  /** Os dois ganchos estão presos à carga? Padrão: não. */
+  isEngaged?(): boolean
+}
+
 export interface PlanPlaybackParams {
   /** Quadros-chave do guindaste que a cena mostra, em ordem de tempo. */
   readonly points: readonly TrajectoryPoint[]
+  /** Segundo guindaste de um tandem planejado; ausente com um guindaste só. */
+  readonly follower?: PlanFollower
   /** Comandos do guindaste da cena agora (muda quando a cena é montada de novo). */
   getCommands(): CraneCommands | null
   /** Avisa a tela de que o estado do guindaste mudou. */
@@ -99,6 +117,7 @@ export function usePlanPlayback({
   onMoved,
   onPlayingChange,
   onKeyframe,
+  follower,
   refreshMs = UI_REFRESH_MS,
 }: PlanPlaybackParams): PlanPlayback {
   const [playing, setPlaying] = useState(false)
@@ -108,12 +127,12 @@ export function usePlanPlayback({
   const frame = useRef<number | null>(null)
   const speedRef = useRef(speed)
   const refreshMsRef = useRef(refreshMs)
-  const callbacks = useRef({ getCommands, onMoved, onPlayingChange, onKeyframe })
+  const callbacks = useRef({ getCommands, onMoved, onPlayingChange, onKeyframe, follower })
   // As leituras da animação veem sempre o valor mais recente, sem recriar o laço.
   useEffect(() => {
     speedRef.current = speed
     refreshMsRef.current = refreshMs
-    callbacks.current = { getCommands, onMoved, onPlayingChange, onKeyframe }
+    callbacks.current = { getCommands, onMoved, onPlayingChange, onKeyframe, follower }
   })
 
   const cancel = useCallback(() => {
@@ -150,10 +169,19 @@ export function usePlanPlayback({
       elapsed += dtS * speedRef.current
       last = now
       const commands = callbacks.current.getCommands()
+      // O Guindaste 2 segue o instante dele antes do engate e depois da soltura (TASK-125).
+      const driveFollower = (atS: number) => {
+        const other = callbacks.current.follower
+        const otherCommands = other?.getCommands() ?? null
+        if (!other || !otherCommands || other.isEngaged?.() === true) return
+        const state = sampleTrajectory(other.points, atS)?.state
+        if (state) applyPlanState(otherCommands, state)
+      }
       // Quadros-chave cruzados neste passo: cada um é aplicado exatamente antes de seguir.
       if (commands) {
         for (const point of keyframesCrossed(points, before, Math.min(elapsed, duration))) {
           applyPlanState(commands, point.state)
+          driveFollower(point.tS)
           setPhase(point.phase)
           if (callbacks.current.onKeyframe?.(point) === true) {
             frame.current = null
@@ -168,6 +196,7 @@ export function usePlanPlayback({
       const sample = sampleTrajectory(points, Math.min(elapsed, duration))
       if (commands && sample) {
         applyPlanState(commands, sample.state)
+        driveFollower(Math.min(elapsed, duration))
         // A cena segue a cada quadro; a tela (React) só a ~10 Hz.
         if (now - lastRefresh >= refreshMsRef.current) {
           lastRefresh = now

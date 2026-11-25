@@ -47,6 +47,11 @@ export interface PlanningSectionProps {
   readonly refreshMs?: number
   /** Deixa as patolas estendidas e apoiadas, como o planejamento pressupõe. */
   onExtendOutriggers(): void
+  /**
+   * Comandos do Guindaste 2 (o seguidor do tandem) e se os dois ganchos já estão presos à carga, para
+   * a trajetória mover também o Guindaste 2 (TASK-125); `null` sem segundo guindaste.
+   */
+  getFollower?(): { readonly commands: CraneCommands | null; readonly engaged: boolean } | null
   /** Do gancho ao ponto de amarração das lingas, medido na cena; `null` sem cena. */
   getHookAttachM(): number | null
   /**
@@ -80,6 +85,7 @@ export function PlanningSection({
   refreshMs,
   onExtendOutriggers,
   getHookAttachM,
+  getFollower,
   onResetCargo,
   onEngage,
   onRelease,
@@ -114,8 +120,26 @@ export function PlanningSection({
   useEffect(() => {
     commandsRef.current = commands
   })
+  // Tandem planejado: os quadros do Guindaste 2 (índice 1) tocam junto com os do 1 (TASK-125).
+  const followerPoints = useMemo(
+    () => (selected?.kind === 'tandem' ? trajectoryOfCrane(selected.trajectory, 1) : []),
+    [selected],
+  )
+  const followerRef = useRef(getFollower)
+  useEffect(() => {
+    followerRef.current = getFollower
+  })
   const playback = usePlanPlayback({
     points,
+    ...(followerPoints.length > 0
+      ? {
+          follower: {
+            points: followerPoints,
+            getCommands: () => followerRef.current?.()?.commands ?? null,
+            isEngaged: () => followerRef.current?.()?.engaged ?? false,
+          },
+        }
+      : {}),
     getCommands: () => commandsRef.current,
     onMoved: onCraneMoved,
     onPlayingChange: onPlaybackChange,

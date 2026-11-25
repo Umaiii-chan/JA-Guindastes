@@ -448,8 +448,8 @@ export function PlanningPanel({
             <>
               <Notice tone="info" compact>
                 “Aplicar” posiciona os dois guindastes e ativa o içamento com dois guindastes;
-                “Executar trajetória” engata a carga nos dois e move o Guindaste 1, com o Guindaste
-                2 acompanhando.
+                “Executar trajetória” move os dois guindastes pelos quadros de cada um e engata a
+                carga nos dois.
               </Notice>
               <ul className={styles.notes} aria-label="Divisão da carga entre os guindastes">
                 {selected.details.map((item, index) => (

@@ -895,6 +895,10 @@ export function SimulatorRoute() {
             }
             onExtendOutriggers={handleExtendOutriggers}
             getHookAttachM={() => viewportRef.current?.hookAttachOffsetM() ?? null}
+            getFollower={() => ({
+              commands: follower ? (extraCommands.get(follower.item.id) ?? null) : null,
+              engaged: viewportRef.current?.isTandemEngaged() ?? false,
+            })}
             onEngage={engageFromPlan}
             onRelease={releaseFromPlan}
             onApplied={(kind) => (kind === 'tandem' ? activateTandem() : deactivateTandem())}
