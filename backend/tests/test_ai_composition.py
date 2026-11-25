@@ -96,6 +96,8 @@ def test_an_invalid_ai_provider_value_behaves_like_auto() -> None:
 def test_the_app_without_a_database_answers_the_ai_status(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
 
     client = TestClient(create_app_without_database())
 
@@ -112,6 +114,17 @@ def test_groq_uses_the_compatible_endpoint_and_its_default_model() -> None:
     assert assistant._provider._base_url == "https://api.groq.com/openai/v1"  # type: ignore[attr-defined]
     custom = build_ai_assistant({**GROQ_ENV, "GROQ_MODEL": "llama-3.3-70b-versatile"})
     assert custom is not None and custom.model == "llama-3.3-70b-versatile"
+
+
+def test_deepseek_uses_the_compatible_endpoint_and_its_default_model() -> None:
+    assistant = build_ai_assistant({"DEEPSEEK_API_KEY": CHAVE_FICTICIA})
+
+    assert assistant is not None and assistant.model == "deepseek-flash"
+    assert assistant._provider._base_url == "https://api.deepseek.com"  # type: ignore[attr-defined]
+    custom = build_ai_assistant(
+        {"DEEPSEEK_API_KEY": CHAVE_FICTICIA, "DEEPSEEK_MODEL": "deepseek-v4-pro"}
+    )
+    assert custom is not None and custom.model == "deepseek-v4-pro"
 
 
 def test_auto_order_is_openai_then_groq_then_gemini() -> None:

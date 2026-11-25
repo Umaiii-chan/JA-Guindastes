@@ -170,6 +170,18 @@ def test_a_refused_response_format_falls_back_to_json_object() -> None:
     assert "JSON" in body["messages"][0]["content"]
 
 
+def test_a_response_format_refusal_without_param_is_read_from_the_message() -> None:
+    # A DeepSeek responde 400 sem `error.param`; só a mensagem cita o response_format.
+    transport = FakeTransport(
+        [error(400, "This response_format type is unavailable now"), ok("{}")]
+    )
+    schema = {"type": "OBJECT", "properties": {"a": {"type": "NUMBER"}}}
+
+    openai(transport).generate(LlmRequest(system="s", user="u", json_schema=schema))
+
+    assert transport.calls[1][2]["response_format"] == {"type": "json_object"}
+
+
 def test_rate_limit_is_retried_then_goes_to_the_next_model() -> None:
     transport = FakeTransport([error(429, "slow down"), error(429, "slow down"), ok("reserva")])
 

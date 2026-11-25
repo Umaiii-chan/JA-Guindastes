@@ -248,6 +248,9 @@ class OpenAiProvider:
         if status == 404:
             return LlmError(LlmErrorKind.UNAVAILABLE, _MSG_UNAVAILABLE), False
         if status == 400:
+            if param is None and "response_format" in message:
+                # A DeepSeek recusa o `json_schema` sem dizer o parâmetro: só o texto cita.
+                param = "response_format"
             return _BadRequestError(_MSG_REJECTED, param), False
         return LlmError(LlmErrorKind.REJECTED, _MSG_REJECTED), False
 
