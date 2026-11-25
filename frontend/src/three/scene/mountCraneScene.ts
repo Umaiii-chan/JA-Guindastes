@@ -231,6 +231,8 @@ export interface CraneSceneHandle {
   engageTandem(): EngageResult | null
   /** Solta a carga (só apoiada no chão) e volta a comandar os guindastes separadamente. */
   releaseTandem(): ReleaseResult
+  /** Os dois ganchos estão presos à carga agora (leitura imediata, sem esperar a tela; TASK-125)? */
+  isTandemEngaged(): boolean
   /** Cor da situação do guindaste adicional (o gancho dele) e da carga içada em tandem. */
   setExtraEvaluationStatus(id: string, status: EvaluationStatus): void
   setTandemEvaluationStatus(status: EvaluationStatus): void
@@ -778,6 +780,9 @@ export function mountCraneScene(
     releaseTandem() {
       if (disposed) return { released: false, reason: 'not-engaged' }
       return contents.multi.release()
+    },
+    isTandemEngaged() {
+      return !disposed && contents.multi.isEngaged
     },
     setExtraEvaluationStatus(id, status) {
       if (disposed) return

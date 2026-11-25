@@ -206,6 +206,71 @@ describe('execução da trajetória', () => {
     advance(5000)
     expect(applied.at(-1)).toBeCloseTo(5, 9)
   })
+
+  describe('tandem: o Guindaste 2 segue os quadros dele (TASK-125)', () => {
+    /** Quadros do Guindaste 2: mesmos instantes, giro no sentido oposto e outro cabo. */
+    const followerPoints: readonly TrajectoryPoint[] = TRAJECTORY.map((item) => ({
+      ...item,
+      craneIndex: 1,
+      state: {
+        ...item.state,
+        turretRotationDeg: -item.tS * 10,
+        cableLengthM: item.state.cableLengthM + 1,
+      },
+    }))
+
+    function run(engaged: () => boolean) {
+      const leader = fakeCommands()
+      const follower = fakeCommands()
+      const followerAtKeyframe: { phase: PlanPhase; turret: number; cable: number }[] = []
+      const { result } = renderHook(() =>
+        usePlanPlayback({
+          points: TRAJECTORY,
+          getCommands: () => leader,
+          follower: {
+            points: followerPoints,
+            getCommands: () => follower,
+            isEngaged: engaged,
+          },
+          onMoved: () => undefined,
+          onPlayingChange: () => undefined,
+          onKeyframe: (keyframe) => {
+            const state = follower.getState()
+            followerAtKeyframe.push({
+              phase: keyframe.phase,
+              turret: state.turretRotationDeg,
+              cable: state.cableLengthM,
+            })
+            return false
+          },
+        }),
+      )
+      act(() => result.current.start())
+      for (let step = 0; step < 60; step += 1) advance(100)
+      return { follower, followerAtKeyframe }
+    }
+
+    it('antes do engate, o Guindaste 2 anda junto com o 1, da aproximação ao engate', () => {
+      const { followerAtKeyframe } = run(() => false)
+
+      const atEngage = followerAtKeyframe.find((item) => item.phase === 'engatar')
+      // Giro dele no quadro "Engatar" (t = 1 s) e o cabo baixado dele (9 + 1), não os do Guindaste 1.
+      expect(atEngage).toEqual({ phase: 'engatar', turret: -10, cable: 10 })
+    })
+
+    it('depois de soltar, o Guindaste 2 termina no último quadro dele', () => {
+      const { follower } = run(() => false)
+
+      expect(follower.getState().turretRotationDeg).toBe(-50)
+      expect(follower.getState().cableLengthM).toBe(10)
+    })
+
+    it('engatado, quem conduz o Guindaste 2 é o tandem da cena: os quadros dele não são aplicados', () => {
+      const { follower } = run(() => true)
+
+      expect(follower.getState().turretRotationDeg).toBe(0)
+    })
+  })
 })
 
 describe('startsPhase', () => {
