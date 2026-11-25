@@ -106,12 +106,15 @@ export class CargoOperation {
     if (!samePlacement(placement, this.placement)) {
       this.placement = placement ? { ...placement } : null
       this.resetLive()
-    } else if (this.live && this.size) {
-      // Carga solta sobre a carroceria acompanha o caminhão movido no editor (TASK-103; ADR-047).
-      this.live = followLoadBed(this.live, previous.obstacles, spec.obstacles, previous.terrain)
-    }
-    if (this.start) {
-      this.start = followLoadBed(this.start, previous.obstacles, spec.obstacles, previous.terrain)
+    } else {
+      // Carga solta sobre a carroceria acompanha o caminhão movido no editor (TASK-103; ADR-047), e a
+      // coleta de "repetir" também (só com a posição inalterada: uma posição nova já nasce certa).
+      if (this.live && this.size) {
+        this.live = followLoadBed(this.live, previous.obstacles, spec.obstacles, previous.terrain)
+      }
+      if (this.start) {
+        this.start = followLoadBed(this.start, previous.obstacles, spec.obstacles, previous.terrain)
+      }
     }
     this.sync()
   }

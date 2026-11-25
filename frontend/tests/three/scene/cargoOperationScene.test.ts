@@ -146,9 +146,12 @@ describe('coleta e entrega na cena', () => {
   })
 
   it('reset não faz nada durante a reprodução de uma gravação (TASK-119)', () => {
-    const { contents, load, spec } = setup()
+    const { contents, hook, load, spec } = setup()
     contents.cargo.setLoad(load)
-    contents.cargo.setScenario(spec)
+    contents.cargo.setScenario({
+      ...spec,
+      delivery: { x: hook.xM, z: hook.zM, rotationYDeg: 0, radiusM: 1 },
+    })
     contents.cargo.engage(1_000)
     const frame = { phase: 'ground', x: 3, z: 4, rotationYDeg: 0, result: 'outside' } as const
     contents.cargo.setPlayback(frame)
@@ -156,6 +159,9 @@ describe('coleta e entrega na cena', () => {
     expect(contents.cargo.status.state).toEqual(frame)
     contents.cargo.setPlayback(null)
     expect(contents.cargo.status.state?.phase).toBe('hooked')
+    // O tempo da operação não se perdeu: conta do engate (1 000 ms).
+    expect(contents.cargo.release(4_000)).toBe(true)
+    expect(contents.cargo.status.state?.elapsedMs).toBe(3_000)
   })
 
   it('com acessórios, a cadeia para no topo da carga no chão, e dá para engatar (TASK-091)', () => {
