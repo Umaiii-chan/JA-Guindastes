@@ -91,3 +91,4 @@ Crie um ADR quando a decisão:
 | [ADR-052](ADR-052-entrega-sobre-conteiner-carreta-e-qualquer-apoio-declarado.md) | Entrega sobre contêiner, carreta prancha e qualquer objeto com superfície de apoio declarada (substitui a Decisão 1 do ADR-049) | Proposto | 2026-10-17 |
 | [ADR-053](ADR-053-repetir-simulacao.md) | Repetir a simulação: a carga volta à coleta e o planejamento volta ao início | Proposto | 2026-11-25 |
 | [ADR-054](ADR-054-recomendar-dois-guindastes-quando-um-nao-atende.md) | Recomendar dois guindastes quando um só não atende e planejar e simular com os dois | Aceito | 2026-11-25 |
+| [ADR-055](ADR-055-busca-do-tandem-sentidos-opostos-medidos.md) | Busca do tandem: sentidos opostos medidos pela variação da distância entre os ganchos | Proposto | 2026-11-25 |

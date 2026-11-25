@@ -15,6 +15,7 @@ from app.application.use_cases.recommend_lift_plan import (
     TANDEM_SENSES,
     PlanningRequest,
     _impossible_pair,
+    hook_separation_variation_m,
 )
 from app.domain.entities.scenario import CranePlacementSpec, ScenarioSpec
 from app.domain.services.planning.crane_body import crane_bodies_overlap
@@ -221,6 +222,66 @@ def test_par_com_corpos_sobrepostos_ou_sentidos_opostos_e_recusado() -> None:
     assert _impossible_pair(plan_at(0.0, -16.0, 90.0, 19.0), plan_at(0.0, -8.0, 90.0, 19.0)) is None
     # Giro quase nulo não tem sentido: não recusa.
     assert _impossible_pair(plan_at(0.0, -16.0, 90.0, 0.2), plan_at(0.0, -8.0, 90.0, -19.0)) is None
+
+
+# ---- sentidos opostos medidos pela distância entre os ganchos (TASK-121; ADR-055) ---------------
+
+
+def plan_with_hooks(x: float, z: float, hoist_pick: tuple[float, float], swing: float) -> CranePlan:
+    base = plan_at(x, z, 0.0, swing)
+    return replace(base, hoist_pick=hoist_pick)
+
+
+def viga(weight_kg: float, pick: PlanPoint, delivery: PlanPoint) -> PlanningRequest:
+    """Viga FICTÍCIA de 10 × 0,6 × 0,8 m, sem cenário: os casos do diagnóstico de 2026-11-25."""
+    return PlanningRequest(PlanLoad(weight_kg, 10.0, 0.6, 0.8), pick, delivery, ScenarioSpec())
+
+
+@pytest.mark.parametrize(
+    ("pick", "delivery"),
+    [(PlanPoint(0.0, 0.0), PlanPoint(3.0, 0.0)), (PlanPoint(0.0, 0.0), PlanPoint(0.0, 3.0))],
+)
+def test_translacao_curta_com_guindastes_de_lados_opostos_recomenda_o_tandem(
+    pick: PlanPoint, delivery: PlanPoint
+) -> None:
+    # Antes, todo par com um guindaste de cada lado girava em sentidos opostos e caía (TASK-089):
+    # os 5 t da viga ficavam sem opção. A distância entre os ganchos varia só ~0,3 m no caminho.
+    result = caso_de_uso_planejamento().execute(viga(5000.0, pick, delivery))
+
+    best = result.recommendations[0]
+    assert best.kind == "tandem"
+    assert best.valid
+    first, second = best.details
+    assert first.swing_deg * second.swing_deg < 0
+
+
+def test_translacao_longa_de_lados_opostos_continua_recusada_pelo_afastamento_dos_ganchos() -> None:
+    # 6 m de lado: os ganchos variam ~0,9 m (acima da tolerância de 0,5 m). Só uma trajetória
+    # rígida da carga (ADR-055, passo 2) resolve; por ora o par cai e a nota diz por quê.
+    result = caso_de_uso_planejamento().execute(
+        viga(6000.0, PlanPoint(0.0, 0.0), PlanPoint(6.0, 0.0))
+    )
+
+    assert not any(item.kind == "tandem" and item.valid for item in result.recommendations)
+    assert any("sentidos opostos" in note for note in result.notes)
+
+
+def test_variacao_dos_ganchos_mede_o_afastamento_no_pior_ponto_do_giro() -> None:
+    # Os dois a 10 m dos pontos de içamento (a 5 m um do outro, em Z), de lados opostos em X.
+    first = plan_with_hooks(-10.0, 0.0, (0.0, -2.5), 30.0)
+    second = plan_with_hooks(10.0, 0.0, (0.0, 2.5), -30.0)
+    variation = hook_separation_variation_m(first, second)
+
+    assert variation is not None
+    assert 0.0 < variation < 3.0
+    # Sem giro de um dos lados nada muda na conta; sem pontos de içamento não há como medir.
+    assert hook_separation_variation_m(plan_at(0.0, -10.0, 0.0, 30.0), second) is None
+
+
+def test_par_de_sentidos_opostos_sem_pontos_de_icamento_cai_como_antes() -> None:
+    assert _impossible_pair(plan_at(0.0, -10.0, 90.0, 100.0), plan_at(0.0, 10.0, 90.0, -100.0)) == (
+        TANDEM_SENSES
+    )
 
 
 # ---- busca cortada -------------------------------------------------------------------------------
