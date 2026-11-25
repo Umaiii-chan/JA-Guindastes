@@ -4,10 +4,10 @@ Parte da raiz de composição (`app.main`): fica fora das camadas do import-lint
 camadas deve importá-la.
 
 Variáveis (ver `.env.example`; nenhuma tem valor no repositório):
-- `AI_PROVIDER`: `auto` (padrão), `openai`, `groq` ou `gemini`. Em `auto`, o primário é o primeiro
-  com chave na ordem OpenAI, Groq, Gemini, e o segundo com chave vira a reserva: se o primário
-  falhar por sobrecarga, cota ou prazo, a reserva tenta o mesmo pedido. `openai`, `groq` e `gemini`
-  usam só o provedor escolhido;
+- `AI_PROVIDER`: `auto` (padrão), `openai`, `groq`, `gemini` ou `deepseek`. Em `auto`, o primário
+  é o primeiro com chave na ordem OpenAI, Groq, Gemini, DeepSeek, e o segundo com chave vira a
+  reserva: se o primário falhar por sobrecarga, cota ou prazo, a reserva tenta o mesmo pedido.
+  `openai`, `groq`, `gemini` e `deepseek` usam só o provedor escolhido;
 - `AI_PROVIDER=claude_cli` (SÓ uso pessoal local, TASK-083): usa o Claude Code CLI logado nesta
   máquina, sem chave de API. Só é montado se `CLAUDE_CLI_ENABLED=true`; nunca entra em `auto`.
   `CLAUDE_CLI_MODEL` (padrão `sonnet`) e `CLAUDE_CLI_PATH` (padrão `claude`). NUNCA em deploy;
@@ -15,10 +15,12 @@ Variáveis (ver `.env.example`; nenhuma tem valor no repositório):
   `OPENAI_FALLBACK_MODELS` (padrão vazio, separados por vírgula);
 - `GROQ_API_KEY`: chave do Groq (API compatível com a da OpenAI, em `api.groq.com/openai/v1`);
   `GROQ_MODEL` (padrão `openai/gpt-oss-120b`) e `GROQ_FALLBACK_MODELS` (padrão vazio);
-- `OPENAI_REASONING_EFFORT` e `GROQ_REASONING_EFFORT` (`low`, `medium` ou `high`; vazio = não
-  enviar além do comportamento padrão dos modelos gpt-5/o*): esforço de raciocínio enviado a
-  qualquer modelo daquele provedor; valor inválido é ignorado com aviso. Se o provedor recusar o
-  parâmetro, o adaptador o tira e repete o pedido;
+- `DEEPSEEK_API_KEY`: chave da DeepSeek (API compatível com a da OpenAI, em `api.deepseek.com`);
+  `DEEPSEEK_MODEL` (padrão `deepseek-flash`) e `DEEPSEEK_FALLBACK_MODELS` (padrão vazio);
+- `OPENAI_REASONING_EFFORT`, `GROQ_REASONING_EFFORT` e `DEEPSEEK_REASONING_EFFORT` (`low`,
+  `medium` ou `high`; vazio = não enviar além do comportamento padrão dos modelos gpt-5/o*):
+  esforço de raciocínio enviado a qualquer modelo daquele provedor; valor inválido é ignorado
+  com aviso. Se o provedor recusar o parâmetro, o adaptador o tira e repete o pedido;
 - `GEMINI_API_KEY`: chave do Google AI Studio; `GEMINI_MODEL` (`gemini-3.7-flash`) e
   `GEMINI_FALLBACK_MODELS` (`gemini-3-flash-preview,gemini-flash-lite-latest`);
 - sem a chave do provedor escolhido, a IA fica **desligada** (`GET /ai/status` responde
@@ -62,6 +64,12 @@ GROQ_REASONING_EFFORT_ENV_VAR = "GROQ_REASONING_EFFORT"
 _REASONING_EFFORTS = frozenset({"low", "medium", "high"})
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b"
+DEEPSEEK_API_KEY_ENV_VAR = "DEEPSEEK_API_KEY"
+DEEPSEEK_MODEL_ENV_VAR = "DEEPSEEK_MODEL"
+DEEPSEEK_FALLBACK_MODELS_ENV_VAR = "DEEPSEEK_FALLBACK_MODELS"
+DEEPSEEK_REASONING_EFFORT_ENV_VAR = "DEEPSEEK_REASONING_EFFORT"
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+DEEPSEEK_DEFAULT_MODEL = "deepseek-flash"
 PROVIDER_ENV_VAR = "AI_PROVIDER"
 CLAUDE_CLI_PROVIDER = "claude_cli"
 CLAUDE_CLI_ENABLED_ENV_VAR = "CLAUDE_CLI_ENABLED"
@@ -154,6 +162,18 @@ def _groq(source: Mapping[str, str], deadline: float | None) -> openai_provider.
     )
 
 
+def _deepseek(source: Mapping[str, str], deadline: float | None) -> openai_provider.OpenAiProvider:
+    total = _DEFAULT_DEADLINE_SECONDS if deadline is None else deadline
+    return openai_provider.OpenAiProvider(
+        source.get(DEEPSEEK_API_KEY_ENV_VAR, "").strip(),
+        source.get(DEEPSEEK_MODEL_ENV_VAR, "").strip() or DEEPSEEK_DEFAULT_MODEL,
+        _split_models(source.get(DEEPSEEK_FALLBACK_MODELS_ENV_VAR)),
+        total_deadline_seconds=total,
+        base_url=DEEPSEEK_BASE_URL,
+        reasoning_effort=_reasoning_effort(source, DEEPSEEK_REASONING_EFFORT_ENV_VAR),
+    )
+
+
 def _reasoning_effort(source: Mapping[str, str], name: str) -> str | None:
     raw = source.get(name, "").strip().lower()
     if not raw:
@@ -184,11 +204,13 @@ _KEY_ENV_VARS: dict[str, str] = {
     "openai": OPENAI_API_KEY_ENV_VAR,
     "groq": GROQ_API_KEY_ENV_VAR,
     "gemini": API_KEY_ENV_VAR,
+    "deepseek": DEEPSEEK_API_KEY_ENV_VAR,
 }
 _BUILDERS: dict[str, Callable[[Mapping[str, str], float | None], LlmProvider]] = {
     "openai": _openai,
     "groq": _groq,
     "gemini": _gemini,
+    "deepseek": _deepseek,
 }
 
 
