@@ -214,3 +214,16 @@ def test_o_orcamento_de_tempo_limita_a_busca() -> None:
     result = use_case.execute(request(1000.0))
 
     assert result.recommendations == ()
+
+
+def test_o_giro_passa_pela_traseira_do_chassi_e_nao_pela_frente_da_cabine() -> None:
+    # TASK-122: em área livre, o rumo recomendado põe o meio do giro em ψ = 180° (traseira); a
+    # carga não passa pela frente da cabine (ψ = 0°).
+    livre = ScenarioSpec(obstacles=())
+    best = caso_de_uso_planejamento().execute(request(2000.0, livre)).recommendations[0]
+
+    assert best.valid
+    swing = [p.state.turret_rotation_deg for p in best.trajectory if p.phase is PlanPhase.SWING]
+    from_front = [abs(((psi + 180.0) % 360.0) - 180.0) for psi in swing]
+    assert max(from_front) == pytest.approx(180.0, abs=1.0)  # cruza a traseira
+    assert min(from_front) > 45.0  # e fica longe da frente da cabine

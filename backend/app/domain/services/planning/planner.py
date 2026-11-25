@@ -230,7 +230,8 @@ def _to_env_soil(kinds: Sequence[ScenarioSoilKind]) -> tuple[SoilKind, ...]:
 
 
 def _centered_heading(crane: PlannerCrane, az_pick: float, az_delivery: float) -> float:
-    """Rumo do chassi que põe o meio do giro curto no centro do arco permitido (ψ = 0 se livre)."""
+    """Rumo do chassi que põe o meio do giro curto no centro do arco permitido (ψ = 0 se livre;
+    com o giro livre, `_HEADING_STEPS_DEG` prefere esse rumo girado de 180°: giro pela traseira)."""
     delta = wrap_180(az_delivery - az_pick)
     bisector = az_pick + delta / 2
     geometry = crane.geometry
@@ -240,9 +241,11 @@ def _centered_heading(crane: PlannerCrane, az_pick: float, az_delivery: float) -
     return bisector - center
 
 
-_HEADING_STEPS_DEG = (0.0, 90.0, 180.0, 270.0)
-"""Rumos testados em cada posição: o centrado no giro e os girados de 90° em 90° (com o giro livre),
-para a carga não passar sobre a cabine e o corpo do guindaste quando houver um lado melhor."""
+_HEADING_STEPS_DEG = (180.0, 90.0, 270.0, 0.0)
+"""Rumos testados em cada posição (com o giro livre), em ordem de preferência: primeiro o que põe o
+meio do giro sobre a TRASEIRA do chassi (ψ = 180°), depois os dois lados e, por último, a frente
+(sobre a cabine). Entre rotas de mesmo tempo vale a primeira que atende, então a carga só passa
+pela frente da cabine quando nenhum outro rumo serve (TASK-122)."""
 
 
 def _site_at(
