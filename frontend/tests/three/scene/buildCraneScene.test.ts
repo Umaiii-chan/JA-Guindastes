@@ -68,6 +68,12 @@ describe('buildCraneScene', () => {
     expect(rig.base.position.toArray()).toEqual([0, 0, 0])
   })
 
+  it('a área de operação fica no referencial do guindaste e anda com ele (TASK-126)', () => {
+    const { craneAnchor, operatingArea } = buildCraneScene()
+
+    expect(operatingArea.root.parent).toBe(craneAnchor)
+  })
+
   it('liga o controller ao guindaste da cena, na pose inicial FICTÍCIA', () => {
     const { rig, crane } = buildCraneScene()
 

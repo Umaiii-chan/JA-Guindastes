@@ -264,8 +264,10 @@ export function buildCraneScene(setup: CraneSetup = PROVISIONAL_CRANE_SETUP): Cr
   craneAnchor.add(rotationZones.root)
   const collisions = new SceneCollisions(rig, hookLoad, setup.geometryParameters)
   scene.add(collisions.highlight.root)
+  // No referencial do guindaste, como os setores das zonas: a grade é polar em ψ e R a partir do
+  // eixo de giro, então anda e gira com o guindaste quando ele é reposicionado (TASK-126).
   const operatingArea = new OperatingAreaOverlay()
-  scene.add(operatingArea.root)
+  craneAnchor.add(operatingArea.root)
   const obstacles = new ObstacleMeshes()
   scene.add(obstacles.root)
   const soil = new SoilOverlay()
