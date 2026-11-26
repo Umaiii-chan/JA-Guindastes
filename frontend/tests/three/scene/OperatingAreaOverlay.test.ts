@@ -92,7 +92,7 @@ describe('OperatingAreaOverlay', () => {
   it('a cena montada traz a sobreposição e libera tudo no dispose', () => {
     const contents = buildCraneScene()
     const { operatingArea } = contents
-    expect(contents.scene.children).toContain(operatingArea.root)
+    expect(contents.craneAnchor.children).toContain(operatingArea.root)
 
     operatingArea.setArea(AREA)
     const mesh = operatingArea.root.children[0] as Mesh
